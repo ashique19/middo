@@ -1,0 +1,23 @@
+{
+    "name": "Middo Fully Automated Stack",
+    "image": "mcr.microsoft.com/devcontainers/php:1-8.3-bullseye",
+    "forwardPorts": [8000, 8080, 3306],
+    "portsAttributes": {
+        "8000": {
+            "label": "Middo Web App Server",
+            "onAutoForward": "openBrowser"
+        },
+        "8080": {
+            "label": "PHPMyAdmin Dashboard",
+            "onAutoForward": "ignore"
+        },
+        "3306": {
+            "label": "MySQL Service Port",
+            "onAutoForward": "ignore"
+        }
+    },
+    "settings": {
+        "php.validate.executablePath": "/usr/local/bin/php"
+    },
+    "onCreateCommand": "sudo rm -f /etc/apt/sources.list.d/yarn.list && sudo apt-get update && sudo apt-get install -y mariadb-server",
+    "postStartCommand": "sudo rm -f /var/run/mysqld/mysqld.sock && sudo /usr/local/bin/docker-php-ext-install mysqli pdo_mysql && echo \"extension=$(sudo find /usr/local/lib/php/extensions/ -name 'pdo_mysql.so' | head -n 1)\" | sudo tee /usr/local/etc/php/conf.d/docker-php-ext-pdo_mysql.ini && echo \"extension=$(sudo find /usr/local/lib/php/extensions/ -name 'mysqli.so' | head -n 1)\" | sudo tee /usr/local/etc/php/conf.d/docker-php-ext-mysqli.ini && sudo mkdir -p /var/run/mysqld && sudo chown -R mysql:mysql /var/run/mysqld /var/lib/mysql && sudo /usr/sbin/mysqld --user=mysql --bind-address=0.0.0.0 & sleep 4 && /usr/local/bin/php -S 0.0.0.0:8080 -t /var/www/phpmyadmin & cd /workspaces/middo && /usr/local/bin/php artisan serve --host=0.0.0.0 --port=8000 &"
