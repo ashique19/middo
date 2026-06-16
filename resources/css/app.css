@@ -1,4 +1,15 @@
-@import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-middo-cream: #f5f2e9;
+  --color-middo-dark: #1A1C19;
+  --color-middo-bg-alt: #F2EDE4;
+  --color-middo-orange: #ab3f00;
+  --color-middo-green: #2f4a33;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui;
+  --tracking-tight: -0.025em;
+}
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -6,4 +17,22 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+@layer base {
+  body {
+    @apply bg-middo-cream text-middo-dark antialiased; /* 'antialiased' is the secret sauce */
+    font-family: "Plus Jakarta Sans", sans-serif;
+  }
+}
+
+
+[x-cloak] {
+    display: none !important;
+}
+
+.dropdown-portal {
+    position: fixed;
+    z-index: 9999;
+    /* Calculated via JS to match trigger position */
 }

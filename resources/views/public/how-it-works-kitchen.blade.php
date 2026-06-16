@@ -1,0 +1,3 @@
+<x-public.layout.app>
+    <x-public.how-it-works.how-it-works-kitchen />
+</x-public.layout.app>

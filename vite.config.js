@@ -16,9 +16,20 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    // server: {
+    //     watch: {
+    //         ignored: ['**/storage/framework/views/**'],
+    //     },
+    // },
     server: {
-        watch: {
-            ignored: ['**/storage/framework/views/**'],
-        },
-    },
+        host: '0.0.0.0',
+        port: 5173,
+        strictPort: true,
+        cors: true, // Unlocks cross-origin requests for Codespaces
+        hmr: {
+            host: process.env.CODESPACE_NAME ? `${process.env.CODESPACE_NAME}-5173.app.github.dev` : 'localhost',
+            clientPort: 443, // Forces standard HTTPS, dropping the :5173 tail
+            protocol: 'wss',
+        }
+    }
 });
