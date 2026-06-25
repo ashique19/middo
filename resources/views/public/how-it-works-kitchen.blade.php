@@ -1,3 +1,3 @@
-<x-public.layout.app>
+<x-layouts.public.app>
     <x-public.how-it-works.how-it-works-kitchen />
-</x-public.layout.app>
+</x-layouts.public.app>

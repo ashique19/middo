@@ -1,4 +1,4 @@
-<x-public.layout.app>
+<x-layouts.public.app>
     <x-public.faq.hero />
     <x-public.faq.accordion />
-</x-public.layout.app>
+</x-layouts.public.app>

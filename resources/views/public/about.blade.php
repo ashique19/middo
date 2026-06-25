@@ -1,4 +1,4 @@
-<x-public.layout.app>
+<x-layouts.public.app>
     <x-public.about.passion-promise />
     <x-public.about.values />
     <x-public.about.certification />
@@ -17,4 +17,4 @@
             </div>
         </div>
     </section>
-</x-public.layout.app>
+</x-layouts.public.app>

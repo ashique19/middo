@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureUserHasRole
@@ -18,7 +19,16 @@ class EnsureUserHasRole
             return $next($request);
         }
 
-        // Return 403 or redirect
+        if ($user && in_array($role, ['corporate', 'kitchen', 'delivery'], true)) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')->withErrors([
+                'error' => 'Login as '.ucfirst($role).' to continue.',
+            ]);
+        }
+
         abort(403, 'You do not have access to this section.');
     }
 }

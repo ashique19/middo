@@ -1,4 +1,4 @@
-<x-public.layout.app>
+<x-layouts.public.app>
     <div class="min-h-screen bg-middo-cream md:p-8 flex items-center justify-center"
          x-data="{ 
             form: { first_name: '', last_name: '', mobile: '', password: '', address: '', city_id: '', area_id: '' },
@@ -127,4 +127,4 @@
             </div>
         </div>
     </div>
-</x-public.layout.app>
+</x-layouts.public.app>

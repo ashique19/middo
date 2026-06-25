@@ -1,4 +1,4 @@
-<x-corporates.layout.app>
+<x-layouts.public.app>
     <x-slot:title>Corporate Dashboard</x-slot:title>
 
     <div class="max-w-7xl mx-auto py-10 px-6 space-y-8">
@@ -8,4 +8,4 @@
             
         </div>
     </div>
-</x-corporates.layout.app>
+</x-layouts.public.app>

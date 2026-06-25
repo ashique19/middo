@@ -19,6 +19,9 @@ class DashboardRedirectController extends Controller
         return match($user->role->name) {
             'corporate' => redirect()->route('corporates.dashboard'),
             'kitchen'   => redirect()->route('kitchen.dashboard'),
+            'delivery'  => redirect()->route('delivery.dashboard'),
+            'operation'=> redirect()->route('operation.dashboard'),
+            'admin'     => redirect()->route('admin.dashboard'),
             default     => redirect('/'),
         };
     }

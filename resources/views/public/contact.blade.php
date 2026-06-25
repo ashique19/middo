@@ -1,4 +1,4 @@
-<x-public.layout.app>
+<x-layouts.public.app>
     <x-public.contact.hero />
     <x-public.contact.body />
-</x-public.layout.app>
+</x-layouts.public.app>

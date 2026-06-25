@@ -22,11 +22,26 @@
     </div>
 
     <div class="space-y-2">
-        <button class="w-full bg-middo-orange text-white py-2.5 rounded-xl font-bold hover:bg-[#4E342E] transition">
-            Add to Weekly Plan
-        </button>
-        <button class="w-full bg-transparent border-2 border-middo-orange text-[#5D4037] py-2.5 rounded-xl font-bold hover:bg-[#5D4037] hover:text-white transition">
-            Order for Today
-        </button>
+        @auth
+            {{-- Authenticated corporate user: Open checkout modal instantly --}}
+            <button 
+                @click="$dispatch('openOrderModal', { dishId: {{ $dish['id'] }} })"
+                type="button"
+                class="w-full bg-transparent border-2 border-middo-orange text-[#5D4037] py-2.5 rounded-xl font-bold hover:bg-[#5D4037] hover:text-white transition"
+            >
+                Order Now
+            </button>
+        @endauth
+
+        @guest
+            {{-- Unauthenticated Guest: Simple, clean redirect to the login screen --}}
+            <a 
+                href="{{ route('login') }}"
+                class="w-full inline-flex items-center justify-center bg-transparent border-2 border-middo-orange text-[#5D4037] py-2.5 rounded-xl font-bold hover:bg-[#5D4037] hover:text-white transition text-center"
+            >
+                Order Now
+            </a>
+        @endguest
     </div>
+
 </div>

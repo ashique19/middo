@@ -15,12 +15,11 @@ return new class extends Migration
             $table->string('first_name');
             $table->string('last_name');
             $table->string('full_name')->virtualAs("concat(first_name, ' ', last_name)");
+            $table->integer('balance')->default(0);
             $table->string('email')->nullable()->unique();
             $table->string('mobile', 20)->unique()->index(); 
             $table->string('alt_mobile', 20)->nullable();
             $table->string('password');
-            $table->string('otp', 10)->nullable();
-            $table->timestamp('otp_expires_at')->nullable();
             $table->text('address')->nullable();
             $table->string('area')->nullable();
             $table->string('city')->nullable();
@@ -28,7 +27,7 @@ return new class extends Migration
             // Add this foreign key for RBAC
             $table->foreignId('role_id')->nullable()->constrained('roles')->onDelete('set null');
 
-            $table->enum('status', ['inactive', 'active'])->default('inactive');
+            $table->enum('status', ['inactive', 'active', 'pending'])->default('inactive');
             $table->boolean('is_mobile_verified')->default(0);
 
             $table->foreignId('city_id')->nullable()->constrained()->nullOnDelete();

@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'mimsms' => [
+        'api_key'       => env('MIMSMS_API_KEY', 'IT69R1YL5J03V1X'),
+        'user_name'     => env('MIMSMS_USERNAME', 'ashique19@gmail.com'),
+        'sender_name'   => env('MIMSMS_SENDER_NAME', '8809643902720'),
+        'base_url'      => 'https://api.mimsms.com/api/V2/SMS',
+    ],
+
 ];

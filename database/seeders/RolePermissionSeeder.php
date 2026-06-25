@@ -16,15 +16,17 @@ class RolePermissionSeeder extends Seeder
         $p3 = Permission::create(['name' => 'view-analytics']);
 
         // 2. Create Roles
-        $admin = Role::create(['name' => 'admin']);
-        $corporate = Role::create(['name' => 'corporate']);
-        $kitchen = Role::create(['name' => 'kitchen']);
-        $chef = Role::create(['name' => 'chef']);
+        $admin = Role::create(['id' => 1, 'name' => 'admin']);
+        $corporate = Role::create(['id' => 2, 'name' => 'corporate']);
+        $kitchen = Role::create(['id' => 3, 'name' => 'kitchen']);
+        $delivery = Role::create(['id' => 4, 'name' => 'delivery']);
+        $operations = Role::create(['id' => 5, 'name' => 'operation']);
 
         // 3. Assign Permissions
         // Example: assign permissions to roles
         $kitchen->permissions()->attach([$p1->id, $p2->id]);
-        $chef->permissions()->attach([$p2->id]); // Chefs might only accept orders
+        $delivery->permissions()->attach([$p2->id]); // Delivery users might only accept orders
+        $operations->permissions()->attach([$p2->id]); // Operations users might only accept orders
         $admin->permissions()->attach([$p1->id, $p2->id, $p3->id]);
         
         // Corporate users might not have these specific permissions 
