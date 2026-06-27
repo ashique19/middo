@@ -4,18 +4,16 @@
         <div wire:key="order-checkout-modal-root" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
             
             {{-- Main Dashboard Card Layout Container --}}
-            <div class="bg-[#FAF7F2] rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col md:flex-row min-h-[550px] animate-in zoom-in-95 duration-200">
+            <div class="bg-[#FDFBF7] rounded-[32px] shadow-2xl border border-amber-900/5 w-full max-w-5xl flex flex-col md:grid md:grid-cols-12 text-amber-950 antialiased font-sans my-auto max-h-[90vh] overflow-y-auto">                
                 
-                {{-- =========================================================================
-                     LEFT COLUMN: Lunch Order Detail Block
-                     ========================================================================= --}}
-                <div class="p-6 md:w-5/12 flex flex-col justify-between border-b md:border-b-0 md:border-r border-gray-200/60">
+                {{-- LEFT COLUMN: Dish Snapshot --}}
+                <div class="w-full md:col-span-4 bg-[#F9F6F0] p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-amber-900/5">
                     <div>
                         <div class="flex items-center gap-2 mb-4 text-middo-orange font-bold text-lg">
                             <span class="text-xl">🍴</span> Middo
                         </div>
                         <h2 class="text-xl font-extrabold text-gray-800 uppercase tracking-wide mb-4">
-                            Your Lunch Order - <span class="text-middo-orange">[{{ $customerName ?? 'User' }}]</span>
+                            Your Lunch Order
                         </h2>
                         
                         <div class="rounded-2xl overflow-hidden bg-white shadow-sm border border-gray-100 p-3">
@@ -37,7 +35,7 @@
                 {{-- =========================================================================
                     CENTER COLUMN: Delivery Logistics (Dynamic Cutoff & Timelines)
                     ========================================================================= --}}
-                <div class="p-6 md:w-4/12 border-b md:border-b-0 md:border-r border-gray-200/60 flex flex-col gap-5">
+                <div class="w-full md:col-span-4 p-6 flex flex-col justify-between bg-white border-b md:border-b-0 md:border-r border-amber-900/5">
                     <div>
                         <h4 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-3">Delivery Logistics</h4>
                         <label class="block text-base font-bold text-gray-800 mb-2">Order for Dates & Quantities:</label>
@@ -179,7 +177,7 @@
                 {{-- =========================================================================
                      RIGHT COLUMN: Customer Details, Invoicing Summary, & Logistics Address
                      ========================================================================= --}}
-                <div class="p-6 md:w-4/12 flex flex-col justify-between gap-4">
+                <div class="w-full md:col-span-4 p-6 bg-[#FDFBF7] flex flex-col justify-between">
                     <div>
                         <h4 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-3">Order Summary & Customer Info</h4>
                         

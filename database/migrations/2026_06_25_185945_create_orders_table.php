@@ -31,7 +31,11 @@ return new class extends Migration
             $table->text('address'); 
             
             // Workflow status state
-            $table->enum('status', ['pending', 'processing', 'delivered', 'cancelled', 'others'])
+            $table->enum('order_status', ['pending', 'processing', 'delivered', 'cancelled', 'others'])
+                ->default('pending');
+            
+            // Payment status tracking
+            $table->enum('payment_status', ['pending', 'paid', 'returned', 'failed', 'others'])
                 ->default('pending');
             
             // Audit Log Identity Tracking Columns

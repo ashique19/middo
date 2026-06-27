@@ -219,7 +219,8 @@ class OrderCheckoutModal extends Component
         }
 
         $formattedMobile = '88' . trim($this->mobile);
-        $otpCode = "1234"; //(string) random_int(1000, 9999);
+        
+        $otpCode = env('APP_DEBUG') ? "1234" : (string) random_int(1000, 9999);
         Cache::put('order_confirmation_otp_' . $formattedMobile, $otpCode, 300);
 
         try {
@@ -287,7 +288,8 @@ class OrderCheckoutModal extends Component
                     'delivery_time'   => $this->deliveryWindow,
                     'total_amount'    => $lineTotal,
                     'address'         => $fullAddress,
-                    'status'          => 'pending',
+                    'order_status'    => 'pending',
+                    'payment_status'  => 'pending',
                     'created_by'      => $currentUserId,
                     'updated_by'      => $currentUserId,
                 ]);
@@ -307,7 +309,7 @@ class OrderCheckoutModal extends Component
         $this->showModal = false;
         session()->flash('message', 'Your meal track has been scheduled successfully!');
         
-        return redirect()->to(route('menu'));
+        return redirect()->to(route('corporates.dashboard'));
     }
 
     public function getCutoffFormattedProperty(): string

@@ -16,7 +16,8 @@ class Order extends Model
         'delivery_time',
         'total_amount',
         'address',
-        'status',
+        'order_status',
+        'payment_status',
         'created_by',
         'updated_by',
     ];

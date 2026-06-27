@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Corporates\DashboardController;
+use App\Livewire\Corporate\Dashboard as CorporateDashboard;
 use Illuminate\Support\Facades\Route;
 
 
@@ -9,5 +9,9 @@ use Illuminate\Support\Facades\Route;
 // });
 
 Route::middleware(['auth', 'role:corporate'])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('corporates.dashboard');
+
+
+
+    Route::get('/dashboard', CorporateDashboard::class)->name('corporates.dashboard');
+
 });
