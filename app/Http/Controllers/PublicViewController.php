@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use App\Models\ContactForm;
 use App\Models\MenuItem;
@@ -11,7 +12,12 @@ class PublicViewController extends Controller
 {
     public function index(): View
     {
-        return view('public.home');
+        $menu = $this->menuItemsForDisplay(
+            MenuItem::query()->where('is_homepage', true),
+            3
+        );
+
+        return view('public.home', compact('menu'));
     }
     
     public function howItWorksCorporates(): View
@@ -36,14 +42,23 @@ class PublicViewController extends Controller
 
     public function menu(): View
     {
-        $menu = MenuItem::query()
-            ->where('is_featured', true)
+        $menu = $this->menuItemsForDisplay(
+            MenuItem::query()->where('is_featured', true),
+            9
+        );
+
+        return view('public.menu', compact('menu'));
+    }
+
+    private function menuItemsForDisplay($query, int $limit): Collection
+    {
+        return $query
             ->orderBy('display_order')
-            ->take(9)
+            ->take($limit)
             ->get()
             ->map(function ($m) {
                 $image = $m->thumbnail;
-                if ($image && !preg_match('/^https?:\/\//', $image)) {
+                if ($image && ! preg_match('/^https?:\/\//', $image)) {
                     $image = asset(ltrim($image, '/'));
                 }
 
@@ -55,8 +70,6 @@ class PublicViewController extends Controller
                     'image' => $image ?: asset('img/default.jpg'),
                 ];
             });
-
-        return view('public.menu', compact('menu'));
     }
 
     public function faq(): View

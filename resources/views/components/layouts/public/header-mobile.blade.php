@@ -46,7 +46,9 @@
         <div>
             {{-- Header Row: Brand & Close Action Button --}}
             <div class="flex justify-between items-center px-5 pt-5 pb-4 border-b border-amber-900/5 bg-[#FDFBF7]">
-                <img src="{{ asset('img/settings/logo.png') }}" alt="Middo Logo" class="h-7 w-auto">
+                <a href="{{ route('home') }}" class="shrink-0 transition hover:opacity-90" @click="mobileMenuOpen = false">
+                    <img src="{{ asset('img/settings/logo.png') }}" alt="Middo Logo" class="h-7 w-auto">
+                </a>
                 <button @click="mobileMenuOpen = false" class="p-2 text-amber-950 hover:text-amber-700 transition focus:outline-none" aria-label="Close Menu">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
@@ -104,7 +106,7 @@
                         </div>
                         <div>
                             <h4 class="text-xs font-black text-amber-950 uppercase tracking-wide">Welcome to Middo</h4>
-                            <a href="{{ route('login') }}" @click="mobileMenuOpen = false" class="text-xs font-bold text-middo-orange underline">Sign in to your pool</a>
+                            <a href="{{ route('login') }}" @click="mobileMenuOpen = false" class="text-xs font-bold text-middo-orange underline">Sign in</a>
                         </div>
                     </div>
                 @endif
@@ -146,7 +148,7 @@
 
                 {{-- Management Panel Links Segment --}}
                 <div class="space-y-1">
-                    <span class="text-[10px] font-black uppercase tracking-wider text-[#A69988] block mb-2 px-1">Management Hub</span>
+                    <!-- <span class="text-[10px] font-black uppercase tracking-wider text-[#A69988] block mb-2 px-1">Management Hub</span> -->
                     
                     @if(auth()->user())
                         <a href="{{ route('dashboard.redirect') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
@@ -181,12 +183,12 @@
                             </button>
                         </form>
                     @else
-                        <a href="{{ route('login') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
+                        <!-- <a href="{{ route('login') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
                             <svg class="w-4 h-4 text-middo-orange" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h16.5a1.5 1.5 0 001.5-1.5V12a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 12v8.25a1.5 1.5 0 001.5 1.5z" />
                             </svg>
                             <span>Portal Login</span>
-                        </a>
+                        </a> -->
                     @endif
                 </div>
             </div>
@@ -194,7 +196,7 @@
         
         {{-- BOTTOM STICKY ACTION FOOTER --}}
         <div class="p-4 border-t border-amber-900/5 bg-[#FDFBF7]">
-            <a href="{{ route('menu') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
+            <a href="{{ route('login') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
                 Track Today's Lunch
             </a>
         </div>

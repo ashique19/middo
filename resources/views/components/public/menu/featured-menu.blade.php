@@ -9,7 +9,7 @@
         @guest
             <div class="text-center mt-16">
                 <a href="{{ route('register') }}" class="bg-middo-orange text-white px-12 py-4 rounded-full font-bold text-lg hover:bg-[#4E342E] transition shadow-xl">
-                    Signup To See The Full Menu
+                    Signup To Order
                 </a>
             </div>
         @endguest

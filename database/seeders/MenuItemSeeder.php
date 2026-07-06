@@ -74,7 +74,7 @@ class MenuItemSeeder extends Seeder
                 'price' => $data['price'],
                 'kitchen_commission' => $data['kitchen_commission'],
                 'is_featured' => true,
-                'is_homepage' => false,
+                'is_homepage' => $data['display_order'] <= 3,
                 'display_order' => $data['display_order'],
             ]);
 
