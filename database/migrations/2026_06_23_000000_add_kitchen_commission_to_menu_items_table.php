@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('menu_items', 'kitchen_commission')) {
+            return;
+        }
+
         Schema::table('menu_items', function (Blueprint $table) {
             $table->decimal('kitchen_commission', 8, 2)->default(0)->after('price');
         });

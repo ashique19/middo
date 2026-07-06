@@ -20,7 +20,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // 2. Force HTTPS for GitHub Codespaces
-        URL::forceScheme('https'); 
+        if ($this->app->environment('production') || filled(env('CODESPACE_NAME'))) {
+            URL::forceScheme('https');
+        }
     }
 }
