@@ -5,7 +5,29 @@
         
         {{-- LEFT COLUMN CONTAINER MATRIX (Spans 9 Columns) --}}
         <div class="lg:col-span-9 space-y-6">
-            
+
+            {{-- MENU QUICK-ACCESS BUTTON CARD --}}
+            <a href="{{ route('menu') }}"
+               class="group block bg-[#1E4630] text-white rounded-2xl shadow-sm border border-[#143021] p-5 transition-all hover:bg-[#173a27] hover:shadow-md">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="shrink-0 w-12 h-12 rounded-2xl bg-middo-orange/90 flex items-center justify-center text-white shadow-sm">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25h16.5m-16.5 6.75h16.5m-16.5 6.75h16.5" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-black tracking-tight leading-none">Browse Menu</h2>
+                            <p class="text-[11px] font-semibold text-emerald-200/70 mt-1">Explore today's thalis and place a new office lunch order.</p>
+                        </div>
+                    </div>
+                    <span class="shrink-0 inline-flex items-center gap-1.5 bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider px-4 py-2.5 rounded-xl shadow-sm transition-colors">
+                        <span>View Menu</span>
+                        <span class="transform group-hover:translate-x-1 transition-transform">➔</span>
+                    </span>
+                </div>
+            </a>
+
             {{-- Dashboard Greeting Segment --}}
             <div>
                 <h1 class="text-3xl font-black tracking-tight text-[#2B1A11]">Corporate Dashboard - {{ $customerName }}</h1>
