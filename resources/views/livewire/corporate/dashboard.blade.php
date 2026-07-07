@@ -169,12 +169,12 @@
                 
                 {{-- DUAL LINK INTERFACE ROW --}}
                 <div class="grid grid-cols-2 gap-2 w-full mt-4 pt-3 border-t border-dashed border-gray-100">
-                    <a href="#" class="text-[11px] font-black text-[#635347] bg-[#F7F4EB] hover:bg-[#EFE9DC] py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 border border-[#EBE3D3]/40 shadow-sm group">
+                    <button type="button" @click="$dispatch('open-profile-modal')" class="text-[11px] font-black text-[#635347] bg-[#F7F4EB] hover:bg-[#EFE9DC] py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 border border-[#EBE3D3]/40 shadow-sm group">
                         <svg class="w-3.5 h-3.5 text-[#635347] transition-colors group-hover:text-[#2B1A11]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                         </svg>
                         <span>Profile</span>
-                    </a>
+                    </button>
 
                     <a href="#" class="text-[11px] font-black text-white bg-middo-orange hover:bg-[#733614] py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm group">
                         <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
