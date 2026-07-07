@@ -24,6 +24,7 @@
 
                 <form action="{{ route('login') }}" method="POST">
                     @csrf
+                    <input type="hidden" name="redirect" value="{{ request('redirect') }}">
                     
                     <div class="mb-4 relative">
                         <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
