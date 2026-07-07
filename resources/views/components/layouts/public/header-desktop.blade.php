@@ -64,12 +64,12 @@
                         
                         {{-- QUICK DUAL BALANCE/PROFILE ACTION BUTTONS --}}
                         <div class="grid grid-cols-2 gap-2 w-full mt-3">
-                            <a href="#" class="text-[11px] font-extrabold text-[#635347] bg-white hover:bg-[#F6F2E8] py-2 px-1.5 rounded-xl transition flex items-center justify-center gap-1.5 border border-[#EBE3D3] shadow-sm group">
+                            <button type="button" @click="$dispatch('open-profile-modal'); userDropdownOpen = false" class="text-[11px] font-extrabold text-[#635347] bg-white hover:bg-[#F6F2E8] py-2 px-1.5 rounded-xl transition flex items-center justify-center gap-1.5 border border-[#EBE3D3] shadow-sm group">
                                 <svg class="w-3.5 h-3.5 text-[#635347] transition-colors group-hover:text-[#2B1A11]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                                 </svg>
                                 <span>Profile</span>
-                            </a>
+                            </button>
                             <a href="#" class="text-[11px] font-extrabold text-white bg-middo-orange hover:bg-[#733614] py-2 px-1.5 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm">
                                 <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -78,12 +78,12 @@
                             </a>
                         </div>
                         <div class="grid grid-cols-1 w-full mt-3">
-                            <a href="#" class="flex items-center gap-2.5 px-2.5 py-2 text-xs font-extrabold text-[#2B1A11] hover:bg-[#F6F2E8] hover:text-middo-orange rounded-xl transition text-left">
+                            <button type="button" @click="$dispatch('open-change-password-modal'); userDropdownOpen = false" class="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs font-extrabold text-[#2B1A11] hover:bg-[#F6F2E8] hover:text-middo-orange rounded-xl transition text-left">
                                 <svg class="w-4 h-4 opacity-75" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                                 </svg>
                                 <span>Change Password</span>
-                            </a>
+                            </button>
                         </div>
                     </div>
 

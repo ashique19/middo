@@ -15,6 +15,11 @@
         {{ $slot }}
     </main>
 
+    @auth
+        <livewire:account.profile-modal />
+        <livewire:account.change-password-modal />
+    @endauth
+
     <x-layouts.public.footer />
 
 </body>

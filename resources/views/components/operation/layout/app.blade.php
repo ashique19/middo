@@ -24,7 +24,12 @@
     </div>
     
     <x-operation.layout.footer />
-    
+
+    @auth
+        <livewire:account.profile-modal />
+        <livewire:account.change-password-modal />
+    @endauth
+
     @livewireScripts
 </body>
 </html>
