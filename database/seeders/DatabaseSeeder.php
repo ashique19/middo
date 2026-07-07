@@ -20,6 +20,10 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             navSeeder::class,
             userSeeder::class,
+            MenuItemSeeder::class,
+            OrderSeeder::class,
+            OrderLogSeeder::class,
+            OrderComplaintSeeder::class,
         ]);
     }
 }

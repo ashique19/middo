@@ -10,41 +10,25 @@ class ProfileModal extends Component
 {
     public bool $showModal = false;
 
-    public string $successMessage = '';
-
-    public string $first_name = '';
-    public string $last_name = '';
+    public string $name = '';
     public string $mobile = '';
-    public ?string $email = null;
     public ?string $address = null;
-
-    public function mount(): void
-    {
-        $this->loadUser();
-    }
-
-    protected function loadUser(): void
-    {
-        $user = Auth::user();
-
-        if (! $user) {
-            return;
-        }
-
-        $this->first_name = $user->first_name ?? '';
-        $this->last_name = $user->last_name ?? '';
-        $this->mobile = $user->mobile ?? '';
-        $this->email = $user->email;
-        $this->address = $user->address;
-    }
+    public string $cityName = '';
+    public string $areaName = '';
 
     #[On('open-profile-modal')]
     public function openModal(): void
     {
-        $this->successMessage = '';
-        $this->resetErrorBag();
         $this->loadUser();
         $this->showModal = true;
+    }
+
+    #[On('profile-updated')]
+    public function refreshProfile(): void
+    {
+        if ($this->showModal) {
+            $this->loadUser();
+        }
     }
 
     public function closeModal(): void
@@ -52,29 +36,28 @@ class ProfileModal extends Component
         $this->showModal = false;
     }
 
-    public function save(): void
+    public function openEditModal(): void
     {
-        $user = Auth::user();
+        $this->closeModal();
+        $this->dispatch('open-profile-edit-modal');
+    }
 
-        $validated = $this->validate([
-            'first_name' => 'required|string|min:2|max:255',
-            'last_name' => 'required|string|min:2|max:255',
-            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/', 'unique:users,mobile,'.$user->id],
-            'email' => ['nullable', 'email', 'max:255', 'unique:users,email,'.$user->id],
-            'address' => 'nullable|string|max:1000',
-        ], [
-            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g., 01710123456).',
+    protected function loadUser(): void
+    {
+        $user = Auth::user()?->load([
+            'city' => fn ($query) => $query->select('id', 'name'),
+            'area' => fn ($query) => $query->select('id', 'name'),
         ]);
 
-        $user->first_name = $validated['first_name'];
-        $user->last_name = $validated['last_name'];
-        $user->mobile = $validated['mobile'];
-        $user->email = $validated['email'] ?: null;
-        $user->address = $validated['address'];
-        $user->save();
+        if (! $user) {
+            return;
+        }
 
-        $this->successMessage = 'Profile updated successfully.';
-        $this->dispatch('profile-updated');
+        $this->name = $user->name;
+        $this->mobile = $user->mobile ?? '';
+        $this->address = $user->address;
+        $this->cityName = $user->city_name ?: '—';
+        $this->areaName = $user->area_name ?: '—';
     }
 
     public function render()

@@ -7,12 +7,15 @@
   --color-middo-bg-alt: #F2EDE4;
   --color-middo-orange: #ab3f00;
   --color-middo-green: #2f4a33;
+  --color-middo-danger: #dc2626;
+  --color-middo-danger-dark: #b91c1c;
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui;
   --tracking-tight: -0.025em;
 }
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',

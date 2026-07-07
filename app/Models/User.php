@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\MiddoBox;
 use App\Models\Order;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -56,12 +57,36 @@ class User extends Authenticatable
         return $this->belongsTo(\App\Models\Role::class);
     }
 
-    public function city() {
-        return $this->belongsTo(City::class);
+    public function city(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'city_id');
     }
 
-    public function area() {
-        return $this->belongsTo(Area::class);
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class, 'area_id');
+    }
+
+    public function getCityNameAttribute(): ?string
+    {
+        if ($this->city_id) {
+            return $this->relationLoaded('city')
+                ? $this->getRelation('city')?->name
+                : City::find($this->city_id)?->name;
+        }
+
+        return $this->attributes['city'] ?? null;
+    }
+
+    public function getAreaNameAttribute(): ?string
+    {
+        if ($this->area_id) {
+            return $this->relationLoaded('area')
+                ? $this->getRelation('area')?->name
+                : Area::find($this->area_id)?->name;
+        }
+
+        return $this->attributes['area'] ?? null;
     }
 
     public function orders(): HasMany

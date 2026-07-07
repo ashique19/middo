@@ -8,6 +8,7 @@ use App\Models\MiddoBox;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Livewire\Attributes\On;
 
 class Dashboard extends Component
 {
@@ -62,7 +63,7 @@ class Dashboard extends Component
             'active_orders'    => $activeOrdersCount,
             'next_meal_time'   => $nextMeal ? Carbon::parse($nextMeal->delivery_date)->format('M d') . ' - ' . $nextMeal->delivery_time : 'None Scheduled',
             'boxes_in_custody' => $boxesInCustody,
-            'monthly_spend'    => number_format($monthlySpend, 0),
+            'monthly_spend'    => (float) $monthlySpend,
         ];
     }
 
@@ -93,6 +94,14 @@ class Dashboard extends Component
             ->take(3)
             ->get()
             ->toArray();
+    }
+
+    #[On('corporate-orders-changed')]
+    public function refreshOrders(): void
+    {
+        $this->loadMetrics();
+        $this->loadRecentLunches();
+        $this->loadUpcomingEvents();
     }
 
     public function render()

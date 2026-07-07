@@ -85,7 +85,7 @@
                         <h3 class="text-xl font-black tracking-tight text-[#2B1A11]">Upcoming Lunch Schedules</h3>
                     </div>
                     
-                    <a href="{{ route('menu') }}" class="text-xs font-black text-[#8A441B] hover:text-[#733614] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm group">
+                    <a href="{{ route('corporates.orders.scheduled') }}" class="text-xs font-black text-[#8A441B] hover:text-[#733614] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm group">
                         <span>See All</span>
                         <span class="transform group-hover:translate-x-0.5 transition-transform text-[10px]">➔</span>
                     </a>
@@ -105,7 +105,7 @@
                 {{-- BIG SEE ALL BUTTON AT THE END OF THE SECTION --}}
                 @if(count($upcomingEvents) > 0)
                     <div class="pt-2">
-                        <a href="{{ route('menu') }}" class="w-full bg-[#EFE9DC] hover:bg-[#E5DCB9] text-[#8A441B] font-black text-xs uppercase tracking-wider py-4 rounded-2xl shadow-sm border border-[#DDD3BE] transition-all flex items-center justify-center gap-2 group">
+                        <a href="{{ route('corporates.orders.scheduled') }}" class="w-full bg-[#EFE9DC] hover:bg-[#E5DCB9] text-[#8A441B] font-black text-xs uppercase tracking-wider py-4 rounded-2xl shadow-sm border border-[#DDD3BE] transition-all flex items-center justify-center gap-2 group">
                             <span>See All Scheduled Lunches</span>
                             <span class="transform group-hover:translate-x-1 transition-transform">➔</span>
                         </a>
@@ -120,7 +120,7 @@
                         <h3 class="text-xl font-black tracking-tight text-[#2B1A11]">Recent Office Lunches</h3>
                     </div>
                     
-                    <a href="#" class="text-xs font-black text-[#8A441B] hover:text-[#733614] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm group">
+                    <a href="{{ route('corporates.orders.history') }}" class="text-xs font-black text-[#8A441B] hover:text-[#733614] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm group">
                         <span>View History</span>
                         <span class="transform group-hover:translate-x-0.5 transition-transform text-[10px]">➔</span>
                     </a>
@@ -140,7 +140,7 @@
                 {{-- BIG SEE ALL BUTTON AT THE END OF THE HISTORY SECTION --}}
                 @if(count($recentLunches) > 0)
                     <div class="pt-2">
-                        <a href="#" class="w-full bg-[#EFE9DC] hover:bg-[#E5DCB9] text-[#8A441B] font-black text-xs uppercase tracking-wider py-4 rounded-2xl shadow-sm border border-[#DDD3BE] transition-all flex items-center justify-center gap-2 group">
+                        <a href="{{ route('corporates.orders.history') }}" class="w-full bg-[#EFE9DC] hover:bg-[#E5DCB9] text-[#8A441B] font-black text-xs uppercase tracking-wider py-4 rounded-2xl shadow-sm border border-[#DDD3BE] transition-all flex items-center justify-center gap-2 group">
                             <span>See All Lunch History</span>
                             <span class="transform group-hover:translate-x-1 transition-transform">➔</span>
                         </a>
@@ -188,22 +188,22 @@
             {{-- QUICK MANAGEMENT TOOL LINKS --}}
             <div class="grid grid-cols-2 gap-3">
                 {{-- Quick Support Card --}}
-                <div class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors cursor-pointer group">
+                <a href="{{ route('contact') }}" class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors cursor-pointer group">
                     <svg class="w-5 h-5 text-[#635347] transition-colors group-hover:text-[#8A441B]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8Z" />
                     </svg>
                     <h4 class="text-xs font-black text-[#2B1A11] mt-1.5 group-hover:text-[#8A441B]">Quick Support</h4>
                     <p class="text-[9px] text-gray-400 font-medium leading-tight mt-0.5">Get assistance with your orders instantly.</p>
-                </div>
+                </a>
 
                 {{-- FAQ Card --}}
-                <div class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors cursor-pointer group">
+                <a href="{{ route('faq') }}" class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors cursor-pointer group">
                     <svg class="w-5 h-5 text-[#635347] transition-colors group-hover:text-[#8A441B]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
                     </svg>
                     <h4 class="text-xs font-black text-[#2B1A11] mt-1.5 group-hover:text-[#8A441B]">FAQ</h4>
                     <p class="text-[9px] text-gray-400 font-medium leading-tight mt-0.5">Learn more about Middo.</p>
-                </div>
+                </a>
             </div>
 
             {{-- ACTION OVERLAY BUTTON LINKS --}}

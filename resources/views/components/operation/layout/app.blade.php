@@ -27,6 +27,7 @@
 
     @auth
         <livewire:account.profile-modal />
+        <livewire:account.profile-edit-modal />
         <livewire:account.change-password-modal />
     @endauth
 

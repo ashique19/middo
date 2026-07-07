@@ -52,4 +52,14 @@ class Order extends Model
     {
         return $this->hasMany(MiddoBoxLog::class);
     }
+
+    public function logs(): HasMany
+    {
+        return $this->hasMany(OrderLog::class);
+    }
+
+    public function complaints(): HasMany
+    {
+        return $this->hasMany(OrderComplaint::class);
+    }
 }

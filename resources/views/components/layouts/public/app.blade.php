@@ -16,7 +16,13 @@
     </main>
 
     @auth
+        <livewire:public.order-checkout-modal />
+        <livewire:corporate.edit-order-modal />
+        <livewire:corporate.delete-order-modal />
+        <livewire:corporate.track-order-modal />
+        <livewire:corporate.complaint-support-modal />
         <livewire:account.profile-modal />
+        <livewire:account.profile-edit-modal />
         <livewire:account.change-password-modal />
     @endauth
 

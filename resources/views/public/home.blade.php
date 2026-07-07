@@ -4,6 +4,4 @@
     <x-public.homepage.how-it-works />
     <x-public.homepage.key-benefits />
     <x-public.homepage.testimonials />
-
-    <livewire:public.order-checkout-modal />
 </x-layouts.public.app>

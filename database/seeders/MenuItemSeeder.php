@@ -16,7 +16,7 @@ class MenuItemSeeder extends Seeder
                 'price' => 350,
                 'kitchen_commission' => 35,
                 'display_order' => 1,
-                'image' => '1.jpg',
+                'image' => 'menu-1.jpg',
             ],
             [
                 'name' => 'Traditional Vegetarian Thali',
@@ -24,7 +24,7 @@ class MenuItemSeeder extends Seeder
                 'price' => 320,
                 'kitchen_commission' => 32,
                 'display_order' => 2,
-                'image' => '2.jpg',
+                'image' => 'menu-2.jpg',
             ],
             [
                 'name' => 'Royal Indian Thali',
@@ -32,7 +32,7 @@ class MenuItemSeeder extends Seeder
                 'price' => 450,
                 'kitchen_commission' => 45,
                 'display_order' => 3,
-                'image' => '3.jpg',
+                'image' => 'menu-3.jpg',
             ],
             [
                 'name' => 'Chicken Curry Thali',
@@ -40,7 +40,7 @@ class MenuItemSeeder extends Seeder
                 'price' => 420,
                 'kitchen_commission' => 42,
                 'display_order' => 4,
-                'image' => '4.jpg',
+                'image' => 'menu-4.jpg',
             ],
             [
                 'name' => 'Bengali Fish Thali',
@@ -48,40 +48,29 @@ class MenuItemSeeder extends Seeder
                 'price' => 400,
                 'kitchen_commission' => 40,
                 'display_order' => 5,
-                'image' => '5.jpg',
+                'image' => 'menu-5.jpg',
             ],
         ];
 
-        $sourceDir = 'C:\\Users\\Ashique\\Desktop';
-        $targetDir = public_path('img/menu');
-
-        if (! is_dir($targetDir)) {
-            mkdir($targetDir, 0755, true);
-        }
-
         foreach ($items as $data) {
-            $source = "{$sourceDir}\\{$data['image']}";
+            $thumbnail = 'img/menu/'.$data['image'];
 
-            if (! file_exists($source)) {
-                $this->command?->warn("Skipping {$data['name']}: {$source} not found.");
+            if (! file_exists(public_path($thumbnail))) {
+                $this->command?->warn("Skipping {$data['name']}: {$thumbnail} not found.");
 
                 continue;
             }
 
-            $item = MenuItem::create([
+            MenuItem::create([
                 'name' => $data['name'],
                 'summary' => $data['summary'],
                 'price' => $data['price'],
                 'kitchen_commission' => $data['kitchen_commission'],
+                'thumbnail' => $thumbnail,
                 'is_featured' => true,
                 'is_homepage' => $data['display_order'] <= 3,
                 'display_order' => $data['display_order'],
             ]);
-
-            $filename = "menu-{$item->id}.jpg";
-            copy($source, "{$targetDir}/{$filename}");
-
-            $item->update(['thumbnail' => "img/menu/{$filename}"]);
         }
     }
 }

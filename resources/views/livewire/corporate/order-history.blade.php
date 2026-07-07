@@ -1,0 +1,40 @@
+<div wire:key="corporate-order-history" class="min-h-screen bg-[#F7F4EB] text-[#2B1A11] antialiased font-sans p-4 md:p-8">
+    <div class="max-w-[1400px] mx-auto space-y-6">
+
+        {{-- Page Header --}}
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <a href="{{ route('corporates.dashboard') }}"
+                   class="inline-flex items-center gap-1.5 text-xs font-bold text-[#8A441B] hover:text-[#733614] mb-2 transition-colors">
+                    <span>←</span>
+                    <span>Back to Dashboard</span>
+                </a>
+                <h1 class="text-3xl font-black tracking-tight text-[#2B1A11]">Lunch History</h1>
+                <p class="text-sm font-semibold text-[#635347] mt-0.5">
+                    {{ count($orders) }} past {{ str('delivery')->plural(count($orders)) }} in your records.
+                </p>
+            </div>
+
+            <a href="{{ route('menu') }}"
+               class="shrink-0 inline-flex items-center gap-1.5 bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl shadow-sm transition-colors">
+                <span>Order Again</span>
+                <span>➔</span>
+            </a>
+        </div>
+
+        {{-- Orders Grid --}}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            @forelse($orders as $order)
+                <x-operation.dashboard.meal-card :order="$order" :is-history="true" />
+            @empty
+                <div class="col-span-full bg-white border border-[#EBE3D3] rounded-2xl p-12 text-center shadow-sm">
+                    <p class="text-sm font-semibold text-gray-400 italic">No lunch history recorded yet.</p>
+                    <a href="{{ route('menu') }}"
+                       class="inline-block mt-4 text-xs font-black text-[#8A441B] hover:text-[#733614] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-4 py-2 rounded-xl transition">
+                        Place Your First Order
+                    </a>
+                </div>
+            @endforelse
+        </div>
+    </div>
+</div>

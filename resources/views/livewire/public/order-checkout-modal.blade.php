@@ -122,7 +122,7 @@
                                             <div class="flex items-center justify-between border border-emerald-700 rounded-lg bg-emerald-900/40 overflow-hidden w-full" wire:key="counter-{{ $dateStr }}">
                                                 <button type="button" wire:click="changeDateQuantity('{{ $dateStr }}', -1)" class="px-2 py-0.5 hover:bg-emerald-700 text-white font-extrabold text-xs select-none transition disabled:opacity-20" {{ $dateQty <= 1 ? 'disabled' : '' }}>-</button>
                                                 <span class="text-xs font-black text-white px-1">{{ $dateQty }}</span>
-                                                <button type="button" wire:click="changeDateQuantity('{{ $dateStr }}', 1)" class="px-2 py-0.5 hover:bg-emerald-700 text-white font-extrabold text-xs select-none transition disabled:opacity-20" {{ $dateQty >= 5 ? 'disabled' : '' }}>+</button>
+                                                <button type="button" wire:click="changeDateQuantity('{{ $dateStr }}', 1)" class="px-2 py-0.5 hover:bg-emerald-700 text-white font-extrabold text-xs select-none transition disabled:opacity-20" {{ $dateQty >= $this->remainingQtyForDate($dateStr) ? 'disabled' : '' }}>+</button>
                                             </div>
                                         @else
                                             <button type="button" wire:click="toggleDateSelection('{{ $dateStr }}')" class="text-[11px] font-bold text-amber-700/70 hover:text-amber-700 tracking-tight transition">Select</button>
@@ -131,6 +131,7 @@
                                 </div>
                             @endforeach
                         </div>
+                        @error('quantities') <span class="text-red-500 text-xs mt-1 block font-semibold">{{ $message }}</span> @enderror
                         @error('selectedDate') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                     </div>
 

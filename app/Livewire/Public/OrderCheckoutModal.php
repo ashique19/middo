@@ -8,6 +8,7 @@ use App\Models\City;
 use App\Models\Area;   
 use Livewire\Attributes\On;
 use App\Models\User;
+use App\Support\CorporateOrderLimit;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -173,6 +174,12 @@ class OrderCheckoutModal extends Component
         if ($currentQty > 0) {
             $this->quantities[$dateString] = 0;
         } else {
+            if ($this->remainingQtyForDate($dateString) < 1) {
+                $this->addError('quantities', $this->dailyLimitMessage($dateString));
+
+                return;
+            }
+
             $this->quantities[$dateString] = 1;
             $this->selectedDate = $dateString;
         }
@@ -186,8 +193,40 @@ class OrderCheckoutModal extends Component
     {
         if ($this->isConfirmingOtp || !isset($this->quantities[$date]) || $this->quantities[$date] === 0) return;
 
-        $this->quantities[$date] = max(1, min(5, $this->quantities[$date] + $amount));
+        $maxQty = $this->remainingQtyForDate($date);
+        $this->quantities[$date] = max(1, min($maxQty, $this->quantities[$date] + $amount));
         $this->recalculateTotals();
+    }
+
+    public function remainingQtyForDate(string $date): int
+    {
+        if (! Auth::check()) {
+            return 0;
+        }
+
+        return CorporateOrderLimit::remainingQtyForDate(Auth::id(), $date);
+    }
+
+    protected function validateDailyQuantities(array $activeOrders): bool
+    {
+        foreach ($activeOrders as $date => $qty) {
+            if (CorporateOrderLimit::exceedsDailyLimit(Auth::id(), $date, $qty)) {
+                $this->addError('quantities', $this->dailyLimitMessage($date));
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected function dailyLimitMessage(string $date): string
+    {
+        $formattedDate = Carbon::parse($date)->format('M d, Y');
+        $max = CorporateOrderLimit::maxAllowed();
+        $remaining = $this->remainingQtyForDate($date);
+
+        return "Maximum {$max} meals allowed per day on {$formattedDate}. You can order up to {$remaining} more.";
     }
 
     /**
@@ -203,7 +242,7 @@ class OrderCheckoutModal extends Component
             'area_id'      => 'required|exists:areas,id',
             'mobile'       => 'required|string|regex:/^01[3-9]\d{8}$/', 
             'quantities'   => 'required|array',
-            'quantities.*' => 'required|integer|min:0|max:5',
+            'quantities.*' => 'required|integer|min:0|max:'.CorporateOrderLimit::maxAllowed(),
         ], [
             'addressLine1.required' => 'Please provide your specific street address details.',
             'city_id.required'      => 'Please select a delivery city.',
@@ -215,6 +254,10 @@ class OrderCheckoutModal extends Component
         $activeOrders = array_filter($this->quantities, fn($qty) => $qty > 0);
         if (empty($activeOrders)) {
             $this->addError('quantities', 'Please select a quantity for at least one delivery date.');
+            return;
+        }
+
+        if (! $this->validateDailyQuantities($activeOrders)) {
             return;
         }
 
@@ -266,6 +309,10 @@ class OrderCheckoutModal extends Component
 
         if (empty($activeOrders)) {
             $this->addError('quantities', 'Please select a quantity for at least one delivery date.');
+            return;
+        }
+
+        if (! $this->validateDailyQuantities($activeOrders)) {
             return;
         }
 
