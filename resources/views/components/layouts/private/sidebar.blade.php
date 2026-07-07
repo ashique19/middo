@@ -32,35 +32,32 @@
             @endif
 
             @foreach($navs as $nav)
-                {{-- Only render if the route exists to prevent crash --}}
-                @if($nav->route_name && Route::has($nav->route_name))
-                    @if($nav->children->isEmpty())
-                        <a href="{{ route($nav->route_name) }}" 
-                        class="flex items-center gap-4 px-4 py-3 rounded-xl transition {{ request()->routeIs($nav->route_name) ? 'bg-middo-orange' : 'hover:bg-gray-700' }}">
-                            <span class="text-xl shrink-0">{!! $nav->icon !!}</span>
+                @if($nav->children->isNotEmpty())
+                    <div x-data="{ open: {{ $nav->children->contains(fn ($child) => $child->route_name && request()->routeIs($child->route_name)) ? 'true' : 'false' }} }">
+                        <button @click="open = !open; isSidebarExpanded = true" 
+                                class="w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-gray-700">
+                            <span class="text-xl shrink-0">{!! $nav->icon ?? '📁' !!}</span>
                             <span :class="isSidebarExpanded ? 'block' : 'hidden'">{{ $nav->title }}</span>
-                        </a>
-                    @else
-                        <div x-data="{ open: false }">
-                            <button @click="open = !open; isSidebarExpanded = true" 
-                                    class="w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-gray-700">
-                                <span class="text-xl shrink-0">{!! $nav->icon !!}</span>
-                                <span :class="isSidebarExpanded ? 'block' : 'hidden'">{{ $nav->title }}</span>
-                                <svg x-show="isSidebarExpanded" class="w-4 h-4 ml-auto transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
-                            </button>
-                            
-                            <div x-show="open && isSidebarExpanded" class="ml-4 border-l border-gray-600 space-y-1 mt-1">
-                                @foreach($nav->children as $child)
-                                    @if($child->route_name && Route::has($child->route_name))
-                                        <a href="{{ route($child->route_name) }}" 
-                                        class="block px-4 py-2 text-sm hover:text-middo-orange transition {{ request()->routeIs($child->route_name) ? 'text-middo-orange' : 'text-gray-300' }}">
-                                            {{ $child->title }}
-                                        </a>
-                                    @endif
-                                @endforeach
-                            </div>
+                            <svg x-show="isSidebarExpanded" class="w-4 h-4 ml-auto transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        
+                        <div x-show="open && isSidebarExpanded" class="ml-4 border-l border-gray-600 space-y-1 mt-1">
+                            @foreach($nav->children as $child)
+                                @if($child->route_name && Route::has($child->route_name))
+                                    <a href="{{ route($child->route_name) }}" 
+                                    class="block px-4 py-2 text-sm hover:text-middo-orange transition {{ request()->routeIs($child->route_name) ? 'text-middo-orange' : 'text-gray-300' }}">
+                                        {{ $child->title }}
+                                    </a>
+                                @endif
+                            @endforeach
                         </div>
-                    @endif
+                    </div>
+                @elseif($nav->route_name && Route::has($nav->route_name))
+                    <a href="{{ route($nav->route_name) }}" 
+                    class="flex items-center gap-4 px-4 py-3 rounded-xl transition {{ request()->routeIs($nav->route_name) ? 'bg-middo-orange' : 'hover:bg-gray-700' }}">
+                        <span class="text-xl shrink-0">{!! $nav->icon ?? '📄' !!}</span>
+                        <span :class="isSidebarExpanded ? 'block' : 'hidden'">{{ $nav->title }}</span>
+                    </a>
                 @endif
             @endforeach
         </nav>

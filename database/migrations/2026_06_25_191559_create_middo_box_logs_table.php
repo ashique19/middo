@@ -36,7 +36,8 @@ return new class extends Migration
                 'delivered_to_corporate',          // Dropped off at company desk
                 'picked_from_corporate_by_delivery',// Rider retrieved empty container from client hub
                 'returned_to_kitchen',             // Returned to kitchen for sorting/washing
-                'returned_to_warehouse'            // Sent back to main storage node
+                'returned_to_warehouse',           // Sent back to main storage node
+                'registered_at_warehouse',         // New box registered in warehouse inventory
             ]);
             
             $table->timestamps();

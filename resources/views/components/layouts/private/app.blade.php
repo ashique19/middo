@@ -29,6 +29,7 @@
         <livewire:account.profile-modal />
         <livewire:account.profile-edit-modal />
         <livewire:account.change-password-modal />
+        <livewire:operation.assign-kitchen-modal />
     @endauth
 
     @livewireScripts

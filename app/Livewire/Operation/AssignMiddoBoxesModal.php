@@ -1,0 +1,121 @@
+<?php
+
+namespace App\Livewire\Operation;
+
+use App\Models\MiddoBox;
+use App\Models\MiddoBoxLog;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\On;
+use Livewire\Component;
+
+class AssignMiddoBoxesModal extends Component
+{
+    public bool $showModal = false;
+
+    /** @var int[] */
+    public array $boxIds = [];
+
+    public ?int $selectedRiderId = null;
+
+    public array $riders = [];
+
+    #[On('open-assign-middo-boxes-modal')]
+    public function openModal($boxIds = []): void
+    {
+        $ids = is_array($boxIds) ? ($boxIds['boxIds'] ?? $boxIds) : [];
+
+        $this->boxIds = collect($ids)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($this->boxIds === []) {
+            return;
+        }
+
+        $this->resetErrorBag();
+        $this->selectedRiderId = null;
+        $this->riders = $this->fetchRiders();
+        $this->showModal = true;
+    }
+
+    public function closeModal(): void
+    {
+        $this->showModal = false;
+        $this->boxIds = [];
+        $this->selectedRiderId = null;
+        $this->riders = [];
+    }
+
+    public function save(): void
+    {
+        if ($this->boxIds === []) {
+            return;
+        }
+
+        $this->validate([
+            'selectedRiderId' => 'required|exists:users,id',
+        ]);
+
+        $assignedCount = DB::transaction(function () {
+            $boxes = MiddoBox::query()
+                ->whereIn('id', $this->boxIds)
+                ->where('asset_status', 'at_middo_warehouse')
+                ->get();
+
+            if ($boxes->isEmpty()) {
+                return 0;
+            }
+
+            $boxIds = $boxes->pluck('id');
+
+            MiddoBox::query()
+                ->whereIn('id', $boxIds)
+                ->update([
+                    'held_by_user_id' => $this->selectedRiderId,
+                    'asset_status' => 'active',
+                ]);
+
+            foreach ($boxIds as $boxId) {
+                MiddoBoxLog::create([
+                    'middo_box_id' => $boxId,
+                    'custody_status' => 'in_transit',
+                    'log_action' => 'dispatched_to_kitchen',
+                ]);
+            }
+
+            return $boxIds->count();
+        });
+
+        if ($assignedCount === 0) {
+            $this->addError('selectedRiderId', 'No warehouse boxes were available to assign.');
+
+            return;
+        }
+
+        $this->dispatch('middo-boxes-assigned');
+        $this->closeModal();
+    }
+
+    protected function fetchRiders(): array
+    {
+        return User::query()
+            ->whereHas('role', fn ($query) => $query->where('name', 'delivery'))
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+            ])
+            ->all();
+    }
+
+    public function render()
+    {
+        return view('livewire.operation.assign-middo-boxes-modal');
+    }
+}

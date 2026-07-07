@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 class Order extends Model
 {
@@ -61,5 +63,39 @@ class Order extends Model
     public function complaints(): HasMany
     {
         return $this->hasMany(OrderComplaint::class);
+    }
+
+    public function orderGroupOrder(): HasOne
+    {
+        return $this->hasOne(OrderGroupOrder::class);
+    }
+
+    public function orderGroup(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            OrderGroup::class,
+            OrderGroupOrder::class,
+            'order_id',
+            'id',
+            'id',
+            'order_group_id'
+        );
+    }
+
+    public function scopeFuture($query)
+    {
+        return $query
+            ->where('delivery_date', '>=', now('Asia/Dhaka')->toDateString())
+            ->where('order_status', '!=', 'cancelled');
+    }
+
+    public function scopePast($query)
+    {
+        return $query->where('delivery_date', '<', now('Asia/Dhaka')->toDateString());
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereIn('order_status', ['pending', 'processing']);
     }
 }

@@ -1,6 +1,8 @@
 @props([
     'order',
-    'isHistory' => false
+    'isHistory' => false,
+    'showActions' => true,
+    'showCustomer' => false,
 ])
 
 <div class="bg-[#FDFBF7] border border-[#EBE3D3] rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between hover:shadow transition-shadow {{ $isHistory ? 'opacity-75 hover:opacity-100 transition-opacity' : '' }}">
@@ -37,6 +39,21 @@
                 </span>
             </div>
 
+            @if($showCustomer && !empty($order['user']))
+                <div class="grid grid-cols-12 gap-1 py-0.5 items-center">
+                    <span class="col-span-4 text-gray-400 font-bold text-left">Customer</span>
+                    <span class="col-span-8 font-bold truncate text-right">
+                        {{ trim(($order['user']['first_name'] ?? '') . ' ' . ($order['user']['last_name'] ?? '')) ?: 'N/A' }}
+                    </span>
+                </div>
+                <div class="grid grid-cols-12 gap-1 py-0.5 items-center">
+                    <span class="col-span-4 text-gray-400 font-bold text-left">Address</span>
+                    <span class="col-span-8 font-medium text-right text-[#635347] line-clamp-2">
+                        {{ $order['address'] ?? 'N/A' }}
+                    </span>
+                </div>
+            @endif
+
             {{-- Time/Fulfillment Window Entry Row --}}
             <div class="grid grid-cols-12 gap-1 py-0.5 items-center">
                 <span class="col-span-4 text-gray-400 font-bold text-left">Window</span>
@@ -57,7 +74,7 @@
             <div class="pt-2 text-[10px] text-[#635347] font-bold flex items-center justify-between uppercase tracking-wider">
                 <span class="text-left">Status:</span>
                 <div class="flex items-center gap-1.5">
-                    @if(($order['order_status'] ?? '') === 'pending')
+                    @if($showActions && ($order['order_status'] ?? '') === 'pending')
                         <button
                             type="button"
                             @click="$dispatch('open-edit-order-modal', { orderId: {{ $order['id'] }} })"
@@ -97,6 +114,7 @@
         </div>
 
         {{-- CONTEXTUAL WORKFLOW ACTION BUTTON FOOTERS --}}
+        @if($showActions)
         <div class="pt-3.5 border-t border-dashed border-gray-100 mt-3 space-y-2">
             <div class="grid grid-cols-2 gap-2">
                 <button
@@ -129,5 +147,6 @@
                 <span>Complaint / Support</span>
             </button>
         </div>
+        @endif
     </div>
 </div>
