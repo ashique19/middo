@@ -34,9 +34,9 @@
         @endauth
 
         @guest
-            {{-- Unauthenticated Guest: Simple, clean redirect to the login screen --}}
+            {{-- Unauthenticated Guest: redirect to login, remembering the menu page to return to --}}
             <a 
-                href="{{ route('login') }}"
+                href="{{ route('login', ['redirect' => url()->current()]) }}"
                 class="w-full inline-flex items-center justify-center bg-transparent border-2 border-middo-orange text-[#5D4037] py-2.5 rounded-xl font-bold hover:bg-[#5D4037] hover:text-white transition text-center"
             >
                 Order Now

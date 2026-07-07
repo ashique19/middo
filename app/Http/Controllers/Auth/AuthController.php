@@ -110,11 +110,46 @@ class AuthController extends Controller
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
+            $user = Auth::user();
+            $redirect = $request->input('redirect');
+
+            // Corporate users should return to the page they were redirected from
+            // (e.g. the /menu "Order Now" flow) instead of always landing on the dashboard.
+            if (
+                $user->status === 'active'
+                && $user->role?->name === 'corporate'
+                && $this->isSafeRedirect($redirect)
+            ) {
+                return redirect()->to($redirect);
+            }
+
             // After Auth::login($user);
             return redirect()->route('dashboard.redirect');
         }
 
         return back()->withErrors(['mobile' => 'Invalid mobile number or password.']);
+    }
+
+    /**
+     * Only allow redirects to internal URLs on this application to prevent open redirects.
+     */
+    private function isSafeRedirect(?string $url): bool
+    {
+        if (empty($url)) {
+            return false;
+        }
+
+        $target = parse_url($url, PHP_URL_HOST);
+
+        // Relative URLs (no host) are inherently internal and safe.
+        if ($target === null) {
+            return true;
+        }
+
+        return in_array($target, array_filter([
+            request()->getHost(),
+            parse_url(config('app.url'), PHP_URL_HOST),
+        ]), true);
     }
 
     public function logout(Request $request)
