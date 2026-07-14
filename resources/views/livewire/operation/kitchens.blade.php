@@ -7,8 +7,12 @@
             </p>
         </div>
 
+        @php
+            $routePrefix = auth()->user()?->role?->name === 'admin' ? 'admin' : 'operation';
+        @endphp
+
         <a
-            href="{{ route('operation.orders.history') }}"
+            href="{{ route($routePrefix.'.orders.history') }}"
             target="_blank"
             rel="noopener noreferrer"
             class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-white text-sm font-bold text-middo-dark hover:border-middo-orange hover:text-middo-orange transition">
@@ -56,7 +60,7 @@
                     </button>
 
                     <a
-                        href="{{ route('operation.kitchens.orders', $section['key']) }}"
+                        href="{{ route($routePrefix.'.kitchens.orders', $section['key']) }}"
                         target="_blank"
                         rel="noopener noreferrer"
                         class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-xs font-bold text-middo-dark hover:border-middo-orange hover:text-middo-orange transition whitespace-nowrap">

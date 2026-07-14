@@ -34,9 +34,15 @@
                         
                         <input wire:model="password" type="password" class="w-full border-gray-300 border rounded-xl p-3 text-sm" placeholder="Password">
                         
-                        <select wire:model="role_id" class="w-full border-gray-300 border rounded-xl p-3 text-sm">
-                            @foreach($roles as $role) <option value="{{ $role->id }}">{{ $role->name }}</option> @endforeach
-                        </select>
+                        @if($lockedRole)
+                            <div class="w-full border border-gray-200 bg-gray-50 rounded-xl p-3 text-sm font-semibold text-gray-700 capitalize">
+                                Role: {{ $lockedRole }}
+                            </div>
+                        @else
+                            <select wire:model="role_id" class="w-full border-gray-300 border rounded-xl p-3 text-sm">
+                                @foreach($roles as $role) <option value="{{ $role->id }}">{{ $role->name }}</option> @endforeach
+                            </select>
+                        @endif
                     </div>
 
                     <div x-data="{ expanded: false }" class="border-t border-gray-100 pt-4">

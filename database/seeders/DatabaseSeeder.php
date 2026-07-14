@@ -16,11 +16,13 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             citySeeder::class,
-            areaSeeder::class,
+            AreaSeeder::class,
             RolePermissionSeeder::class,
             navSeeder::class,
             userSeeder::class,
             MenuItemSeeder::class,
+            MealItemTestSeeder::class,
+            MiddoBoxTestSeeder::class,
             OrderSeeder::class,
             TestOrderSeeder::class,
             OrderLogSeeder::class,

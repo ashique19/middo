@@ -16,6 +16,26 @@
                 <h1 class="text-3xl font-extrabold mb-2 text-middo-orange">Sign in to Middo</h1>
                 <p class="text-white/90 mb-8 font-medium">Welcome back! Enter your details to access your account.</p>
 
+                @if (session('status'))
+                    <div class="mb-4 rounded-xl bg-emerald-100 border border-emerald-200 text-emerald-800 px-4 py-3 text-sm font-semibold">
+                        {{ session('status') }}
+                    </div>
+                @endif
+
+                @if (session('account_status'))
+                    <div class="mb-4 rounded-xl bg-red-100 border border-red-200 text-red-800 px-4 py-3 text-sm leading-relaxed">
+                        <p class="font-bold">
+                            Your account is
+                            <span class="uppercase tracking-wide">{{ session('account_status') }}</span>.
+                        </p>
+                        <p class="mt-1">
+                            Please
+                            <a href="{{ route('contact') }}" class="font-bold underline text-middo-orange hover:opacity-90">contact Middo</a>
+                            for help.
+                        </p>
+                    </div>
+                @endif
+
                 @if ($errors->has('error'))
                     <div class="mb-4 rounded-xl bg-red-100 border border-red-200 text-red-700 px-4 py-3">
                         {{ $errors->first('error') }}

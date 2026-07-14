@@ -12,8 +12,12 @@ class DashboardRedirectController extends Controller
 
         // Check if user is active (your new field!)
         if ($user->status !== 'active') {
+            $status = $user->status;
             Auth::logout();
-            return redirect()->route('login')->withErrors(['error' => 'Account is pending activation.']);
+
+            return redirect()
+                ->route('login')
+                ->with('account_status', $status);
         }
 
         return match($user->role->name) {

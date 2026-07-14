@@ -75,7 +75,7 @@ class AuthController extends Controller
 
             $role = Role::where('name', 'kitchen')->firstOrFail();
 
-            $user = User::create([
+            User::create([
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
                 'mobile' => $validated['mobile'],
@@ -84,12 +84,16 @@ class AuthController extends Controller
                 'city_id' => $validated['city_id'],
                 'area_id' => $validated['area_id'],
                 'role_id' => $role->id,
-                'status' => 'pending', // Set initial status to pending
+                'status' => 'pending',
                 'is_mobile_verified' => false,
             ]);
 
-            Auth::login($user);
-            return response()->json(['success' => true, 'redirect' => '/kitchen-dashboard']);
+            session()->flash(
+                'status',
+                'Kitchen signup received. Your account is pending admin approval — you can log in after activation.'
+            );
+
+            return response()->json(['success' => true, 'redirect' => route('login')]);
 
         } catch (ValidationException $e) {
             return response()->json(['errors' => $e->errors()], 422);
@@ -111,19 +115,27 @@ class AuthController extends Controller
             $request->session()->regenerate();
 
             $user = Auth::user();
+
+            if ($user->status !== 'active') {
+                $status = $user->status;
+                Auth::logout();
+
+                return back()
+                    ->withInput($request->only('mobile', 'redirect'))
+                    ->with('account_status', $status);
+            }
+
             $redirect = $request->input('redirect');
 
             // Corporate users should return to the page they were redirected from
             // (e.g. the /menu "Order Now" flow) instead of always landing on the dashboard.
             if (
-                $user->status === 'active'
-                && $user->role?->name === 'corporate'
+                $user->role?->name === 'corporate'
                 && $this->isSafeRedirect($redirect)
             ) {
                 return redirect()->to($redirect);
             }
 
-            // After Auth::login($user);
             return redirect()->route('dashboard.redirect');
         }
 

@@ -84,6 +84,7 @@ class AssignKitchenModal extends Component
     {
         return User::query()
             ->whereHas('role', fn ($query) => $query->where('name', 'kitchen'))
+            ->where('status', 'active')
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get()

@@ -19,10 +19,19 @@ class UserCreateModal extends Component
     public $roles, $cities, $areas = [];
     public $mobileExists = false;
 
-    public function mount() {
+    public ?string $lockedRole = null;
+
+    public function mount(?string $lockedRole = null) {
         $this->roles = Role::all();
-        $this->role_id = $this->roles->first()?->id;
         $this->cities = \App\Models\City::all();
+        $this->lockedRole = $lockedRole;
+
+        if ($lockedRole) {
+            $this->role_id = Role::where('name', $lockedRole)->value('id')
+                ?? $this->roles->first()?->id;
+        } else {
+            $this->role_id = $this->roles->first()?->id;
+        }
     }
 
     // This runs automatically whenever $selectedCity changes
@@ -41,9 +50,16 @@ class UserCreateModal extends Component
             'password'     => 'required|min:6',
             'address'      => 'nullable|string',
             'role_id'      => 'required|exists:roles,id',
-            'selectedCity' => 'required|exists:cities,id', // Matches the dropdown
-            'area_id'      => 'required|exists:areas,id',  // Matches the dropdown
+            'selectedCity' => 'nullable|exists:cities,id',
+            'area_id'      => 'nullable|exists:areas,id',
         ]);
+
+        if ($this->lockedRole) {
+            $lockedId = Role::where('name', $this->lockedRole)->value('id');
+            if ($lockedId) {
+                $this->role_id = $lockedId;
+            }
+        }
 
         User::create([
             'first_name' => $this->first_name,
@@ -52,13 +68,22 @@ class UserCreateModal extends Component
             'mobile'     => $this->mobile,
             'password'   => Hash::make($this->password),
             'address'    => $this->address,
-            'city_id'    => $this->selectedCity, // Use the ID from the dropdown
-            'area_id'    => $this->area_id,      // Use the ID from the dropdown
+            'city_id'    => $this->selectedCity ?: null,
+            'area_id'    => $this->area_id ?: null,
             'role_id'    => $this->role_id,
-            'status'     => 'active'
+            'status'     => 'active',
+            'is_mobile_verified' => true,
         ]);
 
-        $this->reset(); 
+        $locked = $this->lockedRole;
+        $this->reset();
+        $this->lockedRole = $locked;
+        $this->roles = Role::all();
+        $this->cities = \App\Models\City::all();
+        $this->areas = [];
+        $this->role_id = $locked
+            ? (Role::where('name', $locked)->value('id') ?? $this->roles->first()?->id)
+            : $this->roles->first()?->id;
         $this->showModal = false;
         $this->dispatch('user-updated');
     }

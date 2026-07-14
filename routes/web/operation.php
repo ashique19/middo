@@ -20,6 +20,10 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
         return view('operation.menu.page');
     })->name('operation.menu.index');
 
+    Route::get('/meal-items', function () {
+        return view('operation.meal-items.page');
+    })->name('operation.meal-items.index');
+
     Route::get('/orders/active', ActiveOrders::class)->name('operation.orders.active');
     Route::get('/orders/history', OrderHistory::class)->name('operation.orders.history');
     Route::get('/orders/search', SearchOrder::class)->name('operation.orders.search');

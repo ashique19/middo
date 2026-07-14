@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operation;
 
+use App\Models\MealItem;
 use App\Models\MiddoBox;
 use App\Models\MenuItem;
 use App\Models\Order;
@@ -26,7 +27,7 @@ class Dashboard extends Component
             [
                 'label' => 'Kitchen',
                 'count' => $kitchenRoleId
-                    ? User::where('role_id', $kitchenRoleId)->count()
+                    ? User::where('role_id', $kitchenRoleId)->where('status', 'active')->count()
                     : 0,
                 'route' => 'operation.kitchens.index',
             ],
@@ -34,6 +35,11 @@ class Dashboard extends Component
                 'label' => 'Menu',
                 'count' => MenuItem::count(),
                 'route' => 'operation.menu.index',
+            ],
+            [
+                'label' => 'Meal Items',
+                'count' => MealItem::count(),
+                'route' => 'operation.meal-items.index',
             ],
             [
                 'label' => 'Middo Boxes',

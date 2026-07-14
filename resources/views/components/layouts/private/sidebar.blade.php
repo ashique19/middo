@@ -21,16 +21,6 @@
         </div>
 
         <nav class="mt-6 px-4 space-y-2">
-            @if(auth()->user()->role->name === 'admin')
-                <a href="{{ route('admin.navrole.index') }}" 
-                    class="flex items-center gap-4 px-4 py-3 rounded-xl transition {{ request()->routeIs('admin.navrole.index') ? 'bg-middo-orange' : 'bg-gray-800 hover:bg-gray-700' }}">
-                    <span class="text-xl shrink-0">⚙️</span>
-                    <span :class="isSidebarExpanded ? 'block' : 'hidden'" class="font-bold">System Navs</span>
-                </a>
-
-                <div class="border-t border-gray-700 my-2"></div>
-            @endif
-
             @foreach($navs as $nav)
                 @if($nav->children->isNotEmpty())
                     <div x-data="{ open: {{ $nav->children->contains(fn ($child) => $child->route_name && request()->routeIs($child->route_name)) ? 'true' : 'false' }} }">

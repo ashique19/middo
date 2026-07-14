@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Nav extends Model
 {
 
-    protected $fillable = ['order', 'title', 'route_name', 'parent_id', 'role_id'];
+    protected $fillable = ['order', 'title', 'route_name', 'parent_id', 'role_id', 'icon'];
 
     public function role() {
         return $this->belongsTo(Role::class);

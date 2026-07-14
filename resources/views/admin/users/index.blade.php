@@ -2,7 +2,9 @@
     <div class="block w-full max-w-6xl mx-auto py-8 px-4 sm:px-6 overflow-hidden">
         
         <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-            <h1 class="text-3xl font-bold">User Management</h1>
+            <h1 class="text-3xl font-bold capitalize">
+                {{ $roleType ? $roleType.' Users' : 'User Management' }}
+            </h1>
             
             <div class="flex items-center gap-4 w-full sm:w-auto">
                 <div class="relative w-full sm:w-64">
@@ -14,7 +16,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                 </div>
-                <livewire:admin.user-create-modal />
+                <livewire:admin.user-create-modal :locked-role="$roleType" />
             </div>
         </div>
 
