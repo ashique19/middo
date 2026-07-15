@@ -3,7 +3,7 @@
         <a href="{{ route('delivery.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
         <h1 class="text-3xl font-bold text-middo-dark">Kitchen dispatches</h1>
         <p class="text-sm font-semibold text-gray-500">
-            Orders ready at kitchens. Accept to pick up, then deliver to the consumer.
+            Accept at the kitchen (on the way to delivery), then mark Delivered at the consumer.
         </p>
     </div>
 
@@ -29,6 +29,9 @@
                         <span class="font-mono font-black text-middo-dark">#{{ $order['id'] }}</span>
                         <span class="text-sm font-bold text-gray-700">{{ $order['menu_name'] }}</span>
                         <span class="text-xs font-bold text-middo-orange">Qty {{ $order['quantity'] }}</span>
+                        <span class="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                            {{ $order['status_label'] }}
+                        </span>
                     </div>
                     <p class="text-sm text-gray-600">
                         <span class="font-semibold">{{ $order['kitchen_name'] }}</span>
@@ -52,21 +55,21 @@
                             wire:click="acceptOrder({{ $order['id'] }})"
                             wire:loading.attr="disabled"
                             wire:target="acceptOrder({{ $order['id'] }})"
-                            wire:confirm="Accept this kitchen dispatch? You will pick up the boxes and deliver to the consumer."
+                            wire:confirm="Accept this kitchen dispatch? Boxes will be held by you and status becomes On the way to delivery."
                             class="inline-flex items-center px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
                             <span wire:loading.remove wire:target="acceptOrder({{ $order['id'] }})">Accept order</span>
                             <span wire:loading wire:target="acceptOrder({{ $order['id'] }})">Accepting...</span>
                         </button>
-                    @elseif($order['accepted_by_me'])
+                    @elseif($order['can_mark_delivered'])
                         <button
                             type="button"
                             wire:click="deliverToConsumer({{ $order['id'] }})"
                             wire:loading.attr="disabled"
                             wire:target="deliverToConsumer({{ $order['id'] }})"
-                            wire:confirm="Confirm delivery to the consumer?"
+                            wire:confirm="Mark as Delivered? Boxes will transfer to the customer."
                             class="inline-flex items-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition disabled:opacity-60">
-                            <span wire:loading.remove wire:target="deliverToConsumer({{ $order['id'] }})">Deliver to consumer</span>
-                            <span wire:loading wire:target="deliverToConsumer({{ $order['id'] }})">Delivering...</span>
+                            <span wire:loading.remove wire:target="deliverToConsumer({{ $order['id'] }})">Delivered</span>
+                            <span wire:loading wire:target="deliverToConsumer({{ $order['id'] }})">Saving...</span>
                         </button>
                     @elseif($order['accepted_by_other'])
                         <span class="inline-flex px-3 py-1.5 rounded-xl text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">

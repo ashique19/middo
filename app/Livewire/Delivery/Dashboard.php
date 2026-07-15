@@ -29,6 +29,11 @@ class Dashboard extends Component
                     ->count(),
                 'route' => 'delivery.middo-boxes.pending-run',
             ],
+            [
+                'label' => 'Delivered orders',
+                'count' => Order::query()->deliveredForRider($riderId)->count(),
+                'route' => 'delivery.orders.delivered',
+            ],
         ];
     }
 

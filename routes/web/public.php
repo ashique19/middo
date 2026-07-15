@@ -55,3 +55,5 @@ Route::get('/api/areas/{city_id}', function ($city_id) {
 
 
 Route::get('/dashboard', DashboardRedirectController::class)->name('dashboard.redirect');
+Route::get('/pay/orders/{order}', [\App\Http\Controllers\OrderPaymentController::class, 'show'])
+    ->name('public.order-payment');

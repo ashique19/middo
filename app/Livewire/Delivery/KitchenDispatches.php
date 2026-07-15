@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Delivery;
 
-use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Models\Order;
 use Carbon\Carbon;
@@ -68,13 +67,14 @@ class KitchenDispatches extends Component
 
                 $order->update([
                     'delivery_rider_id' => $riderId,
+                    'order_status' => 'on_the_way_to_delivery',
                     'updated_by' => $riderId,
                 ]);
 
                 return '#'.$order->id;
             });
 
-            $this->statusMessage = "Accepted order {$label}. Head to the kitchen, then deliver to the consumer.";
+            $this->statusMessage = "Accepted order {$label}. Status is now On the way to delivery.";
             $this->resetPage();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not accept this order.';
@@ -99,12 +99,8 @@ class KitchenDispatches extends Component
                     throw new \RuntimeException('You can only deliver orders you have accepted.');
                 }
 
-                if ($order->order_status === 'delivered') {
-                    throw new \RuntimeException('This order was already delivered.');
-                }
-
-                if ($order->dispatched_at === null) {
-                    throw new \RuntimeException('This order has not been kitchen-dispatched.');
+                if (! $order->isOnTheWayToDelivery()) {
+                    throw new \RuntimeException('This order is not on the way to delivery.');
                 }
 
                 $boxes = $order->middoBoxes()->lockForUpdate()->get();
@@ -137,7 +133,7 @@ class KitchenDispatches extends Component
                 return '#'.$order->id;
             });
 
-            $this->statusMessage = "Delivered order {$label} to the consumer.";
+            $this->statusMessage = "Delivered order {$label}. Boxes are now with the customer.";
             $this->resetPage();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not complete delivery.';
@@ -190,8 +186,10 @@ class KitchenDispatches extends Component
                     'date_label' => $this->dateLabel($order->delivery_date->toDateString()),
                     'kitchen_name' => $kitchenName,
                     'box_codes' => $order->middoBoxes->pluck('qr_code_id')->all(),
+                    'status_label' => str($order->order_status)->replace('_', ' ')->title()->toString(),
                     'awaiting_accept' => $order->isAwaitingRiderAccept(),
-                    'accepted_by_me' => (int) $order->delivery_rider_id === (int) $riderId,
+                    'can_mark_delivered' => (int) $order->delivery_rider_id === (int) $riderId
+                        && $order->isOnTheWayToDelivery(),
                     'accepted_by_other' => $order->delivery_rider_id !== null
                         && (int) $order->delivery_rider_id !== (int) $riderId,
                     'rider_name' => $order->deliveryRider?->name,

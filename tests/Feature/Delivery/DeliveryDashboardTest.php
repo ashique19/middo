@@ -94,7 +94,7 @@ class DeliveryDashboardTest extends TestCase
             'total_amount' => 250 * $quantity,
             'address' => 'Corporate HQ',
             'order_status' => 'pending',
-            'payment_status' => 'paid',
+            'payment_status' => 'pending',
         ]);
 
         $group = OrderGroup::create([
@@ -156,10 +156,11 @@ class DeliveryDashboardTest extends TestCase
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
             ->call('acceptOrder', $order->id)
-            ->assertSet('statusMessage', 'Accepted order #'.$order->id.'. Head to the kitchen, then deliver to the consumer.');
+            ->assertSet('statusMessage', 'Accepted order #'.$order->id.'. Status is now On the way to delivery.');
 
         $order->refresh();
         $this->assertSame($this->rider->id, $order->delivery_rider_id);
+        $this->assertSame('on_the_way_to_delivery', $order->order_status);
 
         foreach ($order->middoBoxes as $box) {
             $this->assertSame($this->rider->id, $box->fresh()->held_by_user_id);
@@ -173,7 +174,7 @@ class DeliveryDashboardTest extends TestCase
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
             ->call('deliverToConsumer', $order->id)
-            ->assertSet('statusMessage', 'Delivered order #'.$order->id.' to the consumer.');
+            ->assertSet('statusMessage', 'Delivered order #'.$order->id.'. Boxes are now with the customer.');
 
         $order->refresh();
         $this->assertSame('delivered', $order->order_status);
@@ -210,5 +211,80 @@ class DeliveryDashboardTest extends TestCase
             ->test(KitchenDispatches::class)
             ->call('acceptOrder', $order->id)
             ->assertSet('errorMessage', 'This kitchen dispatch is no longer available to accept.');
+    }
+
+    public function test_rider_cash_payment_and_receive_boxes(): void
+    {
+        $order = $this->createKitchenDispatchedOrder(2);
+
+        Livewire::actingAs($this->rider)
+            ->test(KitchenDispatches::class)
+            ->call('acceptOrder', $order->id)
+            ->call('deliverToConsumer', $order->id);
+
+        $this->assertSame(0, $this->rider->fresh()->balance);
+
+        $this->actingAs($this->rider)
+            ->get(route('delivery.orders.delivered'))
+            ->assertOk()
+            ->assertSee('Payment')
+            ->assertSee('Receive Boxes');
+
+        Livewire::actingAs($this->rider)
+            ->test(\App\Livewire\Delivery\PaymentModal::class)
+            ->call('openModal', $order->id)
+            ->assertSet('showModal', true)
+            ->assertSet('totalAmount', 500)
+            ->call('selectCash')
+            ->call('confirmCashPayment')
+            ->assertSet('showModal', false);
+
+        $order->refresh();
+        $this->assertSame('delivered_and_paid', $order->order_status);
+        $this->assertSame('paid', $order->payment_status);
+        $this->assertSame(500, $this->rider->fresh()->balance);
+
+        Livewire::actingAs($this->rider)
+            ->test(\App\Livewire\Delivery\DeliveredOrders::class)
+            ->call('receiveBoxes', $order->id)
+            ->assertSet('statusMessage', 'Received boxes for order #'.$order->id.'.');
+
+        foreach ($order->middoBoxes as $box) {
+            $this->assertSame($this->rider->id, $box->fresh()->held_by_user_id);
+            $this->assertDatabaseHas('middo_box_logs', [
+                'order_id' => $order->id,
+                'middo_box_id' => $box->id,
+                'log_action' => 'picked_from_corporate_by_delivery',
+                'custody_status' => 'collected_by_rider',
+            ]);
+        }
+    }
+
+    public function test_online_payment_sends_sms_link(): void
+    {
+        \Illuminate\Support\Facades\Http::fake([
+            config('services.mimsms.base_url') => \Illuminate\Support\Facades\Http::response(['status' => 'OK'], 200),
+        ]);
+
+        $order = $this->createKitchenDispatchedOrder(2);
+
+        Livewire::actingAs($this->rider)
+            ->test(KitchenDispatches::class)
+            ->call('acceptOrder', $order->id)
+            ->call('deliverToConsumer', $order->id);
+
+        Livewire::actingAs($this->rider)
+            ->test(\App\Livewire\Delivery\PaymentModal::class)
+            ->call('openModal', $order->id)
+            ->call('selectOnline')
+            ->assertSet('receiverPhone', $this->customer->mobile)
+            ->set('receiverPhone', '01719998888')
+            ->call('sendOnlinePaymentLink')
+            ->assertSet('successMessage', 'Payment link sent to 01719998888.');
+
+        \Illuminate\Support\Facades\Http::assertSent(function ($request) {
+            return str_contains($request->url(), 'mimsms')
+                && ($request['mobileNumber'] ?? null) === '8801719998888';
+        });
     }
 }

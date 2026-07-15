@@ -87,11 +87,39 @@ class Order extends Model
             && $this->order_status === 'processing';
     }
 
+    public function isOnTheWayToDelivery(): bool
+    {
+        return $this->order_status === 'on_the_way_to_delivery';
+    }
+
+    public function isDelivered(): bool
+    {
+        return in_array($this->order_status, ['delivered', 'delivered_and_paid'], true);
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->order_status === 'delivered_and_paid'
+            || $this->payment_status === 'paid';
+    }
+
     public function scopeKitchenDispatched($query)
     {
         return $query
             ->whereNotNull('dispatched_at')
-            ->where('order_status', 'processing');
+            ->whereIn('order_status', ['processing', 'on_the_way_to_delivery']);
+    }
+
+    public function scopeDeliveredForRider($query, int $riderId)
+    {
+        return $query
+            ->where('delivery_rider_id', $riderId)
+            ->whereIn('order_status', ['delivered', 'delivered_and_paid']);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereIn('order_status', ['pending', 'processing', 'on_the_way_to_delivery']);
     }
 
     public function logs(): HasMany
@@ -131,10 +159,5 @@ class Order extends Model
     public function scopePast($query)
     {
         return $query->where('delivery_date', '<', now('Asia/Dhaka')->toDateString());
-    }
-
-    public function scopeActive($query)
-    {
-        return $query->whereIn('order_status', ['pending', 'processing']);
     }
 }

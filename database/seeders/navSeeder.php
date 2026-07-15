@@ -131,5 +131,6 @@ class navSeeder extends Seeder
         Nav::create(['title' => 'Dashboard', 'route_name' => 'delivery.dashboard', 'order' => 1, 'role_id' => $deliveryId]);
         Nav::create(['title' => 'Kitchen dispatches', 'route_name' => 'delivery.kitchen-dispatches', 'order' => 2, 'role_id' => $deliveryId]);
         Nav::create(['title' => 'Middo boxes pending run', 'route_name' => 'delivery.middo-boxes.pending-run', 'order' => 3, 'role_id' => $deliveryId]);
+        Nav::create(['title' => 'Delivered orders', 'route_name' => 'delivery.orders.delivered', 'order' => 4, 'role_id' => $deliveryId]);
     }
 }
