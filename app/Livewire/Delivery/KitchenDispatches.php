@@ -23,11 +23,11 @@ class KitchenDispatches extends Component
         $this->statusMessage = null;
         $this->errorMessage = null;
 
-        $riderId = Auth::id();
+        $riderId = (int) Auth::id();
 
         try {
             $label = DB::transaction(function () use ($orderId, $riderId) {
-                $order = Order::with(['middoBoxes', 'orderGroup.kitchen', 'menuItem', 'user'])
+                $order = Order::query()
                     ->whereKey($orderId)
                     ->lockForUpdate()
                     ->first();
@@ -42,10 +42,13 @@ class KitchenDispatches extends Component
                     throw new \RuntimeException('Reserved boxes for this order are incomplete.');
                 }
 
-                foreach ($boxes as $box) {
-                    $kitchenId = $order->orderGroup?->kitchen_id;
+                $kitchenId = DB::table('order_group_orders')
+                    ->join('order_groups', 'order_groups.id', '=', 'order_group_orders.order_group_id')
+                    ->where('order_group_orders.order_id', $order->id)
+                    ->value('order_groups.kitchen_id');
 
-                    if ($kitchenId && ! $box->isAtKitchen($kitchenId)) {
+                foreach ($boxes as $box) {
+                    if ($kitchenId && ! $box->isAtKitchen((int) $kitchenId)) {
                         throw new \RuntimeException("{$box->qr_code_id} is not at the kitchen anymore.");
                     }
 
@@ -86,16 +89,16 @@ class KitchenDispatches extends Component
         $this->statusMessage = null;
         $this->errorMessage = null;
 
-        $riderId = Auth::id();
+        $riderId = (int) Auth::id();
 
         try {
             $label = DB::transaction(function () use ($orderId, $riderId) {
-                $order = Order::with(['middoBoxes', 'user'])
+                $order = Order::query()
                     ->whereKey($orderId)
                     ->lockForUpdate()
                     ->first();
 
-                if (! $order || $order->delivery_rider_id !== $riderId) {
+                if (! $order || ! $order->isAssignedToRider($riderId)) {
                     throw new \RuntimeException('You can only deliver orders you have accepted.');
                 }
 
@@ -106,7 +109,7 @@ class KitchenDispatches extends Component
                 $boxes = $order->middoBoxes()->lockForUpdate()->get();
 
                 foreach ($boxes as $box) {
-                    if ((int) $box->held_by_user_id !== (int) $riderId) {
+                    if ((int) $box->held_by_user_id !== $riderId) {
                         throw new \RuntimeException("{$box->qr_code_id} is not in your custody.");
                     }
 
@@ -188,10 +191,10 @@ class KitchenDispatches extends Component
                     'box_codes' => $order->middoBoxes->pluck('qr_code_id')->all(),
                     'status_label' => str($order->order_status)->replace('_', ' ')->title()->toString(),
                     'awaiting_accept' => $order->isAwaitingRiderAccept(),
-                    'can_mark_delivered' => (int) $order->delivery_rider_id === (int) $riderId
+                    'can_mark_delivered' => $order->isAssignedToRider((int) $riderId)
                         && $order->isOnTheWayToDelivery(),
                     'accepted_by_other' => $order->delivery_rider_id !== null
-                        && (int) $order->delivery_rider_id !== (int) $riderId,
+                        && ! $order->isAssignedToRider((int) $riderId),
                     'rider_name' => $order->deliveryRider?->name,
                 ];
             })

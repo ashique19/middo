@@ -92,6 +92,15 @@ class Order extends Model
         return $this->order_status === 'on_the_way_to_delivery';
     }
 
+    public function isAssignedToRider(?int $riderId = null): bool
+    {
+        if ($this->delivery_rider_id === null) {
+            return false;
+        }
+
+        return $riderId === null || (int) $this->delivery_rider_id === (int) $riderId;
+    }
+
     public function isDelivered(): bool
     {
         return in_array($this->order_status, ['delivered', 'delivered_and_paid'], true);

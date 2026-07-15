@@ -7,15 +7,19 @@
         </p>
     </div>
 
-    @if($statusMessage)
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-            {{ $statusMessage }}
-        </div>
-    @endif
+    @if($statusMessage || $errorMessage)
+        <div class="sticky top-20 z-30 space-y-3">
+            @if($statusMessage)
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-sm">
+                    {{ $statusMessage }}
+                </div>
+            @endif
 
-    @if($errorMessage)
-        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
-            {{ $errorMessage }}
+            @if($errorMessage)
+                <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 shadow-sm">
+                    {{ $errorMessage }}
+                </div>
+            @endif
         </div>
     @endif
 
