@@ -68,11 +68,11 @@ class MiddoBox extends Model
             return false;
         }
 
-        if ($this->kitchen_id !== $this->held_by_user_id) {
+        if ((int) $this->kitchen_id !== (int) $this->held_by_user_id) {
             return false;
         }
 
-        return $kitchenId === null || $this->kitchen_id === $kitchenId;
+        return $kitchenId === null || (int) $this->kitchen_id === (int) $kitchenId;
     }
 
     public function isIncomingToKitchen(?int $kitchenId = null): bool

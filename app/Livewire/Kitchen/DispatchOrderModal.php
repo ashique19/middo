@@ -128,16 +128,25 @@ class DispatchOrderModal extends Component
             return;
         }
 
-        $kitchenId = Auth::id();
+        $kitchenId = (int) Auth::id();
 
         try {
             DB::transaction(function () use ($kitchenId) {
-                $order = Order::with('orderGroup')
+                $order = Order::query()
                     ->whereKey($this->orderId)
                     ->lockForUpdate()
                     ->first();
 
-                if (! $order || $order->orderGroup?->kitchen_id !== $kitchenId) {
+                if (! $order) {
+                    throw new \RuntimeException('Order not found for your kitchen.');
+                }
+
+                $groupKitchenId = DB::table('order_group_orders')
+                    ->join('order_groups', 'order_groups.id', '=', 'order_group_orders.order_group_id')
+                    ->where('order_group_orders.order_id', $order->id)
+                    ->value('order_groups.kitchen_id');
+
+                if ($groupKitchenId === null || (int) $groupKitchenId !== $kitchenId) {
                     throw new \RuntimeException('Order not found for your kitchen.');
                 }
 
