@@ -25,4 +25,16 @@ return [
 
     'auto_meal_group_quantity' => (int) env('AUTO_MEAL_GROUP_QUANTITY', 10),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Kitchen Dispatch Deadline
+    |--------------------------------------------------------------------------
+    |
+    | Minutes before the order delivery window when kitchen dispatch is due.
+    | Used for the active-orders countdown timer.
+    |
+    */
+
+    'dispatch_deadline_minutes_before' => (int) env('DISPATCH_DEADLINE_MINUTES_BEFORE', 60),
+
 ];

@@ -32,6 +32,11 @@ trait FormatsOrderGroups
 
     protected function formatOrderNode(Order $order): array
     {
+        return $this->baseOrderNode($order);
+    }
+
+    protected function baseOrderNode(Order $order): array
+    {
         return [
             'id' => $order->id,
             'delivery_time' => $order->delivery_time,

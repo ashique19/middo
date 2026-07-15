@@ -39,7 +39,7 @@
             @if(count($selectedBoxIds) > 0)
                 <span class="text-middo-orange">{{ count($selectedBoxIds) }}</span> warehouse {{ str('box')->plural(count($selectedBoxIds)) }} selected
             @else
-                Select warehouse boxes to assign to a rider
+                Select warehouse boxes to send to a kitchen
             @endif
         </p>
 
@@ -48,7 +48,7 @@
             wire:click="openAssignModal"
             @disabled(count($selectedBoxIds) === 0)
             class="inline-flex items-center justify-center gap-2 rounded-xl border border-transparent bg-middo-orange px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#733614] whitespace-nowrap disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none disabled:hover:bg-gray-100">
-            Assign to
+            Send to kitchen
             @if(count($selectedBoxIds) > 0)
                 ({{ count($selectedBoxIds) }})
             @endif

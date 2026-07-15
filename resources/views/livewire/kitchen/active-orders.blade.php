@@ -1,11 +1,51 @@
 <div class="max-w-7xl mx-auto py-10 px-6 space-y-6">
-    <div class="space-y-1">
-        <a href="{{ route('kitchen.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
-        <h1 class="text-3xl font-bold text-middo-dark">My Active Orders</h1>
-        <p class="text-sm font-semibold text-gray-500">
-            Active order groups assigned to your kitchen. Open Menu for meal items and recipes.
-        </p>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="space-y-1">
+            <a href="{{ route('kitchen.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
+            <h1 class="text-3xl font-bold text-middo-dark">My Active Orders</h1>
+            <p class="text-sm font-semibold text-gray-500">
+                Active order groups assigned to your kitchen. Open Menu for meal items and recipes.
+            </p>
+        </div>
+
+        <div class="rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm min-w-[220px]">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Dispatch deadline</p>
+            @if($nextDispatchDeadlineIso)
+                <div
+                    x-data="{
+                        deadline: new Date('{{ $nextDispatchDeadlineIso }}'),
+                        label: '—',
+                        tick() {
+                            const diff = this.deadline - new Date();
+                            if (diff <= 0) { this.label = 'Past deadline'; return; }
+                            const total = Math.floor(diff / 1000);
+                            const h = Math.floor(total / 3600);
+                            const m = Math.floor((total % 3600) / 60);
+                            const s = total % 60;
+                            this.label = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+                        }
+                    }"
+                    x-init="tick(); setInterval(() => tick(), 1000)"
+                    class="text-2xl font-black text-middo-dark font-mono"
+                    x-text="label">
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Until next dispatch window</p>
+            @else
+                <p class="text-sm font-semibold text-gray-400">No upcoming deadlines</p>
+            @endif
+            <p class="text-xs font-semibold text-gray-500 mt-2">
+                Boxes at kitchen: <span class="text-middo-orange">{{ $boxInventoryCount }}</span>
+            </p>
+        </div>
     </div>
+
+    @if($statusMessage)
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+            {{ $statusMessage }}
+        </div>
+    @endif
+
+    <livewire:kitchen.dispatch-order-modal />
 
     @forelse($groupNodes as $group)
         <div
@@ -28,7 +68,7 @@
                     @foreach($group['orders'] as $order)
                         <li
                             wire:key="kitchen-active-order-{{ $group['id'] }}-{{ $order['id'] }}"
-                            class="flex items-center gap-3 px-4 py-3 hover:bg-white/60 transition">
+                            class="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-white/60 transition">
                             <span class="shrink-0 w-6 text-center text-gray-400 font-mono text-xs select-none">└</span>
                             <div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 text-sm">
                                 <span class="font-mono font-bold text-middo-dark">#{{ $order['id'] }}</span>
@@ -39,6 +79,27 @@
                                     · {{ $order['delivery_time'] }}
                                     · {{ ucfirst($order['order_status']) }}
                                 </span>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-2 shrink-0 ml-auto">
+                                @if($order['box_low'])
+                                    <span class="inline-flex px-2 py-0.5 rounded text-xs font-black uppercase tracking-wide bg-amber-100 text-amber-800 border border-amber-300">
+                                        Box Low
+                                    </span>
+                                @endif
+
+                                @if($order['dispatched'])
+                                    <span class="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                        Dispatched
+                                    </span>
+                                @elseif($order['can_dispatch'])
+                                    <button
+                                        type="button"
+                                        @click="$dispatch('open-dispatch-order-modal', { orderId: {{ $order['id'] }} })"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition">
+                                        Dispatch
+                                    </button>
+                                @endif
                             </div>
                         </li>
                     @endforeach

@@ -118,6 +118,16 @@ class navSeeder extends Seeder
         Nav::create(['title' => 'My orders this month', 'route_name' => 'kitchen.orders.this-month', 'order' => 4, 'role_id' => $kitchenId]);
         Nav::create(['title' => 'Last 3 months', 'route_name' => 'kitchen.orders.last-three-months', 'order' => 5, 'role_id' => $kitchenId]);
 
+        $kitchenBoxesNav = Nav::create([
+            'title' => 'Middo boxes',
+            'route_name' => null,
+            'icon' => '📦',
+            'order' => 6,
+            'role_id' => $kitchenId,
+        ]);
+        Nav::create(['title' => 'Boxes at kitchen', 'route_name' => 'kitchen.middo-boxes.at-kitchen', 'order' => 1, 'role_id' => $kitchenId, 'parent_id' => $kitchenBoxesNav->id]);
+        Nav::create(['title' => 'Incoming', 'route_name' => 'kitchen.middo-boxes.incoming', 'order' => 2, 'role_id' => $kitchenId, 'parent_id' => $kitchenBoxesNav->id]);
+
         Nav::create(['title' => 'Dashboard', 'route_name' => 'delivery.dashboard', 'order' => 1, 'role_id' => $deliveryId]);
     }
 }

@@ -18,7 +18,11 @@ class AssignMiddoBoxesModal extends Component
 
     public ?int $selectedRiderId = null;
 
+    public ?int $selectedKitchenId = null;
+
     public array $riders = [];
+
+    public array $kitchens = [];
 
     #[On('open-assign-middo-boxes-modal')]
     public function openModal($boxIds = []): void
@@ -38,7 +42,9 @@ class AssignMiddoBoxesModal extends Component
 
         $this->resetErrorBag();
         $this->selectedRiderId = null;
+        $this->selectedKitchenId = null;
         $this->riders = $this->fetchRiders();
+        $this->kitchens = $this->fetchKitchens();
         $this->showModal = true;
     }
 
@@ -47,7 +53,9 @@ class AssignMiddoBoxesModal extends Component
         $this->showModal = false;
         $this->boxIds = [];
         $this->selectedRiderId = null;
+        $this->selectedKitchenId = null;
         $this->riders = [];
+        $this->kitchens = [];
     }
 
     public function save(): void
@@ -58,12 +66,14 @@ class AssignMiddoBoxesModal extends Component
 
         $this->validate([
             'selectedRiderId' => 'required|exists:users,id',
+            'selectedKitchenId' => 'required|exists:users,id',
         ]);
 
         $assignedCount = DB::transaction(function () {
             $boxes = MiddoBox::query()
                 ->whereIn('id', $this->boxIds)
                 ->where('asset_status', 'at_middo_warehouse')
+                ->lockForUpdate()
                 ->get();
 
             if ($boxes->isEmpty()) {
@@ -76,6 +86,7 @@ class AssignMiddoBoxesModal extends Component
                 ->whereIn('id', $boxIds)
                 ->update([
                     'held_by_user_id' => $this->selectedRiderId,
+                    'kitchen_id' => $this->selectedKitchenId,
                     'asset_status' => 'active',
                 ]);
 
@@ -104,6 +115,22 @@ class AssignMiddoBoxesModal extends Component
     {
         return User::query()
             ->whereHas('role', fn ($query) => $query->where('name', 'delivery'))
+            ->where('status', 'active')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+            ])
+            ->all();
+    }
+
+    protected function fetchKitchens(): array
+    {
+        return User::query()
+            ->whereHas('role', fn ($query) => $query->where('name', 'kitchen'))
+            ->where('status', 'active')
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get()

@@ -8,6 +8,8 @@ use App\Livewire\Kitchen\OrdersThisMonth;
 use App\Livewire\Kitchen\OrdersLastThreeMonths;
 use App\Livewire\Kitchen\MenuDetails;
 use App\Livewire\Kitchen\RecipeShow;
+use App\Livewire\Kitchen\BoxesAtKitchen;
+use App\Livewire\Kitchen\IncomingBoxes;
 
 // routes/web/kitchen.php
 Route::middleware(['auth', 'role:kitchen'])->group(function () {
@@ -18,6 +20,9 @@ Route::middleware(['auth', 'role:kitchen'])->group(function () {
     Route::get('/orders/active', ActiveOrders::class)->name('kitchen.orders.active');
 
     Route::get('/order-groups/middo', MiddoOrderGroups::class)->name('kitchen.order-groups.middo');
+
+    Route::get('/middo-boxes/at-kitchen', BoxesAtKitchen::class)->name('kitchen.middo-boxes.at-kitchen');
+    Route::get('/middo-boxes/incoming', IncomingBoxes::class)->name('kitchen.middo-boxes.incoming');
 
     Route::get('/menus/{menuItem}', MenuDetails::class)->name('kitchen.menus.show');
     Route::get('/menus/{menuItem}/meal-items/{mealItem}/recipe', RecipeShow::class)

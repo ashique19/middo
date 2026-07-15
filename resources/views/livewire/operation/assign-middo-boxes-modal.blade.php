@@ -4,7 +4,7 @@
             <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
                 <div class="flex items-start justify-between gap-4 mb-6">
                     <div>
-                        <h2 class="text-xl font-bold text-gray-800">Assign Boxes to Rider</h2>
+                        <h2 class="text-xl font-bold text-gray-800">Send Boxes to Kitchen</h2>
                         <p class="text-sm text-gray-500 mt-1">
                             Assigning <span class="font-semibold text-middo-dark">{{ count($boxIds) }}</span>
                             {{ str('box')->plural(count($boxIds)) }} from warehouse inventory.
@@ -19,6 +19,24 @@
                 </div>
 
                 <form wire:submit="save" class="space-y-5">
+                    <div>
+                        <label for="kitchen-select" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Destination kitchen
+                        </label>
+                        <select
+                            id="kitchen-select"
+                            wire:model="selectedKitchenId"
+                            class="w-full border border-gray-300 rounded-xl shadow-sm focus:border-middo-orange focus:ring-middo-orange p-3 text-sm">
+                            <option value="">Select a kitchen</option>
+                            @foreach($kitchens as $kitchen)
+                                <option value="{{ $kitchen['id'] }}">{{ $kitchen['name'] }}</option>
+                            @endforeach
+                        </select>
+                        @error('selectedKitchenId')
+                            <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
+                        @enderror
+                    </div>
+
                     <div>
                         <label for="rider-select" class="block text-sm font-semibold text-gray-700 mb-2">
                             Rider
@@ -37,9 +55,15 @@
                         @enderror
                     </div>
 
-                    @if($riders === [])
+                    @if($kitchens === [] || $riders === [])
                         <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                            No delivery riders found. Add a user with the delivery role first.
+                            @if($kitchens === [] && $riders === [])
+                                No active kitchens or delivery riders found.
+                            @elseif($kitchens === [])
+                                No active kitchens found. Activate a kitchen user first.
+                            @else
+                                No delivery riders found. Add a user with the delivery role first.
+                            @endif
                         </p>
                     @endif
 
@@ -53,10 +77,10 @@
                         <button
                             type="submit"
                             wire:loading.attr="disabled"
-                            @disabled($riders === [])
+                            @disabled($kitchens === [] || $riders === [])
                             class="px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
-                            <span wire:loading.remove wire:target="save">Assign Boxes</span>
-                            <span wire:loading wire:target="save">Assigning...</span>
+                            <span wire:loading.remove wire:target="save">Send to kitchen</span>
+                            <span wire:loading wire:target="save">Sending...</span>
                         </button>
                     </div>
                 </form>
