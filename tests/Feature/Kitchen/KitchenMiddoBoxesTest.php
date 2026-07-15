@@ -234,16 +234,17 @@ class KitchenMiddoBoxesTest extends TestCase
             'order_status' => 'processing',
         ]);
 
-        $this->assertDatabaseHas('middo_box_logs', [
+        $this->assertNotNull($order->fresh()->dispatched_at);
+
+        $this->assertDatabaseHas('order_middo_boxes', [
             'order_id' => $order->id,
             'middo_box_id' => $box1->id,
-            'log_action' => 'picked_by_delivery_from_kitchen',
         ]);
 
         $box1->refresh();
-        $this->assertNull($box1->kitchen_id);
-        $this->assertNull($box1->held_by_user_id);
-        $this->assertSame(1, $box1->total_uses_count);
+        $this->assertSame($this->kitchen->id, $box1->kitchen_id);
+        $this->assertSame($this->kitchen->id, $box1->held_by_user_id);
+        $this->assertSame(0, $box1->total_uses_count);
     }
 
     public function test_operation_assign_requires_kitchen_destination(): void

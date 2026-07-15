@@ -35,6 +35,10 @@ class BoxesAtKitchen extends Component
                     throw new \RuntimeException('This box is not in your kitchen inventory.');
                 }
 
+                if ($box->orderMiddoBoxes()->exists()) {
+                    throw new \RuntimeException('This box is reserved for a dispatched order.');
+                }
+
                 $box->update([
                     'kitchen_id' => null,
                     'held_by_user_id' => null,

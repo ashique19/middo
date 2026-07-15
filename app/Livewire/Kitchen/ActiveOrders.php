@@ -4,7 +4,6 @@ namespace App\Livewire\Kitchen;
 
 use App\Livewire\Kitchen\Concerns\FormatsOrderGroups;
 use App\Models\MiddoBox;
-use App\Models\MiddoBoxLog;
 use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Support\DispatchDeadline;
@@ -44,6 +43,7 @@ class ActiveOrders extends Component
     {
         $this->boxInventoryCount = MiddoBox::query()
             ->atKitchen(Auth::id())
+            ->whereDoesntHave('orderMiddoBoxes')
             ->count();
     }
 
@@ -85,10 +85,10 @@ class ActiveOrders extends Component
         $nextDeadline = DispatchDeadline::earliestForOrders($allOrders);
         $this->nextDispatchDeadlineIso = $nextDeadline?->toIso8601String();
 
-        $this->dispatchedOrderIds = MiddoBoxLog::query()
-            ->whereIn('order_id', $allOrders->pluck('id')->filter()->all() ?: [0])
-            ->where('log_action', 'picked_by_delivery_from_kitchen')
-            ->pluck('order_id')
+        $this->dispatchedOrderIds = Order::query()
+            ->whereIn('id', $allOrders->pluck('id')->filter()->all() ?: [0])
+            ->whereNotNull('dispatched_at')
+            ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->unique()
             ->values()

@@ -3,8 +3,8 @@
 namespace App\Livewire\Kitchen;
 
 use App\Models\MiddoBox;
-use App\Models\MiddoBoxLog;
 use App\Models\Order;
+use App\Models\OrderMiddoBox;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
@@ -44,7 +44,7 @@ class DispatchOrderModal extends Component
             return;
         }
 
-        if (! in_array($order->order_status, ['pending', 'processing'], true)) {
+        if (! in_array($order->order_status, ['pending', 'processing'], true) || $order->dispatched_at !== null) {
             return;
         }
 
@@ -56,6 +56,7 @@ class DispatchOrderModal extends Component
         $this->selectedBoxIds = [];
         $this->availableBoxes = MiddoBox::query()
             ->atKitchen($kitchenId)
+            ->whereDoesntHave('orderMiddoBoxes')
             ->orderBy('qr_code_id')
             ->get()
             ->map(fn (MiddoBox $box) => [
@@ -129,12 +130,7 @@ class DispatchOrderModal extends Component
                     throw new \RuntimeException('This order is no longer active.');
                 }
 
-                $alreadyDispatched = MiddoBoxLog::query()
-                    ->where('order_id', $order->id)
-                    ->where('log_action', 'picked_by_delivery_from_kitchen')
-                    ->exists();
-
-                if ($alreadyDispatched) {
+                if ($order->dispatched_at !== null) {
                     throw new \RuntimeException('This order has already been dispatched.');
                 }
 
@@ -152,24 +148,23 @@ class DispatchOrderModal extends Component
                         throw new \RuntimeException("{$box->qr_code_id} is not in your kitchen inventory.");
                     }
 
-                    $box->update([
-                        'held_by_user_id' => null,
-                        'kitchen_id' => null,
-                        'asset_status' => 'active',
-                        'total_uses_count' => $box->total_uses_count + 1,
-                        'last_scanned_at' => now(),
-                    ]);
+                    if (OrderMiddoBox::query()->where('middo_box_id', $box->id)->exists()) {
+                        throw new \RuntimeException("{$box->qr_code_id} is already reserved for another order.");
+                    }
 
-                    MiddoBoxLog::create([
+                    OrderMiddoBox::create([
                         'order_id' => $order->id,
                         'middo_box_id' => $box->id,
-                        'custody_status' => 'in_transit',
-                        'log_action' => 'picked_by_delivery_from_kitchen',
+                    ]);
+
+                    $box->update([
+                        'last_scanned_at' => now(),
                     ]);
                 }
 
                 $order->update([
                     'order_status' => 'processing',
+                    'dispatched_at' => now(),
                     'updated_by' => $kitchenId,
                 ]);
             });

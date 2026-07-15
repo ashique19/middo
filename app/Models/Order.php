@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
@@ -20,12 +21,15 @@ class Order extends Model
         'address',
         'order_status',
         'payment_status',
+        'dispatched_at',
+        'delivery_rider_id',
         'created_by',
         'updated_by',
     ];
 
     protected $casts = [
         'delivery_date' => 'date',
+        'dispatched_at' => 'datetime',
         'quantity' => 'integer',
         'total_amount' => 'integer',
     ];
@@ -53,6 +57,41 @@ class Order extends Model
     public function middoBoxLogs(): HasMany
     {
         return $this->hasMany(MiddoBoxLog::class);
+    }
+
+    public function orderMiddoBoxes(): HasMany
+    {
+        return $this->hasMany(OrderMiddoBox::class);
+    }
+
+    public function middoBoxes(): BelongsToMany
+    {
+        return $this->belongsToMany(MiddoBox::class, 'order_middo_boxes')
+            ->withTimestamps();
+    }
+
+    public function deliveryRider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'delivery_rider_id');
+    }
+
+    public function isKitchenDispatched(): bool
+    {
+        return $this->dispatched_at !== null;
+    }
+
+    public function isAwaitingRiderAccept(): bool
+    {
+        return $this->isKitchenDispatched()
+            && $this->delivery_rider_id === null
+            && $this->order_status === 'processing';
+    }
+
+    public function scopeKitchenDispatched($query)
+    {
+        return $query
+            ->whereNotNull('dispatched_at')
+            ->where('order_status', 'processing');
     }
 
     public function logs(): HasMany

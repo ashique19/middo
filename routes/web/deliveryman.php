@@ -1,9 +1,13 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Delivery\DashboardController;
+use App\Livewire\Delivery\Dashboard;
+use App\Livewire\Delivery\KitchenDispatches;
+use App\Livewire\Delivery\PendingBoxRuns;
 
-// routes/web/delivery.php
+// routes/web/deliveryman.php
 Route::middleware(['auth', 'role:delivery'])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('delivery.dashboard');
+    Route::get('/dashboard', Dashboard::class)->name('delivery.dashboard');
+    Route::get('/kitchen-dispatches', KitchenDispatches::class)->name('delivery.kitchen-dispatches');
+    Route::get('/middo-boxes/pending-run', PendingBoxRuns::class)->name('delivery.middo-boxes.pending-run');
 });

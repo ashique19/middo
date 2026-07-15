@@ -40,6 +40,11 @@ class MiddoBox extends Model
         return $this->hasMany(MiddoBoxLog::class);
     }
 
+    public function orderMiddoBoxes(): HasMany
+    {
+        return $this->hasMany(OrderMiddoBox::class);
+    }
+
     public function scopeAtKitchen(Builder $query, int $kitchenId): Builder
     {
         return $query
