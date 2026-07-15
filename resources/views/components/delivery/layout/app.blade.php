@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    @livewireStyles
+
+    <title>{{ $title ?? 'Delivery' }} | Middo</title>
+    <link rel="icon" type="image/x-icon" href="{{ asset('img/settings/favicon.ico') }}">
+</head>
+<body class="bg-gray-50 text-middo-dark font-sans overflow-x-hidden">
+    <div class="min-h-screen flex">
+        <x-layouts.private.sidebar />
+
+        <div class="flex-1 flex flex-col">
+            <x-layouts.private.topbar />
+
+            <div class="flex-1 flex flex-col transition-all duration-300">
+                {{ $slot }}
+            </div>
+        </div>
+    </div>
+
+    <x-layouts.private.footer />
+
+    @auth
+        <livewire:account.profile-modal />
+        <livewire:account.profile-edit-modal />
+        <livewire:account.change-password-modal />
+        <livewire:delivery.payment-modal />
+    @endauth
+
+    @livewireScripts
+</body>
+</html>

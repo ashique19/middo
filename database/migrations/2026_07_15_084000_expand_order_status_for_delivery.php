@@ -29,6 +29,15 @@ return new class extends Migration
             return;
         }
 
+        // Map expanded statuses back so the narrower ENUM can apply.
+        DB::table('orders')
+            ->where('order_status', 'on_the_way_to_delivery')
+            ->update(['order_status' => 'processing']);
+
+        DB::table('orders')
+            ->where('order_status', 'delivered_and_paid')
+            ->update(['order_status' => 'delivered']);
+
         DB::statement("ALTER TABLE orders MODIFY order_status ENUM(
             'pending',
             'processing',
