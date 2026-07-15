@@ -29,7 +29,7 @@ class DispatchOrderModal extends Component
     public ?string $errorMessage = null;
 
     #[On('open-dispatch-order-modal')]
-    public function openModal($orderId = null): void
+    public function openModal(mixed $orderId = null): void
     {
         $id = is_array($orderId) ? ($orderId['orderId'] ?? null) : $orderId;
 
@@ -40,11 +40,26 @@ class DispatchOrderModal extends Component
         $kitchenId = Auth::id();
         $order = Order::with(['menuItem', 'orderGroup'])->find((int) $id);
 
-        if (! $order || $order->orderGroup?->kitchen_id !== $kitchenId) {
+        if (! $order || (int) $order->orderGroup?->kitchen_id !== (int) $kitchenId) {
+            $this->errorMessage = 'Order not found for your kitchen.';
+            $this->showModal = true;
+            $this->orderLabel = 'Unavailable';
+            $this->requiredQuantity = 0;
+            $this->availableBoxes = [];
+            $this->selectedBoxIds = [];
+
             return;
         }
 
         if (! in_array($order->order_status, ['pending', 'processing'], true) || $order->dispatched_at !== null) {
+            $this->errorMessage = 'This order can no longer be dispatched.';
+            $this->showModal = true;
+            $this->orderId = $order->id;
+            $this->orderLabel = '#'.$order->id;
+            $this->requiredQuantity = (int) $order->quantity;
+            $this->availableBoxes = [];
+            $this->selectedBoxIds = [];
+
             return;
         }
 

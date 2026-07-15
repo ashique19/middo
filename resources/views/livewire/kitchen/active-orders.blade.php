@@ -95,7 +95,7 @@
                                 @elseif($order['can_dispatch'])
                                     <button
                                         type="button"
-                                        @click="$dispatch('open-dispatch-order-modal', { orderId: {{ $order['id'] }} })"
+                                        wire:click="$dispatch('open-dispatch-order-modal', { orderId: {{ $order['id'] }} })"
                                         class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition">
                                         Dispatch
                                     </button>
