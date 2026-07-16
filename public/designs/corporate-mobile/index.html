@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Middo Corporate — iOS & Android App UI</title>
+  <link rel="stylesheet" href="./assets/styles.css" />
+</head>
+<body>
+  <div class="showcase">
+    <header class="showcase-header">
+      <div class="brand-lockup">
+        <div class="brand-mark">M</div>
+        <div>
+          <h1>Middo Corporate App UI</h1>
+          <p>Native-feel iOS & Android designs for the corporate role</p>
+        </div>
+      </div>
+      <div class="platform-toggle" role="group" aria-label="Platform">
+        <button type="button" id="btn-ios" aria-pressed="true">iOS</button>
+        <button type="button" id="btn-android" aria-pressed="false">Android</button>
+      </div>
+    </header>
+
+    <nav class="screen-nav" id="screen-nav" aria-label="Screens">
+      <button type="button" data-screen="login" aria-current="true">Login</button>
+      <button type="button" data-screen="home">Home</button>
+      <button type="button" data-screen="menu">Menu</button>
+      <button type="button" data-screen="checkout">Checkout</button>
+      <button type="button" data-screen="schedule">Schedule</button>
+      <button type="button" data-screen="track">Track</button>
+      <button type="button" data-screen="history">History</button>
+      <button type="button" data-screen="wallet">Wallet</button>
+      <button type="button" data-screen="support">Support</button>
+    </nav>
+
+    <div class="stage">
+      <aside class="spec-panel" id="spec-panel">
+        <h2 id="spec-title">Login</h2>
+        <p class="lede" id="spec-lede">Secure corporate sign-in with Middo branding and a clear path into the office lunch workspace.</p>
+        <ul class="spec-list" id="spec-list">
+          <li>Email + password fields with Middo focus states</li>
+          <li>Primary CTA lands on Corporate Home</li>
+          <li>Secondary path to forgot password / registration</li>
+        </ul>
+        <div class="token-row" aria-label="Brand colors">
+          <span class="swatch" style="background:#F7F4EB" title="Cream"></span>
+          <span class="swatch" style="background:#1E4630" title="Forest"></span>
+          <span class="swatch" style="background:#AB3F00" title="Orange"></span>
+          <span class="swatch" style="background:#2B1A11" title="Ink"></span>
+          <span class="swatch" style="background:#EFE9DC" title="Cream deep"></span>
+        </div>
+        <p class="platform-note" id="platform-note">
+          iOS: Dynamic Island, floating glass tab bar, large titles, home indicator.
+        </p>
+      </aside>
+
+      <div class="devices">
+        <!-- iOS Device -->
+        <div class="device ios" id="device-ios">
+          <div class="device-screen">
+            <div class="device-notch" aria-hidden="true"></div>
+            <div class="app">
+              <div class="status-bar">
+                <span>9:41</span>
+                <div class="status-icons" aria-hidden="true"><span></span></div>
+              </div>
+              <div class="app-body" id="ios-screens">
+                <!-- screens injected via template clones -->
+              </div>
+              <nav class="tabbar" id="ios-tabbar" data-tabs hidden>
+                <button class="tab active" data-go="home" type="button">
+                  <span class="tab-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z"/></svg></span>
+                  Home
+                </button>
+                <button class="tab" data-go="menu" type="button">
+                  <span class="tab-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></span>
+                  Menu
+                </button>
+                <button class="tab" data-go="schedule" type="button">
+                  <span class="tab-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 3v3m8-3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></span>
+                  Schedule
+                </button>
+                <button class="tab" data-go="wallet" type="button">
+                  <span class="tab-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16v12H4V7Zm0 4h16M16 14h2"/></svg></span>
+                  Wallet
+                </button>
+              </nav>
+              <div class="home-indicator" aria-hidden="true"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Android Device -->
+        <div class="device android hidden-platform" id="device-android">
+          <div class="device-screen">
+            <div class="device-notch" aria-hidden="true"></div>
+            <div class="app">
+              <div class="status-bar">
+                <span>9:41</span>
+                <div class="status-icons" aria-hidden="true"><span></span></div>
+              </div>
+              <div class="app-body" id="android-screens"></div>
+              <nav class="tabbar" id="android-tabbar" data-tabs hidden>
+                <button class="tab active" data-go="home" type="button">
+                  <span class="tab-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z"/></svg></span>
+                  Home
+                </button>
+                <button class="tab" data-go="menu" type="button">
+                  <span class="tab-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></span>
+                  Menu
+                </button>
+                <button class="tab" data-go="schedule" type="button">
+                  <span class="tab-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 3v3m8-3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></span>
+                  Schedule
+                </button>
+                <button class="tab" data-go="wallet" type="button">
+                  <span class="tab-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16v12H4V7Zm0 4h16M16 14h2"/></svg></span>
+                  Wallet
+                </button>
+              </nav>
+              <div class="home-indicator" aria-hidden="true"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen templates -->
+  <template id="tpl-login">
+    <div class="screen" data-screen="login">
+      <div class="scroll" style="padding-bottom:28px">
+        <div class="hero-login">
+          <div class="brand">
+            <em>Middo Corporate</em>
+            <div class="page-title" style="font-size:26px">Office lunches,<br/>zero hassle.</div>
+          </div>
+        </div>
+        <p class="page-sub">Sign in to schedule thalis, track Middo Boxes, and manage your company balance.</p>
+        <div class="field">
+          <label>Work email</label>
+          <input type="email" value="corporate@middo.com" readonly />
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" value="password" readonly />
+        </div>
+        <button class="btn primary full" data-go="home" type="button" style="margin-top:8px">Sign In</button>
+        <button class="btn ghost full" type="button" style="margin-top:8px">Forgot password?</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-home">
+    <div class="screen" data-screen="home">
+      <div class="scroll">
+        <div class="profile-chip">
+          <div class="avatar">A</div>
+          <div>
+            <strong style="font-size:14px;font-weight:800">Acme BD Ltd</strong>
+            <div style="font-size:11px;font-weight:700;color:var(--ink-soft)">Balance ৳12,450</div>
+          </div>
+        </div>
+        <h1 class="page-title">Good morning</h1>
+        <p class="page-sub">Manage today’s office lunches from one place.</p>
+
+        <button class="cta-banner" data-go="menu" type="button">
+          <span class="icon">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </span>
+          <span>
+            <strong>Browse Menu</strong>
+            <span>Explore today’s thalis & place an order</span>
+          </span>
+        </button>
+
+        <div class="kpi-row">
+          <div class="kpi dark">
+            <div class="label">Active orders</div>
+            <div class="value">3</div>
+            <div class="hint">In production</div>
+          </div>
+          <div class="kpi light">
+            <div class="label">Next meal</div>
+            <div class="value" style="font-size:18px">12:00 PM</div>
+            <div class="hint">Delivery 11:30</div>
+          </div>
+        </div>
+        <div class="kpi dark" style="margin-top:10px">
+          <div class="label">Monthly spend</div>
+          <div class="value">৳48,200</div>
+          <div class="hint">Saved ~৳4,820 this month</div>
+        </div>
+
+        <div class="section-head">
+          <h3>Upcoming lunches</h3>
+          <button class="link-chip" data-go="schedule" type="button">See all</button>
+        </div>
+
+        <article class="meal-card">
+          <img src="/img/menu/menu-1.jpg" alt="Chicken Biryani Thali" />
+          <div class="body">
+            <div class="meta">
+              <span>Jul 17, 2026</span>
+              <span style="color:var(--orange)">Qty 12</span>
+            </div>
+            <h4>Chicken Biryani Thali</h4>
+            <div class="badge-row">
+              <span class="badge amber">Confirmed</span>
+              <span class="badge green">Paid</span>
+            </div>
+            <div class="actions">
+              <button class="btn secondary" data-go="track" type="button">Track</button>
+              <button class="btn ghost" data-go="support" type="button">Support</button>
+            </div>
+          </div>
+        </article>
+
+        <div class="section-head">
+          <h3>Quick tools</h3>
+        </div>
+        <div class="quick-grid">
+          <button class="quick-tile" data-go="wallet" type="button">
+            <svg width="18" height="18" fill="none" stroke="var(--orange)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            <strong>Add Money</strong>
+            <span>Top up Middo balance</span>
+          </button>
+          <button class="quick-tile" data-go="support" type="button">
+            <svg width="18" height="18" fill="none" stroke="var(--forest)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8Z"/></svg>
+            <strong>Support</strong>
+            <span>Order help & complaints</span>
+          </button>
+          <button class="quick-tile" data-go="history" type="button">
+            <svg width="18" height="18" fill="none" stroke="var(--ink-soft)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+            <strong>History</strong>
+            <span>Past office lunches</span>
+          </button>
+          <button class="quick-tile" type="button">
+            <svg width="18" height="18" fill="none" stroke="var(--orange)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7H4m16 0v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7m16 0-2-3H6L4 7"/></svg>
+            <strong>Return Box</strong>
+            <span>0 Middo Boxes ready</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-menu">
+    <div class="screen" data-screen="menu">
+      <div class="scroll">
+        <h1 class="page-title">Today’s Menu</h1>
+        <p class="page-sub">Curated thalis for Gulshan & Banani offices.</p>
+        <div class="filter-row">
+          <button class="chip active" type="button">All</button>
+          <button class="chip" type="button">Thalis</button>
+          <button class="chip" type="button">Light</button>
+          <button class="chip" type="button">Veg</button>
+          <button class="chip" type="button">Protein</button>
+        </div>
+
+        <button class="menu-item" data-go="checkout" type="button">
+          <img src="/img/menu/menu-2.jpg" alt="Beef Tehari Combo" />
+          <div>
+            <h4>Beef Tehari Combo</h4>
+            <p>Fragrant tehari, salad, raita & dessert</p>
+            <div class="price-row">
+              <span class="price">৳420</span>
+              <span class="badge orange">Order</span>
+            </div>
+          </div>
+        </button>
+        <button class="menu-item" data-go="checkout" type="button">
+          <img src="/img/menu/menu-3.jpg" alt="Grilled Fish Bowl" />
+          <div>
+            <h4>Grilled Fish Bowl</h4>
+            <p>Light lunch with greens & lemon rice</p>
+            <div class="price-row">
+              <span class="price">৳390</span>
+              <span class="badge orange">Order</span>
+            </div>
+          </div>
+        </button>
+        <button class="menu-item" data-go="checkout" type="button">
+          <img src="/img/menu/menu-4.jpg" alt="Veg Kichuri Thali" />
+          <div>
+            <h4>Veg Kichuri Thali</h4>
+            <p>Comfort bowl with bhaji & boiled egg</p>
+            <div class="price-row">
+              <span class="price">৳320</span>
+              <span class="badge orange">Order</span>
+            </div>
+          </div>
+        </button>
+        <button class="menu-item" data-go="checkout" type="button">
+          <img src="/img/menu/menu-5.jpg" alt="Chicken Bhuna Plate" />
+          <div>
+            <h4>Chicken Bhuna Plate</h4>
+            <p>Office favorite with paratha & salad</p>
+            <div class="price-row">
+              <span class="price">৳380</span>
+              <span class="badge orange">Order</span>
+            </div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-checkout">
+    <div class="screen" data-screen="checkout">
+      <div class="scroll" style="padding-bottom:150px">
+        <div class="topbar">
+          <button class="back" data-go="menu" type="button" aria-label="Back">←</button>
+          <div>
+            <div style="font-size:11px;font-weight:800;color:var(--orange);text-transform:uppercase;letter-spacing:.06em">New order</div>
+            <strong style="font-size:16px;font-weight:800">Checkout</strong>
+          </div>
+        </div>
+
+        <div class="checkout-hero">
+          <img src="/img/menu/menu-2.jpg" alt="Beef Tehari Combo" />
+          <div class="body">
+            <h4 style="font-size:17px;font-weight:800">Beef Tehari Combo</h4>
+            <p style="font-size:12px;color:var(--ink-soft);font-weight:600;margin-top:4px">Unit price ৳420 · Desk-side delivery</p>
+          </div>
+        </div>
+
+        <h3 style="font-size:13px;font-weight:800;margin-bottom:4px">Delivery dates & quantities</h3>
+        <p style="font-size:11px;color:var(--ink-soft);font-weight:600;margin-bottom:8px">Same-day cutoff open · closes in 02h 14m</p>
+        <div class="date-grid">
+          <div class="date-cell active"><div class="d">Thu</div><div class="n">17</div><div class="q">×12</div></div>
+          <div class="date-cell"><div class="d">Fri</div><div class="n">18</div><div class="q">×0</div></div>
+          <div class="date-cell"><div class="d">Sun</div><div class="n">20</div><div class="q">×0</div></div>
+          <div class="date-cell"><div class="d">Mon</div><div class="n">21</div><div class="q">×0</div></div>
+          <div class="date-cell"><div class="d">Tue</div><div class="n">22</div><div class="q">×0</div></div>
+          <div class="date-cell"><div class="d">Wed</div><div class="n">23</div><div class="q">×0</div></div>
+        </div>
+
+        <div class="summary-box">
+          <div class="summary-row"><span>Meals</span><span>12 × ৳420</span></div>
+          <div class="summary-row"><span>Delivery window</span><span>11:30–12:00</span></div>
+          <div class="summary-row"><span>Pay from</span><span>Middo Balance</span></div>
+          <div class="summary-row total"><span>Total</span><span>৳5,040</span></div>
+        </div>
+      </div>
+      <div class="sticky-cta">
+        <button class="btn dark full" data-go="schedule" type="button">Confirm & Schedule</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-schedule">
+    <div class="screen" data-screen="schedule">
+      <div class="scroll">
+        <div class="topbar">
+          <button class="back" data-go="home" type="button" aria-label="Back">←</button>
+          <div>
+            <h1 class="page-title" style="font-size:24px;margin:0">Scheduled</h1>
+          </div>
+        </div>
+        <p class="page-sub">3 upcoming orders on your calendar.</p>
+        <button class="btn primary full" data-go="menu" type="button" style="margin-bottom:16px">Place New Order</button>
+
+        <article class="meal-card">
+          <img src="/img/menu/menu-1.jpg" alt="Chicken Biryani Thali" />
+          <div class="body">
+            <div class="meta"><span>Jul 17 · 12:00 PM</span><span>Qty 12</span></div>
+            <h4>Chicken Biryani Thali</h4>
+            <div class="badge-row">
+              <span class="badge amber">Confirmed</span>
+              <span class="badge green">Paid</span>
+            </div>
+            <div class="actions">
+              <button class="btn secondary" data-go="track" type="button">Track</button>
+              <button class="btn ghost" type="button">Edit</button>
+            </div>
+          </div>
+        </article>
+        <article class="meal-card">
+          <img src="/img/menu/menu-6.jpg" alt="Paneer Butter Masala" />
+          <div class="body">
+            <div class="meta"><span>Jul 18 · 12:00 PM</span><span>Qty 8</span></div>
+            <h4>Paneer Butter Masala</h4>
+            <div class="badge-row">
+              <span class="badge amber">Pending</span>
+              <span class="badge green">Paid</span>
+            </div>
+            <div class="actions">
+              <button class="btn secondary" data-go="track" type="button">Track</button>
+              <button class="btn ghost" type="button">Edit</button>
+            </div>
+          </div>
+        </article>
+        <article class="meal-card">
+          <img src="/img/menu/menu-7.jpg" alt="Fish Curry Rice" />
+          <div class="body">
+            <div class="meta"><span>Jul 21 · 12:00 PM</span><span>Qty 15</span></div>
+            <h4>Fish Curry Rice</h4>
+            <div class="badge-row">
+              <span class="badge amber">Confirmed</span>
+              <span class="badge green">Paid</span>
+            </div>
+            <div class="actions">
+              <button class="btn secondary" data-go="track" type="button">Track</button>
+              <button class="btn ghost" type="button">Edit</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-track">
+    <div class="screen" data-screen="track">
+      <div class="scroll">
+        <div class="topbar">
+          <button class="back" data-go="schedule" type="button" aria-label="Back">←</button>
+          <div>
+            <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase">Order #1842</div>
+            <strong style="font-size:16px;font-weight:800">Track Order</strong>
+          </div>
+        </div>
+
+        <div class="summary-box">
+          <div class="summary-row"><span>Meal</span><span>Chicken Biryani Thali</span></div>
+          <div class="summary-row"><span>Status</span><span style="color:var(--forest)">Out for delivery</span></div>
+          <div class="summary-row"><span>Total</span><span style="color:var(--orange)">৳5,040</span></div>
+        </div>
+
+        <div class="timeline">
+          <div class="tl-item">
+            <div class="dot live"></div>
+            <div>
+              <h5>Rider en route to office</h5>
+              <p>Courier has left Middo warehouse with sealed Middo Boxes.</p>
+              <time>Jul 17 · 11:18 AM</time>
+            </div>
+          </div>
+          <div class="tl-item">
+            <div class="dot"></div>
+            <div>
+              <h5>Packed at kitchen</h5>
+              <p>Quality check passed · thermal boxes sealed.</p>
+              <time>Jul 17 · 10:42 AM</time>
+            </div>
+          </div>
+          <div class="tl-item">
+            <div class="dot"></div>
+            <div>
+              <h5>Kitchen accepted</h5>
+              <p>Order assigned to partner kitchen for today’s run.</p>
+              <time>Jul 17 · 8:05 AM</time>
+            </div>
+          </div>
+          <div class="tl-item">
+            <div class="dot"></div>
+            <div>
+              <h5>Order confirmed</h5>
+              <p>Paid from Middo Balance · scheduled for desk delivery.</p>
+              <time>Jul 16 · 4:21 PM</time>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn secondary full" data-go="support" type="button" style="margin-top:8px">Report an issue</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-history">
+    <div class="screen" data-screen="history">
+      <div class="scroll">
+        <div class="topbar">
+          <button class="back" data-go="home" type="button" aria-label="Back">←</button>
+          <h1 class="page-title" style="font-size:24px;margin:0">History</h1>
+        </div>
+        <p class="page-sub">Recent office lunches this billing cycle.</p>
+
+        <article class="meal-card" style="opacity:.92">
+          <img src="/img/menu/menu-8.jpg" alt="Mutton Kacchi" />
+          <div class="body">
+            <div class="meta"><span>Jul 15, 2026</span><span>Qty 10</span></div>
+            <h4>Mutton Kacchi</h4>
+            <div class="badge-row">
+              <span class="badge gray">Delivered</span>
+            </div>
+            <div class="actions">
+              <button class="btn secondary" data-go="menu" type="button">Reorder</button>
+              <button class="btn ghost" data-go="support" type="button">Feedback</button>
+            </div>
+          </div>
+        </article>
+        <article class="meal-card" style="opacity:.92">
+          <img src="/img/menu/menu-9.jpg" alt="Chicken Roast Thali" />
+          <div class="body">
+            <div class="meta"><span>Jul 14, 2026</span><span>Qty 14</span></div>
+            <h4>Chicken Roast Thali</h4>
+            <div class="badge-row">
+              <span class="badge gray">Delivered</span>
+            </div>
+            <div class="actions">
+              <button class="btn secondary" data-go="menu" type="button">Reorder</button>
+              <button class="btn ghost" data-go="support" type="button">Feedback</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-wallet">
+    <div class="screen" data-screen="wallet">
+      <div class="scroll">
+        <h1 class="page-title">Wallet</h1>
+        <p class="page-sub">Fund lunches from your secure Middo Balance.</p>
+
+        <div class="balance-card">
+          <div class="label">Available balance</div>
+          <div class="amount">৳12,450</div>
+          <div class="actions">
+            <button class="btn" style="background:#fff;color:var(--forest)" type="button">Add Money</button>
+            <button class="btn" style="background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.25)" data-go="home" type="button">Profile</button>
+          </div>
+        </div>
+
+        <h3 style="font-size:13px;font-weight:800;margin-bottom:4px">Quick top-up</h3>
+        <div class="amount-grid">
+          <button class="amount-opt" type="button">৳2,000</button>
+          <button class="amount-opt active" type="button">৳5,000</button>
+          <button class="amount-opt" type="button">৳10,000</button>
+        </div>
+        <div class="field">
+          <label>Custom amount</label>
+          <input type="text" value="5000" readonly />
+        </div>
+        <button class="btn primary full" type="button">Continue to payment</button>
+
+        <div class="section-head"><h3>Account</h3></div>
+        <div class="summary-box">
+          <div class="summary-row"><span>Company</span><span>Acme BD Ltd</span></div>
+          <div class="summary-row"><span>Delivery area</span><span>Gulshan 1</span></div>
+          <div class="summary-row"><span>Contact</span><span>corporate@middo.com</span></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-support">
+    <div class="screen" data-screen="support">
+      <div class="scroll" style="display:flex;flex-direction:column">
+        <div class="topbar">
+          <button class="back" data-go="home" type="button" aria-label="Back">←</button>
+          <div>
+            <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase">Order #1842</div>
+            <strong style="font-size:16px;font-weight:800">Complaint / Support</strong>
+          </div>
+        </div>
+
+        <div class="summary-box" style="margin-bottom:14px">
+          <div class="summary-row"><span>Date</span><span>Jul 17 · 12:00 PM</span></div>
+          <div class="summary-row"><span>Meal</span><span>Chicken Biryani Thali</span></div>
+        </div>
+
+        <div class="chat">
+          <div class="bubble me">
+            <div class="who">You · Missing item</div>
+            Two boxes arrived without raita cups for the Banani floor.
+          </div>
+          <div class="bubble them">
+            <div class="who">Middo Support</div>
+            Sorry about that — we’ve flagged the rider. A replacement will arrive within 25 minutes.
+          </div>
+        </div>
+
+        <div class="composer">
+          <input type="text" placeholder="Describe the issue…" readonly />
+          <button class="btn primary" type="button">Send</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script src="./assets/app.js"></script>
+</body>
+</html>
