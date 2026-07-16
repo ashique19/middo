@@ -6,7 +6,7 @@ use Illuminate\Database\Seeder;
 use App\Models\Nav;
 use App\Models\Role;
 
-class navSeeder extends Seeder
+class NavSeeder extends Seeder
 {
     /**
      * Run the database seeds.

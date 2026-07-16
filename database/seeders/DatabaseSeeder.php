@@ -15,11 +15,11 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            citySeeder::class,
+            CitySeeder::class,
             AreaSeeder::class,
             RolePermissionSeeder::class,
-            navSeeder::class,
-            userSeeder::class,
+            NavSeeder::class,
+            UserSeeder::class,
             MenuItemSeeder::class,
             MealItemTestSeeder::class,
             MiddoBoxTestSeeder::class,

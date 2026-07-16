@@ -1,13 +1,13 @@
 import '../models/models.dart';
 
-/// In-memory data that mirrors Middo corporate web flows.
-/// Swap this for a Sanctum-backed API client later.
+/// Offline demo data used when `USE_MOCK=true`.
 class MockRepository {
   MockRepository._();
   static final instance = MockRepository._();
 
   final user = const CorporateUser(
     companyName: 'Acme BD Ltd',
+    mobile: '01310123452',
     email: 'corporate@middo.com',
     balance: 12450,
     area: 'Gulshan 1',
@@ -108,13 +108,13 @@ class MockRepository {
   List<CorporateOrder> get historyOrders => [
         CorporateOrder(
           id: '1830',
-          menuItem: MenuItem(
+          menuItem: const MenuItem(
             id: 'm8',
             name: 'Mutton Kacchi',
             description: 'Weekend special for the team',
             price: 520,
             imageAsset: 'assets/images/menu-8.jpg',
-            tags: const ['Protein'],
+            tags: ['Protein'],
           ),
           deliveryDate: DateTime(2026, 7, 15),
           deliveryTime: '12:00 PM',
@@ -126,13 +126,13 @@ class MockRepository {
         ),
         CorporateOrder(
           id: '1828',
-          menuItem: MenuItem(
+          menuItem: const MenuItem(
             id: 'm9',
             name: 'Chicken Roast Thali',
             description: 'Roast, rice, salad & dessert',
             price: 400,
             imageAsset: 'assets/images/menu-9.jpg',
-            tags: const ['Thalis'],
+            tags: ['Thalis'],
           ),
           deliveryDate: DateTime(2026, 7, 14),
           deliveryTime: '12:00 PM',

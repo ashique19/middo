@@ -2,22 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../data/mock_repository.dart';
+import '../app_scope.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
 
-class TrackScreen extends StatelessWidget {
+class TrackScreen extends StatefulWidget {
   const TrackScreen({super.key, required this.orderId});
 
   final String orderId;
 
   @override
-  Widget build(BuildContext context) {
-    final repo = MockRepository.instance;
-    final order = repo.orderById(orderId);
-    final events = repo.trackEventsFor(orderId);
+  State<TrackScreen> createState() => _TrackScreenState();
+}
 
+class _TrackScreenState extends State<TrackScreen> {
+  Future<({CorporateOrder order, List<TrackEvent> events})>? _future;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _future ??= AppScope.of(context).track(widget.orderId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -28,7 +37,7 @@ class TrackScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'ORDER #$orderId',
+              'ORDER #${widget.orderId}',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: MiddoColors.muted,
                     fontWeight: FontWeight.w800,
@@ -39,44 +48,69 @@ class TrackScreen extends StatelessWidget {
           ],
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: MiddoColors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: MiddoColors.creamBorder),
-            ),
-            child: Column(
-              children: [
-                _meta('Meal', order.menuItem.name),
-                _meta(
-                  'Status',
-                  order.statusLabel,
-                  valueColor: MiddoColors.forest,
+      body: FutureBuilder(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text(snapshot.error.toString()));
+          }
+          final data = snapshot.data!;
+          final order = data.order;
+          final events = data.events;
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: MiddoColors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: MiddoColors.creamBorder),
                 ),
-                _meta(
-                  'Total',
-                  bdt.format(order.totalAmount),
-                  valueColor: MiddoColors.orange,
+                child: Column(
+                  children: [
+                    _meta('Meal', order.menuItem.name),
+                    _meta(
+                      'Status',
+                      order.statusLabel,
+                      valueColor: MiddoColors.forest,
+                    ),
+                    _meta(
+                      'Total',
+                      bdt.format(order.totalAmount),
+                      valueColor: MiddoColors.orange,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          ...List.generate(events.length, (index) {
-            final event = events[index];
-            final last = index == events.length - 1;
-            return _TimelineTile(event: event, isLast: last);
-          }),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: () => context.push('/support/$orderId'),
-            child: const Text('Report an issue'),
-          ),
-        ],
+              ),
+              const SizedBox(height: 18),
+              if (events.isEmpty)
+                const Text(
+                  'No activity recorded for this order yet.',
+                  style: TextStyle(
+                    color: MiddoColors.inkSoft,
+                    fontWeight: FontWeight.w600,
+                  ),
+                )
+              else
+                ...List.generate(events.length, (index) {
+                  return _TimelineTile(
+                    event: events[index],
+                    isLast: index == events.length - 1,
+                  );
+                }),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () => context.push('/support/${widget.orderId}'),
+                child: const Text('Report an issue'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

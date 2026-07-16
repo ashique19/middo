@@ -90,11 +90,7 @@ class MealOrderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Image.asset(
-            order.menuItem.imageAsset,
-            height: 120,
-            fit: BoxFit.cover,
-          ),
+          MealImage(item: order.menuItem, height: 120),
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
             child: Column(
@@ -258,6 +254,50 @@ class KpiCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class MealImage extends StatelessWidget {
+  const MealImage({
+    super.key,
+    required this.item,
+    this.height,
+    this.width,
+    this.borderRadius = 0,
+  });
+
+  final MenuItem item;
+  final double? height;
+  final double? width;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = item.hasNetworkImage
+        ? Image.network(
+            item.imageUrl!,
+            height: height,
+            width: width,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Image.asset(
+              item.imageAsset,
+              height: height,
+              width: width,
+              fit: BoxFit.cover,
+            ),
+          )
+        : Image.asset(
+            item.image,
+            height: height,
+            width: width,
+            fit: BoxFit.cover,
+          );
+
+    if (borderRadius <= 0) return image;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: image,
     );
   }
 }

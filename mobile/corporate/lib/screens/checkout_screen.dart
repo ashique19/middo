@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../data/mock_repository.dart';
+import '../app_scope.dart';
+import '../data/api_client.dart';
+import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
 
@@ -16,18 +18,93 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  late final Map<DateTime, int> _quantities = {
-    DateTime(2026, 7, 17): 12,
-    DateTime(2026, 7, 18): 0,
-    DateTime(2026, 7, 20): 0,
-    DateTime(2026, 7, 21): 0,
-    DateTime(2026, 7, 22): 0,
-    DateTime(2026, 7, 23): 0,
-  };
+  MenuItem? _item;
+  CheckoutMeta? _meta;
+  Map<DateTime, int> _quantities = {};
+  bool _loading = true;
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_item == null) {
+      _bootstrap();
+    }
+  }
+
+  Future<void> _bootstrap() async {
+    final repo = AppScope.of(context);
+    try {
+      final menu = await repo.menu();
+      final meta = await repo.checkoutMeta();
+      final item = menu.firstWhere(
+        (m) => m.id == widget.menuItemId,
+        orElse: () => repo.menuById(widget.menuItemId),
+      );
+      final quantities = <DateTime, int>{
+        for (var i = 0; i < meta.dates.length; i++)
+          meta.dates[i]: i == 0 ? 1 : 0,
+      };
+      if (!mounted) return;
+      setState(() {
+        _item = item;
+        _meta = meta;
+        _quantities = quantities;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _confirm() async {
+    final item = _item;
+    if (item == null) return;
+    setState(() => _submitting = true);
+    try {
+      await AppScope.of(context).placeOrder(
+        menuItemId: item.id,
+        quantities: _quantities,
+      );
+      if (!mounted) return;
+      final totalQty = _quantities.values.fold<int>(0, (a, b) => a + b);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Scheduled $totalQty meals · ${bdt.format(totalQty * item.price)}',
+          ),
+          backgroundColor: MiddoColors.forest,
+        ),
+      );
+      context.go('/schedule');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), backgroundColor: MiddoColors.orangeDeep),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final item = MockRepository.instance.menuById(widget.menuItemId);
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_error != null || _item == null || _meta == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Checkout')),
+        body: Center(child: Text(_error ?? 'Unable to load checkout')),
+      );
+    }
+
+    final item = _item!;
     final totalQty = _quantities.values.fold<int>(0, (a, b) => a + b);
     final total = totalQty * item.price;
 
@@ -65,7 +142,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Image.asset(item.imageAsset, height: 160, fit: BoxFit.cover),
+                MealImage(item: item, height: 160),
                 Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
@@ -99,9 +176,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Same-day cutoff open · closes in 02h 14m',
-            style: TextStyle(
+          Text(
+            _meta!.isPastCutoff
+                ? 'Same-day cutoff passed (${_meta!.cutoffLabel})'
+                : 'Same-day cutoff open until ${_meta!.cutoffLabel}',
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: MiddoColors.inkSoft,
@@ -120,7 +199,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               return InkWell(
                 onTap: () {
                   setState(() {
-                    _quantities[entry.key] = active ? 0 : 12;
+                    _quantities[entry.key] = active ? 0 : 1;
+                  });
+                },
+                onLongPress: () {
+                  setState(() {
+                    _quantities[entry.key] = (entry.value + 1).clamp(0, 5);
                   });
                 },
                 borderRadius: BorderRadius.circular(14),
@@ -129,7 +213,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     color: active ? MiddoColors.forest : const Color(0xFFFCF8F2),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: active ? MiddoColors.forest : const Color(0xFFDDD3BE),
+                      color:
+                          active ? MiddoColors.forest : const Color(0xFFDDD3BE),
                     ),
                   ),
                   child: Column(
@@ -165,6 +250,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               );
             }).toList(),
           ),
+          const SizedBox(height: 8),
+          const Text(
+            'Tap to toggle · long-press to increase quantity',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: MiddoColors.muted,
+            ),
+          ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(14),
@@ -176,7 +270,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: Column(
               children: [
                 _row('Meals', '$totalQty × ${bdt.format(item.price)}'),
-                _row('Delivery window', '11:30–12:00'),
+                _row('Delivery window', '12:00 PM'),
                 _row('Pay from', 'Middo Balance'),
                 const Divider(height: 20),
                 _row('Total', bdt.format(total), bold: true),
@@ -193,20 +287,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               backgroundColor: MiddoColors.forest,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            onPressed: totalQty == 0
-                ? null
-                : () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Scheduled $totalQty meals · ${bdt.format(total)}',
-                        ),
-                        backgroundColor: MiddoColors.forest,
-                      ),
-                    );
-                    context.go('/schedule');
-                  },
-            child: const Text('Confirm & Schedule'),
+            onPressed: totalQty == 0 || _submitting ? null : _confirm,
+            child: Text(_submitting ? 'Scheduling…' : 'Confirm & Schedule'),
           ),
         ),
       ),
