@@ -14,7 +14,22 @@ iOS & Android app for Middo’s **corporate** role — office lunch ordering, sc
 - Wallet / top-up
 - Complaint / support chat
 
-## Run (with Laravel API)
+## Production API
+
+Default API root: `https://x.middo.com.bd`
+
+### Build release APK
+
+```bash
+cd mobile/corporate
+flutter pub get
+flutter build apk --release \
+  --dart-define=API_BASE_URL=https://x.middo.com.bd
+```
+
+Output: `build/app/outputs/flutter-apk/app-release.apk`
+
+## Run (local Laravel API)
 
 From the monorepo root:
 
