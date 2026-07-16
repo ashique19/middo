@@ -17,7 +17,7 @@ class IncomingBoxes extends Component
 
     public ?string $errorMessage = null;
 
-    public function acceptBox(int $boxId): void
+    public function receiveBox(int $boxId): void
     {
         $this->statusMessage = null;
         $this->errorMessage = null;
@@ -51,10 +51,10 @@ class IncomingBoxes extends Component
                 return $box->qr_code_id;
             });
 
-            $this->statusMessage = "Accepted {$qr} into kitchen inventory.";
+            $this->statusMessage = "Received {$qr} into kitchen inventory.";
             $this->resetPage();
         } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage() ?: 'Could not accept this box.';
+            $this->errorMessage = $e->getMessage() ?: 'Could not receive this box.';
         }
     }
 

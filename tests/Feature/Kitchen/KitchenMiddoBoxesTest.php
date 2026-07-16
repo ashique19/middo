@@ -117,7 +117,7 @@ class KitchenMiddoBoxesTest extends TestCase
         return $order->fresh(['orderGroup']);
     }
 
-    public function test_kitchen_can_list_and_accept_incoming_boxes(): void
+    public function test_kitchen_can_list_and_receive_incoming_boxes(): void
     {
         $box = $this->makeBox([
             'kitchen_id' => $this->kitchen->id,
@@ -134,21 +134,29 @@ class KitchenMiddoBoxesTest extends TestCase
             ->get(route('kitchen.middo-boxes.incoming'))
             ->assertOk()
             ->assertSee($box->qr_code_id)
-            ->assertSee('On the way to kitchen');
+            ->assertSee('On the way to kitchen')
+            ->assertSee('Received');
 
         Livewire::actingAs($this->kitchen)
             ->test(IncomingBoxes::class)
-            ->call('acceptBox', $box->id)
-            ->assertSet('statusMessage', "Accepted {$box->qr_code_id} into kitchen inventory.");
+            ->call('receiveBox', $box->id)
+            ->assertSet('statusMessage', "Received {$box->qr_code_id} into kitchen inventory.");
 
         $box->refresh();
         $this->assertSame($this->kitchen->id, $box->held_by_user_id);
         $this->assertSame($this->kitchen->id, $box->kitchen_id);
+        $this->assertTrue($box->isAtKitchen($this->kitchen->id));
+        $this->assertSame('At kitchen', $box->locationLabel());
         $this->assertDatabaseHas('middo_box_logs', [
             'middo_box_id' => $box->id,
             'log_action' => 'received_at_kitchen',
             'custody_status' => 'assigned_at_kitchen',
         ]);
+
+        $this->actingAs($this->kitchen)
+            ->get(route('kitchen.middo-boxes.at-kitchen'))
+            ->assertOk()
+            ->assertSee($box->qr_code_id);
     }
 
     public function test_kitchen_can_send_box_at_kitchen_to_warehouse(): void
