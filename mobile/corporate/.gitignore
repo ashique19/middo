@@ -46,3 +46,7 @@ app.*.map.json
 
 # Local APK output
 /dist/
+
+# Keep published APK downloads
+!/releases/
+!/releases/**
