@@ -45,13 +45,13 @@
                             <td class="p-4 text-right">
                                 <button
                                     type="button"
-                                    wire:click="acceptBox({{ $box->id }})"
+                                    wire:click="receiveBox({{ $box->id }})"
                                     wire:loading.attr="disabled"
-                                    wire:target="acceptBox({{ $box->id }})"
-                                    wire:confirm="Accept this box into your kitchen inventory?"
+                                    wire:target="receiveBox({{ $box->id }})"
+                                    wire:confirm="Mark this box as received at your kitchen?"
                                     class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
-                                    <span wire:loading.remove wire:target="acceptBox({{ $box->id }})">Accept</span>
-                                    <span wire:loading wire:target="acceptBox({{ $box->id }})">Accepting...</span>
+                                    <span wire:loading.remove wire:target="receiveBox({{ $box->id }})">Received</span>
+                                    <span wire:loading wire:target="receiveBox({{ $box->id }})">Receiving...</span>
                                 </button>
                             </td>
                         </tr>
