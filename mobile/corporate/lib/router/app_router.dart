@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/auth_store.dart';
 import '../screens/checkout_screen.dart';
 import '../screens/history_screen.dart';
 import '../screens/home_screen.dart';
@@ -17,7 +18,14 @@ final _rootKey = GlobalKey<NavigatorState>();
 GoRouter createAppRouter() {
   return GoRouter(
     navigatorKey: _rootKey,
-    initialLocation: '/login',
+    initialLocation: AuthStore.instance.isAuthenticated ? '/home' : '/login',
+    redirect: (context, state) {
+      final loggedIn = AuthStore.instance.isAuthenticated;
+      final loggingIn = state.matchedLocation == '/login';
+      if (!loggedIn && !loggingIn) return '/login';
+      if (loggedIn && loggingIn) return '/home';
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/login',

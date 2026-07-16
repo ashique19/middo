@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../app_scope.dart';
+import '../data/api_client.dart';
 import '../theme/middo_colors.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -11,14 +13,37 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _email = TextEditingController(text: 'corporate@middo.com');
-  final _password = TextEditingController(text: 'password');
+  final _mobile = TextEditingController(text: '01310123452');
+  final _password = TextEditingController(text: '12345678');
+  bool _loading = false;
+  String? _error;
 
   @override
   void dispose() {
-    _email.dispose();
+    _mobile.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await AppScope.of(context).login(
+        mobile: _mobile.text.trim(),
+        password: _password.text,
+      );
+      if (!mounted) return;
+      context.go('/home');
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -82,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Sign in to schedule thalis, track Middo Boxes, and manage your company balance.',
+                    'Sign in with your corporate mobile number to schedule thalis and track Middo Boxes.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: MiddoColors.inkSoft,
                           fontWeight: FontWeight.w600,
@@ -90,10 +115,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 20),
                   TextField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: _mobile,
+                    keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
-                      labelText: 'WORK EMAIL',
+                      labelText: 'MOBILE',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -104,19 +129,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       labelText: 'PASSWORD',
                     ),
                   ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _error!,
+                      style: const TextStyle(
+                        color: Color(0xFFB91C1C),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   FilledButton(
-                    onPressed: () => context.go('/home'),
-                    child: const Text('Sign In'),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: () {},
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: MiddoColors.inkSoft,
-                    ),
-                    child: const Text('Forgot password?'),
+                    onPressed: _loading ? null : _submit,
+                    child: Text(_loading ? 'Signing in…' : 'Sign In'),
                   ),
                 ],
               ),

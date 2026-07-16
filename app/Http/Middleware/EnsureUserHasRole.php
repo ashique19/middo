@@ -19,6 +19,12 @@ class EnsureUserHasRole
             return $next($request);
         }
 
+        if ($request->is('api/*') || $request->expectsJson()) {
+            return response()->json([
+                'message' => 'You do not have access to this section.',
+            ], 403);
+        }
+
         if ($user && in_array($role, ['corporate', 'kitchen', 'delivery'], true)) {
             Auth::logout();
             $request->session()->invalidate();

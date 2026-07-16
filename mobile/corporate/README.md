@@ -14,12 +14,34 @@ iOS & Android app for Middo’s **corporate** role — office lunch ordering, sc
 - Wallet / top-up
 - Complaint / support chat
 
-## Run
+## Run (with Laravel API)
+
+From the monorepo root:
+
+```bash
+php artisan serve
+```
+
+Then:
 
 ```bash
 cd mobile/corporate
 flutter pub get
-flutter run
+flutter run \
+  --dart-define=API_BASE_URL=http://127.0.0.1:8000
+```
+
+Android emulator tip: use `http://10.0.2.2:8000` as `API_BASE_URL`.
+
+Demo corporate login (seeded):
+
+- Mobile: `01310123452`
+- Password: `12345678`
+
+Offline mock mode:
+
+```bash
+flutter run --dart-define=USE_MOCK=true
 ```
 
 Requires [Flutter](https://docs.flutter.dev/get-started/install) 3.32+.
@@ -28,20 +50,22 @@ Requires [Flutter](https://docs.flutter.dev/get-started/install) 3.32+.
 
 - **UI:** Flutter + Material 3, Middo brand tokens, Plus Jakarta Sans
 - **Routing:** `go_router` with bottom-tab shell (Home / Menu / Schedule / Wallet)
-- **Data:** `MockRepository` today — swap for Laravel Sanctum API client next
+- **Auth:** Laravel Sanctum bearer tokens (`AuthStore` + `shared_preferences`)
+- **Data:** `ApiCorporateRepository` → `/api/corporate/*` (mock fallback via `USE_MOCK`)
 
 Design reference (HTML prototype): `/designs/corporate-mobile/`
 
-## Next: wire Laravel API
+## API
 
-Suggested endpoints (see `routes/api/corporate.php` in the monorepo):
-
-- `POST /api/corporate/login`
-- `GET  /api/corporate/dashboard`
-- `GET  /api/corporate/menu`
-- `POST /api/corporate/orders`
-- `GET  /api/corporate/orders/scheduled`
-- `GET  /api/corporate/orders/history`
-- `GET  /api/corporate/orders/{id}/track`
-- `GET|POST /api/corporate/orders/{id}/support`
-- `POST /api/corporate/wallet/top-up`
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/api/corporate/login` | mobile + password → Sanctum token |
+| POST | `/api/corporate/logout` | revoke current token |
+| GET | `/api/corporate/dashboard` | KPIs + upcoming/recent |
+| GET | `/api/corporate/menu` | featured menu + checkout dates |
+| POST | `/api/corporate/orders` | multi-date schedule |
+| GET | `/api/corporate/orders/scheduled` | upcoming |
+| GET | `/api/corporate/orders/history` | past |
+| GET | `/api/corporate/orders/{id}/track` | order logs timeline |
+| GET/POST | `/api/corporate/orders/{id}/support` | complaint thread |
+| POST | `/api/corporate/wallet/top-up` | credit Middo balance |

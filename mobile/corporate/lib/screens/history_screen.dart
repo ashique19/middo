@@ -1,17 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/mock_repository.dart';
+import '../app_scope.dart';
+import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
 
-class HistoryScreen extends StatelessWidget {
+class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final orders = MockRepository.instance.historyOrders;
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
 
+class _HistoryScreenState extends State<HistoryScreen> {
+  Future<List<CorporateOrder>>? _future;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _future ??= AppScope.of(context).history();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -20,30 +32,51 @@ class HistoryScreen extends StatelessWidget {
         ),
         title: const Text('History'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
-        children: [
-          const Text(
-            'Recent office lunches this billing cycle.',
-            style: TextStyle(
-              color: MiddoColors.inkSoft,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...orders.map(
-            (order) => Opacity(
-              opacity: 0.92,
-              child: MealOrderCard(
-                order: order,
-                onTrack: () => context.go('/menu'),
-                onSecondary: () => context.push('/support/${order.id}'),
-                secondaryLabel: 'Feedback',
+      body: FutureBuilder<List<CorporateOrder>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text(snapshot.error.toString()));
+          }
+          final orders = snapshot.data!;
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+            children: [
+              const Text(
+                'Recent office lunches this billing cycle.',
+                style: TextStyle(
+                  color: MiddoColors.inkSoft,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
               ),
-            ),
-          ),
-        ],
+              const SizedBox(height: 14),
+              if (orders.isEmpty)
+                const Text(
+                  'No previous lunch history yet.',
+                  style: TextStyle(
+                    color: MiddoColors.inkSoft,
+                    fontWeight: FontWeight.w600,
+                  ),
+                )
+              else
+                ...orders.map(
+                  (order) => Opacity(
+                    opacity: 0.92,
+                    child: MealOrderCard(
+                      order: order,
+                      onTrack: () => context.go('/menu'),
+                      onSecondary: () => context.push('/support/${order.id}'),
+                      secondaryLabel: 'Feedback',
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
