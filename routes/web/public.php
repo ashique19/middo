@@ -36,6 +36,7 @@ Route::view('/forgot-password', 'auth.forgot-password')->name('password.request'
 
 Route::controller(AuthController::class)->group(function () {
     Route::post('/login', 'login');
+    Route::post('/register/send-otp', 'sendSignupOtp')->name('register.send-otp');
     Route::post('/register', 'register');
     Route::post('/kitchen-signup', 'registerKitchen');
     Route::match(['get', 'post'], '/logout', 'logout')->name('logout');

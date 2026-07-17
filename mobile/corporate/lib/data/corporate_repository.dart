@@ -14,6 +14,7 @@ abstract class CorporateRepository {
     required String firstName,
     required String lastName,
     required String mobile,
+    required String otp,
     required String password,
     required String passwordConfirmation,
     required String companyName,
@@ -21,6 +22,8 @@ abstract class CorporateRepository {
     required int cityId,
     required int areaId,
   });
+
+  Future<String?> sendSignupOtp({required String mobile});
 
   Future<String?> forgotPassword({required String mobile});
 
@@ -153,6 +156,7 @@ class ApiCorporateRepository implements CorporateRepository {
     required String firstName,
     required String lastName,
     required String mobile,
+    required String otp,
     required String password,
     required String passwordConfirmation,
     required String companyName,
@@ -167,6 +171,7 @@ class ApiCorporateRepository implements CorporateRepository {
         'first_name': firstName,
         'last_name': lastName,
         'mobile': mobile,
+        'otp': otp,
         'password': password,
         'password_confirmation': passwordConfirmation,
         'company_name': companyName,
@@ -184,6 +189,16 @@ class ApiCorporateRepository implements CorporateRepository {
     return CorporateUser.fromJson(
       Map<String, dynamic>.from(json['user'] as Map),
     );
+  }
+
+  @override
+  Future<String?> sendSignupOtp({required String mobile}) async {
+    final json = await _client.post(
+      '/register/send-otp',
+      auth: false,
+      body: {'mobile': mobile},
+    );
+    return json['debug_otp']?.toString();
   }
 
   @override
@@ -574,6 +589,7 @@ class MockCorporateRepository implements CorporateRepository {
     required String firstName,
     required String lastName,
     required String mobile,
+    required String otp,
     required String password,
     required String passwordConfirmation,
     required String companyName,
@@ -581,6 +597,9 @@ class MockCorporateRepository implements CorporateRepository {
     required int cityId,
     required int areaId,
   }) async {
+    if (otp != '1234') {
+      throw ApiException('Invalid or expired verification code.');
+    }
     await AuthStore.instance.saveToken('mock-token');
     return CorporateUser(
       companyName: companyName,
@@ -593,6 +612,9 @@ class MockCorporateRepository implements CorporateRepository {
       areaId: areaId,
     );
   }
+
+  @override
+  Future<String?> sendSignupOtp({required String mobile}) async => '1234';
 
   @override
   Future<String?> forgotPassword({required String mobile}) async => '1234';

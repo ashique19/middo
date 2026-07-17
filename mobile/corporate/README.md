@@ -75,7 +75,8 @@ Design reference (HTML prototype): `/designs/corporate-mobile/`
 | Method | Path | Notes |
 |---|---|---|
 | POST | `/api/corporate/login` | mobile + password → Sanctum token |
-| POST | `/api/corporate/register` | create corporate account → token |
+| POST | `/api/corporate/register/send-otp` | SMS OTP for signup (debug OTP `1234` when `APP_DEBUG=true`) |
+| POST | `/api/corporate/register` | create corporate account (requires OTP) → token |
 | POST | `/api/corporate/forgot-password` | SMS OTP for password reset |
 | POST | `/api/corporate/reset-password` | otp + new password |
 | GET | `/api/corporate/locations` | cities + areas for signup |

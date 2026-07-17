@@ -18,6 +18,7 @@ use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PasswordResetOtp;
+use App\Support\SignupOtp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -86,12 +87,38 @@ class CorporateMobileController extends Controller
         ]);
     }
 
+    public function sendSignupOtp(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/', 'unique:users,mobile'],
+        ], [
+            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
+            'mobile.unique' => 'This mobile number is already registered.',
+        ]);
+
+        $result = SignupOtp::send($data['mobile']);
+
+        if (! $result['ok']) {
+            throw ValidationException::withMessages([
+                'mobile' => [$result['message']],
+            ]);
+        }
+
+        return response()->json([
+            'message' => $result['message'],
+            'mobile' => $data['mobile'],
+            'expires_in' => 300,
+            'debug_otp' => $result['debug_otp'] ?? null,
+        ]);
+    }
+
     public function register(Request $request): JsonResponse
     {
         $data = $request->validate([
             'first_name' => ['required', 'string', 'min:2', 'max:255'],
             'last_name' => ['required', 'string', 'min:2', 'max:255'],
             'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/', 'unique:users,mobile'],
+            'otp' => ['required', 'string', 'size:4'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'company_name' => ['required', 'string', 'min:4', 'max:255'],
             'address' => ['required', 'string', 'min:10', 'max:255'],
@@ -101,9 +128,16 @@ class CorporateMobileController extends Controller
         ], [
             'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
             'mobile.unique' => 'This mobile number is already registered.',
+            'otp.size' => 'Enter the 4-digit verification code sent by SMS.',
         ]);
 
         $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
+
+        if (! SignupOtp::verify($data['mobile'], $data['otp'])) {
+            throw ValidationException::withMessages([
+                'otp' => ['Invalid or expired verification code.'],
+            ]);
+        }
 
         $role = Role::query()->where('name', 'corporate')->firstOrFail();
 
@@ -121,7 +155,7 @@ class CorporateMobileController extends Controller
             'area_id' => $data['area_id'],
             'role_id' => $role->id,
             'status' => 'active',
-            'is_mobile_verified' => false,
+            'is_mobile_verified' => true,
             'balance' => 0,
         ]);
 
