@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\OrderCutoff;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -148,7 +149,8 @@ class Order extends Model
 
     /**
      * Cash the rider collected at delivery (for handovers).
-     * Falls back to full total for legacy rows that predate cash_collected.
+     * Only counts explicit cash_collected, plus legacy fully-COD paid rows
+     * that predate the cash_collected column.
      */
     public function cashCollectedAmount(): int
     {
@@ -163,7 +165,7 @@ class Order extends Model
             return (int) $this->total_amount;
         }
 
-        return max(0, (int) $this->total_amount - $this->prepaidAmountValue());
+        return 0;
     }
 
     public function accountHolderName(): string
@@ -271,7 +273,7 @@ class Order extends Model
 
     public function isEditableByCorporate(): bool
     {
-        return \App\Support\OrderCutoff::allowsModification($this);
+        return OrderCutoff::allowsModification($this);
     }
 
     public function logs(): HasMany

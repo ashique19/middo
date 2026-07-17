@@ -13,10 +13,14 @@
 
                     <div class="space-y-2">
                         <p class="text-sm font-semibold text-[#5D4037] leading-relaxed">
-                            Order value will be added to your account upon deleting the order.
+                            Any prepaid amount will be credited back to your Middo Balance. Unpaid COD orders are cancelled with no wallet credit.
                         </p>
                         <p class="text-lg font-black text-[#2B1A11]">Are you sure?</p>
                     </div>
+
+                    @if($errorMessage !== '')
+                        <p class="text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{{ $errorMessage }}</p>
+                    @endif
 
                     @if(!empty($order['menu_item']['name']))
                         <p class="text-xs font-bold text-[#635347]">

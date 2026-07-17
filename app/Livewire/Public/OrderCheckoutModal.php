@@ -2,61 +2,82 @@
 
 namespace App\Livewire\Public;
 
-use Livewire\Component;
+use App\Contracts\PaymentGateway;
+use App\Models\Area;
+use App\Models\City;
 use App\Models\MenuItem;
-use App\Models\City;   
-use App\Models\Area;   
-use Livewire\Attributes\On;
+use App\Models\Order;
 use App\Models\User;
 use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
+use App\Support\MealOrderGrouper;
 use App\Support\OrderConfirmationOtp;
 use App\Support\OrderCutoff;
 use App\Support\WalletLedger;
-use App\Contracts\PaymentGateway;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Livewire\Attributes\On;
+use Livewire\Component;
 
 class OrderCheckoutModal extends Component
 {
     public bool $showModal = false;
+
     public array $dish = [];
 
     // Cut-off mirrors config/middo.php via OrderCutoff
     public int $cutoffHour = 15;
-    public int $cutoffMinute = 28; 
+
+    public int $cutoffMinute = 28;
 
     // Checkout Form States
     public string $customerName = 'User';
-    public array $quantities = []; 
-    public array $availableDates = []; 
+
+    public array $quantities = [];
+
+    public array $availableDates = [];
+
     public bool $isPastCutoff = false;
+
     public string $selectedDate = '';
+
     public array $deliveryWindows = ['12:00 PM', '11:30 AM'];
+
     public string $deliveryWindow = '12:00 PM';
+
     public string $addressLine1 = '';
-    
+
     // Database Relational Select States
-    public $city_id = null; 
+    public $city_id = null;
+
     public $area_id = null;
+
     public string $mobile = '';
 
     // Step Flag & Verification
-    public bool $isConfirmingOtp = false; 
+    public bool $isConfirmingOtp = false;
+
     public string $otpInput = '';
+
     public string $paymentMethod = 'balance';
+
     public array $prepayment = [];
+
     public ?string $gatewayPaymentToken = null;
+
     public ?string $gatewayPaymentUrl = null;
 
     // Dynamic Arrays from Database (Converted to arrays to avoid Dehydration/Hydration crashes)
     public array $citiesList = [];
+
     public array $areasList = [];
 
     // Financial Summaries
     public float $subtotal = 0.0;
-    public float $taxesAndFees = 0.00; 
+
+    public float $taxesAndFees = 0.00;
+
     public float $total = 0.0;
 
     /**
@@ -73,7 +94,7 @@ class OrderCheckoutModal extends Component
             // Buyer = individual worker; company is org-only (not the receiver default).
             $this->customerName = $user->name ?? 'User';
             $this->addressLine1 = $user->address ?? '';
-            $this->city_id = $user->city_id ?? (!empty($this->citiesList) ? $this->citiesList[0]['id'] : null);
+            $this->city_id = $user->city_id ?? (! empty($this->citiesList) ? $this->citiesList[0]['id'] : null);
             $this->area_id = $user->area_id;
             $this->mobile = $user->mobile ?? '';
 
@@ -87,10 +108,13 @@ class OrderCheckoutModal extends Component
     public function loadOrderCheckout($dishId): void
     {
         $id = is_array($dishId) ? ($dishId['dishId'] ?? null) : $dishId;
-        if (!$id) return;
+        if (! $id) {
+            return;
+        }
 
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             $this->redirect(route('login'), navigate: true);
+
             return;
         }
 
@@ -116,26 +140,26 @@ class OrderCheckoutModal extends Component
         }
 
         $this->selectedDate = $this->availableDates[0] ?? now()->setTimezone('Asia/Dhaka')->format('Y-m-d');
-        
+
         $this->addressLine1 = $user->address ?? '';
-        $this->city_id = $user->city_id ?? (!empty($this->citiesList) ? $this->citiesList[0]['id'] : null);
+        $this->city_id = $user->city_id ?? (! empty($this->citiesList) ? $this->citiesList[0]['id'] : null);
         $this->area_id = $user->area_id;
         $this->mobile = $user->mobile ?? '';
-        
+
         $this->isConfirmingOtp = false;
         $this->otpInput = '';
         $this->paymentMethod = 'balance';
         $this->prepayment = [];
         $this->gatewayPaymentToken = null;
         $this->gatewayPaymentUrl = null;
-        
+
         if ($this->city_id) {
             $this->loadAreasForSelectedCity($this->city_id);
         }
-        
+
         $this->recalculateTotals();
         $this->refreshPrepaymentQuote();
-        
+
         // Explicitly set modal visibility true at the very end of processing
         $this->showModal = true;
     }
@@ -155,11 +179,11 @@ class OrderCheckoutModal extends Component
     {
         $selectedCity = City::find($cityId);
         $this->areasList = $selectedCity ? $selectedCity->areas->toArray() : [];
-        
+
         // Reset or default area choice safely if current selection falls out of scope
-        if (!empty($this->areasList)) {
+        if (! empty($this->areasList)) {
             $validIds = array_column($this->areasList, 'id');
-            if (!in_array($this->area_id, $validIds)) {
+            if (! in_array($this->area_id, $validIds)) {
                 $this->area_id = $this->areasList[0]['id'];
             }
         } else {
@@ -172,7 +196,9 @@ class OrderCheckoutModal extends Component
      */
     protected function recalculateTotals(): void
     {
-        if (!$this->dish) return;
+        if (! $this->dish) {
+            return;
+        }
 
         $totalItemsCount = array_sum($this->quantities);
         $this->subtotal = (float) ($this->dish['price'] ?? 0) * $totalItemsCount;
@@ -219,8 +245,10 @@ class OrderCheckoutModal extends Component
      */
     public function toggleDateSelection(string $dateString): void
     {
-        if ($this->isConfirmingOtp) return; 
-        
+        if ($this->isConfirmingOtp) {
+            return;
+        }
+
         $currentQty = $this->quantities[$dateString] ?? 0;
         if ($currentQty > 0) {
             $this->quantities[$dateString] = 0;
@@ -242,7 +270,9 @@ class OrderCheckoutModal extends Component
      */
     public function changeDateQuantity(string $date, int $amount): void
     {
-        if ($this->isConfirmingOtp || !isset($this->quantities[$date]) || $this->quantities[$date] === 0) return;
+        if ($this->isConfirmingOtp || ! isset($this->quantities[$date]) || $this->quantities[$date] === 0) {
+            return;
+        }
 
         $maxQty = $this->remainingQtyForDate($date);
         $this->quantities[$date] = max(1, min($maxQty, $this->quantities[$date] + $amount));
@@ -285,28 +315,31 @@ class OrderCheckoutModal extends Component
      */
     public function initiateOrderConfirmation()
     {
-        if (!Auth::check()) return redirect()->guest(route('login'));
+        if (! Auth::check()) {
+            return redirect()->guest(route('login'));
+        }
 
         $this->validate([
             'customerName' => 'required|string|min:2|max:120',
             'addressLine1' => 'required|string|min:5|max:255',
-            'city_id'      => 'required|exists:cities,id',
-            'area_id'      => 'required|exists:areas,id',
-            'mobile'       => 'required|string|regex:/^01[3-9]\d{8}$/', 
-            'quantities'   => 'required|array',
+            'city_id' => 'required|exists:cities,id',
+            'area_id' => 'required|exists:areas,id',
+            'mobile' => 'required|string|regex:/^01[3-9]\d{8}$/',
+            'quantities' => 'required|array',
             'quantities.*' => 'required|integer|min:0|max:'.CorporateOrderLimit::maxAllowed(),
         ], [
             'customerName.required' => 'Please provide the receiver name.',
             'addressLine1.required' => 'Please provide your specific street address details.',
-            'city_id.required'      => 'Please select a delivery city.',
-            'area_id.required'      => 'Please select an area location.',
-            'mobile.required'       => 'Mobile number is required to receive confirmation OTP.',
-            'mobile.regex'          => 'Provide a valid 11-digit mobile number format (e.g., 01710123456).',
+            'city_id.required' => 'Please select a delivery city.',
+            'area_id.required' => 'Please select an area location.',
+            'mobile.required' => 'Mobile number is required to receive confirmation OTP.',
+            'mobile.regex' => 'Provide a valid 11-digit mobile number format (e.g., 01710123456).',
         ]);
 
-        $activeOrders = array_filter($this->quantities, fn($qty) => $qty > 0);
+        $activeOrders = array_filter($this->quantities, fn ($qty) => $qty > 0);
         if (empty($activeOrders)) {
             $this->addError('quantities', 'Please select a quantity for at least one delivery date.');
+
             return;
         }
 
@@ -318,6 +351,7 @@ class OrderCheckoutModal extends Component
 
         if (($this->prepayment['required'] ?? false) && $this->paymentMethod === 'balance' && ! ($this->prepayment['balance_sufficient'] ?? false)) {
             $this->addError('paymentMethod', $this->prepayment['message'] ?? 'Insufficient Middo Balance for required prepayment. Choose online pay or top up.');
+
             return;
         }
 
@@ -350,6 +384,7 @@ class OrderCheckoutModal extends Component
 
         if (! ($result['ok'] ?? false)) {
             $this->addError('mobile', $result['message'] ?? 'SMS channel transmission error. Please retry.');
+
             return;
         }
 
@@ -374,15 +409,24 @@ class OrderCheckoutModal extends Component
             return;
         }
 
-        $activeOrders = array_filter($this->quantities, fn($qty) => $qty > 0);
+        $activeOrders = array_filter($this->quantities, fn ($qty) => $qty > 0);
 
         if (empty($activeOrders)) {
             $this->addError('quantities', 'Please select a quantity for at least one delivery date.');
+
             return;
         }
 
         if (! $this->validateDailyQuantities($activeOrders)) {
             return;
+        }
+
+        foreach (array_keys($activeOrders) as $date) {
+            if (OrderCutoff::isPastForDeliveryDate((string) $date)) {
+                $this->addError('quantities', OrderCutoff::placementDeniedMessage((string) $date));
+
+                return;
+            }
         }
 
         /** @var User $currentUser */
@@ -393,17 +437,20 @@ class OrderCheckoutModal extends Component
         if ($prepayment['required'] ?? false) {
             if (! in_array($this->paymentMethod, ['balance', 'gateway'], true)) {
                 $this->addError('paymentMethod', $prepayment['message'] ?? 'Prepayment is required.');
+
                 return;
             }
 
             if ($this->paymentMethod === 'balance' && ! ($prepayment['balance_sufficient'] ?? false)) {
                 $this->addError('paymentMethod', 'Insufficient Middo Balance for required prepayment.');
+
                 return;
             }
 
             if ($this->paymentMethod === 'gateway') {
                 if (! filled($this->gatewayPaymentToken)) {
                     $this->addError('paymentMethod', 'Start online payment before confirming the order.');
+
                     return;
                 }
 
@@ -427,6 +474,7 @@ class OrderCheckoutModal extends Component
 
                 if (! ($consumed['ok'] ?? false)) {
                     $this->addError('paymentMethod', $consumed['message'] ?? 'Complete online payment first.');
+
                     return;
                 }
             }
@@ -462,8 +510,8 @@ class OrderCheckoutModal extends Component
                     throw new \RuntimeException($e->getMessage());
                 }
             }
-            
-            $fullAddress = trim($this->addressLine1) . ', ' . ($areaModel?->name ?? '') . ', ' . ($cityModel?->name ?? '');
+
+            $fullAddress = trim($this->addressLine1).', '.($areaModel?->name ?? '').', '.($cityModel?->name ?? '');
             $createdOrderIds = [];
             $index = 0;
 
@@ -472,37 +520,37 @@ class OrderCheckoutModal extends Component
                 $amountPaid = (int) ($allocations[$index] ?? 0);
                 $index++;
 
-                $order = \App\Models\Order::create([
-                    'user_id'         => $currentUserId,
-                    'menu_item_id'    => $this->dish['id'],
-                    'quantity'        => $qty,
-                    'delivery_date'   => $date,
-                    'delivery_time'   => $this->deliveryWindow,
-                    'total_amount'    => $lineTotal,
-                    'amount_paid'     => $amountPaid,
-                    'prepaid_amount'  => $amountPaid,
-                    'cash_collected'  => 0,
-                    'address'         => $fullAddress,
-                    'receiver_name'   => $this->customerName,
+                $order = Order::create([
+                    'user_id' => $currentUserId,
+                    'menu_item_id' => $this->dish['id'],
+                    'quantity' => $qty,
+                    'delivery_date' => $date,
+                    'delivery_time' => $this->deliveryWindow,
+                    'total_amount' => $lineTotal,
+                    'amount_paid' => $amountPaid,
+                    'prepaid_amount' => $amountPaid,
+                    'cash_collected' => 0,
+                    'address' => $fullAddress,
+                    'receiver_name' => $this->customerName,
                     'receiver_mobile' => $this->mobile,
-                    'area_id'         => $this->area_id,
-                    'order_status'    => 'pending',
-                    'payment_status'  => $amountPaid >= $lineTotal && $lineTotal > 0 ? 'paid' : 'pending',
-                    'created_by'      => $currentUserId,
-                    'updated_by'      => $currentUserId,
+                    'area_id' => $this->area_id,
+                    'order_status' => 'pending',
+                    'payment_status' => $amountPaid >= $lineTotal && $lineTotal > 0 ? 'paid' : 'pending',
+                    'created_by' => $currentUserId,
+                    'updated_by' => $currentUserId,
                 ]);
                 $createdOrderIds[] = $order->id;
             }
 
-            $grouper = app(\App\Support\MealOrderGrouper::class);
-            foreach (\App\Models\Order::query()->whereIn('id', $createdOrderIds)->get() as $order) {
+            $grouper = app(MealOrderGrouper::class);
+            foreach (Order::query()->whereIn('id', $createdOrderIds)->get() as $order) {
                 $grouper->assignOrder($order->load('user'), $currentUserId);
             }
-            
+
             $profileUpdate = [
-                'address'            => $this->addressLine1,
-                'city_id'            => $this->city_id,
-                'area_id'            => $this->area_id,
+                'address' => $this->addressLine1,
+                'city_id' => $this->city_id,
+                'area_id' => $this->area_id,
                 'is_mobile_verified' => true,
             ];
             if ($profileMatches) {
@@ -513,7 +561,7 @@ class OrderCheckoutModal extends Component
 
         $this->showModal = false;
         session()->flash('message', 'Your meal track has been scheduled successfully!');
-        
+
         return redirect()->to(route('corporates.dashboard'));
     }
 

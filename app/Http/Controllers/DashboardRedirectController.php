@@ -10,7 +10,11 @@ class DashboardRedirectController extends Controller
     {
         $user = Auth::user();
 
-        // Check if user is active (your new field!)
+        if (! $user) {
+            return redirect()->route('login');
+        }
+
+        // Pending / suspended accounts cannot use the app.
         if ($user->status !== 'active') {
             $status = $user->status;
             Auth::logout();
@@ -20,13 +24,13 @@ class DashboardRedirectController extends Controller
                 ->with('account_status', $status);
         }
 
-        return match($user->role->name) {
+        return match ($user->role?->name) {
             'corporate' => redirect()->route('corporates.dashboard'),
-            'kitchen'   => redirect()->route('kitchen.dashboard'),
-            'delivery'  => redirect()->route('delivery.dashboard'),
-            'operation'=> redirect()->route('operation.dashboard'),
-            'admin'     => redirect()->route('admin.dashboard'),
-            default     => redirect('/'),
+            'kitchen' => redirect()->route('kitchen.dashboard'),
+            'delivery' => redirect()->route('delivery.dashboard'),
+            'operation' => redirect()->route('operation.dashboard'),
+            'admin' => redirect()->route('admin.dashboard'),
+            default => redirect('/'),
         };
     }
 }

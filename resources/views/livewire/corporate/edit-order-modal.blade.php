@@ -49,9 +49,13 @@
 
                     <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-4">
                         <p class="text-sm font-semibold text-[#5D4037] leading-relaxed">
-                            To modify any other detail, please delete this order and order again. Balance will be added to your account upon deleting the order.
+                            To modify any other detail, please delete this order and order again. Prepaid amounts are credited to Middo Balance when you cancel before the order deadline.
                         </p>
                     </div>
+
+                    @if($errorMessage !== '')
+                        <p class="text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{{ $errorMessage }}</p>
+                    @endif
 
                     <div class="flex gap-3 pt-1">
                         <button type="button" wire:click="closeModal"

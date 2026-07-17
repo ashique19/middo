@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Delivery;
 
+use App\Livewire\Delivery\DeliveredOrders;
 use App\Livewire\Delivery\KitchenDispatches;
+use App\Livewire\Delivery\PaymentModal;
 use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
@@ -11,6 +13,7 @@ use App\Models\OrderGroup;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -231,7 +234,7 @@ class DeliveryDashboardTest extends TestCase
             ->assertSee('Receive Boxes');
 
         Livewire::actingAs($this->rider)
-            ->test(\App\Livewire\Delivery\PaymentModal::class)
+            ->test(PaymentModal::class)
             ->call('openModal', $order->id)
             ->assertSet('showModal', true)
             ->assertSet('totalAmount', 500)
@@ -248,7 +251,7 @@ class DeliveryDashboardTest extends TestCase
         $this->assertSame(500, $this->rider->fresh()->balance);
 
         Livewire::actingAs($this->rider)
-            ->test(\App\Livewire\Delivery\DeliveredOrders::class)
+            ->test(DeliveredOrders::class)
             ->call('receiveBoxes', $order->id)
             ->assertSet('statusMessage', 'Received boxes for order #'.$order->id.'.');
 
@@ -265,8 +268,16 @@ class DeliveryDashboardTest extends TestCase
 
     public function test_online_payment_sends_sms_link(): void
     {
-        \Illuminate\Support\Facades\Http::fake([
-            config('services.mimsms.base_url') => \Illuminate\Support\Facades\Http::response(['status' => 'OK'], 200),
+        config([
+            'services.mimsms.api_key' => 'test-key',
+            'services.mimsms.user_name' => 'test-user',
+            'services.mimsms.sender_name' => 'MIDDO',
+            'services.mimsms.base_url' => 'https://mimsms.test/send',
+            'app.debug' => false,
+        ]);
+
+        Http::fake([
+            'https://mimsms.test/send' => Http::response(['status' => 'OK'], 200),
         ]);
 
         $order = $this->createKitchenDispatchedOrder(2);
@@ -277,7 +288,7 @@ class DeliveryDashboardTest extends TestCase
             ->call('deliverToConsumer', $order->id);
 
         Livewire::actingAs($this->rider)
-            ->test(\App\Livewire\Delivery\PaymentModal::class)
+            ->test(PaymentModal::class)
             ->call('openModal', $order->id)
             ->call('selectOnline')
             ->assertSet('receiverPhone', $this->customer->mobile)
@@ -285,8 +296,8 @@ class DeliveryDashboardTest extends TestCase
             ->call('sendOnlinePaymentLink')
             ->assertSet('successMessage', 'Payment link sent to 01719998888.');
 
-        \Illuminate\Support\Facades\Http::assertSent(function ($request) {
-            return str_contains($request->url(), 'mimsms')
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), 'mimsms.test')
                 && ($request['mobileNumber'] ?? null) === '8801719998888';
         });
     }
@@ -308,7 +319,7 @@ class DeliveryDashboardTest extends TestCase
             ->call('deliverToConsumer', $order->id);
 
         Livewire::actingAs($this->rider)
-            ->test(\App\Livewire\Delivery\PaymentModal::class)
+            ->test(PaymentModal::class)
             ->call('openModal', $order->id)
             ->assertSet('amountDue', 250)
             ->assertSet('amountPaid', 250)

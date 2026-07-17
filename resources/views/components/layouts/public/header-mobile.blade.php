@@ -186,12 +186,20 @@
                             <span>Dashboard</span>
                         </a>
 
-                        <a href="{{ route('corporates.orders.scheduled') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
-                            <svg class="w-4 h-4 text-middo-orange opacity-85" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span>Orders</span>
-                        </a>
+                        @if(auth()->user()->role?->name === 'corporate')
+                            <a href="{{ route('corporates.orders.scheduled') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
+                                <svg class="w-4 h-4 text-middo-orange opacity-85" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span>Orders</span>
+                            </a>
+                            <a href="{{ route('corporates.wallet') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
+                                <svg class="w-4 h-4 text-middo-orange opacity-85" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+                                </svg>
+                                <span>Wallet</span>
+                            </a>
+                        @endif
 
                         <a href="{{ route('menu') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
                             <svg class="w-4 h-4 text-middo-orange opacity-85" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -241,9 +249,13 @@
                             class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center">
                         Track Today's Lunch
                     </button>
-                @else
+                @elseif(auth()->user()->role?->name === 'corporate')
                     <a href="{{ route('corporates.orders.scheduled') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
                         Track Today's Lunch
+                    </a>
+                @else
+                    <a href="{{ route('dashboard.redirect') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
+                        Go to Dashboard
                     </a>
                 @endif
             @else

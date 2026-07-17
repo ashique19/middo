@@ -108,7 +108,9 @@ class CashHandovers extends Component
             ->where('payment_status', 'paid')
             ->whereDoesntHave('cashHandoverOrder')
             ->orderByDesc('updated_at')
-            ->get();
+            ->get()
+            ->filter(fn (Order $order) => $order->cashCollectedAmount() > 0)
+            ->values();
 
         $handovers = CashHandover::query()
             ->with(['items.order.menuItem'])

@@ -4,7 +4,6 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureUserHasRole
@@ -13,8 +12,6 @@ class EnsureUserHasRole
     {
         $user = $request->user();
 
-        // 1. Check if user is logged in
-        // 2. Check the relationship (role) and compare the 'name' column
         if ($user && $user->role && $user->role->name === $role) {
             return $next($request);
         }
@@ -25,16 +22,13 @@ class EnsureUserHasRole
             ], 403);
         }
 
-        if ($user && in_array($role, ['corporate', 'kitchen', 'delivery'], true)) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            return redirect()->route('login')->withErrors([
-                'error' => 'Login as '.ucfirst($role).' to continue.',
-            ]);
+        // Wrong role while authenticated: send them to their own portal (do not log them out).
+        if ($user) {
+            return redirect()
+                ->route('dashboard.redirect')
+                ->with('error', 'You do not have access to that section.');
         }
 
-        abort(403, 'You do not have access to this section.');
+        return redirect()->route('login');
     }
 }

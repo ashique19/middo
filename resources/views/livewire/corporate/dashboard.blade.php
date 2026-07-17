@@ -213,7 +213,7 @@
                 </a>
                 <button type="button" @click="$dispatch('open-middo-boxes-custody-modal')" class="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#F7F4EB] text-xs font-bold text-[#2B1A11] text-left">
                     <span>📦 Middo Boxes with You</span>
-                    <span class="bg-amber-100 text-[#8A441B] px-2 py-0.5 rounded-full text-[10px] font-black font-mono">{{ $metrics['boxes_in_custody'] }} Ready</span>
+                    <span class="bg-amber-100 text-[#8A441B] px-2 py-0.5 rounded-full text-[10px] font-black font-mono">{{ $metrics['boxes_in_custody'] }} with you</span>
                 </button>
             </div>
 

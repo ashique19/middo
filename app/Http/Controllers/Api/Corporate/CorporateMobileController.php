@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Corporate;
 
+use App\Contracts\PaymentGateway;
 use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\City;
@@ -12,23 +13,23 @@ use App\Models\Order;
 use App\Models\OrderComplaint;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\WalletTransaction;
 use App\Support\CorporateApiPresenter;
 use App\Support\CorporateGatewayPrepay;
 use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
 use App\Support\CorporateWalletTopUp;
+use App\Support\MealOrderGrouper;
 use App\Support\OrderConfirmationOtp;
 use App\Support\OrderCutoff;
-use App\Support\WalletLedger;
-use App\Models\WalletTransaction;
 use App\Support\PasswordResetOtp;
 use App\Support\SignupOtp;
+use App\Support\WalletLedger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 
 class CorporateMobileController extends Controller
@@ -508,6 +509,7 @@ class CorporateMobileController extends Controller
 
         $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
         $this->assertDailyLimits($request->user()->id, $data['dates']);
+        $this->assertDeliveryDatesOpen($data['dates']);
 
         $menuItem = MenuItem::query()->findOrFail($data['menu_item_id']);
         $prepayment = $this->prepaymentQuote($request->user(), $data, $menuItem);
@@ -546,6 +548,7 @@ class CorporateMobileController extends Controller
 
         $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
         $this->assertDailyLimits($request->user()->id, $data['dates']);
+        $this->assertDeliveryDatesOpen($data['dates']);
 
         $menuItem = MenuItem::query()->findOrFail($data['menu_item_id']);
         $prepayment = $this->prepaymentQuote($request->user(), $data, $menuItem);
@@ -565,9 +568,9 @@ class CorporateMobileController extends Controller
         return response()->json([
             'message' => 'Complete gateway payment, then place the order with the payment token.',
             'payment_token' => $session['token'],
-            'payment_url' => $session['payment_url'] ?? app(\App\Contracts\PaymentGateway::class)->paymentUrl($session['token']),
+            'payment_url' => $session['payment_url'] ?? app(PaymentGateway::class)->paymentUrl($session['token']),
             'amount' => $session['amount'],
-            'driver' => app(\App\Contracts\PaymentGateway::class)->driver(),
+            'driver' => app(PaymentGateway::class)->driver(),
             'prepayment' => $prepayment,
         ]);
     }
@@ -601,6 +604,7 @@ class CorporateMobileController extends Controller
 
         $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
         $this->assertDailyLimits($request->user()->id, $data['dates']);
+        $this->assertDeliveryDatesOpen($data['dates']);
 
         /** @var User $user */
         $user = $request->user();
@@ -726,7 +730,7 @@ class CorporateMobileController extends Controller
                     'updated_by' => $user->id,
                 ]);
 
-                app(\App\Support\MealOrderGrouper::class)->assignOrder($order->fresh(['user']), $user->id);
+                app(MealOrderGrouper::class)->assignOrder($order->fresh(['user']), $user->id);
 
                 $created[] = CorporateApiPresenter::order($order->load('menuItem'));
             }
@@ -823,6 +827,22 @@ class CorporateMobileController extends Controller
                             CorporateOrderLimit::maxAllowed()
                         ),
                     ],
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @param  list<array{date: string, quantity: int}>  $dates
+     */
+    private function assertDeliveryDatesOpen(array $dates): void
+    {
+        foreach ($dates as $line) {
+            $date = (string) $line['date'];
+
+            if (OrderCutoff::isPastForDeliveryDate($date)) {
+                throw ValidationException::withMessages([
+                    'dates' => [OrderCutoff::placementDeniedMessage($date)],
                 ]);
             }
         }

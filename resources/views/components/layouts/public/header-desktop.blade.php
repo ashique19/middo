@@ -114,12 +114,20 @@
                             <span>Dashboard</span>
                         </a>
 
-                        <a href="{{ route('corporates.orders.scheduled') }}" class="flex items-center gap-2.5 px-2.5 py-2 text-xs font-extrabold text-[#2B1A11] hover:bg-[#F6F2E8] hover:text-middo-orange rounded-xl transition text-left">
-                            <svg class="w-4 h-4 opacity-75" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span>Orders</span>
-                        </a>
+                        @if(auth()->user()->role?->name === 'corporate')
+                            <a href="{{ route('corporates.orders.scheduled') }}" class="flex items-center gap-2.5 px-2.5 py-2 text-xs font-extrabold text-[#2B1A11] hover:bg-[#F6F2E8] hover:text-middo-orange rounded-xl transition text-left">
+                                <svg class="w-4 h-4 opacity-75" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span>Orders</span>
+                            </a>
+                            <a href="{{ route('corporates.wallet') }}" class="flex items-center gap-2.5 px-2.5 py-2 text-xs font-extrabold text-[#2B1A11] hover:bg-[#F6F2E8] hover:text-middo-orange rounded-xl transition text-left">
+                                <svg class="w-4 h-4 opacity-75" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+                                </svg>
+                                <span>Wallet</span>
+                            </a>
+                        @endif
                     </div>
 
                     <div class="space-y-0.5  border-b border-gray-100 pb-3">
@@ -165,9 +173,13 @@
                         class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
                     Track Today's Lunch
                 </button>
-            @else
+            @elseif(auth()->user()->role?->name === 'corporate')
                 <a href="{{ route('corporates.orders.scheduled') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
                     Track Today's Lunch
+                </a>
+            @else
+                <a href="{{ route('dashboard.redirect') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
+                    Go to Dashboard
                 </a>
             @endif
         @else

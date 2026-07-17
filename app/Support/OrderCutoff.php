@@ -66,4 +66,13 @@ class OrderCutoff
     {
         return 'Orders can only be changed or cancelled until the '.self::label().' order deadline on the delivery day.';
     }
+
+    public static function placementDeniedMessage(string $deliveryDate): string
+    {
+        return sprintf(
+            'Ordering for %s is closed after the %s deadline (Asia/Dhaka).',
+            $deliveryDate,
+            self::label()
+        );
+    }
 }

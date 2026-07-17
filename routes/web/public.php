@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
-use App\Http\Controllers\PublicViewController;
+use App\Http\Controllers\CorporateGatewayPrepayController;
 use App\Http\Controllers\DashboardRedirectController;
+use App\Http\Controllers\OrderPaymentController;
+use App\Http\Controllers\PublicViewController;
 use App\Models\Area;
 use Illuminate\Support\Facades\Route;
 
@@ -56,14 +58,14 @@ Route::get('/api/areas/{city_id}', function ($city_id) {
     return Area::where('city_id', $city_id)->get();
 });
 
-
-
-Route::get('/dashboard', DashboardRedirectController::class)->name('dashboard.redirect');
-Route::get('/pay/orders/{order}', [\App\Http\Controllers\OrderPaymentController::class, 'show'])
+Route::get('/dashboard', DashboardRedirectController::class)
+    ->middleware('auth')
+    ->name('dashboard.redirect');
+Route::get('/pay/orders/{order}', [OrderPaymentController::class, 'show'])
     ->name('public.order-payment');
-Route::post('/pay/orders/{order}', [\App\Http\Controllers\OrderPaymentController::class, 'confirm'])
+Route::post('/pay/orders/{order}', [OrderPaymentController::class, 'confirm'])
     ->name('public.order-payment.confirm');
-Route::get('/pay/corporate-prepay/{token}', [\App\Http\Controllers\CorporateGatewayPrepayController::class, 'show'])
+Route::get('/pay/corporate-prepay/{token}', [CorporateGatewayPrepayController::class, 'show'])
     ->name('corporate.gateway-prepay.show');
-Route::post('/pay/corporate-prepay/{token}', [\App\Http\Controllers\CorporateGatewayPrepayController::class, 'confirm'])
+Route::post('/pay/corporate-prepay/{token}', [CorporateGatewayPrepayController::class, 'confirm'])
     ->name('corporate.gateway-prepay.confirm');

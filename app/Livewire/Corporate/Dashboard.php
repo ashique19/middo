@@ -2,26 +2,28 @@
 
 namespace App\Livewire\Corporate;
 
-use Livewire\Component;
-use App\Models\Order;
 use App\Models\MiddoBox;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use App\Models\Order;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
+use Livewire\Component;
 
 class Dashboard extends Component
 {
     public string $customerName = '';
+
     public array $metrics = [];
+
     public array $recentLunches = [];
+
     public array $upcomingEvents = [];
 
     public function mount(): void
     {
         $user = Auth::user();
         $this->customerName = $user->name ?? 'Corporate Partner';
-        
+
         $this->loadMetrics();
         $this->loadRecentLunches();
         $this->loadUpcomingEvents();
@@ -33,6 +35,7 @@ class Dashboard extends Component
     public function loadMetrics(): void
     {
         $userId = Auth::id();
+        $today = now('Asia/Dhaka')->toDateString();
 
         // 1. Count Active Scheduled Orders — shared Order::ACTIVE_STATUSES
         $activeOrdersCount = Order::where('user_id', $userId)
@@ -41,7 +44,7 @@ class Dashboard extends Component
 
         // 2. Locate Next Scheduled Delivery Run details
         $nextMeal = Order::where('user_id', $userId)
-            ->where('delivery_date', '>=', now()->toDateString())
+            ->where('delivery_date', '>=', $today)
             ->active()
             ->orderBy('delivery_date', 'asc')
             ->orderBy('delivery_time', 'asc')
@@ -53,17 +56,18 @@ class Dashboard extends Component
             ->count();
 
         // 4. Calculate Current Monthly Accumulated Financial Spend
+        $dhakaNow = now('Asia/Dhaka');
         $monthlySpend = Order::where('user_id', $userId)
-            ->whereYear('delivery_date', Carbon::now()->year)
-            ->whereMonth('delivery_date', Carbon::now()->month)
+            ->whereYear('delivery_date', $dhakaNow->year)
+            ->whereMonth('delivery_date', $dhakaNow->month)
             ->where('order_status', '!=', 'cancelled')
             ->sum('total_amount');
 
         $this->metrics = [
-            'active_orders'    => $activeOrdersCount,
-            'next_meal_time'   => $nextMeal ? Carbon::parse($nextMeal->delivery_date)->format('M d') . ' - ' . $nextMeal->delivery_time : 'None Scheduled',
+            'active_orders' => $activeOrdersCount,
+            'next_meal_time' => $nextMeal ? Carbon::parse($nextMeal->delivery_date)->format('M d').' - '.$nextMeal->delivery_time : 'None Scheduled',
             'boxes_in_custody' => $boxesInCustody,
-            'monthly_spend'    => (float) $monthlySpend,
+            'monthly_spend' => (float) $monthlySpend,
         ];
     }
 
@@ -72,22 +76,19 @@ class Dashboard extends Component
         // Fetches completed individual tracking rows with loaded dish relationships
         $this->recentLunches = Order::with('menuItem')
             ->where('user_id', Auth::id())
-            ->where('delivery_date', '<', now()->toDateString())
-            // ->where('order_status', 'completed')
+            ->where('delivery_date', '<', now('Asia/Dhaka')->toDateString())
             ->orderBy('delivery_date', 'desc')
             ->take(5)
             ->get()
             ->toArray();
     }
 
-    
-
     public function loadUpcomingEvents(): void
     {
         // Fetches individual items in a straight chronological timeline sequence
         $this->upcomingEvents = Order::with('menuItem')
             ->where('user_id', Auth::id())
-            ->where('delivery_date', '>=', now()->setTimezone('Asia/Dhaka')->toDateString())
+            ->where('delivery_date', '>=', now('Asia/Dhaka')->toDateString())
             ->where('order_status', '!=', 'cancelled')
             ->orderBy('delivery_date', 'asc')
             ->orderBy('delivery_time', 'asc')
