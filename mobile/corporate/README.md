@@ -77,8 +77,9 @@ Design reference (HTML prototype): `/designs/corporate-mobile/`
 | POST | `/api/corporate/login` | mobile + password → Sanctum token |
 | POST | `/api/corporate/logout` | revoke current token |
 | GET | `/api/corporate/dashboard` | KPIs + upcoming/recent |
-| GET | `/api/corporate/menu` | featured menu + checkout dates |
-| POST | `/api/corporate/orders` | multi-date schedule |
+| GET | `/api/corporate/menu` | featured menu + checkout dates/cities |
+| POST | `/api/corporate/orders/send-otp` | SMS OTP for checkout receiver mobile |
+| POST | `/api/corporate/orders` | multi-date schedule (requires OTP + receiver) |
 | GET | `/api/corporate/orders/scheduled` | upcoming |
 | GET | `/api/corporate/orders/history` | past |
 | GET | `/api/corporate/orders/{id}/track` | order logs timeline |

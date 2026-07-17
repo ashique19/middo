@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\Corporate;
 
 use App\Http\Controllers\Controller;
+use App\Models\Area;
+use App\Models\City;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\Order;
@@ -10,6 +12,7 @@ use App\Models\OrderComplaint;
 use App\Models\User;
 use App\Support\CorporateApiPresenter;
 use App\Support\CorporateOrderLimit;
+use App\Support\OrderConfirmationOtp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -192,6 +195,42 @@ class CorporateMobileController extends Controller
         return response()->json(['orders' => $orders]);
     }
 
+    public function sendOrderOtp(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'receiver_name' => ['required', 'string', 'min:2', 'max:120'],
+            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/'],
+            'address' => ['required', 'string', 'min:5', 'max:255'],
+            'city_id' => ['required', 'integer', 'exists:cities,id'],
+            'area_id' => ['required', 'integer', 'exists:areas,id'],
+            'menu_item_id' => ['required', 'integer', 'exists:menu_items,id'],
+            'delivery_time' => ['nullable', 'string', 'max:40'],
+            'dates' => ['required', 'array', 'min:1'],
+            'dates.*.date' => ['required', 'date_format:Y-m-d'],
+            'dates.*.quantity' => ['required', 'integer', 'min:1'],
+        ], [
+            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
+        ]);
+
+        $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
+        $this->assertDailyLimits($request->user()->id, $data['dates']);
+
+        $result = OrderConfirmationOtp::send($data['mobile']);
+
+        if (! $result['ok']) {
+            throw ValidationException::withMessages([
+                'mobile' => [$result['message']],
+            ]);
+        }
+
+        return response()->json([
+            'message' => $result['message'],
+            'mobile' => $data['mobile'],
+            'expires_in' => 300,
+            'debug_otp' => $result['debug_otp'] ?? null,
+        ]);
+    }
+
     public function placeOrder(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -200,41 +239,40 @@ class CorporateMobileController extends Controller
             'dates' => ['required', 'array', 'min:1'],
             'dates.*.date' => ['required', 'date_format:Y-m-d'],
             'dates.*.quantity' => ['required', 'integer', 'min:1'],
+            'receiver_name' => ['required', 'string', 'min:2', 'max:120'],
+            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/'],
+            'address' => ['required', 'string', 'min:5', 'max:255'],
+            'city_id' => ['required', 'integer', 'exists:cities,id'],
+            'area_id' => ['required', 'integer', 'exists:areas,id'],
+            'otp' => ['required', 'string', 'size:4'],
+        ], [
+            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
+            'otp.size' => 'Enter the 4-digit confirmation code sent by SMS.',
         ]);
+
+        if (! OrderConfirmationOtp::verify($data['mobile'], $data['otp'])) {
+            throw ValidationException::withMessages([
+                'otp' => ['Invalid or expired confirmation code.'],
+            ]);
+        }
+
+        $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
+        $this->assertDailyLimits($request->user()->id, $data['dates']);
 
         /** @var User $user */
         $user = $request->user();
         $menuItem = MenuItem::query()->findOrFail($data['menu_item_id']);
         $deliveryTime = $data['delivery_time'] ?? '12:00 PM';
+        $city = City::query()->findOrFail($data['city_id']);
+        $area = Area::query()->findOrFail($data['area_id']);
+        $fullAddress = trim($data['address']).', '.$area->name.', '.$city->name;
 
         $created = [];
 
-        DB::transaction(function () use ($data, $user, $menuItem, $deliveryTime, &$created) {
-            $presented = CorporateApiPresenter::user($user);
-            $addressParts = array_filter([
-                $user->address,
-                $presented['area'] ?? null,
-                $presented['city'] ?? null,
-            ]);
-            $fullAddress = $addressParts !== []
-                ? implode(', ', $addressParts)
-                : 'Corporate delivery address on file';
-
+        DB::transaction(function () use ($data, $user, $menuItem, $deliveryTime, $fullAddress, &$created) {
             foreach ($data['dates'] as $line) {
                 $date = $line['date'];
                 $qty = (int) $line['quantity'];
-
-                if (CorporateOrderLimit::exceedsDailyLimit($user->id, $date, $qty)) {
-                    throw ValidationException::withMessages([
-                        'dates' => [
-                            sprintf(
-                                'Daily limit exceeded for %s. Max %d meals/day.',
-                                $date,
-                                CorporateOrderLimit::maxAllowed()
-                            ),
-                        ],
-                    ]);
-                }
 
                 $order = Order::create([
                     'user_id' => $user->id,
@@ -252,12 +290,60 @@ class CorporateMobileController extends Controller
 
                 $created[] = CorporateApiPresenter::order($order->load('menuItem'));
             }
+
+            $nameParts = preg_split('/\s+/', trim($data['receiver_name']), 2) ?: [trim($data['receiver_name'])];
+            $user->update([
+                'first_name' => $nameParts[0] ?: $user->first_name,
+                'last_name' => $nameParts[1] ?? ($user->last_name ?: ''),
+                'mobile' => $data['mobile'],
+                'address' => $data['address'],
+                'city_id' => $data['city_id'],
+                'area_id' => $data['area_id'],
+                'is_mobile_verified' => true,
+            ]);
         });
 
         return response()->json([
             'message' => 'Your meal track has been scheduled successfully.',
             'orders' => $created,
         ], 201);
+    }
+
+    /**
+     * @param  list<array{date: string, quantity: int}>  $dates
+     */
+    private function assertDailyLimits(int $userId, array $dates): void
+    {
+        foreach ($dates as $line) {
+            $date = $line['date'];
+            $qty = (int) $line['quantity'];
+
+            if (CorporateOrderLimit::exceedsDailyLimit($userId, $date, $qty)) {
+                throw ValidationException::withMessages([
+                    'dates' => [
+                        sprintf(
+                            'Daily limit exceeded for %s. Max %d meals/day.',
+                            $date,
+                            CorporateOrderLimit::maxAllowed()
+                        ),
+                    ],
+                ]);
+            }
+        }
+    }
+
+    private function assertAreaBelongsToCity(int $cityId, int $areaId): void
+    {
+        $belongs = Area::query()
+            ->whereKey($areaId)
+            ->where('city_id', $cityId)
+            ->exists();
+
+        if (! $belongs) {
+            throw ValidationException::withMessages([
+                'area_id' => ['Selected area does not belong to the chosen city.'],
+            ]);
+        }
     }
 
     public function track(Request $request, int $order): JsonResponse

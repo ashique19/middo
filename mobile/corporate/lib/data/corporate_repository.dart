@@ -12,6 +12,8 @@ abstract class CorporateRepository {
 
   Future<void> logout();
 
+  Future<CorporateUser> me();
+
   Future<DashboardData> dashboard();
 
   Future<List<MenuItem>> menu();
@@ -22,9 +24,18 @@ abstract class CorporateRepository {
 
   Future<List<CorporateOrder>> history();
 
+  Future<String?> sendOrderOtp({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    String deliveryTime = '12:00 PM',
+  });
+
   Future<List<CorporateOrder>> placeOrder({
     required String menuItemId,
     required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    required String otp,
     String deliveryTime = '12:00 PM',
   });
 
@@ -85,6 +96,14 @@ class ApiCorporateRepository implements CorporateRepository {
   }
 
   @override
+  Future<CorporateUser> me() async {
+    final json = await _client.get('/me');
+    return CorporateUser.fromJson(
+      Map<String, dynamic>.from(json['user'] as Map),
+    );
+  }
+
+  @override
   Future<DashboardData> dashboard() async {
     final json = await _client.get('/dashboard');
     return DashboardData(
@@ -131,13 +150,8 @@ class ApiCorporateRepository implements CorporateRepository {
     return _orders(json['orders']);
   }
 
-  @override
-  Future<List<CorporateOrder>> placeOrder({
-    required String menuItemId,
-    required Map<DateTime, int> quantities,
-    String deliveryTime = '12:00 PM',
-  }) async {
-    final dates = quantities.entries
+  List<Map<String, Object>> _datePayload(Map<DateTime, int> quantities) {
+    return quantities.entries
         .where((e) => e.value > 0)
         .map(
           (e) => {
@@ -147,12 +161,65 @@ class ApiCorporateRepository implements CorporateRepository {
           },
         )
         .toList();
+  }
 
-    final json = await _client.post('/orders', body: {
+  Map<String, Object?> _orderBody({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    required String deliveryTime,
+    String? otp,
+  }) {
+    return {
       'menu_item_id': int.tryParse(menuItemId) ?? menuItemId,
       'delivery_time': deliveryTime,
-      'dates': dates,
-    });
+      'dates': _datePayload(quantities),
+      'receiver_name': receiver.receiverName,
+      'mobile': receiver.mobile,
+      'address': receiver.address,
+      'city_id': receiver.cityId,
+      'area_id': receiver.areaId,
+      if (otp != null) 'otp': otp,
+    };
+  }
+
+  @override
+  Future<String?> sendOrderOtp({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    String deliveryTime = '12:00 PM',
+  }) async {
+    final json = await _client.post(
+      '/orders/send-otp',
+      body: _orderBody(
+        menuItemId: menuItemId,
+        quantities: quantities,
+        receiver: receiver,
+        deliveryTime: deliveryTime,
+      ),
+    );
+    return json['debug_otp']?.toString();
+  }
+
+  @override
+  Future<List<CorporateOrder>> placeOrder({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    required String otp,
+    String deliveryTime = '12:00 PM',
+  }) async {
+    final json = await _client.post(
+      '/orders',
+      body: _orderBody(
+        menuItemId: menuItemId,
+        quantities: quantities,
+        receiver: receiver,
+        deliveryTime: deliveryTime,
+        otp: otp,
+      ),
+    );
     return _orders(json['orders']);
   }
 
@@ -248,6 +315,9 @@ class MockCorporateRepository implements CorporateRepository {
   Future<void> logout() => AuthStore.instance.clear();
 
   @override
+  Future<CorporateUser> me() async => _mock.user;
+
+  @override
   Future<DashboardData> dashboard() async {
     return DashboardData(
       user: _mock.user,
@@ -275,6 +345,16 @@ class MockCorporateRepository implements CorporateRepository {
       isPastCutoff: false,
       cutoffLabel: '3:28 PM',
       deliveryWindows: const ['12:00 PM', '11:30 AM'],
+      cities: const [
+        LocationCity(
+          id: 1,
+          name: 'Dhaka',
+          areas: [
+            LocationArea(id: 1, name: 'Gulshan 1'),
+            LocationArea(id: 2, name: 'Banani'),
+          ],
+        ),
+      ],
     );
   }
 
@@ -285,9 +365,20 @@ class MockCorporateRepository implements CorporateRepository {
   Future<List<CorporateOrder>> history() async => _mock.historyOrders;
 
   @override
+  Future<String?> sendOrderOtp({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    String deliveryTime = '12:00 PM',
+  }) async =>
+      '1234';
+
+  @override
   Future<List<CorporateOrder>> placeOrder({
     required String menuItemId,
     required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    required String otp,
     String deliveryTime = '12:00 PM',
   }) async =>
       _mock.upcomingOrders;

@@ -2,11 +2,15 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Area;
+use App\Models\City;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\OrderConfirmationOtp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -114,23 +118,47 @@ class CorporateMobileApiTest extends TestCase
             ->assertJsonCount(1, 'upcoming_orders');
     }
 
-    public function test_place_order_creates_rows_for_selected_dates(): void
+    public function test_place_order_requires_otp_and_receiver_details(): void
     {
+        Http::fake([
+            '*' => Http::response(['status' => 'success'], 200),
+        ]);
+
         $user = $this->makeCorporate();
         $menu = $this->makeMenuItem();
+        [$city, $area] = $this->makeCityArea();
         Sanctum::actingAs($user);
 
         $d1 = now('Asia/Dhaka')->addDays(1)->format('Y-m-d');
         $d2 = now('Asia/Dhaka')->addDays(2)->format('Y-m-d');
-
-        $this->postJson('/api/corporate/orders', [
+        $payload = [
             'menu_item_id' => $menu->id,
             'delivery_time' => '12:00 PM',
+            'receiver_name' => 'Corporate Desk',
+            'mobile' => '01310123452',
+            'address' => 'House 12, Road 5',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
             'dates' => [
                 ['date' => $d1, 'quantity' => 2],
                 ['date' => $d2, 'quantity' => 3],
             ],
-        ])->assertCreated()
+        ];
+
+        $this->postJson('/api/corporate/orders', $payload + ['otp' => '1234'])
+            ->assertUnprocessable();
+
+        $this->postJson('/api/corporate/orders/send-otp', $payload)
+            ->assertOk()
+            ->assertJsonPath('mobile', '01310123452');
+
+        $this->assertNotNull(OrderConfirmationOtp::cacheKey('01310123452'));
+
+        $this->postJson('/api/corporate/orders', $payload + ['otp' => '0000'])
+            ->assertUnprocessable();
+
+        $this->postJson('/api/corporate/orders', $payload + ['otp' => '1234'])
+            ->assertCreated()
             ->assertJsonCount(2, 'orders');
 
         $this->assertDatabaseCount('orders', 2);
@@ -142,6 +170,22 @@ class CorporateMobileApiTest extends TestCase
                 ->whereDate('delivery_date', $d1)
                 ->exists()
         );
+        $this->assertSame('House 12, Road 5', $user->fresh()->address);
+        $this->assertTrue((bool) $user->fresh()->is_mobile_verified);
+    }
+
+    /**
+     * @return array{0: City, 1: Area}
+     */
+    private function makeCityArea(): array
+    {
+        $city = City::create(['name' => 'Dhaka']);
+        $area = Area::create([
+            'name' => 'Gulshan 1',
+            'city_id' => $city->id,
+        ]);
+
+        return [$city, $area];
     }
 
     public function test_wallet_top_up_increases_balance(): void
