@@ -9,6 +9,7 @@ use App\Livewire\Operation\SearchOrder;
 use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\KitchenAllOrders;
 use App\Livewire\Admin\KitchenOnboarding;
+use App\Livewire\Shared\MiddoCashLedgerPage;
 
 // routes/web/admin.php
 Route::middleware(['auth', 'role:admin'])->group(function () {
@@ -27,6 +28,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/orders/search', SearchOrder::class)->name('admin.orders.search');
 
     Route::get('/navs-roles', [NavRoleController::class, 'index'])->name('admin.navrole.index');
+    Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('admin.middo-cash');
 
     // User Management (one page per role)
     Route::get('/users/admin', fn () => view('admin.users.page', ['role' => 'admin']))->name('admin.users.admin');

@@ -340,13 +340,13 @@ class CorporateMobileController extends Controller
 
         $activeOrdersCount = Order::query()
             ->where('user_id', $userId)
-            ->whereIn('order_status', ['pending', 'processing', 'on_the_way_to_delivery'])
+            ->whereIn('order_status', ['pending', 'processing', 'packed', 'on_the_way_to_delivery'])
             ->count();
 
         $nextMeal = Order::query()
             ->where('user_id', $userId)
             ->where('delivery_date', '>=', $today)
-            ->whereIn('order_status', ['pending', 'processing', 'on_the_way_to_delivery'])
+            ->whereIn('order_status', ['pending', 'processing', 'packed', 'on_the_way_to_delivery'])
             ->orderBy('delivery_date')
             ->orderBy('delivery_time')
             ->first();
@@ -534,11 +534,14 @@ class CorporateMobileController extends Controller
                     'delivery_time' => $deliveryTime,
                     'total_amount' => (int) round($menuItem->price * $qty),
                     'address' => $fullAddress,
+                    'area_id' => $data['area_id'],
                     'order_status' => 'pending',
                     'payment_status' => 'pending',
                     'created_by' => $user->id,
                     'updated_by' => $user->id,
                 ]);
+
+                app(\App\Support\MealOrderGrouper::class)->assignOrder($order->fresh(['user']), $user->id);
 
                 $created[] = CorporateApiPresenter::order($order->load('menuItem'));
             }

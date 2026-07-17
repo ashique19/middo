@@ -134,8 +134,8 @@ class KitchenMiddoBoxesTest extends TestCase
             ->get(route('kitchen.middo-boxes.incoming'))
             ->assertOk()
             ->assertSee($box->qr_code_id)
-            ->assertSee('On the way to kitchen')
-            ->assertSee('Received');
+            ->assertSee('Awaiting confirm')
+            ->assertSee('Confirm receive');
 
         Livewire::actingAs($this->kitchen)
             ->test(IncomingBoxes::class)
@@ -239,7 +239,7 @@ class KitchenMiddoBoxesTest extends TestCase
 
         $this->assertDatabaseHas('orders', [
             'id' => $order->id,
-            'order_status' => 'processing',
+            'order_status' => 'packed',
         ]);
 
         $this->assertNotNull($order->fresh()->dispatched_at);

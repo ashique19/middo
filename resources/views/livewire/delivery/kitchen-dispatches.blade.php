@@ -41,6 +41,13 @@
                         <span class="font-semibold">{{ $order['kitchen_name'] }}</span>
                         · {{ $order['date_label'] }} · {{ $order['delivery_time'] }}
                     </p>
+                    @if(!empty($order['kitchen_mobile']) || !empty($order['kitchen_address']))
+                        <p class="text-xs text-gray-500">
+                            @if(!empty($order['kitchen_mobile'])) {{ $order['kitchen_mobile'] }} @endif
+                            @if(!empty($order['kitchen_mobile']) && !empty($order['kitchen_address'])) · @endif
+                            @if(!empty($order['kitchen_address'])) {{ $order['kitchen_address'] }} @endif
+                        </p>
+                    @endif
                     <p class="text-sm text-gray-500">
                         Consumer: <span class="font-medium text-gray-700">{{ $order['customer_name'] }}</span>
                         · {{ $order['address'] }}
@@ -59,9 +66,9 @@
                             wire:click="acceptOrder({{ $order['id'] }})"
                             wire:loading.attr="disabled"
                             wire:target="acceptOrder({{ $order['id'] }})"
-                            wire:confirm="Accept this kitchen dispatch? Boxes will be held by you and status becomes On the way to delivery."
+                            wire:confirm="Accept this packed order? Boxes will be held by you and status becomes On the way to delivery."
                             class="inline-flex items-center px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
-                            <span wire:loading.remove wire:target="acceptOrder({{ $order['id'] }})">Accept order</span>
+                            <span wire:loading.remove wire:target="acceptOrder({{ $order['id'] }})">Pick up packed order</span>
                             <span wire:loading wire:target="acceptOrder({{ $order['id'] }})">Accepting...</span>
                         </button>
                     @elseif($order['can_mark_delivered'])

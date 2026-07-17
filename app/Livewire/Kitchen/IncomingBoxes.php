@@ -63,7 +63,7 @@ class IncomingBoxes extends Component
         $kitchenId = Auth::id();
 
         $boxes = MiddoBox::query()
-            ->with('heldByUser')
+            ->with(['heldByUser', 'logs' => fn ($q) => $q->latest('id')->limit(1)])
             ->incomingToKitchen($kitchenId)
             ->orderBy('qr_code_id')
             ->paginate(20);

@@ -151,7 +151,7 @@ class DeliveryDashboardTest extends TestCase
             ->get(route('delivery.kitchen-dispatches'))
             ->assertOk()
             ->assertSee('#'.$order->id)
-            ->assertSee('Accept order');
+            ->assertSee('Pick up packed order');
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)

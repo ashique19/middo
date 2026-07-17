@@ -177,7 +177,7 @@ class KitchenDispatches extends Component
 
         $nodes = collect($orders->items())
             ->map(function (Order $order) use ($riderId) {
-                $kitchenName = $order->orderGroup?->kitchen?->name ?? 'Kitchen';
+                $kitchen = $order->orderGroup?->kitchen;
 
                 return [
                     'id' => $order->id,
@@ -187,7 +187,9 @@ class KitchenDispatches extends Component
                     'quantity' => $order->quantity,
                     'delivery_time' => $order->delivery_time,
                     'date_label' => $this->dateLabel($order->delivery_date->toDateString()),
-                    'kitchen_name' => $kitchenName,
+                    'kitchen_name' => $kitchen?->name ?? 'Kitchen',
+                    'kitchen_mobile' => $kitchen?->mobile,
+                    'kitchen_address' => $kitchen?->address,
                     'box_codes' => $order->middoBoxes->pluck('qr_code_id')->all(),
                     'status_label' => str($order->order_status)->replace('_', ' ')->title()->toString(),
                     'awaiting_accept' => $order->isAwaitingRiderAccept(),

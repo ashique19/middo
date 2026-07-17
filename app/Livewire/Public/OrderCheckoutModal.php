@@ -323,11 +323,12 @@ class OrderCheckoutModal extends Component
             $currentUser = Auth::user();
             
             $fullAddress = trim($this->addressLine1) . ', ' . ($areaModel?->name ?? '') . ', ' . ($cityModel?->name ?? '');
-            
+            $createdOrderIds = [];
+
             foreach ($activeOrders as $date => $qty) {
                 $lineTotal = (int) round(($this->dish['price'] ?? 0) * $qty);
 
-                \App\Models\Order::create([
+                $order = \App\Models\Order::create([
                     'user_id'         => $currentUserId,
                     'menu_item_id'    => $this->dish['id'],
                     'quantity'        => $qty,
@@ -335,11 +336,18 @@ class OrderCheckoutModal extends Component
                     'delivery_time'   => $this->deliveryWindow,
                     'total_amount'    => $lineTotal,
                     'address'         => $fullAddress,
+                    'area_id'         => $this->area_id,
                     'order_status'    => 'pending',
                     'payment_status'  => 'pending',
                     'created_by'      => $currentUserId,
                     'updated_by'      => $currentUserId,
                 ]);
+                $createdOrderIds[] = $order->id;
+            }
+
+            $grouper = app(\App\Support\MealOrderGrouper::class);
+            foreach (\App\Models\Order::query()->whereIn('id', $createdOrderIds)->get() as $order) {
+                $grouper->assignOrder($order->load('user'), $currentUserId);
             }
             
             if ($currentUser instanceof User) {

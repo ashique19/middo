@@ -26,6 +26,7 @@
                     <tr class="bg-gray-50 border-b border-gray-100 text-xs font-semibold uppercase tracking-wider text-gray-500">
                         <th class="p-4">QR Code</th>
                         <th class="p-4">Model</th>
+                        <th class="p-4">Source</th>
                         <th class="p-4">Status</th>
                         <th class="p-4">Held by</th>
                         <th class="p-4 text-right">Actions</th>
@@ -33,12 +34,21 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100 text-sm">
                     @forelse($boxes as $box)
+                        @php
+                            $latestAction = $box->logs->first()?->log_action;
+                            $sourceLabel = match ($latestAction) {
+                                'returned_to_kitchen' => 'Rider return',
+                                'dispatched_to_kitchen' => 'Warehouse',
+                                default => 'Incoming',
+                            };
+                        @endphp
                         <tr wire:key="incoming-box-{{ $box->id }}" class="hover:bg-gray-50/70 transition">
                             <td class="p-4 font-mono font-bold text-middo-dark">{{ $box->qr_code_id }}</td>
                             <td class="p-4 text-gray-700">{{ str($box->box_model_type)->headline() }}</td>
+                            <td class="p-4 text-gray-700">{{ $sourceLabel }}</td>
                             <td class="p-4">
                                 <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
-                                    On the way to kitchen
+                                    Awaiting confirm
                                 </span>
                             </td>
                             <td class="p-4 text-gray-600">{{ $box->heldByUser?->name ?? '—' }}</td>
@@ -48,16 +58,16 @@
                                     wire:click="receiveBox({{ $box->id }})"
                                     wire:loading.attr="disabled"
                                     wire:target="receiveBox({{ $box->id }})"
-                                    wire:confirm="Mark this box as received at your kitchen?"
+                                    wire:confirm="Confirm you received this box into kitchen inventory?"
                                     class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
-                                    <span wire:loading.remove wire:target="receiveBox({{ $box->id }})">Received</span>
+                                    <span wire:loading.remove wire:target="receiveBox({{ $box->id }})">Confirm receive</span>
                                     <span wire:loading wire:target="receiveBox({{ $box->id }})">Receiving...</span>
                                 </button>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="p-12 text-center text-sm font-semibold text-gray-400 italic">
+                            <td colspan="6" class="p-12 text-center text-sm font-semibold text-gray-400 italic">
                                 No boxes currently on the way to your kitchen.
                             </td>
                         </tr>

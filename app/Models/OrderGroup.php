@@ -12,6 +12,7 @@ class OrderGroup extends Model
     protected $fillable = [
         'name',
         'menu_id',
+        'area_id',
         'delivery_date',
         'kitchen_id',
         'created_by',
@@ -25,6 +26,11 @@ class OrderGroup extends Model
     public function menuItem(): BelongsTo
     {
         return $this->belongsTo(MenuItem::class, 'menu_id');
+    }
+
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
     }
 
     public function kitchen(): BelongsTo

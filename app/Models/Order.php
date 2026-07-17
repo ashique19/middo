@@ -19,6 +19,7 @@ class Order extends Model
         'delivery_time',
         'total_amount',
         'address',
+        'area_id',
         'order_status',
         'payment_status',
         'dispatched_at',
@@ -37,6 +38,11 @@ class Order extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
     }
 
     public function menuItem(): BelongsTo
@@ -84,7 +90,12 @@ class Order extends Model
     {
         return $this->isKitchenDispatched()
             && $this->delivery_rider_id === null
-            && $this->order_status === 'processing';
+            && $this->order_status === 'packed';
+    }
+
+    public function isPacked(): bool
+    {
+        return $this->order_status === 'packed';
     }
 
     public function isOnTheWayToDelivery(): bool
@@ -116,7 +127,7 @@ class Order extends Model
     {
         return $query
             ->whereNotNull('dispatched_at')
-            ->whereIn('order_status', ['processing', 'on_the_way_to_delivery']);
+            ->whereIn('order_status', ['packed', 'on_the_way_to_delivery']);
     }
 
     public function scopeDeliveredForRider($query, int $riderId)
@@ -128,7 +139,12 @@ class Order extends Model
 
     public function scopeActive($query)
     {
-        return $query->whereIn('order_status', ['pending', 'processing', 'on_the_way_to_delivery']);
+        return $query->whereIn('order_status', [
+            'pending',
+            'processing',
+            'packed',
+            'on_the_way_to_delivery',
+        ]);
     }
 
     public function logs(): HasMany
@@ -139,6 +155,11 @@ class Order extends Model
     public function complaints(): HasMany
     {
         return $this->hasMany(OrderComplaint::class);
+    }
+
+    public function cashHandoverOrder(): HasOne
+    {
+        return $this->hasOne(CashHandoverOrder::class);
     }
 
     public function orderGroupOrder(): HasOne

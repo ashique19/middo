@@ -89,6 +89,7 @@ class OrderGroupManager
             $group = OrderGroup::create([
                 'name' => $this->nextManualGroupName($menuId, $deliveryDate->format('Ymd')),
                 'menu_id' => $menuId,
+                'area_id' => $source->area_id ?: $target->area_id,
                 'delivery_date' => $deliveryDate,
                 'kitchen_id' => null,
                 'created_by' => $userId,

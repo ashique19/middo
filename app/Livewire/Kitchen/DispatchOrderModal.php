@@ -187,7 +187,7 @@ class DispatchOrderModal extends Component
                 }
 
                 $order->update([
-                    'order_status' => 'processing',
+                    'order_status' => 'packed',
                     'dispatched_at' => now(),
                     'updated_by' => $kitchenId,
                 ]);
@@ -196,7 +196,7 @@ class DispatchOrderModal extends Component
             $this->dispatch('order-dispatched');
             $this->closeModal();
         } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage() ?: 'Could not dispatch this order.';
+            $this->errorMessage = $e->getMessage() ?: 'Could not pack this order.';
         }
     }
 
