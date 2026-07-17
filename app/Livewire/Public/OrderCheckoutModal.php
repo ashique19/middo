@@ -364,6 +364,7 @@ class OrderCheckoutModal extends Component
 
         if (! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
             $this->addError('otpInput', 'Invalid or expired confirmation token code.');
+
             return;
         }
 

@@ -12,6 +12,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PasswordResetOtp;
+use App\Support\SignupOtp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -80,12 +81,52 @@ class CorporateMobileApiTest extends TestCase
 
     public function test_corporate_can_register_and_receive_token(): void
     {
+        Http::fake(['*' => Http::response(['status' => 'success'], 200)]);
+
         [$city, $area] = $this->makeCityArea();
 
         $this->postJson('/api/corporate/register', [
             'first_name' => 'Nabila',
             'last_name' => 'Rahman',
             'mobile' => '01710123456',
+            'otp' => '1234',
+            'password' => 'password12',
+            'password_confirmation' => 'password12',
+            'company_name' => 'Rahman Foods Ltd',
+            'address' => 'House 9, Road 11, Banani',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+        ])->assertUnprocessable();
+
+        $this->postJson('/api/corporate/register/send-otp', [
+            'mobile' => '01710123456',
+        ])->assertOk()
+            ->assertJsonPath('debug_otp', '1234');
+
+        $this->assertNotNull(SignupOtp::cacheKey('01710123456'));
+
+        $this->postJson('/api/corporate/register', [
+            'first_name' => 'Nabila',
+            'last_name' => 'Rahman',
+            'mobile' => '01710123456',
+            'otp' => '0000',
+            'password' => 'password12',
+            'password_confirmation' => 'password12',
+            'company_name' => 'Rahman Foods Ltd',
+            'address' => 'House 9, Road 11, Banani',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+        ])->assertUnprocessable();
+
+        $this->postJson('/api/corporate/register/send-otp', [
+            'mobile' => '01710123456',
+        ])->assertOk();
+
+        $this->postJson('/api/corporate/register', [
+            'first_name' => 'Nabila',
+            'last_name' => 'Rahman',
+            'mobile' => '01710123456',
+            'otp' => '1234',
             'password' => 'password12',
             'password_confirmation' => 'password12',
             'company_name' => 'Rahman Foods Ltd',
@@ -101,6 +142,7 @@ class CorporateMobileApiTest extends TestCase
             'mobile' => '01710123456',
             'role_id' => $this->corporateRole->id,
             'status' => 'active',
+            'is_mobile_verified' => 1,
         ]);
     }
 

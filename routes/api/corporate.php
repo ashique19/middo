@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('corporate')->group(function () {
     Route::post('/login', [CorporateMobileController::class, 'login']);
+    Route::post('/register/send-otp', [CorporateMobileController::class, 'sendSignupOtp']);
     Route::post('/register', [CorporateMobileController::class, 'register']);
     Route::post('/forgot-password', [CorporateMobileController::class, 'forgotPassword']);
     Route::post('/reset-password', [CorporateMobileController::class, 'resetPassword']);

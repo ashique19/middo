@@ -1,18 +1,49 @@
 <x-layouts.public.app>
     <div class="min-h-screen bg-middo-cream md:bg-white py-8 md:px-4 flex flex-col justify-start items-center"
          x-data="{ 
-            form: { first_name: '', last_name: '', mobile: '', password: '', company_name: '', address: '', city_id: '', area_id: '' },
+            form: { first_name: '', last_name: '', mobile: '', otp: '', password: '', company_name: '', address: '', city_id: '', area_id: '' },
             errors: {},
             loading: false,
+            otpSent: false,
+            debugOtp: null,
             cityName: 'Select City', areaName: 'Select Area', cityOpen: false, areaOpen: false, areas: [],
             get isMobileValid() { return this.form.mobile.length === 0 || /^01[3-9][0-9]{8}$/.test(this.form.mobile); },
+            async sendOtp() {
+                if (!this.isMobileValid || this.form.mobile.length !== 11) {
+                    this.errors = { mobile: ['Provide a valid 11-digit mobile number (e.g. 01710123456).'] };
+                    return;
+                }
+                this.loading = true; this.errors = {};
+                try {
+                    let response = await fetch('{{ route('register.send-otp') }}', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                        body: JSON.stringify({ mobile: this.form.mobile })
+                    });
+                    let result = await response.json();
+                    if (response.ok) {
+                        this.otpSent = true;
+                        this.debugOtp = result.debug_otp || null;
+                        this.form.otp = '';
+                    } else {
+                        this.errors = result.errors || { general: [result.message || 'Failed to send OTP.'] };
+                    }
+                } catch (e) {
+                    this.errors = { general: ['Failed to send OTP. Please try again.'] };
+                }
+                this.loading = false;
+            },
             async submit() {
                 if (!this.isMobileValid) return;
+                if (!this.otpSent) {
+                    await this.sendOtp();
+                    return;
+                }
                 this.loading = true; this.errors = {};
                 try {
                     let response = await fetch('{{ route('register') }}', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
                         body: JSON.stringify(this.form)
                     });
                     let result = await response.json();
@@ -49,34 +80,53 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                            <input x-model="form.first_name" type="text" placeholder="First Name" class="w-full p-4 rounded-xl border border-gray-300">
+                            <input x-model="form.first_name" type="text" placeholder="First Name" class="w-full p-4 rounded-xl border border-gray-300" :disabled="loading">
                             <template x-if="errors.first_name"><p class="text-red-500 text-xs mt-1" x-text="errors.first_name[0]"></p></template>
                         </div>
                         <div>
-                            <input x-model="form.last_name" type="text" placeholder="Last Name" class="w-full p-4 rounded-xl border border-gray-300">
+                            <input x-model="form.last_name" type="text" placeholder="Last Name" class="w-full p-4 rounded-xl border border-gray-300" :disabled="loading">
                             <template x-if="errors.last_name"><p class="text-red-500 text-xs mt-1" x-text="errors.last_name[0]"></p></template>
                         </div>
                     </div>
 
                     <div class="mb-4">
-                        <input x-model="form.mobile" type="text" placeholder="Phone no. 01XXXXXXXXX" 
-                            class="w-full p-4 rounded-xl border border-gray-300"
-                            :class="!isMobileValid ? 'ring-2 ring-red-500' : ''">
+                        <div class="flex gap-2">
+                            <input x-model="form.mobile" type="text" placeholder="Phone no. 01XXXXXXXXX" 
+                                class="w-full p-4 rounded-xl border border-gray-300"
+                                :class="!isMobileValid ? 'ring-2 ring-red-500' : ''"
+                                :disabled="loading || otpSent"
+                                maxlength="11">
+                            <button type="button" @click="sendOtp" :disabled="loading || !isMobileValid || form.mobile.length !== 11"
+                                class="shrink-0 px-4 rounded-xl border border-middo-orange text-middo-orange font-bold text-sm hover:bg-middo-orange hover:text-white transition disabled:opacity-50">
+                                <span x-text="otpSent ? 'Resend OTP' : 'Send OTP'"></span>
+                            </button>
+                        </div>
                         <template x-if="!isMobileValid"><p class="text-red-500 text-xs mt-1">Invalid format (01xxxxxxxxx)</p></template>
                         <template x-if="errors.mobile"><p class="text-red-500 text-xs mt-1" x-text="errors.mobile[0]"></p></template>
                     </div>
 
+                    <div class="mb-4" x-show="otpSent" x-cloak>
+                        <template x-if="debugOtp">
+                            <p class="text-middo-orange text-xs font-bold mb-2" x-text="'Debug OTP: ' + debugOtp"></p>
+                        </template>
+                        <input x-model="form.otp" type="text" inputmode="numeric" maxlength="4" placeholder="4-digit SMS OTP"
+                            class="w-full p-4 rounded-xl border border-gray-300 tracking-[0.4em] text-center text-xl font-bold"
+                            :disabled="loading">
+                        <template x-if="errors.otp"><p class="text-red-500 text-xs mt-1" x-text="errors.otp[0]"></p></template>
+                        <p class="text-gray-500 text-xs mt-1">Enter the code sent to your mobile. Valid for 5 minutes.</p>
+                    </div>
+
                     <div class="mb-4">
-                        <input x-model="form.password" type="password" placeholder="Password" class="w-full p-4 rounded-xl border border-gray-300">
+                        <input x-model="form.password" type="password" placeholder="Password" class="w-full p-4 rounded-xl border border-gray-300" :disabled="loading">
                         <template x-if="errors.password"><p class="text-red-500 text-xs mt-1" x-text="errors.password[0]"></p></template>
                     </div>
 
                     <div class="border-t pt-6 mt-6">
                         <h2 class="text-lg font-bold text-middo-dark mb-4">Corporate Details</h2>
-                        <input x-model="form.company_name" type="text" placeholder="Company Name" class="w-full p-4 rounded-xl border border-gray-300 mb-4">
+                        <input x-model="form.company_name" type="text" placeholder="Company Name" class="w-full p-4 rounded-xl border border-gray-300 mb-4" :disabled="loading">
                         <template x-if="errors.company_name"><p class="text-red-500 text-xs mt-1 mb-4" x-text="errors.company_name[0]"></p></template>
                         
-                        <textarea x-model="form.address" placeholder="Company Address" class="w-full p-4 rounded-xl border border-gray-300 mb-6"></textarea>
+                        <textarea x-model="form.address" placeholder="Company Address" class="w-full p-4 rounded-xl border border-gray-300 mb-6" :disabled="loading"></textarea>
                         <template x-if="errors.address"><p class="text-red-500 text-xs mt-1" x-text="errors.address[0]"></p></template>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -107,7 +157,7 @@
                     </div>
 
                     <button type="submit" :disabled="loading" class="w-full bg-middo-orange text-white p-4 rounded-xl font-bold hover:opacity-90 transition">
-                        <span x-show="!loading">Sign Up</span>
+                        <span x-show="!loading" x-text="otpSent ? 'Verify & Sign Up' : 'Send OTP & Continue'"></span>
                         <span x-show="loading">Processing...</span>
                     </button>
                 </form>
