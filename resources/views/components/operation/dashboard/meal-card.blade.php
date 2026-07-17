@@ -130,7 +130,7 @@
                     type="button"
                     @click="$dispatch('open-track-order-modal', { orderId: {{ $order['id'] }} })"
                     class="w-full text-xs font-bold text-white bg-[#1E4630] hover:bg-[#143021] py-2.5 px-1 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]">
-                    <svg class="w-3.5 h-3.5 {{ ($order['order_status'] ?? '') === 'In Transit' ? 'animate-pulse' : '' }}" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <svg class="w-3.5 h-3.5 {{ ($order['order_status'] ?? '') === 'on_the_way_to_delivery' ? 'animate-pulse' : '' }}" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1115 0z" />
                     </svg>

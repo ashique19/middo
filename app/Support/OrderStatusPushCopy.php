@@ -24,9 +24,13 @@ class OrderStatusPushCopy
                 'title' => 'Your order is on the way',
                 'body' => "Order #{$orderId}{$meal} has been dispatched for delivery.",
             ],
-            'delivered', 'delivered_and_paid' => [
+            'delivered' => [
                 'title' => 'Order delivered',
                 'body' => "Order #{$orderId}{$meal} was delivered. Enjoy your lunch!",
+            ],
+            'delivered_and_paid' => [
+                'title' => 'Delivery complete',
+                'body' => "Order #{$orderId}{$meal} is delivered and paid. Thank you!",
             ],
             'cancelled' => [
                 'title' => 'Order cancelled',

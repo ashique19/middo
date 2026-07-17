@@ -146,7 +146,17 @@ class MenuItem {
   }
 }
 
-enum OrderStatus { pending, confirmed, processing, outForDelivery, delivered, cancelled, other }
+enum OrderStatus {
+  pending,
+  confirmed,
+  processing,
+  packed,
+  outForDelivery,
+  delivered,
+  cancelled,
+  other
+}
+
 
 class CorporateOrder {
   const CorporateOrder({
@@ -186,7 +196,8 @@ class CorporateOrder {
   String get statusLabel => switch (status) {
         OrderStatus.pending => 'Pending',
         OrderStatus.confirmed => 'Confirmed',
-        OrderStatus.processing => 'Processing',
+        OrderStatus.processing => 'Kitchen preparing',
+        OrderStatus.packed => 'Packed',
         OrderStatus.outForDelivery => 'Out for delivery',
         OrderStatus.delivered => 'Delivered',
         OrderStatus.cancelled => 'Cancelled',
@@ -226,6 +237,7 @@ class CorporateOrder {
       'pending' => OrderStatus.pending,
       'confirmed' => OrderStatus.confirmed,
       'processing' => OrderStatus.processing,
+      'packed' => OrderStatus.packed,
       'on_the_way_to_delivery' => OrderStatus.outForDelivery,
       'delivered' || 'delivered_and_paid' => OrderStatus.delivered,
       'cancelled' => OrderStatus.cancelled,

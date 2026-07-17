@@ -119,6 +119,11 @@ class KitchenDashboardTest extends TestCase
             'kitchen_id' => $this->kitchen->id,
             'updated_by' => $this->kitchen->id,
         ]);
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $group->orders()->first()->id,
+            'order_status' => 'processing',
+        ]);
     }
 
     public function test_kitchen_cannot_accept_already_assigned_group(): void

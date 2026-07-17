@@ -19,6 +19,9 @@ class OrderStatusPushCopyTest extends TestCase
         $delivered = OrderStatusPushCopy::forStatus('delivered', 7, 'Thali');
         $this->assertSame('Order delivered', $delivered['title']);
 
+        $settled = OrderStatusPushCopy::forStatus('delivered_and_paid', 7, 'Thali');
+        $this->assertSame('Delivery complete', $settled['title']);
+
         $packed = OrderStatusPushCopy::forStatus('packed', 9, null);
         $this->assertSame('Your order is packed', $packed['title']);
 

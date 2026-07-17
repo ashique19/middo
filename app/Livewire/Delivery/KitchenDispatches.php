@@ -129,7 +129,8 @@ class KitchenDispatches extends Component
                 }
 
                 $order->update([
-                    'order_status' => 'delivered',
+                    'order_status' => $order->amountDue() === 0 ? 'delivered_and_paid' : 'delivered',
+                    'payment_status' => $order->amountDue() === 0 ? 'paid' : $order->payment_status,
                     'updated_by' => $riderId,
                 ]);
 

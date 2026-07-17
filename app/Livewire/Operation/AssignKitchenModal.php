@@ -71,10 +71,17 @@ class AssignKitchenModal extends Component
 
         $group = OrderGroup::findOrFail($this->orderGroupId);
 
+        $previousKitchenId = $group->kitchen_id;
+
         $group->update([
             'kitchen_id' => $this->selectedKitchenId ?: null,
             'updated_by' => Auth::id(),
         ]);
+
+        // First-time kitchen assignment advances pending orders to processing (push + UI).
+        if ($this->selectedKitchenId && ! $previousKitchenId) {
+            \App\Support\OrderKitchenAcceptance::markGroupOrdersProcessing($group, Auth::id());
+        }
 
         $this->dispatch('order-group-kitchen-changed');
         $this->closeModal();

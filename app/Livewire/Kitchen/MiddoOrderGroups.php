@@ -51,6 +51,8 @@ class MiddoOrderGroups extends Component
                     'updated_by' => $kitchenId,
                 ]);
 
+                \App\Support\OrderKitchenAcceptance::markGroupOrdersProcessing($group, $kitchenId);
+
                 return $group->name;
             });
 
