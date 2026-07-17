@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
+import '../data/push_notification_service.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
@@ -131,6 +132,7 @@ class _SignupScreenState extends State<SignupScreen> {
         cityId: _cityId!,
         areaId: _areaId!,
       );
+      await PushNotificationService.instance.syncWithBackend();
       if (!mounted) return;
       context.go('/home');
     } on ApiException catch (e) {

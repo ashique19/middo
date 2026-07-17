@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/auth_store.dart';
+import '../data/push_notification_service.dart';
 import '../theme/middo_colors.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -55,8 +56,12 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _goNext() {
     if (!mounted) return;
-    final next = AuthStore.instance.isAuthenticated ? '/home' : '/login';
-    context.go(next);
+    if (AuthStore.instance.isAuthenticated) {
+      PushNotificationService.instance.syncWithBackend();
+      context.go('/home');
+      return;
+    }
+    context.go('/login');
   }
 
   @override

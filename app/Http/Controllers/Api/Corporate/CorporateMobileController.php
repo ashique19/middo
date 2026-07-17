@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Corporate;
 use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\City;
+use App\Models\DeviceToken;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\Order;
@@ -288,6 +289,46 @@ class CorporateMobileController extends Controller
 
         return response()->json([
             'message' => 'Password changed successfully.',
+        ]);
+    }
+
+    public function registerDeviceToken(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'token' => ['required', 'string', 'min:20', 'max:512'],
+            'platform' => ['nullable', 'string', 'in:android,ios,web'],
+            'device_name' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $token = DeviceToken::query()->updateOrCreate(
+            ['token' => $data['token']],
+            [
+                'user_id' => $request->user()->id,
+                'platform' => $data['platform'] ?? 'android',
+                'device_name' => $data['device_name'] ?? null,
+                'last_used_at' => now(),
+            ],
+        );
+
+        return response()->json([
+            'message' => 'Device registered for notifications.',
+            'token_id' => $token->id,
+        ]);
+    }
+
+    public function unregisterDeviceToken(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'token' => ['required', 'string', 'max:512'],
+        ]);
+
+        DeviceToken::query()
+            ->where('user_id', $request->user()->id)
+            ->where('token', $data['token'])
+            ->delete();
+
+        return response()->json([
+            'message' => 'Device unregistered.',
         ]);
     }
 

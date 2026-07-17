@@ -110,6 +110,11 @@ class User extends Authenticatable
         return $this->hasMany(MiddoBox::class, 'held_by_user_id');
     }
 
+    public function deviceTokens(): HasMany
+    {
+        return $this->hasMany(DeviceToken::class);
+    }
+
     public function getNameAttribute(): string
     {
         $name = trim(sprintf('%s %s', $this->first_name, $this->last_name));

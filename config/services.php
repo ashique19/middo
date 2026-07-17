@@ -42,4 +42,12 @@ return [
         'base_url'      => 'https://api.mimsms.com/api/V2/SMS',
     ],
 
+    /*
+    | Firebase Cloud Messaging (legacy HTTP API key from Firebase Console
+    | → Project settings → Cloud Messaging). Leave empty to skip pushes.
+    */
+    'fcm' => [
+        'server_key' => env('FCM_SERVER_KEY'),
+    ],
+
 ];

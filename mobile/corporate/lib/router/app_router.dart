@@ -18,7 +18,7 @@ import '../screens/support_screen.dart';
 import '../screens/track_screen.dart';
 import '../screens/wallet_screen.dart';
 
-final _rootKey = GlobalKey<NavigatorState>();
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 CustomTransitionPage<void> _fadePage({
   required LocalKey key,
@@ -51,7 +51,7 @@ CustomTransitionPage<void> _fadePage({
 
 GoRouter createAppRouter() {
   return GoRouter(
-    navigatorKey: _rootKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     redirect: (context, state) {
       final loc = state.matchedLocation;
@@ -147,7 +147,7 @@ GoRouter createAppRouter() {
       ),
       GoRoute(
         path: '/checkout/:menuItemId',
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
           child: CheckoutScreen(
@@ -157,7 +157,7 @@ GoRouter createAppRouter() {
       ),
       GoRoute(
         path: '/track/:orderId',
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
           child: TrackScreen(
@@ -167,7 +167,7 @@ GoRouter createAppRouter() {
       ),
       GoRoute(
         path: '/history',
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
           child: const HistoryScreen(),
@@ -175,7 +175,7 @@ GoRouter createAppRouter() {
       ),
       GoRoute(
         path: '/profile',
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
           child: const ProfileScreen(),
@@ -183,7 +183,7 @@ GoRouter createAppRouter() {
       ),
       GoRoute(
         path: '/profile/password',
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
           child: const ChangePasswordScreen(),
@@ -191,7 +191,7 @@ GoRouter createAppRouter() {
       ),
       GoRoute(
         path: '/support/:orderId',
-        parentNavigatorKey: _rootKey,
+        parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
           child: SupportScreen(

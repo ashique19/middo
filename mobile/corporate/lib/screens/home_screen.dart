@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
+import '../data/push_notification_service.dart';
 import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
@@ -98,6 +99,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   onTap: () => Navigator.pop(context, 'password'),
                 ),
+                ListTile(
+                  leading: const Icon(Icons.logout_rounded),
+                  title: const Text(
+                    'Sign out',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  onTap: () => Navigator.pop(context, 'logout'),
+                ),
               ],
             ),
           ),
@@ -111,6 +120,12 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) await _reload();
     } else if (action == 'password') {
       await context.push('/profile/password');
+    } else if (action == 'logout') {
+      await PushNotificationService.instance.unregisterFromBackend();
+      if (!mounted) return;
+      await AppScope.of(context).logout();
+      if (!mounted) return;
+      context.go('/login');
     }
   }
 

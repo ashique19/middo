@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Api;
 
+use App\Jobs\SendOrderStatusPush;
 use App\Models\Area;
 use App\Models\City;
+use App\Models\DeviceToken;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\Role;
@@ -13,6 +15,7 @@ use App\Support\PasswordResetOtp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -389,5 +392,58 @@ class CorporateMobileApiTest extends TestCase
             'category' => 'delivery',
             'message' => 'Another complaint should be rejected by the API.',
         ])->assertStatus(422);
+    }
+
+    public function test_device_token_can_be_registered_and_unregistered(): void
+    {
+        $user = $this->makeCorporate();
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/corporate/device-tokens', [
+            'token' => 'fcm-test-token-abcdefghijklmnopqrstuvwxyz',
+            'platform' => 'android',
+            'device_name' => 'Pixel Test',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('device_tokens', [
+            'user_id' => $user->id,
+            'token' => 'fcm-test-token-abcdefghijklmnopqrstuvwxyz',
+            'platform' => 'android',
+        ]);
+
+        $this->deleteJson('/api/corporate/device-tokens', [
+            'token' => 'fcm-test-token-abcdefghijklmnopqrstuvwxyz',
+        ])->assertOk();
+
+        $this->assertDatabaseMissing('device_tokens', [
+            'token' => 'fcm-test-token-abcdefghijklmnopqrstuvwxyz',
+        ]);
+    }
+
+    public function test_order_status_change_queues_push_notification(): void
+    {
+        Queue::fake();
+
+        $user = $this->makeCorporate();
+        $menu = $this->makeMenuItem();
+        $order = Order::create([
+            'user_id' => $user->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => now('Asia/Dhaka')->addDay()->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 420,
+            'address' => 'Gulshan',
+            'order_status' => 'pending',
+            'payment_status' => 'pending',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $order->update(['order_status' => 'processing']);
+
+        Queue::assertPushed(SendOrderStatusPush::class, function (SendOrderStatusPush $job) use ($order) {
+            return $job->orderId === $order->id && $job->status === 'processing';
+        });
     }
 }

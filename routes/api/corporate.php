@@ -21,6 +21,8 @@ Route::prefix('corporate')->group(function () {
         Route::get('/me', [CorporateMobileController::class, 'me']);
         Route::patch('/profile', [CorporateMobileController::class, 'updateProfile']);
         Route::post('/change-password', [CorporateMobileController::class, 'changePassword']);
+        Route::post('/device-tokens', [CorporateMobileController::class, 'registerDeviceToken']);
+        Route::delete('/device-tokens', [CorporateMobileController::class, 'unregisterDeviceToken']);
         Route::get('/dashboard', [CorporateMobileController::class, 'dashboard']);
         Route::get('/menu', [CorporateMobileController::class, 'menu']);
         Route::get('/orders/scheduled', [CorporateMobileController::class, 'scheduled']);

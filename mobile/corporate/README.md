@@ -94,3 +94,26 @@ Design reference (HTML prototype): `/designs/corporate-mobile/`
 | GET | `/api/corporate/orders/{id}/track` | order logs timeline |
 | GET/POST | `/api/corporate/orders/{id}/support` | complaint thread |
 | POST | `/api/corporate/wallet/top-up` | credit Middo balance |
+| POST | `/api/corporate/device-tokens` | register FCM device token |
+| DELETE | `/api/corporate/device-tokens` | unregister FCM device token |
+
+## Push notifications (FCM)
+
+Order status changes (`processing`, `on_the_way_to_delivery`, `delivered` / `delivered_and_paid`, `cancelled`) enqueue `SendOrderStatusPush`, which delivers via the FCM legacy HTTP API.
+
+### Server
+
+1. Set `FCM_SERVER_KEY` in `.env` (Firebase Console → Project settings → Cloud Messaging → Server key).
+2. Run migrations: `php artisan migrate` (creates `device_tokens`).
+3. Ensure the queue worker is running (`QUEUE_CONNECTION=database` → `php artisan queue:work`) so jobs are processed.
+
+Without `FCM_SERVER_KEY`, the API still accepts device tokens but skips sending (logged as skipped).
+
+### Android app
+
+1. Create a Firebase project and add an Android app with package `com.middo.middo_corporate`.
+2. Download the real `google-services.json` and replace `android/app/google-services.json` (the repo ships a placeholder so the project still builds).
+3. Rebuild the APK. After login, the app registers its FCM token with `POST /api/corporate/device-tokens`.
+4. Tapping a notification opens `/track/{orderId}`.
+
+Foreground updates show a snackbar with a Track action.

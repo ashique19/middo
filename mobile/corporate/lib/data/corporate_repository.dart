@@ -53,6 +53,14 @@ abstract class CorporateRepository {
     required String passwordConfirmation,
   });
 
+  Future<void> registerDeviceToken({
+    required String token,
+    String platform = 'android',
+    String? deviceName,
+  });
+
+  Future<void> unregisterDeviceToken({required String token});
+
   Future<DashboardData> dashboard();
 
   Future<List<MenuItem>> menu();
@@ -259,6 +267,24 @@ class ApiCorporateRepository implements CorporateRepository {
       'password': password,
       'password_confirmation': passwordConfirmation,
     });
+  }
+
+  @override
+  Future<void> registerDeviceToken({
+    required String token,
+    String platform = 'android',
+    String? deviceName,
+  }) async {
+    await _client.post('/device-tokens', body: {
+      'token': token,
+      'platform': platform,
+      if (deviceName != null) 'device_name': deviceName,
+    });
+  }
+
+  @override
+  Future<void> unregisterDeviceToken({required String token}) async {
+    await _client.delete('/device-tokens', body: {'token': token});
   }
 
   @override
@@ -572,6 +598,16 @@ class MockCorporateRepository implements CorporateRepository {
       throw ApiException('Unable to change password.');
     }
   }
+
+  @override
+  Future<void> registerDeviceToken({
+    required String token,
+    String platform = 'android',
+    String? deviceName,
+  }) async {}
+
+  @override
+  Future<void> unregisterDeviceToken({required String token}) async {}
 
   @override
   Future<DashboardData> dashboard() async {

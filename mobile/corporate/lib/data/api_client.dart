@@ -43,9 +43,10 @@ class ApiClient {
 
   Future<Map<String, dynamic>> delete(
     String path, {
+    Map<String, dynamic>? body,
     bool auth = true,
   }) =>
-      _send('DELETE', path, auth: auth);
+      _send('DELETE', path, body: body, auth: auth);
 
   Future<Map<String, dynamic>> _send(
     String method,
@@ -75,7 +76,11 @@ class ApiClient {
             body: body == null ? null : jsonEncode(body),
           );
         case 'DELETE':
-          response = await _client.delete(uri, headers: headers);
+          response = await _client.delete(
+            uri,
+            headers: headers,
+            body: body == null ? null : jsonEncode(body),
+          );
         default:
           response = await _client.post(
             uri,

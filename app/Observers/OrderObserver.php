@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Jobs\SendOrderStatusPush;
 use App\Models\Order;
 use App\Models\OrderLog;
 use Illuminate\Support\Facades\Auth;
@@ -37,6 +38,13 @@ class OrderObserver
         $event = $this->resolveEvent($diff);
 
         $this->writeLog($order, $event, ['changes' => $diff]);
+
+        if (array_key_exists('order_status', $changes)) {
+            SendOrderStatusPush::dispatch(
+                $order->id,
+                (string) $order->order_status,
+            );
+        }
     }
 
     public function deleting(Order $order): void
