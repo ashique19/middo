@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
+import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
@@ -14,10 +15,19 @@ class WalletScreen extends StatefulWidget {
 }
 
 class _WalletScreenState extends State<WalletScreen> {
+  static const _tabIndex = 3;
+
   Future<DashboardData>? _future;
   int _selected = 5000;
   final _custom = TextEditingController(text: '5000');
+  final _scrollController = ScrollController();
   bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    TabScrollBus.instance.register(_tabIndex, _scrollController);
+  }
 
   @override
   void didChangeDependencies() {
@@ -27,6 +37,8 @@ class _WalletScreenState extends State<WalletScreen> {
 
   @override
   void dispose() {
+    TabScrollBus.instance.unregister(_tabIndex, _scrollController);
+    _scrollController.dispose();
     _custom.dispose();
     super.dispose();
   }
@@ -74,6 +86,7 @@ class _WalletScreenState extends State<WalletScreen> {
           final user = snapshot.data!.user;
 
           return ListView(
+            controller: _scrollController,
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
             children: [
               Text(
