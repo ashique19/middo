@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/auth_store.dart';
+import '../screens/change_password_screen.dart';
 import '../screens/checkout_screen.dart';
 import '../screens/forgot_password_screen.dart';
 import '../screens/history_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/menu_screen.dart';
+import '../screens/profile_screen.dart';
 import '../screens/schedule_screen.dart';
 import '../screens/shell_scaffold.dart';
 import '../screens/signup_screen.dart';
@@ -169,6 +171,22 @@ GoRouter createAppRouter() {
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
           child: const HistoryScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/profile',
+        parentNavigatorKey: _rootKey,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const ProfileScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/profile/password',
+        parentNavigatorKey: _rootKey,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const ChangePasswordScreen(),
         ),
       ),
       GoRoute(

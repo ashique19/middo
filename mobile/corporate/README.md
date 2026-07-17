@@ -80,6 +80,9 @@ Design reference (HTML prototype): `/designs/corporate-mobile/`
 | POST | `/api/corporate/reset-password` | otp + new password |
 | GET | `/api/corporate/locations` | cities + areas for signup |
 | POST | `/api/corporate/logout` | revoke current token |
+| GET | `/api/corporate/me` | current profile |
+| PATCH | `/api/corporate/profile` | update profile |
+| POST | `/api/corporate/change-password` | current + new password |
 | GET | `/api/corporate/dashboard` | KPIs + upcoming/recent |
 | GET | `/api/corporate/menu` | featured menu + checkout dates/cities |
 | POST | `/api/corporate/orders/send-otp` | SMS OTP for checkout receiver mobile |

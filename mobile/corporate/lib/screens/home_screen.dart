@@ -45,6 +45,75 @@ class _HomeScreenState extends State<HomeScreen> {
     await next;
   }
 
+  Future<void> _openAccountMenu() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: MiddoColors.cream,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: MiddoColors.creamBorder,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'Account',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const Icon(Icons.person_outline_rounded),
+                  title: const Text(
+                    'View / edit profile',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  onTap: () => Navigator.pop(context, 'profile'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.lock_outline_rounded),
+                  title: const Text(
+                    'Change password',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  onTap: () => Navigator.pop(context, 'password'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || action == null) return;
+    if (action == 'profile') {
+      await context.push('/profile');
+      if (mounted) await _reload();
+    } else if (action == 'password') {
+      await context.push('/profile/password');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -73,41 +142,63 @@ class _HomeScreenState extends State<HomeScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: MiddoColors.amberSoft,
-                      foregroundColor: MiddoColors.orange,
-                      child: Text(
-                        user.initial,
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user.companyName,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
+                InkWell(
+                  onTap: _openAccountMenu,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: MiddoColors.amberSoft,
+                          foregroundColor: MiddoColors.orange,
+                          child: Text(
+                            user.initial,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
-                          Text(
-                            'Balance ${bdt.format(user.balance)}',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: MiddoColors.inkSoft,
-                            ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      user.companyName,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: MiddoColors.forest,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: MiddoColors.forest,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    size: 20,
+                                    color: MiddoColors.forest,
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                'Balance ${bdt.format(user.balance)}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: MiddoColors.inkSoft,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 14),
                 Text(

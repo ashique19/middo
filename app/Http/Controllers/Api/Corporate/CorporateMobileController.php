@@ -218,6 +218,79 @@ class CorporateMobileController extends Controller
         ]);
     }
 
+    public function updateProfile(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $data = $request->validate([
+            'first_name' => ['required', 'string', 'min:2', 'max:255'],
+            'last_name' => ['required', 'string', 'min:2', 'max:255'],
+            'mobile' => [
+                'required',
+                'string',
+                'regex:/^01[3-9]\d{8}$/',
+                'unique:users,mobile,'.$user->id,
+            ],
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+                'unique:users,email,'.$user->id,
+            ],
+            'address' => ['nullable', 'string', 'max:1000'],
+            'city_id' => ['required', 'integer', 'exists:cities,id'],
+            'area_id' => ['required', 'integer', 'exists:areas,id'],
+        ], [
+            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
+        ]);
+
+        $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
+
+        $user->first_name = $data['first_name'];
+        $user->last_name = $data['last_name'];
+        $user->mobile = $data['mobile'];
+        $user->email = $data['email'] ?? null;
+        $user->address = $data['address'] ?? null;
+        $user->city_id = $data['city_id'];
+        $user->area_id = $data['area_id'];
+        $user->save();
+
+        $user->load(['role', 'area', 'city']);
+
+        return response()->json([
+            'message' => 'Profile updated.',
+            'user' => CorporateApiPresenter::user($user),
+        ]);
+    }
+
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'password.confirmed' => 'The new password confirmation does not match.',
+            'password.min' => 'The new password must be at least 8 characters.',
+        ]);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        if (! Hash::check($data['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Your current password is incorrect.'],
+            ]);
+        }
+
+        $user->password = $data['password'];
+        $user->save();
+
+        return response()->json([
+            'message' => 'Password changed successfully.',
+        ]);
+    }
+
     public function dashboard(Request $request): JsonResponse
     {
         $user = $request->user();

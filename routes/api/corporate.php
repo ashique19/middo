@@ -19,6 +19,8 @@ Route::prefix('corporate')->group(function () {
     Route::middleware(['auth:sanctum', 'role:corporate'])->group(function () {
         Route::post('/logout', [CorporateMobileController::class, 'logout']);
         Route::get('/me', [CorporateMobileController::class, 'me']);
+        Route::patch('/profile', [CorporateMobileController::class, 'updateProfile']);
+        Route::post('/change-password', [CorporateMobileController::class, 'changePassword']);
         Route::get('/dashboard', [CorporateMobileController::class, 'dashboard']);
         Route::get('/menu', [CorporateMobileController::class, 'menu']);
         Route::get('/orders/scheduled', [CorporateMobileController::class, 'scheduled']);

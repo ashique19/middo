@@ -322,6 +322,44 @@ class CorporateMobileApiTest extends TestCase
         $this->assertSame(6000, $user->fresh()->balance);
     }
 
+    public function test_profile_can_be_updated_and_password_changed(): void
+    {
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+        ]);
+        Sanctum::actingAs($user);
+
+        $this->patchJson('/api/corporate/profile', [
+            'first_name' => 'Nabila',
+            'last_name' => 'Rahman',
+            'mobile' => '01310123452',
+            'email' => 'nabila@example.com',
+            'address' => 'House 22, Road 7',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+        ])->assertOk()
+            ->assertJsonPath('user.first_name', 'Nabila')
+            ->assertJsonPath('user.address', 'House 22, Road 7');
+
+        $this->assertSame('Nabila', $user->fresh()->first_name);
+
+        $this->postJson('/api/corporate/change-password', [
+            'current_password' => 'wrong-pass',
+            'password' => 'newpass99',
+            'password_confirmation' => 'newpass99',
+        ])->assertUnprocessable();
+
+        $this->postJson('/api/corporate/change-password', [
+            'current_password' => '12345678',
+            'password' => 'newpass99',
+            'password_confirmation' => 'newpass99',
+        ])->assertOk();
+
+        $this->assertTrue(Hash::check('newpass99', $user->fresh()->password));
+    }
+
     public function test_support_message_can_be_submitted_once(): void
     {
         $user = $this->makeCorporate();
