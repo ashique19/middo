@@ -55,7 +55,10 @@ class DeleteOrderModal extends Component
 
         DB::transaction(function () use ($order) {
             $user = Auth::user();
-            $user->increment('balance', $order->total_amount);
+            $refund = (int) ($order->amount_paid ?? 0);
+            if ($refund > 0) {
+                $user->increment('balance', $refund);
+            }
             $order->delete();
         });
 

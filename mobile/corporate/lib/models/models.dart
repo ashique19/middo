@@ -350,3 +350,82 @@ class ReceiverDetails {
   final int cityId;
   final int areaId;
 }
+
+class PrepaymentQuote {
+  const PrepaymentQuote({
+    required this.required,
+    required this.ratio,
+    required this.amount,
+    required this.cartTotal,
+    required this.balance,
+    required this.balanceSufficient,
+    this.reason,
+    this.message,
+    this.activeOrders = 0,
+    this.newOrders = 0,
+    this.projectedActive = 0,
+  });
+
+  final bool required;
+  final double ratio;
+  final double amount;
+  final double cartTotal;
+  final double balance;
+  final bool balanceSufficient;
+  final String? reason;
+  final String? message;
+  final int activeOrders;
+  final int newOrders;
+  final int projectedActive;
+
+  factory PrepaymentQuote.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return const PrepaymentQuote(
+        required: false,
+        ratio: 0,
+        amount: 0,
+        cartTotal: 0,
+        balance: 0,
+        balanceSufficient: true,
+      );
+    }
+    return PrepaymentQuote(
+      required: json['required'] == true,
+      ratio: _asDouble(json['ratio']),
+      amount: _asDouble(json['amount']),
+      cartTotal: _asDouble(json['cart_total']),
+      balance: _asDouble(json['balance']),
+      balanceSufficient: json['balance_sufficient'] != false,
+      reason: json['reason']?.toString(),
+      message: json['message']?.toString(),
+      activeOrders: _asInt(json['active_orders']),
+      newOrders: _asInt(json['new_orders']),
+      projectedActive: _asInt(json['projected_active']),
+    );
+  }
+}
+
+class OrderOtpResult {
+  const OrderOtpResult({
+    this.debugOtp,
+    required this.prepayment,
+  });
+
+  final String? debugOtp;
+  final PrepaymentQuote prepayment;
+}
+
+class GatewayPrepayResult {
+  const GatewayPrepayResult({
+    required this.paymentToken,
+    required this.paymentUrl,
+    required this.amount,
+    required this.prepayment,
+  });
+
+  final String paymentToken;
+  final String paymentUrl;
+  final double amount;
+  final PrepaymentQuote prepayment;
+}
+

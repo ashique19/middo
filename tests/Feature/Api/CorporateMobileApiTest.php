@@ -199,7 +199,7 @@ class CorporateMobileApiTest extends TestCase
         $payload = [
             'menu_item_id' => $menu->id,
             'delivery_time' => '12:00 PM',
-            'receiver_name' => 'Corporate Desk',
+            'receiver_name' => 'Corporate User',
             'mobile' => '01310123452',
             'address' => 'House 12, Road 5',
             'city_id' => $city->id,
@@ -215,7 +215,8 @@ class CorporateMobileApiTest extends TestCase
 
         $this->postJson('/api/corporate/orders/send-otp', $payload)
             ->assertOk()
-            ->assertJsonPath('mobile', '01310123452');
+            ->assertJsonPath('mobile', '01310123452')
+            ->assertJsonPath('prepayment.required', false);
 
         $this->assertNotNull(OrderConfirmationOtp::cacheKey('01310123452'));
 
@@ -237,6 +238,147 @@ class CorporateMobileApiTest extends TestCase
         );
         $this->assertSame('House 12, Road 5', $user->fresh()->address);
         $this->assertTrue((bool) $user->fresh()->is_mobile_verified);
+    }
+
+    public function test_receiver_mismatch_requires_full_balance_prepayment(): void
+    {
+        Http::fake(['*' => Http::response(['status' => 'success'], 200)]);
+
+        $user = $this->makeCorporate(['balance' => 5000]);
+        $menu = $this->makeMenuItem();
+        [$city, $area] = $this->makeCityArea();
+        Sanctum::actingAs($user);
+
+        $payload = [
+            'menu_item_id' => $menu->id,
+            'delivery_time' => '12:00 PM',
+            'receiver_name' => 'Different Desk',
+            'mobile' => '01710999888',
+            'address' => 'House 12, Road 5',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'dates' => [
+                ['date' => now('Asia/Dhaka')->addDay()->format('Y-m-d'), 'quantity' => 2],
+            ],
+        ];
+
+        $this->postJson('/api/corporate/orders/send-otp', $payload)
+            ->assertOk()
+            ->assertJsonPath('prepayment.required', true)
+            ->assertJsonPath('prepayment.ratio', 1)
+            ->assertJsonPath('prepayment.amount', 840);
+
+        $this->postJson('/api/corporate/orders', $payload + ['otp' => '1234'])
+            ->assertUnprocessable();
+
+        $this->postJson('/api/corporate/orders/send-otp', $payload)->assertOk();
+
+        $this->postJson('/api/corporate/orders', $payload + [
+            'otp' => '1234',
+            'payment_method' => 'balance',
+        ])->assertCreated()
+            ->assertJsonPath('orders.0.payment_status', 'paid')
+            ->assertJsonPath('orders.0.amount_paid', 840);
+
+        $this->assertSame(4160, $user->fresh()->balance);
+        $this->assertSame('Corporate', $user->fresh()->first_name);
+        $this->assertSame('01310123452', $user->fresh()->mobile);
+    }
+
+    public function test_more_than_three_active_orders_requires_half_prepayment(): void
+    {
+        Http::fake(['*' => Http::response(['status' => 'success'], 200)]);
+
+        $user = $this->makeCorporate(['balance' => 10000]);
+        $menu = $this->makeMenuItem();
+        [$city, $area] = $this->makeCityArea();
+        Sanctum::actingAs($user);
+
+        foreach (range(1, 3) as $i) {
+            Order::create([
+                'user_id' => $user->id,
+                'menu_item_id' => $menu->id,
+                'quantity' => 1,
+                'delivery_date' => now('Asia/Dhaka')->addDays($i)->toDateString(),
+                'delivery_time' => '12:00 PM',
+                'total_amount' => 420,
+                'address' => 'Gulshan',
+                'order_status' => 'pending',
+                'payment_status' => 'pending',
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ]);
+        }
+
+        $payload = [
+            'menu_item_id' => $menu->id,
+            'delivery_time' => '12:00 PM',
+            'receiver_name' => 'Corporate User',
+            'mobile' => '01310123452',
+            'address' => 'House 12, Road 5',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'dates' => [
+                ['date' => now('Asia/Dhaka')->addDays(4)->format('Y-m-d'), 'quantity' => 2],
+            ],
+        ];
+
+        $this->postJson('/api/corporate/orders/send-otp', $payload)
+            ->assertOk()
+            ->assertJsonPath('prepayment.required', true)
+            ->assertJsonPath('prepayment.ratio', 0.5)
+            ->assertJsonPath('prepayment.amount', 420)
+            ->assertJsonPath('prepayment.projected_active', 4);
+
+        $this->postJson('/api/corporate/orders', $payload + [
+            'otp' => '1234',
+            'payment_method' => 'balance',
+        ])->assertCreated()
+            ->assertJsonPath('orders.0.payment_status', 'pending')
+            ->assertJsonPath('orders.0.amount_paid', 420);
+
+        $this->assertSame(9580, $user->fresh()->balance);
+    }
+
+    public function test_gateway_prepay_token_can_complete_mismatch_order(): void
+    {
+        Http::fake(['*' => Http::response(['status' => 'success'], 200)]);
+
+        $user = $this->makeCorporate(['balance' => 100]);
+        $menu = $this->makeMenuItem();
+        [$city, $area] = $this->makeCityArea();
+        Sanctum::actingAs($user);
+
+        $payload = [
+            'menu_item_id' => $menu->id,
+            'delivery_time' => '12:00 PM',
+            'receiver_name' => 'Guest Receiver',
+            'mobile' => '01710111222',
+            'address' => 'House 12, Road 5',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'dates' => [
+                ['date' => now('Asia/Dhaka')->addDay()->format('Y-m-d'), 'quantity' => 1],
+            ],
+        ];
+
+        $gateway = $this->postJson('/api/corporate/orders/gateway-prepay', $payload)
+            ->assertOk()
+            ->assertJsonStructure(['payment_token', 'payment_url', 'amount']);
+
+        $token = $gateway->json('payment_token');
+        \App\Support\CorporateGatewayPrepay::markPaid($token);
+
+        $this->postJson('/api/corporate/orders/send-otp', $payload)->assertOk();
+
+        $this->postJson('/api/corporate/orders', $payload + [
+            'otp' => '1234',
+            'payment_method' => 'gateway',
+            'payment_token' => $token,
+        ])->assertCreated()
+            ->assertJsonPath('orders.0.payment_status', 'paid');
+
+        $this->assertSame(100, $user->fresh()->balance);
     }
 
     /**
@@ -266,6 +408,7 @@ class CorporateMobileApiTest extends TestCase
             'delivery_date' => now('Asia/Dhaka')->addDay()->toDateString(),
             'delivery_time' => '12:00 PM',
             'total_amount' => 840,
+            'amount_paid' => 420,
             'address' => 'Gulshan',
             'order_status' => 'pending',
             'payment_status' => 'pending',
@@ -282,11 +425,11 @@ class CorporateMobileApiTest extends TestCase
 
         $this->deleteJson("/api/corporate/orders/{$order->id}")
             ->assertOk()
-            ->assertJsonPath('refunded_amount', 1260)
-            ->assertJsonPath('balance', 2260);
+            ->assertJsonPath('refunded_amount', 420)
+            ->assertJsonPath('balance', 1420);
 
         $this->assertDatabaseMissing('orders', ['id' => $order->id]);
-        $this->assertSame(2260, $user->fresh()->balance);
+        $this->assertSame(1420, $user->fresh()->balance);
     }
 
     public function test_non_pending_order_cannot_be_edited(): void

@@ -18,7 +18,10 @@ class Order extends Model
         'delivery_date',
         'delivery_time',
         'total_amount',
+        'amount_paid',
         'address',
+        'receiver_name',
+        'receiver_mobile',
         'area_id',
         'order_status',
         'payment_status',
@@ -33,6 +36,7 @@ class Order extends Model
         'dispatched_at' => 'datetime',
         'quantity' => 'integer',
         'total_amount' => 'integer',
+        'amount_paid' => 'integer',
     ];
 
     public function user(): BelongsTo

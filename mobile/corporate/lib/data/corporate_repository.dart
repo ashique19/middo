@@ -71,7 +71,14 @@ abstract class CorporateRepository {
 
   Future<List<CorporateOrder>> history();
 
-  Future<String?> sendOrderOtp({
+  Future<OrderOtpResult> sendOrderOtp({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    String deliveryTime = '12:00 PM',
+  });
+
+  Future<GatewayPrepayResult> createGatewayPrepay({
     required String menuItemId,
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
@@ -84,6 +91,8 @@ abstract class CorporateRepository {
     required ReceiverDetails receiver,
     required String otp,
     String deliveryTime = '12:00 PM',
+    String? paymentMethod,
+    String? paymentToken,
   });
 
   Future<CorporateOrder> updateOrder({
@@ -353,6 +362,8 @@ class ApiCorporateRepository implements CorporateRepository {
     required ReceiverDetails receiver,
     required String deliveryTime,
     String? otp,
+    String? paymentMethod,
+    String? paymentToken,
   }) {
     return {
       'menu_item_id': int.tryParse(menuItemId) ?? menuItemId,
@@ -364,11 +375,13 @@ class ApiCorporateRepository implements CorporateRepository {
       'city_id': receiver.cityId,
       'area_id': receiver.areaId,
       if (otp != null) 'otp': otp,
+      if (paymentMethod != null) 'payment_method': paymentMethod,
+      if (paymentToken != null) 'payment_token': paymentToken,
     };
   }
 
   @override
-  Future<String?> sendOrderOtp({
+  Future<OrderOtpResult> sendOrderOtp({
     required String menuItemId,
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
@@ -383,7 +396,46 @@ class ApiCorporateRepository implements CorporateRepository {
         deliveryTime: deliveryTime,
       ),
     );
-    return json['debug_otp']?.toString();
+    return OrderOtpResult(
+      debugOtp: json['debug_otp']?.toString(),
+      prepayment: PrepaymentQuote.fromJson(
+        json['prepayment'] is Map
+            ? Map<String, dynamic>.from(json['prepayment'] as Map)
+            : null,
+      ),
+    );
+  }
+
+  @override
+  Future<GatewayPrepayResult> createGatewayPrepay({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    String deliveryTime = '12:00 PM',
+  }) async {
+    final json = await _client.post(
+      '/orders/gateway-prepay',
+      body: _orderBody(
+        menuItemId: menuItemId,
+        quantities: quantities,
+        receiver: receiver,
+        deliveryTime: deliveryTime,
+      ),
+    );
+    final amountRaw = json['amount'];
+    final amount = amountRaw is num
+        ? amountRaw.toDouble()
+        : double.tryParse('$amountRaw') ?? 0;
+    return GatewayPrepayResult(
+      paymentToken: json['payment_token']?.toString() ?? '',
+      paymentUrl: json['payment_url']?.toString() ?? '',
+      amount: amount,
+      prepayment: PrepaymentQuote.fromJson(
+        json['prepayment'] is Map
+            ? Map<String, dynamic>.from(json['prepayment'] as Map)
+            : null,
+      ),
+    );
   }
 
   @override
@@ -393,6 +445,8 @@ class ApiCorporateRepository implements CorporateRepository {
     required ReceiverDetails receiver,
     required String otp,
     String deliveryTime = '12:00 PM',
+    String? paymentMethod,
+    String? paymentToken,
   }) async {
     final json = await _client.post(
       '/orders',
@@ -402,6 +456,8 @@ class ApiCorporateRepository implements CorporateRepository {
         receiver: receiver,
         deliveryTime: deliveryTime,
         otp: otp,
+        paymentMethod: paymentMethod,
+        paymentToken: paymentToken,
       ),
     );
     return _orders(json['orders']);
@@ -657,13 +713,46 @@ class MockCorporateRepository implements CorporateRepository {
   Future<List<CorporateOrder>> history() async => _mock.historyOrders;
 
   @override
-  Future<String?> sendOrderOtp({
+  Future<OrderOtpResult> sendOrderOtp({
     required String menuItemId,
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
     String deliveryTime = '12:00 PM',
-  }) async =>
-      '1234';
+  }) async {
+    return const OrderOtpResult(
+      debugOtp: '1234',
+      prepayment: PrepaymentQuote(
+        required: false,
+        ratio: 0,
+        amount: 0,
+        cartTotal: 0,
+        balance: 10000,
+        balanceSufficient: true,
+      ),
+    );
+  }
+
+  @override
+  Future<GatewayPrepayResult> createGatewayPrepay({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    String deliveryTime = '12:00 PM',
+  }) async {
+    return const GatewayPrepayResult(
+      paymentToken: 'mock-token',
+      paymentUrl: 'https://example.com/pay',
+      amount: 0,
+      prepayment: PrepaymentQuote(
+        required: false,
+        ratio: 0,
+        amount: 0,
+        cartTotal: 0,
+        balance: 10000,
+        balanceSufficient: true,
+      ),
+    );
+  }
 
   @override
   Future<List<CorporateOrder>> placeOrder({
@@ -672,6 +761,8 @@ class MockCorporateRepository implements CorporateRepository {
     required ReceiverDetails receiver,
     required String otp,
     String deliveryTime = '12:00 PM',
+    String? paymentMethod,
+    String? paymentToken,
   }) async =>
       _mock.upcomingOrders;
 

@@ -57,3 +57,7 @@ Route::get('/api/areas/{city_id}', function ($city_id) {
 Route::get('/dashboard', DashboardRedirectController::class)->name('dashboard.redirect');
 Route::get('/pay/orders/{order}', [\App\Http\Controllers\OrderPaymentController::class, 'show'])
     ->name('public.order-payment');
+Route::get('/pay/corporate-prepay/{token}', [\App\Http\Controllers\CorporateGatewayPrepayController::class, 'show'])
+    ->name('corporate.gateway-prepay.show');
+Route::post('/pay/corporate-prepay/{token}', [\App\Http\Controllers\CorporateGatewayPrepayController::class, 'confirm'])
+    ->name('corporate.gateway-prepay.confirm');

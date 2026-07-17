@@ -185,11 +185,14 @@
                         {{-- Corporate Mini User Badge --}}
                         <div class="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm mb-3">
                             <div class="w-10 h-10 rounded-full bg-middo-orange/10 border border-middo-orange/20 text-middo-orange flex items-center justify-center font-bold text-sm uppercase shadow-inner overflow-hidden shrink-0">
-                                {{ substr(auth()->user()?->name ?? $customerName, 0, 2) }}
+                                {{ substr($customerName !== '' ? $customerName : (auth()->user()?->name ?? 'U'), 0, 2) }}
                             </div>
-                            <div>
-                                <p class="text-[11px] text-gray-400 leading-none font-medium">Order for:</p>
-                                <p class="text-base font-extrabold text-gray-800 mt-1">{{ auth()->user()?->name ?? $customerName }}</p>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[11px] text-gray-400 leading-none font-medium">Receiver name</p>
+                                <input wire:model.live="customerName" type="text" placeholder="Desk / contact person"
+                                    class="mt-1 w-full border-gray-200 bg-white rounded-lg text-sm p-2 shadow-sm font-extrabold text-gray-800"
+                                    {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                @error('customerName') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
                             </div>
                         </div>
 
@@ -217,6 +220,21 @@
                                     <span>TOTAL:</span>
                                     <span class="text-base text-gray-900">৳{{ number_format($total, 2) }}</span>
                                 </div>
+                                @if(!empty($prepayment['required']))
+                                    <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-950 space-y-1">
+                                        <p class="font-bold">Prepayment required: ৳{{ number_format($prepayment['amount'] ?? 0) }}
+                                            ({{ ($prepayment['ratio'] ?? 0) >= 1 ? '100%' : '50%' }})</p>
+                                        <p>{{ $prepayment['message'] ?? '' }}</p>
+                                        <p>Middo Balance: ৳{{ number_format($prepayment['balance'] ?? 0) }}</p>
+                                    </div>
+                                    <div class="pt-1">
+                                        <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Pay with</label>
+                                        <select wire:model="paymentMethod" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                            <option value="balance">Middo Balance</option>
+                                        </select>
+                                        @error('paymentMethod') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
+                                    </div>
+                                @endif
                             </div>
                         </div>
 

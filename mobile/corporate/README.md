@@ -85,8 +85,9 @@ Design reference (HTML prototype): `/designs/corporate-mobile/`
 | POST | `/api/corporate/change-password` | current + new password |
 | GET | `/api/corporate/dashboard` | KPIs + upcoming/recent |
 | GET | `/api/corporate/menu` | featured menu + checkout dates/cities |
-| POST | `/api/corporate/orders/send-otp` | SMS OTP for checkout receiver mobile |
-| POST | `/api/corporate/orders` | multi-date schedule (requires OTP + receiver) |
+| POST | `/api/corporate/orders/send-otp` | SMS OTP + prepayment quote |
+| POST | `/api/corporate/orders/gateway-prepay` | start online prepayment session |
+| POST | `/api/corporate/orders` | multi-date schedule (OTP; prepay via `payment_method` when required) |
 | PATCH | `/api/corporate/orders/{id}` | update pending order quantity |
 | DELETE | `/api/corporate/orders/{id}` | cancel pending order (refund balance) |
 | GET | `/api/corporate/orders/scheduled` | upcoming |

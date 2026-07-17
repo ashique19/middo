@@ -13,7 +13,9 @@ use App\Models\OrderComplaint;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\CorporateApiPresenter;
+use App\Support\CorporateGatewayPrepay;
 use App\Support\CorporateOrderLimit;
+use App\Support\CorporateOrderPrepayment;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PasswordResetOtp;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +23,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 
 class CorporateMobileController extends Controller
@@ -467,6 +470,9 @@ class CorporateMobileController extends Controller
         $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
         $this->assertDailyLimits($request->user()->id, $data['dates']);
 
+        $menuItem = MenuItem::query()->findOrFail($data['menu_item_id']);
+        $prepayment = $this->prepaymentQuote($request->user(), $data, $menuItem);
+
         $result = OrderConfirmationOtp::send($data['mobile']);
 
         if (! $result['ok']) {
@@ -480,6 +486,55 @@ class CorporateMobileController extends Controller
             'mobile' => $data['mobile'],
             'expires_in' => 300,
             'debug_otp' => $result['debug_otp'] ?? null,
+            'prepayment' => $prepayment,
+        ]);
+    }
+
+    public function createGatewayPrepay(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'receiver_name' => ['required', 'string', 'min:2', 'max:120'],
+            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/'],
+            'address' => ['required', 'string', 'min:5', 'max:255'],
+            'city_id' => ['required', 'integer', 'exists:cities,id'],
+            'area_id' => ['required', 'integer', 'exists:areas,id'],
+            'menu_item_id' => ['required', 'integer', 'exists:menu_items,id'],
+            'delivery_time' => ['nullable', 'string', 'max:40'],
+            'dates' => ['required', 'array', 'min:1'],
+            'dates.*.date' => ['required', 'date_format:Y-m-d'],
+            'dates.*.quantity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
+        $this->assertDailyLimits($request->user()->id, $data['dates']);
+
+        $menuItem = MenuItem::query()->findOrFail($data['menu_item_id']);
+        $prepayment = $this->prepaymentQuote($request->user(), $data, $menuItem);
+
+        if (! $prepayment['required'] || $prepayment['amount'] <= 0) {
+            throw ValidationException::withMessages([
+                'payment_method' => ['Prepayment is not required for this cart.'],
+            ]);
+        }
+
+        $session = CorporateGatewayPrepay::create(
+            $request->user()->id,
+            $prepayment['amount'],
+            $this->cartFingerprint($data, $prepayment['amount'])
+        );
+
+        $paymentUrl = URL::temporarySignedRoute(
+            'corporate.gateway-prepay.show',
+            now()->addMinutes(30),
+            ['token' => $session['token']]
+        );
+
+        return response()->json([
+            'message' => 'Complete gateway payment, then place the order with the payment token.',
+            'payment_token' => $session['token'],
+            'payment_url' => $paymentUrl,
+            'amount' => $session['amount'],
+            'prepayment' => $prepayment,
         ]);
     }
 
@@ -497,6 +552,8 @@ class CorporateMobileController extends Controller
             'city_id' => ['required', 'integer', 'exists:cities,id'],
             'area_id' => ['required', 'integer', 'exists:areas,id'],
             'otp' => ['required', 'string', 'size:4'],
+            'payment_method' => ['nullable', 'in:balance,gateway'],
+            'payment_token' => ['nullable', 'string', 'max:80'],
         ], [
             'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
             'otp.size' => 'Enter the 4-digit confirmation code sent by SMS.',
@@ -518,13 +575,98 @@ class CorporateMobileController extends Controller
         $city = City::query()->findOrFail($data['city_id']);
         $area = Area::query()->findOrFail($data['area_id']);
         $fullAddress = trim($data['address']).', '.$area->name.', '.$city->name;
+        $prepayment = $this->prepaymentQuote($user, $data, $menuItem);
+
+        $paymentMethod = $data['payment_method'] ?? null;
+        if ($prepayment['required']) {
+            if (! in_array($paymentMethod, ['balance', 'gateway'], true)) {
+                throw ValidationException::withMessages([
+                    'payment_method' => [
+                        $prepayment['message'] ?? 'Prepayment is required. Pay from Middo Balance or payment gateway.',
+                    ],
+                    'prepayment' => [$prepayment['message'] ?? 'Prepayment required.'],
+                ]);
+            }
+
+            if ($paymentMethod === 'balance' && ! $prepayment['balance_sufficient']) {
+                throw ValidationException::withMessages([
+                    'payment_method' => [
+                        sprintf(
+                            'Insufficient Middo Balance. Need ৳%s, available ৳%s. Top up or use payment gateway.',
+                            number_format($prepayment['amount']),
+                            number_format($prepayment['balance'])
+                        ),
+                    ],
+                ]);
+            }
+
+            if ($paymentMethod === 'gateway') {
+                $token = (string) ($data['payment_token'] ?? '');
+                if ($token === '') {
+                    throw ValidationException::withMessages([
+                        'payment_token' => ['Complete gateway payment first, then submit the payment token.'],
+                    ]);
+                }
+
+                $consumed = CorporateGatewayPrepay::consumePaidToken(
+                    $token,
+                    $user->id,
+                    $prepayment['amount'],
+                    $this->cartFingerprint($data, $prepayment['amount'])
+                );
+
+                if (! ($consumed['ok'] ?? false)) {
+                    throw ValidationException::withMessages([
+                        'payment_token' => [$consumed['message'] ?? 'Invalid gateway payment.'],
+                    ]);
+                }
+            }
+        }
+
+        $lineTotals = [];
+        foreach ($data['dates'] as $line) {
+            $lineTotals[] = (int) round($menuItem->price * (int) $line['quantity']);
+        }
+        $prepaidAllocations = CorporateOrderPrepayment::allocate(
+            $prepayment['required'] ? $prepayment['amount'] : 0,
+            $lineTotals
+        );
 
         $created = [];
+        $profileMatches = CorporateOrderPrepayment::profileMatchesReceiver(
+            $user,
+            $data['receiver_name'],
+            $data['mobile']
+        );
 
-        DB::transaction(function () use ($data, $user, $menuItem, $deliveryTime, $fullAddress, &$created) {
-            foreach ($data['dates'] as $line) {
+        DB::transaction(function () use (
+            $data,
+            $user,
+            $menuItem,
+            $deliveryTime,
+            $fullAddress,
+            $paymentMethod,
+            $prepayment,
+            $prepaidAllocations,
+            $profileMatches,
+            &$created
+        ) {
+            if ($prepayment['required'] && $paymentMethod === 'balance' && $prepayment['amount'] > 0) {
+                $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+                if ((int) $locked->balance < $prepayment['amount']) {
+                    throw ValidationException::withMessages([
+                        'payment_method' => ['Insufficient Middo Balance to complete prepayment.'],
+                    ]);
+                }
+                $locked->decrement('balance', $prepayment['amount']);
+                $user->refresh();
+            }
+
+            foreach ($data['dates'] as $index => $line) {
                 $date = $line['date'];
                 $qty = (int) $line['quantity'];
+                $lineTotal = (int) round($menuItem->price * $qty);
+                $amountPaid = (int) ($prepaidAllocations[$index] ?? 0);
 
                 $order = Order::create([
                     'user_id' => $user->id,
@@ -532,11 +674,14 @@ class CorporateMobileController extends Controller
                     'quantity' => $qty,
                     'delivery_date' => $date,
                     'delivery_time' => $deliveryTime,
-                    'total_amount' => (int) round($menuItem->price * $qty),
+                    'total_amount' => $lineTotal,
+                    'amount_paid' => $amountPaid,
                     'address' => $fullAddress,
+                    'receiver_name' => $data['receiver_name'],
+                    'receiver_mobile' => $data['mobile'],
                     'area_id' => $data['area_id'],
                     'order_status' => 'pending',
-                    'payment_status' => 'pending',
+                    'payment_status' => $amountPaid >= $lineTotal && $lineTotal > 0 ? 'paid' : 'pending',
                     'created_by' => $user->id,
                     'updated_by' => $user->id,
                 ]);
@@ -546,22 +691,78 @@ class CorporateMobileController extends Controller
                 $created[] = CorporateApiPresenter::order($order->load('menuItem'));
             }
 
-            $nameParts = preg_split('/\s+/', trim($data['receiver_name']), 2) ?: [trim($data['receiver_name'])];
-            $user->update([
-                'first_name' => $nameParts[0] ?: $user->first_name,
-                'last_name' => $nameParts[1] ?? ($user->last_name ?: ''),
-                'mobile' => $data['mobile'],
+            $profileUpdate = [
                 'address' => $data['address'],
                 'city_id' => $data['city_id'],
                 'area_id' => $data['area_id'],
                 'is_mobile_verified' => true,
-            ]);
+            ];
+
+            // Only sync identity onto the account when receiver matches the profile.
+            if ($profileMatches) {
+                $nameParts = preg_split('/\s+/', trim($data['receiver_name']), 2) ?: [trim($data['receiver_name'])];
+                $profileUpdate['first_name'] = $nameParts[0] ?: $user->first_name;
+                $profileUpdate['last_name'] = $nameParts[1] ?? ($user->last_name ?: '');
+                $profileUpdate['mobile'] = $data['mobile'];
+            }
+
+            $user->update($profileUpdate);
         });
 
         return response()->json([
             'message' => 'Your meal track has been scheduled successfully.',
             'orders' => $created,
+            'prepayment' => $prepayment,
+            'balance' => (int) $user->fresh()->balance,
         ], 201);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function prepaymentQuote(User $user, array $data, MenuItem $menuItem): array
+    {
+        $cartTotal = 0;
+        foreach ($data['dates'] as $line) {
+            $cartTotal += (int) round($menuItem->price * (int) $line['quantity']);
+        }
+
+        return CorporateOrderPrepayment::evaluate(
+            $user,
+            $data['receiver_name'],
+            $data['mobile'],
+            count($data['dates']),
+            $cartTotal
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function cartFingerprint(array $data, int $amount): array
+    {
+        $dates = collect($data['dates'])
+            ->map(fn ($line) => [
+                'date' => $line['date'],
+                'quantity' => (int) $line['quantity'],
+            ])
+            ->sortBy('date')
+            ->values()
+            ->all();
+
+        return [
+            'menu_item_id' => (int) $data['menu_item_id'],
+            'delivery_time' => $data['delivery_time'] ?? '12:00 PM',
+            'receiver_name' => CorporateOrderPrepayment::normalizeName($data['receiver_name']),
+            'mobile' => CorporateOrderPrepayment::normalizeMobile($data['mobile']),
+            'address' => trim($data['address']),
+            'city_id' => (int) $data['city_id'],
+            'area_id' => (int) $data['area_id'],
+            'dates' => $dates,
+            'amount' => $amount,
+        ];
     }
 
     /**
@@ -639,15 +840,19 @@ class CorporateMobileController extends Controller
     public function cancelOrder(Request $request, int $order): JsonResponse
     {
         $model = $this->findOwnedPendingOrder($request->user()->id, $order);
-        $refund = (float) $model->total_amount;
+        $refund = (int) ($model->amount_paid ?? 0);
 
         DB::transaction(function () use ($request, $model, $refund) {
-            $request->user()->increment('balance', $refund);
+            if ($refund > 0) {
+                $request->user()->increment('balance', $refund);
+            }
             $model->delete();
         });
 
         return response()->json([
-            'message' => 'Order cancelled and amount credited to Middo Balance.',
+            'message' => $refund > 0
+                ? 'Order cancelled and prepaid amount credited to Middo Balance.'
+                : 'Order cancelled.',
             'refunded_amount' => $refund,
             'balance' => (float) $request->user()->fresh()->balance,
         ]);
