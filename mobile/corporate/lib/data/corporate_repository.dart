@@ -884,7 +884,7 @@ class MockCorporateRepository implements CorporateRepository {
 
   @override
   Future<BoxesCustodyData> boxes() async {
-    final count = _mock.dashboard.metrics.boxesInCustody;
+    final count = _mock.metrics.boxesInCustody;
     return BoxesCustodyData(
       count: count,
       message:

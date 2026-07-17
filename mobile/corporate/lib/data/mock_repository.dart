@@ -25,6 +25,7 @@ class MockRepository {
     nextDeliveryHint: 'Delivery 11:30',
     monthlySpend: 48200,
     monthlySaved: 4820,
+    boxesInCustody: 2,
   );
 
   late final menu = <MenuItem>[
