@@ -127,7 +127,32 @@ class CorporateApiPresenter
             'cutoff_label' => $cutoff->format('g:i A'),
             'dates' => $dates,
             'delivery_windows' => ['12:00 PM', '11:30 AM'],
+            'cities' => self::citiesWithAreas(),
         ];
+    }
+
+    /**
+     * @return list<array{id: int, name: string, areas: list<array{id: int, name: string}>}>
+     */
+    public static function citiesWithAreas(): array
+    {
+        return \App\Models\City::query()
+            ->with(['areas' => fn ($q) => $q->orderBy('name')])
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($city) => [
+                'id' => (int) $city->id,
+                'name' => (string) $city->name,
+                'areas' => $city->areas
+                    ->map(fn ($area) => [
+                        'id' => (int) $area->id,
+                        'name' => (string) $area->name,
+                    ])
+                    ->values()
+                    ->all(),
+            ])
+            ->values()
+            ->all();
     }
 
     public static function logLabel(string $event): string

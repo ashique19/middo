@@ -43,7 +43,13 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   Future<void> _send(bool hasExisting) async {
-    if (hasExisting || _composer.text.trim().length < 10) return;
+    if (hasExisting) return;
+    if (_composer.text.trim().length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please describe the issue in at least 10 characters.')),
+      );
+      return;
+    }
     setState(() => _sending = true);
     try {
       await AppScope.of(context).submitSupport(
@@ -97,7 +103,7 @@ class _SupportScreenState extends State<SupportScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const MiddoPageLoader(message: 'Loading support…');
           }
           if (snapshot.hasError) {
             return Center(child: Text(snapshot.error.toString()));
@@ -121,17 +127,22 @@ class _SupportScreenState extends State<SupportScreen> {
                       ),
                       child: Column(
                         children: [
-                          _meta(
-                            'Date',
-                            '${DateFormat('MMM d').format(order.deliveryDate)} · ${order.deliveryTime}',
+                          MetaRow(
+                            label: 'Date',
+                            value:
+                                '${DateFormat('MMM d').format(order.deliveryDate)} · ${order.deliveryTime}',
                           ),
-                          _meta('Meal', order.menuItem.name),
-                          _meta('Total', bdt.format(order.totalAmount)),
+                          MetaRow(label: 'Meal', value: order.menuItem.name),
+                          MetaRow(
+                            label: 'Total',
+                            value: bdt.format(order.totalAmount),
+                            valueColor: MiddoColors.orange,
+                          ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
-                    if (!data.hasExisting)
+                    if (!data.hasExisting) ...[
                       DropdownButtonFormField<String>(
                         value: _category,
                         decoration: const InputDecoration(labelText: 'CATEGORY'),
@@ -157,94 +168,120 @@ class _SupportScreenState extends State<SupportScreen> {
                           if (value != null) setState(() => _category = value);
                         },
                       ),
-                    const SizedBox(height: 12),
-                    ...thread.map((msg) {
-                      final mine = !msg.fromSupport;
-                      return Align(
-                        alignment:
-                            mine ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          constraints: BoxConstraints(
-                            maxWidth: MediaQuery.sizeOf(context).width * 0.85,
-                          ),
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                          decoration: BoxDecoration(
-                            color: mine
-                                ? MiddoColors.creamDeep
-                                : MiddoColors.forest,
-                            borderRadius: BorderRadius.only(
-                              topLeft: const Radius.circular(18),
-                              topRight: const Radius.circular(18),
-                              bottomLeft: Radius.circular(mine ? 18 : 6),
-                              bottomRight: Radius.circular(mine ? 6 : 18),
-                            ),
-                            border: mine
-                                ? Border.all(color: MiddoColors.creamBorder)
-                                : null,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                mine
-                                    ? 'You${msg.category != null ? ' · ${msg.category}' : ''}'
-                                    : 'Middo Support',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.4,
-                                  color: mine
-                                      ? MiddoColors.orange
-                                      : Colors.white70,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                msg.body,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.4,
-                                  color: mine ? MiddoColors.ink : Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: _composer,
+                        minLines: 6,
+                        maxLines: 10,
+                        textCapitalization: TextCapitalization.sentences,
+                        keyboardType: TextInputType.multiline,
+                        decoration: const InputDecoration(
+                          labelText: 'DESCRIBE THE ISSUE',
+                          hintText: 'What went wrong? Include floor, desk, or timing details…',
+                          alignLabelWithHint: true,
                         ),
-                      );
-                    }),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Minimum 10 characters so support can act quickly.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: MiddoColors.inkSoft,
+                        ),
+                      ),
+                    ] else ...[
+                      const Text(
+                        'Conversation',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...thread.map((msg) {
+                        final mine = !msg.fromSupport;
+                        return Align(
+                          alignment: mine
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            constraints: BoxConstraints(
+                              maxWidth:
+                                  MediaQuery.sizeOf(context).width * 0.85,
+                            ),
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding:
+                                const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                            decoration: BoxDecoration(
+                              color: mine
+                                  ? MiddoColors.creamDeep
+                                  : MiddoColors.forest,
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(18),
+                                topRight: const Radius.circular(18),
+                                bottomLeft: Radius.circular(mine ? 18 : 6),
+                                bottomRight: Radius.circular(mine ? 6 : 18),
+                              ),
+                              border: mine
+                                  ? Border.all(color: MiddoColors.creamBorder)
+                                  : null,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  mine
+                                      ? 'You${msg.category != null ? ' · ${msg.category}' : ''}'
+                                      : 'Middo Support',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.4,
+                                    color: mine
+                                        ? MiddoColors.orange
+                                        : Colors.white70,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  msg.body,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.4,
+                                    color:
+                                        mine ? MiddoColors.ink : Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
                   ],
                 ),
               ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _composer,
-                          enabled: !data.hasExisting,
-                          decoration: InputDecoration(
-                            hintText: data.hasExisting
-                                ? 'Support already submitted for this order'
-                                : 'Describe the issue…',
-                          ),
+              if (!data.hasExisting)
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: MiddoColors.orange,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
+                        onPressed:
+                            _sending ? null : () => _send(data.hasExisting),
+                        child: Text(_sending ? 'Sending…' : 'Send'),
                       ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: data.hasExisting || _sending
-                            ? null
-                            : () => _send(data.hasExisting),
-                        child: Text(_sending ? '…' : 'Send'),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
             ],
           );
         },
@@ -252,29 +289,4 @@ class _SupportScreenState extends State<SupportScreen> {
     );
   }
 
-  Widget _meta(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: MiddoColors.inkSoft,
-            ),
-          ),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

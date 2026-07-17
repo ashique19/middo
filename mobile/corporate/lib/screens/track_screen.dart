@@ -52,7 +52,7 @@ class _TrackScreenState extends State<TrackScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const MiddoPageLoader(message: 'Loading tracking…');
           }
           if (snapshot.hasError) {
             return Center(child: Text(snapshot.error.toString()));
@@ -73,15 +73,15 @@ class _TrackScreenState extends State<TrackScreen> {
                 ),
                 child: Column(
                   children: [
-                    _meta('Meal', order.menuItem.name),
-                    _meta(
-                      'Status',
-                      order.statusLabel,
+                    MetaRow(label: 'Meal', value: order.menuItem.name),
+                    MetaRow(
+                      label: 'Status',
+                      value: order.statusLabel,
                       valueColor: MiddoColors.forest,
                     ),
-                    _meta(
-                      'Total',
-                      bdt.format(order.totalAmount),
+                    MetaRow(
+                      label: 'Total',
+                      value: bdt.format(order.totalAmount),
                       valueColor: MiddoColors.orange,
                     ),
                   ],
@@ -111,36 +111,6 @@ class _TrackScreenState extends State<TrackScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _meta(String label, String value, {Color? valueColor}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: MiddoColors.inkSoft,
-            ),
-          ),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-                color: valueColor ?? MiddoColors.ink,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

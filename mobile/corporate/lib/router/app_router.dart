@@ -3,33 +3,94 @@ import 'package:go_router/go_router.dart';
 
 import '../data/auth_store.dart';
 import '../screens/checkout_screen.dart';
+import '../screens/forgot_password_screen.dart';
 import '../screens/history_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/menu_screen.dart';
 import '../screens/schedule_screen.dart';
 import '../screens/shell_scaffold.dart';
+import '../screens/signup_screen.dart';
+import '../screens/splash_screen.dart';
 import '../screens/support_screen.dart';
 import '../screens/track_screen.dart';
 import '../screens/wallet_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
+CustomTransitionPage<void> _fadePage({
+  required LocalKey key,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: key,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 220),
+    reverseTransitionDuration: const Duration(milliseconds: 180),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.02, 0.01),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
 GoRouter createAppRouter() {
   return GoRouter(
     navigatorKey: _rootKey,
-    initialLocation: AuthStore.instance.isAuthenticated ? '/home' : '/login',
+    initialLocation: '/splash',
     redirect: (context, state) {
+      final loc = state.matchedLocation;
+      if (loc == '/splash') return null;
+
+      const publicAuth = {'/login', '/signup', '/forgot-password'};
       final loggedIn = AuthStore.instance.isAuthenticated;
-      final loggingIn = state.matchedLocation == '/login';
-      if (!loggedIn && !loggingIn) return '/login';
-      if (loggedIn && loggingIn) return '/home';
+      final onPublicAuth = publicAuth.contains(loc);
+
+      if (!loggedIn && !onPublicAuth) return '/login';
+      if (loggedIn && onPublicAuth) return '/home';
       return null;
     },
     routes: [
       GoRoute(
+        path: '/splash',
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const SplashScreen(),
+        ),
+      ),
+      GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const LoginScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/signup',
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const SignupScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const ForgotPasswordScreen(),
+        ),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -40,7 +101,10 @@ GoRouter createAppRouter() {
             routes: [
               GoRoute(
                 path: '/home',
-                builder: (context, state) => const HomeScreen(),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const HomeScreen(),
+                ),
               ),
             ],
           ),
@@ -48,7 +112,10 @@ GoRouter createAppRouter() {
             routes: [
               GoRoute(
                 path: '/menu',
-                builder: (context, state) => const MenuScreen(),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const MenuScreen(),
+                ),
               ),
             ],
           ),
@@ -56,7 +123,10 @@ GoRouter createAppRouter() {
             routes: [
               GoRoute(
                 path: '/schedule',
-                builder: (context, state) => const ScheduleScreen(),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const ScheduleScreen(),
+                ),
               ),
             ],
           ),
@@ -64,7 +134,10 @@ GoRouter createAppRouter() {
             routes: [
               GoRoute(
                 path: '/wallet',
-                builder: (context, state) => const WalletScreen(),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const WalletScreen(),
+                ),
               ),
             ],
           ),
@@ -73,27 +146,39 @@ GoRouter createAppRouter() {
       GoRoute(
         path: '/checkout/:menuItemId',
         parentNavigatorKey: _rootKey,
-        builder: (context, state) => CheckoutScreen(
-          menuItemId: state.pathParameters['menuItemId']!,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: CheckoutScreen(
+            menuItemId: state.pathParameters['menuItemId']!,
+          ),
         ),
       ),
       GoRoute(
         path: '/track/:orderId',
         parentNavigatorKey: _rootKey,
-        builder: (context, state) => TrackScreen(
-          orderId: state.pathParameters['orderId']!,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: TrackScreen(
+            orderId: state.pathParameters['orderId']!,
+          ),
         ),
       ),
       GoRoute(
         path: '/history',
         parentNavigatorKey: _rootKey,
-        builder: (context, state) => const HistoryScreen(),
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const HistoryScreen(),
+        ),
       ),
       GoRoute(
         path: '/support/:orderId',
         parentNavigatorKey: _rootKey,
-        builder: (context, state) => SupportScreen(
-          orderId: state.pathParameters['orderId']!,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: SupportScreen(
+            orderId: state.pathParameters['orderId']!,
+          ),
         ),
       ),
     ],

@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/tab_scroll_bus.dart';
 import '../theme/middo_colors.dart';
 
 class ShellScaffold extends StatelessWidget {
   const ShellScaffold({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
+
+  void _onDestinationSelected(int index) {
+    if (index == navigationShell.currentIndex) {
+      TabScrollBus.instance.scrollToTop(index);
+      return;
+    }
+    navigationShell.goBranch(index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +26,7 @@ class ShellScaffold extends StatelessWidget {
         backgroundColor: MiddoColors.white,
         indicatorColor: MiddoColors.forest.withValues(alpha: 0.12),
         selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: navigationShell.goBranch,
+        onDestinationSelected: _onDestinationSelected,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: const [
           NavigationDestination(

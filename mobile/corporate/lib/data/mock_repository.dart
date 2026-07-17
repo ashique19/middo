@@ -11,6 +11,12 @@ class MockRepository {
     email: 'corporate@middo.com',
     balance: 12450,
     area: 'Gulshan 1',
+    city: 'Dhaka',
+    address: 'House 12, Road 5',
+    firstName: 'Corporate',
+    lastName: 'User',
+    cityId: 1,
+    areaId: 1,
   );
 
   final metrics = const DashboardMetrics(

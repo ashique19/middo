@@ -10,7 +10,32 @@ abstract class CorporateRepository {
     required String password,
   });
 
+  Future<CorporateUser> register({
+    required String firstName,
+    required String lastName,
+    required String mobile,
+    required String password,
+    required String passwordConfirmation,
+    required String companyName,
+    required String address,
+    required int cityId,
+    required int areaId,
+  });
+
+  Future<String?> forgotPassword({required String mobile});
+
+  Future<void> resetPassword({
+    required String mobile,
+    required String otp,
+    required String password,
+    required String passwordConfirmation,
+  });
+
+  Future<List<LocationCity>> locations();
+
   Future<void> logout();
+
+  Future<CorporateUser> me();
 
   Future<DashboardData> dashboard();
 
@@ -22,11 +47,27 @@ abstract class CorporateRepository {
 
   Future<List<CorporateOrder>> history();
 
+  Future<String?> sendOrderOtp({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    String deliveryTime = '12:00 PM',
+  });
+
   Future<List<CorporateOrder>> placeOrder({
     required String menuItemId,
     required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    required String otp,
     String deliveryTime = '12:00 PM',
   });
+
+  Future<CorporateOrder> updateOrder({
+    required String orderId,
+    required int quantity,
+  });
+
+  Future<void> cancelOrder(String orderId);
 
   Future<({CorporateOrder order, List<TrackEvent> events})> track(String orderId);
 
@@ -75,6 +116,81 @@ class ApiCorporateRepository implements CorporateRepository {
   }
 
   @override
+  Future<CorporateUser> register({
+    required String firstName,
+    required String lastName,
+    required String mobile,
+    required String password,
+    required String passwordConfirmation,
+    required String companyName,
+    required String address,
+    required int cityId,
+    required int areaId,
+  }) async {
+    final json = await _client.post(
+      '/register',
+      auth: false,
+      body: {
+        'first_name': firstName,
+        'last_name': lastName,
+        'mobile': mobile,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+        'company_name': companyName,
+        'address': address,
+        'city_id': cityId,
+        'area_id': areaId,
+        'device_name': 'middo-corporate-flutter',
+      },
+    );
+    final token = json['token']?.toString();
+    if (token == null || token.isEmpty) {
+      throw ApiException('Signup succeeded but no token was returned.');
+    }
+    await AuthStore.instance.saveToken(token);
+    return CorporateUser.fromJson(
+      Map<String, dynamic>.from(json['user'] as Map),
+    );
+  }
+
+  @override
+  Future<String?> forgotPassword({required String mobile}) async {
+    final json = await _client.post(
+      '/forgot-password',
+      auth: false,
+      body: {'mobile': mobile},
+    );
+    return json['debug_otp']?.toString();
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String mobile,
+    required String otp,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    await _client.post(
+      '/reset-password',
+      auth: false,
+      body: {
+        'mobile': mobile,
+        'otp': otp,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      },
+    );
+  }
+
+  @override
+  Future<List<LocationCity>> locations() async {
+    final json = await _client.get('/locations', auth: false);
+    return (json['cities'] as List? ?? [])
+        .map((e) => LocationCity.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  @override
   Future<void> logout() async {
     try {
       await _client.post('/logout');
@@ -82,6 +198,14 @@ class ApiCorporateRepository implements CorporateRepository {
       // Still clear local session if API is unreachable.
     }
     await AuthStore.instance.clear();
+  }
+
+  @override
+  Future<CorporateUser> me() async {
+    final json = await _client.get('/me');
+    return CorporateUser.fromJson(
+      Map<String, dynamic>.from(json['user'] as Map),
+    );
   }
 
   @override
@@ -131,13 +255,8 @@ class ApiCorporateRepository implements CorporateRepository {
     return _orders(json['orders']);
   }
 
-  @override
-  Future<List<CorporateOrder>> placeOrder({
-    required String menuItemId,
-    required Map<DateTime, int> quantities,
-    String deliveryTime = '12:00 PM',
-  }) async {
-    final dates = quantities.entries
+  List<Map<String, Object>> _datePayload(Map<DateTime, int> quantities) {
+    return quantities.entries
         .where((e) => e.value > 0)
         .map(
           (e) => {
@@ -147,13 +266,84 @@ class ApiCorporateRepository implements CorporateRepository {
           },
         )
         .toList();
+  }
 
-    final json = await _client.post('/orders', body: {
+  Map<String, Object?> _orderBody({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    required String deliveryTime,
+    String? otp,
+  }) {
+    return {
       'menu_item_id': int.tryParse(menuItemId) ?? menuItemId,
       'delivery_time': deliveryTime,
-      'dates': dates,
-    });
+      'dates': _datePayload(quantities),
+      'receiver_name': receiver.receiverName,
+      'mobile': receiver.mobile,
+      'address': receiver.address,
+      'city_id': receiver.cityId,
+      'area_id': receiver.areaId,
+      if (otp != null) 'otp': otp,
+    };
+  }
+
+  @override
+  Future<String?> sendOrderOtp({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    String deliveryTime = '12:00 PM',
+  }) async {
+    final json = await _client.post(
+      '/orders/send-otp',
+      body: _orderBody(
+        menuItemId: menuItemId,
+        quantities: quantities,
+        receiver: receiver,
+        deliveryTime: deliveryTime,
+      ),
+    );
+    return json['debug_otp']?.toString();
+  }
+
+  @override
+  Future<List<CorporateOrder>> placeOrder({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    required String otp,
+    String deliveryTime = '12:00 PM',
+  }) async {
+    final json = await _client.post(
+      '/orders',
+      body: _orderBody(
+        menuItemId: menuItemId,
+        quantities: quantities,
+        receiver: receiver,
+        deliveryTime: deliveryTime,
+        otp: otp,
+      ),
+    );
     return _orders(json['orders']);
+  }
+
+  @override
+  Future<CorporateOrder> updateOrder({
+    required String orderId,
+    required int quantity,
+  }) async {
+    final json = await _client.patch('/orders/$orderId', body: {
+      'quantity': quantity,
+    });
+    return CorporateOrder.fromJson(
+      Map<String, dynamic>.from(json['order'] as Map),
+    );
+  }
+
+  @override
+  Future<void> cancelOrder(String orderId) async {
+    await _client.delete('/orders/$orderId');
   }
 
   @override
@@ -245,7 +435,56 @@ class MockCorporateRepository implements CorporateRepository {
   }
 
   @override
+  Future<CorporateUser> register({
+    required String firstName,
+    required String lastName,
+    required String mobile,
+    required String password,
+    required String passwordConfirmation,
+    required String companyName,
+    required String address,
+    required int cityId,
+    required int areaId,
+  }) async {
+    await AuthStore.instance.saveToken('mock-token');
+    return CorporateUser(
+      companyName: companyName,
+      mobile: mobile,
+      balance: 0,
+      address: address,
+      firstName: firstName,
+      lastName: lastName,
+      cityId: cityId,
+      areaId: areaId,
+    );
+  }
+
+  @override
+  Future<String?> forgotPassword({required String mobile}) async => '1234';
+
+  @override
+  Future<void> resetPassword({
+    required String mobile,
+    required String otp,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    if (otp != '1234') {
+      throw ApiException('Invalid or expired reset code.');
+    }
+  }
+
+  @override
+  Future<List<LocationCity>> locations() async {
+    final meta = await checkoutMeta();
+    return meta.cities;
+  }
+
+  @override
   Future<void> logout() => AuthStore.instance.clear();
+
+  @override
+  Future<CorporateUser> me() async => _mock.user;
 
   @override
   Future<DashboardData> dashboard() async {
@@ -275,6 +514,16 @@ class MockCorporateRepository implements CorporateRepository {
       isPastCutoff: false,
       cutoffLabel: '3:28 PM',
       deliveryWindows: const ['12:00 PM', '11:30 AM'],
+      cities: const [
+        LocationCity(
+          id: 1,
+          name: 'Dhaka',
+          areas: [
+            LocationArea(id: 1, name: 'Gulshan 1'),
+            LocationArea(id: 2, name: 'Banani'),
+          ],
+        ),
+      ],
     );
   }
 
@@ -285,12 +534,45 @@ class MockCorporateRepository implements CorporateRepository {
   Future<List<CorporateOrder>> history() async => _mock.historyOrders;
 
   @override
+  Future<String?> sendOrderOtp({
+    required String menuItemId,
+    required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    String deliveryTime = '12:00 PM',
+  }) async =>
+      '1234';
+
+  @override
   Future<List<CorporateOrder>> placeOrder({
     required String menuItemId,
     required Map<DateTime, int> quantities,
+    required ReceiverDetails receiver,
+    required String otp,
     String deliveryTime = '12:00 PM',
   }) async =>
       _mock.upcomingOrders;
+
+  @override
+  Future<CorporateOrder> updateOrder({
+    required String orderId,
+    required int quantity,
+  }) async {
+    final order = _mock.orderById(orderId);
+    return CorporateOrder(
+      id: order.id,
+      menuItem: order.menuItem,
+      deliveryDate: order.deliveryDate,
+      deliveryTime: order.deliveryTime,
+      quantity: quantity,
+      totalAmount: order.menuItem.price * quantity,
+      status: order.status,
+      paid: order.paid,
+      isHistory: order.isHistory,
+    );
+  }
+
+  @override
+  Future<void> cancelOrder(String orderId) async {}
 
   @override
   Future<({CorporateOrder order, List<TrackEvent> events})> track(

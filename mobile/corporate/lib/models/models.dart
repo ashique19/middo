@@ -5,7 +5,12 @@ class CorporateUser {
     required this.balance,
     this.email,
     this.area,
+    this.city,
     this.address,
+    this.firstName,
+    this.lastName,
+    this.areaId,
+    this.cityId,
   });
 
   final String companyName;
@@ -13,10 +18,25 @@ class CorporateUser {
   final String? email;
   final double balance;
   final String? area;
+  final String? city;
   final String? address;
+  final String? firstName;
+  final String? lastName;
+  final int? areaId;
+  final int? cityId;
 
   String get initial =>
       companyName.isEmpty ? 'M' : companyName.substring(0, 1).toUpperCase();
+
+  String get receiverName {
+    final parts = [firstName, lastName]
+        .whereType<String>()
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (parts.isNotEmpty) return parts.join(' ');
+    return companyName;
+  }
 
   factory CorporateUser.fromJson(Map<String, dynamic> json) {
     return CorporateUser(
@@ -25,7 +45,48 @@ class CorporateUser {
       email: json['email']?.toString(),
       balance: (json['balance'] as num?)?.toDouble() ?? 0,
       area: json['area']?.toString(),
+      city: json['city']?.toString(),
       address: json['address']?.toString(),
+      firstName: json['first_name']?.toString(),
+      lastName: json['last_name']?.toString(),
+      areaId: (json['area_id'] as num?)?.toInt(),
+      cityId: (json['city_id'] as num?)?.toInt(),
+    );
+  }
+}
+
+class LocationArea {
+  const LocationArea({required this.id, required this.name});
+
+  final int id;
+  final String name;
+
+  factory LocationArea.fromJson(Map<String, dynamic> json) {
+    return LocationArea(
+      id: (json['id'] as num).toInt(),
+      name: (json['name'] ?? '').toString(),
+    );
+  }
+}
+
+class LocationCity {
+  const LocationCity({
+    required this.id,
+    required this.name,
+    required this.areas,
+  });
+
+  final int id;
+  final String name;
+  final List<LocationArea> areas;
+
+  factory LocationCity.fromJson(Map<String, dynamic> json) {
+    return LocationCity(
+      id: (json['id'] as num).toInt(),
+      name: (json['name'] ?? '').toString(),
+      areas: (json['areas'] as List? ?? [])
+          .map((e) => LocationArea.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
     );
   }
 }
@@ -229,12 +290,14 @@ class CheckoutMeta {
     required this.isPastCutoff,
     required this.cutoffLabel,
     required this.deliveryWindows,
+    this.cities = const [],
   });
 
   final List<DateTime> dates;
   final bool isPastCutoff;
   final String cutoffLabel;
   final List<String> deliveryWindows;
+  final List<LocationCity> cities;
 
   factory CheckoutMeta.fromJson(Map<String, dynamic> json) {
     return CheckoutMeta(
@@ -246,6 +309,25 @@ class CheckoutMeta {
       deliveryWindows: (json['delivery_windows'] as List? ?? ['12:00 PM'])
           .map((e) => e.toString())
           .toList(),
+      cities: (json['cities'] as List? ?? [])
+          .map((e) => LocationCity.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
     );
   }
+}
+
+class ReceiverDetails {
+  const ReceiverDetails({
+    required this.receiverName,
+    required this.mobile,
+    required this.address,
+    required this.cityId,
+    required this.areaId,
+  });
+
+  final String receiverName;
+  final String mobile;
+  final String address;
+  final int cityId;
+  final int areaId;
 }

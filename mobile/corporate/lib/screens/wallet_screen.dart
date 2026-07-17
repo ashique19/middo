@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
+import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
@@ -14,10 +15,19 @@ class WalletScreen extends StatefulWidget {
 }
 
 class _WalletScreenState extends State<WalletScreen> {
+  static const _tabIndex = 3;
+
   Future<DashboardData>? _future;
   int _selected = 5000;
   final _custom = TextEditingController(text: '5000');
+  final _scrollController = ScrollController();
   bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    TabScrollBus.instance.register(_tabIndex, _scrollController);
+  }
 
   @override
   void didChangeDependencies() {
@@ -27,6 +37,8 @@ class _WalletScreenState extends State<WalletScreen> {
 
   @override
   void dispose() {
+    TabScrollBus.instance.unregister(_tabIndex, _scrollController);
+    _scrollController.dispose();
     _custom.dispose();
     super.dispose();
   }
@@ -66,7 +78,7 @@ class _WalletScreenState extends State<WalletScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const MiddoPageLoader(message: 'Loading wallet…');
           }
           if (snapshot.hasError) {
             return Center(child: Text(snapshot.error.toString()));
@@ -74,6 +86,7 @@ class _WalletScreenState extends State<WalletScreen> {
           final user = snapshot.data!.user;
 
           return ListView(
+            controller: _scrollController,
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
             children: [
               Text(
@@ -212,41 +225,19 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 child: Column(
                   children: [
-                    _row('Company', user.companyName),
-                    _row('Mobile', user.mobile),
-                    _row('Delivery area', user.area ?? '—'),
+                    MetaRow(label: 'Company', value: user.companyName, labelWidth: 100),
+                    MetaRow(label: 'Mobile', value: user.mobile, labelWidth: 100),
+                    MetaRow(
+                      label: 'Delivery area',
+                      value: user.area ?? '—',
+                      labelWidth: 100,
+                    ),
                   ],
                 ),
               ),
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _row(String left, String right) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            left,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: MiddoColors.inkSoft,
-            ),
-          ),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              right,
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-            ),
-          ),
-        ],
       ),
     );
   }

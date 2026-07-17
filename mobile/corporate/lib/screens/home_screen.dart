@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
+import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
@@ -14,12 +15,28 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const _tabIndex = 0;
+
   Future<DashboardData>? _future;
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    TabScrollBus.instance.register(_tabIndex, _scrollController);
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _future ??= AppScope.of(context).dashboard();
+  }
+
+  @override
+  void dispose() {
+    TabScrollBus.instance.unregister(_tabIndex, _scrollController);
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _reload() async {
@@ -35,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const MiddoPageLoader(message: 'Loading home…');
           }
           if (snapshot.hasError) {
             return _ErrorState(
@@ -52,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return RefreshIndicator(
             onRefresh: _reload,
             child: ListView(
+              controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
               children: [

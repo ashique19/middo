@@ -2,11 +2,17 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Area;
+use App\Models\City;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\OrderConfirmationOtp;
+use App\Support\PasswordResetOtp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -69,6 +75,66 @@ class CorporateMobileApiTest extends TestCase
             ->assertJsonStructure(['token', 'token_type', 'user']);
     }
 
+    public function test_corporate_can_register_and_receive_token(): void
+    {
+        [$city, $area] = $this->makeCityArea();
+
+        $this->postJson('/api/corporate/register', [
+            'first_name' => 'Nabila',
+            'last_name' => 'Rahman',
+            'mobile' => '01710123456',
+            'password' => 'password12',
+            'password_confirmation' => 'password12',
+            'company_name' => 'Rahman Foods Ltd',
+            'address' => 'House 9, Road 11, Banani',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+        ])->assertCreated()
+            ->assertJsonPath('user.mobile', '01710123456')
+            ->assertJsonPath('user.company_name', 'Rahman Foods Ltd')
+            ->assertJsonStructure(['token', 'user']);
+
+        $this->assertDatabaseHas('users', [
+            'mobile' => '01710123456',
+            'role_id' => $this->corporateRole->id,
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_forgot_and_reset_password_flow(): void
+    {
+        Http::fake(['*' => Http::response(['status' => 'success'], 200)]);
+
+        $user = $this->makeCorporate(['mobile' => '01810123456']);
+
+        $this->postJson('/api/corporate/forgot-password', [
+            'mobile' => '01810123456',
+        ])->assertOk()
+            ->assertJsonPath('debug_otp', '1234');
+
+        $this->assertNotEmpty(PasswordResetOtp::cacheKey('01810123456'));
+
+        $this->postJson('/api/corporate/reset-password', [
+            'mobile' => '01810123456',
+            'otp' => '0000',
+            'password' => 'newpass99',
+            'password_confirmation' => 'newpass99',
+        ])->assertUnprocessable();
+
+        $this->postJson('/api/corporate/forgot-password', [
+            'mobile' => '01810123456',
+        ])->assertOk();
+
+        $this->postJson('/api/corporate/reset-password', [
+            'mobile' => '01810123456',
+            'otp' => '1234',
+            'password' => 'newpass99',
+            'password_confirmation' => 'newpass99',
+        ])->assertOk();
+
+        $this->assertTrue(Hash::check('newpass99', $user->fresh()->password));
+    }
+
     public function test_non_corporate_cannot_login_to_mobile_api(): void
     {
         User::create([
@@ -114,23 +180,47 @@ class CorporateMobileApiTest extends TestCase
             ->assertJsonCount(1, 'upcoming_orders');
     }
 
-    public function test_place_order_creates_rows_for_selected_dates(): void
+    public function test_place_order_requires_otp_and_receiver_details(): void
     {
+        Http::fake([
+            '*' => Http::response(['status' => 'success'], 200),
+        ]);
+
         $user = $this->makeCorporate();
         $menu = $this->makeMenuItem();
+        [$city, $area] = $this->makeCityArea();
         Sanctum::actingAs($user);
 
         $d1 = now('Asia/Dhaka')->addDays(1)->format('Y-m-d');
         $d2 = now('Asia/Dhaka')->addDays(2)->format('Y-m-d');
-
-        $this->postJson('/api/corporate/orders', [
+        $payload = [
             'menu_item_id' => $menu->id,
             'delivery_time' => '12:00 PM',
+            'receiver_name' => 'Corporate Desk',
+            'mobile' => '01310123452',
+            'address' => 'House 12, Road 5',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
             'dates' => [
                 ['date' => $d1, 'quantity' => 2],
                 ['date' => $d2, 'quantity' => 3],
             ],
-        ])->assertCreated()
+        ];
+
+        $this->postJson('/api/corporate/orders', $payload + ['otp' => '1234'])
+            ->assertUnprocessable();
+
+        $this->postJson('/api/corporate/orders/send-otp', $payload)
+            ->assertOk()
+            ->assertJsonPath('mobile', '01310123452');
+
+        $this->assertNotNull(OrderConfirmationOtp::cacheKey('01310123452'));
+
+        $this->postJson('/api/corporate/orders', $payload + ['otp' => '0000'])
+            ->assertUnprocessable();
+
+        $this->postJson('/api/corporate/orders', $payload + ['otp' => '1234'])
+            ->assertCreated()
             ->assertJsonCount(2, 'orders');
 
         $this->assertDatabaseCount('orders', 2);
@@ -142,6 +232,82 @@ class CorporateMobileApiTest extends TestCase
                 ->whereDate('delivery_date', $d1)
                 ->exists()
         );
+        $this->assertSame('House 12, Road 5', $user->fresh()->address);
+        $this->assertTrue((bool) $user->fresh()->is_mobile_verified);
+    }
+
+    /**
+     * @return array{0: City, 1: Area}
+     */
+    private function makeCityArea(): array
+    {
+        $city = City::create(['name' => 'Dhaka']);
+        $area = Area::create([
+            'name' => 'Gulshan 1',
+            'city_id' => $city->id,
+        ]);
+
+        return [$city, $area];
+    }
+
+    public function test_pending_order_can_be_updated_and_cancelled(): void
+    {
+        $user = $this->makeCorporate(['balance' => 1000]);
+        $menu = $this->makeMenuItem();
+        Sanctum::actingAs($user);
+
+        $order = Order::create([
+            'user_id' => $user->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 2,
+            'delivery_date' => now('Asia/Dhaka')->addDay()->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 840,
+            'address' => 'Gulshan',
+            'order_status' => 'pending',
+            'payment_status' => 'pending',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $this->patchJson("/api/corporate/orders/{$order->id}", ['quantity' => 3])
+            ->assertOk()
+            ->assertJsonPath('order.quantity', 3)
+            ->assertJsonPath('order.total_amount', 1260);
+
+        $this->assertSame(3, $order->fresh()->quantity);
+
+        $this->deleteJson("/api/corporate/orders/{$order->id}")
+            ->assertOk()
+            ->assertJsonPath('refunded_amount', 1260)
+            ->assertJsonPath('balance', 2260);
+
+        $this->assertDatabaseMissing('orders', ['id' => $order->id]);
+        $this->assertSame(2260, $user->fresh()->balance);
+    }
+
+    public function test_non_pending_order_cannot_be_edited(): void
+    {
+        $user = $this->makeCorporate();
+        $menu = $this->makeMenuItem();
+        Sanctum::actingAs($user);
+
+        $order = Order::create([
+            'user_id' => $user->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => now('Asia/Dhaka')->addDay()->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 420,
+            'address' => 'Gulshan',
+            'order_status' => 'processing',
+            'payment_status' => 'pending',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $this->patchJson("/api/corporate/orders/{$order->id}", ['quantity' => 2])
+            ->assertUnprocessable();
     }
 
     public function test_wallet_top_up_increases_balance(): void

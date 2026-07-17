@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
+import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
@@ -14,15 +15,31 @@ class MenuScreen extends StatefulWidget {
 }
 
 class _MenuScreenState extends State<MenuScreen> {
+  static const _tabIndex = 1;
+
   String _filter = 'All';
   Future<List<MenuItem>>? _future;
+  final _scrollController = ScrollController();
 
   static const filters = ['All', 'Thalis', 'Light', 'Veg', 'Protein'];
+
+  @override
+  void initState() {
+    super.initState();
+    TabScrollBus.instance.register(_tabIndex, _scrollController);
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _future ??= AppScope.of(context).menu();
+  }
+
+  @override
+  void dispose() {
+    TabScrollBus.instance.unregister(_tabIndex, _scrollController);
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -32,7 +49,7 @@ class _MenuScreenState extends State<MenuScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const MiddoPageLoader(message: 'Loading menu…');
           }
           if (snapshot.hasError) {
             return Center(
@@ -52,6 +69,7 @@ class _MenuScreenState extends State<MenuScreen> {
           }).toList();
 
           return ListView(
+            controller: _scrollController,
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
             children: [
               Text(
