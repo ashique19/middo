@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
+use App\Support\PasswordResetOtp;
 use App\Support\SignupOtp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -124,11 +124,12 @@ class AuthController extends Controller
 
             $role = Role::where('name', 'kitchen')->firstOrFail();
 
+            // User casts password to 'hashed' — pass the plain value (same as corporate register).
             User::create([
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
                 'mobile' => $validated['mobile'],
-                'password' => Hash::make($validated['password']),
+                'password' => $validated['password'],
                 'address' => $validated['address'],
                 'city_id' => $validated['city_id'],
                 'area_id' => $validated['area_id'],
@@ -223,23 +224,83 @@ class AuthController extends Controller
 
     public function forgotPassword(Request $request)
     {
-        $request->validate(['mobile' => 'required|exists:users,mobile']);
-
-        // 1. Find user by mobile
-        $user = User::where('mobile', $request->mobile)->first();
-
-        // 2. Generate 6-digit OTP
-        $otp = rand(100000, 999999);
-
-        // 3. Save to database
-        $user->update([
-            'otp' => $otp,
-            'otp_expires_at' => now()->addMinutes(5)
+        $data = $request->validate([
+            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/'],
+        ], [
+            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
         ]);
 
-        // 4. Trigger SMS Logic here (e.g., SMS Gateway API)
-        // SendSMS::to($user->mobile)->message("Your Middo OTP is: $otp");
+        $user = User::query()
+            ->with('role')
+            ->where('mobile', $data['mobile'])
+            ->first();
 
-        return back()->with('status', 'OTP sent to your mobile!');
+        // Avoid account enumeration — same generic message whether or not the mobile exists.
+        $generic = 'If this mobile is registered, a reset code has been sent.';
+
+        if ($user && $user->role?->name === 'corporate') {
+            $result = PasswordResetOtp::send($data['mobile']);
+
+            if (! ($result['ok'] ?? false)) {
+                return back()
+                    ->withInput($request->only('mobile'))
+                    ->withErrors(['mobile' => $result['message'] ?? 'Failed to send reset code.']);
+            }
+
+            return redirect()
+                ->route('password.request')
+                ->with('status', $generic)
+                ->with('reset_step', 'reset')
+                ->with('reset_mobile', $data['mobile'])
+                ->with('debug_otp', $result['debug_otp'] ?? null);
+        }
+
+        return redirect()
+            ->route('password.request')
+            ->with('status', $generic)
+            ->with('reset_step', 'reset')
+            ->with('reset_mobile', $data['mobile']);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $data = $request->validate([
+            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/'],
+            'otp' => ['required', 'string', 'size:4'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
+            'otp.size' => 'Enter the 4-digit reset code sent by SMS.',
+        ]);
+
+        $user = User::query()
+            ->with('role')
+            ->where('mobile', $data['mobile'])
+            ->first();
+
+        if (! $user || $user->role?->name !== 'corporate') {
+            return back()
+                ->withInput($request->only('mobile', 'otp'))
+                ->with('reset_step', 'reset')
+                ->with('reset_mobile', $data['mobile'])
+                ->withErrors(['mobile' => 'Unable to reset password for this mobile number.']);
+        }
+
+        if (! PasswordResetOtp::verify($data['mobile'], $data['otp'])) {
+            return back()
+                ->withInput($request->only('mobile', 'otp'))
+                ->with('reset_step', 'reset')
+                ->with('reset_mobile', $data['mobile'])
+                ->withErrors(['otp' => 'Invalid or expired reset code.']);
+        }
+
+        $user->update([
+            'password' => $data['password'],
+            'is_mobile_verified' => true,
+        ]);
+
+        return redirect()
+            ->route('login')
+            ->with('status', 'Password updated. You can sign in with your new password.');
     }
 }

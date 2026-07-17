@@ -80,12 +80,12 @@
                                 </svg>
                                 <span>Profile</span>
                             </button>
-                            <a href="#" @click="mobileMenuOpen = false" class="text-xs font-bold text-white bg-middo-orange py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm active:bg-[#733614]">
+                            <button type="button" @click="$dispatch('open-wallet-top-up-modal'); mobileMenuOpen = false" class="text-xs font-bold text-white bg-middo-orange py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm active:bg-[#733614]">
                                 <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                                 </svg>
                                 <span>Add Money</span>
-                            </a>
+                            </button>
                         </div>
                         {{-- PROFILE ACTION BUTTON ROWS --}}
                         <div class="grid grid-cols-1 gap-2 w-full">
@@ -159,9 +159,9 @@
                             <span>Dashboard</span>
                         </a>
 
-                        <a href="#" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
+                        <a href="{{ route('corporates.orders.scheduled') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
                             <svg class="w-4 h-4 text-middo-orange opacity-85" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                             <span>Orders</span>
                         </a>
@@ -196,9 +196,15 @@
         
         {{-- BOTTOM STICKY ACTION FOOTER --}}
         <div class="p-4 border-t border-amber-900/5 bg-[#FDFBF7]">
-            <a href="{{ route('login') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
-                Track Today's Lunch
-            </a>
+            @auth
+                <a href="{{ route('corporates.orders.scheduled') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
+                    Track Today's Lunch
+                </a>
+            @else
+                <a href="{{ route('login') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
+                    Track Today's Lunch
+                </a>
+            @endauth
         </div>
     </div>
 </div>

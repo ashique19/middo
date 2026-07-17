@@ -6,8 +6,8 @@
                     ['q' => 'What is Middo\'s core mission?', 'a' => 'To provide quality-assured corporate catering with zero compromise.'],
                 ],
                 'CORPORATE INDIVIDUAL Q&A' => [
-                    ['q' => 'Is the individual pre-paid wallet balance refundable?', 'a' => 'Yes, you can easily withdraw your full wallet balance to your linked payment method at any time before it\'s used for an order.'],
-                    ['q' => 'Can I really remove a scheduled meal date up to an hour before dispatch?', 'a' => 'Absolutely. Our \'Active Orders\' slide-to-edit feature gives you full flexibility up to one hour prior to the kitchen dispatch deadline.'],
+                    ['q' => 'Is the individual pre-paid wallet balance refundable?', 'a' => 'Wallet balance is used to pay for scheduled meals. Unused balance stays on your Middo account for future orders. Contact Middo support if you need help with your balance.'],
+                    ['q' => 'Can I change or cancel a scheduled meal?', 'a' => 'Yes. While an order is still pending (before kitchen dispatch), you can edit quantities or cancel it from your Active / Scheduled Orders.'],
                     ['q' => 'What is "Middo Box traceability"?', 'a' => 'Each thermal Middo Box is uniquely tracked for temperature and position, ensuring your gourmet meal arrives perfectly preserved to your desk.'],
                     ['q' => 'What happens if I miss my desk-side delivery?', 'a' => 'Your dedicated Rider will leave a secure delivery card. We\'ll also notify you, and your meal can be re delivered or held for a specified time.']
                 ],

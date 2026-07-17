@@ -41,6 +41,7 @@ Route::controller(AuthController::class)->group(function () {
     Route::post('/kitchen-signup', 'registerKitchen');
     Route::match(['get', 'post'], '/logout', 'logout')->name('logout');
     Route::post('/forgot-password', 'forgotPassword')->name('password.email');
+    Route::post('/reset-password', 'resetPassword')->name('password.update');
 });
 
 /*

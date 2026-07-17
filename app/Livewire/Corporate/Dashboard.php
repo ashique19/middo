@@ -34,15 +34,15 @@ class Dashboard extends Component
     {
         $userId = Auth::id();
 
-        // 1. Count Active Scheduled Orders (Pending or Processing states)
+        // 1. Count Active Scheduled Orders — match Flutter/API active statuses
         $activeOrdersCount = Order::where('user_id', $userId)
-            ->whereIn('order_status', ['pending', 'processing'])
+            ->whereIn('order_status', ['pending', 'processing', 'packed', 'on_the_way_to_delivery'])
             ->count();
 
         // 2. Locate Next Scheduled Delivery Run details
         $nextMeal = Order::where('user_id', $userId)
             ->where('delivery_date', '>=', now()->toDateString())
-            ->whereIn('order_status', ['pending', 'processing'])
+            ->whereIn('order_status', ['pending', 'processing', 'packed', 'on_the_way_to_delivery'])
             ->orderBy('delivery_date', 'asc')
             ->orderBy('delivery_time', 'asc')
             ->first();

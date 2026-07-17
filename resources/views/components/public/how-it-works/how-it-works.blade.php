@@ -22,14 +22,14 @@
                 <img src="{{ asset('img/public/how-it-works-card-1.png') }}" alt="Discover" class="rounded-2xl mb-6 w-full h-48 object-cover">
                 <span class="text-[#A88B67] font-bold text-sm uppercase tracking-wider">Step 1:</span>
                 <h3 class="text-xl font-bold mt-1 mb-3">Discover & Select.</h3>
-                <p class="text-gray-600 text-sm leading-relaxed">Browse curated menus tailored for corporate professionals. Use the B2B Menu Tree and filters to find your perfect daily meal.</p>
+                <p class="text-gray-600 text-sm leading-relaxed">Browse curated menus tailored for corporate professionals. Filter by day and dish to find your perfect office lunch.</p>
             </div>
 
             <div class="bg-[#FDFBF7] bg-middo-cream p-6 rounded-3xl border-2 border-[#EADFC8] shadow-lg flex flex-col items-center text-center">
                 <img src="{{ asset('img/public/how-it-works-card-2.jpg') }}" alt="Schedule" class="rounded-2xl mb-6 w-full h-48 object-cover">
                 <span class="text-[#A88B67] font-bold text-sm uppercase tracking-wider">Step 2:</span>
                 <h3 class="text-xl font-bold mt-1 mb-3">Schedule & Order.</h3>
-                <p class="text-gray-600 text-sm leading-relaxed">Schedule your week or pre-book for the entire month. Pre-fund your secure Middo Balance using the Add Money interface.</p>
+                <p class="text-gray-600 text-sm leading-relaxed">Schedule your week or pre-book for the entire month. Pre-fund your Middo Balance with Add Money on web or in the corporate app.</p>
             </div>
 
             <div class="bg-[#FDFBF7] bg-middo-cream p-6 rounded-3xl border-2 border-[#EADFC8] shadow-lg flex flex-col items-center text-center">
@@ -40,10 +40,10 @@
             </div>
 
             <div class="bg-[#FDFBF7] bg-middo-cream p-6 rounded-3xl border-2 border-[#EADFC8] shadow-lg flex flex-col items-center text-center">
-                <img src="{{ asset('img/public/how-it-works-card-4.jpg') }}" alt="Rate" class="rounded-2xl mb-6 w-full h-48 object-cover">
+                <img src="{{ asset('img/public/how-it-works-card-4.jpg') }}" alt="Support" class="rounded-2xl mb-6 w-full h-48 object-cover">
                 <span class="text-[#A88B67] font-bold text-sm uppercase tracking-wider">Step 4:</span>
-                <h3 class="text-xl font-bold mt-1 mb-3">Rate & Review.</h3>
-                <p class="text-gray-600 text-sm leading-relaxed">Enjoy your lunch break. Use the focused Order Feedback modal to quickly rate and review your meal, helping us maintain gourmet standards.</p>
+                <h3 class="text-xl font-bold mt-1 mb-3">Track & Support.</h3>
+                <p class="text-gray-600 text-sm leading-relaxed">Follow your order status from schedule to desk-side delivery. Need help? Open order support from your dashboard or the corporate app.</p>
             </div>
         </div>
 

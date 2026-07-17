@@ -70,12 +70,12 @@
                                 </svg>
                                 <span>Profile</span>
                             </button>
-                            <a href="#" class="text-[11px] font-extrabold text-white bg-middo-orange hover:bg-[#733614] py-2 px-1.5 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm">
+                            <button type="button" @click="$dispatch('open-wallet-top-up-modal'); userDropdownOpen = false" class="text-[11px] font-extrabold text-white bg-middo-orange hover:bg-[#733614] py-2 px-1.5 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm">
                                 <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                                 </svg>
                                 <span>Add Money</span>
-                            </a>
+                            </button>
                         </div>
                         <div class="grid grid-cols-1 w-full mt-3">
                             <button type="button" @click="$dispatch('open-change-password-modal'); userDropdownOpen = false" class="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs font-extrabold text-[#2B1A11] hover:bg-[#F6F2E8] hover:text-middo-orange rounded-xl transition text-left">
@@ -91,14 +91,15 @@
                     <div class="space-y-0.5">
                         <a href="{{ route('dashboard.redirect') }}" class="flex items-center gap-2.5 px-2.5 py-2 text-xs font-extrabold text-[#2B1A11] hover:bg-[#F6F2E8] hover:text-middo-orange rounded-xl transition text-left">
                             <svg class="w-4 h-4 opacity-75" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" />
                             </svg>
                             <span>Dashboard</span>
                         </a>
 
-                        <a href="#" class="flex items-center gap-2.5 px-2.5 py-2 text-xs font-extrabold text-[#2B1A11] hover:bg-[#F6F2E8] hover:text-middo-orange rounded-xl transition text-left">
+                        <a href="{{ route('corporates.orders.scheduled') }}" class="flex items-center gap-2.5 px-2.5 py-2 text-xs font-extrabold text-[#2B1A11] hover:bg-[#F6F2E8] hover:text-middo-orange rounded-xl transition text-left">
                             <svg class="w-4 h-4 opacity-75" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                             <span>Orders</span>
                         </a>
@@ -129,8 +130,14 @@
             </a>
         @endif
         
-        <a href="{{ route('menu') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
-            Track Today's Lunch
-        </a>
+        @auth
+            <a href="{{ route('corporates.orders.scheduled') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
+                Track Today's Lunch
+            </a>
+        @else
+            <a href="{{ route('login') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
+                Track Today's Lunch
+            </a>
+        @endauth
     </div>
 </nav>

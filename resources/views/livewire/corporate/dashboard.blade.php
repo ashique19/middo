@@ -60,8 +60,7 @@
                     </div>
                     <div>
                         <div class="text-[11px] font-bold uppercase tracking-wider text-[#635347]">Next Meal:</div>
-                        <div class="text-lg font-black leading-tight mt-0.5">12:00 PM</div>
-                        <div class="text-[10px] font-bold text-[#A69988]">(11:30 Delivery)</div>
+                        <div class="text-lg font-black leading-tight mt-0.5">{{ $metrics['next_meal_time'] }}</div>
                     </div>
                 </div>
 
@@ -73,7 +72,6 @@
                     <div>
                         <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-200/70">Monthly Spend:</div>
                         <div class="text-2xl font-black font-sans tracking-tight mt-1">{{ number_format($metrics['monthly_spend'], 0) }}</div>
-                        <div class="text-[11px] font-semibold text-emerald-300/90 tracking-tight mt-0.5">Saved: {{ number_format($metrics['monthly_spend'] * 0.1, 0) }}</div>
                     </div>
                 </div>
             </div>
@@ -176,12 +174,12 @@
                         <span>Profile</span>
                     </button>
 
-                    <a href="#" class="text-[11px] font-black text-white bg-middo-orange hover:bg-[#733614] py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm group">
+                    <button type="button" @click="$dispatch('open-wallet-top-up-modal')" class="text-[11px] font-black text-white bg-middo-orange hover:bg-[#733614] py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm group">
                         <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                         </svg>
                         <span>Add Money</span>
-                    </a>
+                    </button>
                 </div>
             </div>
 
@@ -209,19 +207,22 @@
             {{-- ACTION OVERLAY BUTTON LINKS --}}
             <div class="bg-white border border-[#EBE3D3] rounded-2xl p-3 shadow-sm space-y-2">
                 <a href="{{ route('menu') }}" class="flex items-center justify-between p-2 rounded-xl hover:bg-[#F7F4EB] text-xs font-bold text-[#2B1A11]">
-                    <span>🍱 Bulk Orders</span> <span class="text-gray-400">➔</span>
+                    <span>🍱 Place an Order</span> <span class="text-gray-400">➔</span>
                 </a>
-                <div class="flex items-center justify-between p-2 rounded-xl hover:bg-[#F7F4EB] text-xs font-bold text-[#2B1A11] cursor-pointer">
-                    <span>📦 Return Middo Box</span> <span class="bg-amber-100 text-[#8A441B] px-2 py-0.5 rounded-full text-[10px] font-black font-mono">0 Ready</span>
+                <div class="flex items-center justify-between p-2 rounded-xl hover:bg-[#F7F4EB] text-xs font-bold text-[#2B1A11]">
+                    <span>📦 Middo Boxes with You</span>
+                    <span class="bg-amber-100 text-[#8A441B] px-2 py-0.5 rounded-full text-[10px] font-black font-mono">{{ $metrics['boxes_in_custody'] }} Ready</span>
                 </div>
             </div>
 
             {{-- VISUAL MAP LOGISTICS COMPONENT --}}
             <div class="bg-white border border-[#EBE3D3] rounded-2xl p-2 shadow-sm space-y-2">
-                <div class="text-[10px] font-black uppercase text-gray-400 px-1 tracking-wider">Live Delivery Logistics Map</div>
-                <div class="w-full h-32 bg-[#E3DEC3] rounded-xl overflow-hidden relative opacity-80 flex items-center justify-center text-xs font-bold text-[#635347]">
-                    <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('https://maps.googleapis.com/maps/api/staticmap?center=Dhaka,Gulshan&zoom=13&size=300x150&sensor=false&key=');"></div>
-                    <span class="relative z-10 bg-white/90 px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">📍 Track Live Couriers</span>
+                <div class="text-[10px] font-black uppercase text-gray-400 px-1 tracking-wider">Delivery Area</div>
+                <div class="w-full h-32 bg-[#E3DEC3] rounded-xl overflow-hidden relative flex items-center justify-center text-xs font-bold text-[#635347]">
+                    <div class="absolute inset-0 bg-cover bg-center opacity-60" style="background-image: url('{{ asset('img/public/how-it-works-corporates.jpg') }}');"></div>
+                    <a href="{{ route('corporates.orders.scheduled') }}" class="relative z-10 bg-white/90 px-3 py-1.5 rounded-full border border-gray-200 shadow-sm hover:bg-white transition">
+                        View Scheduled Orders
+                    </a>
                 </div>
             </div>
 
