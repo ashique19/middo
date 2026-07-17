@@ -22,6 +22,11 @@ class CorporateOrderPrepayment
         return OrderConfirmationOtp::formatMobile((string) $mobile);
     }
 
+    /**
+     * Detect whether the Middo account holder and the meal receiver are the same person.
+     * Compares normalized profile name + mobile to checkout receiver name + mobile.
+     * If either differs, full prepayment is required (see evaluate()).
+     */
     public static function profileMatchesReceiver(User $user, string $receiverName, string $mobile): bool
     {
         $profileName = self::normalizeName($user->name);

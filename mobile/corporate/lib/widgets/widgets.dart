@@ -143,6 +143,17 @@ class MealOrderCard extends StatelessWidget {
                       const MiddoBadge(
                         label: 'Paid',
                         tone: MiddoBadgeTone.green,
+                      )
+                    else if (order.amountPaid > 0 && !order.isHistory)
+                      MiddoBadge(
+                        label: 'Prepaid ${bdt.format(order.amountPaid)}',
+                        tone: MiddoBadgeTone.green,
+                      ),
+                    if (order.hasSeparateReceiver &&
+                        (order.receiverName?.isNotEmpty ?? false))
+                      MiddoBadge(
+                        label: 'Recv: ${order.receiverName}',
+                        tone: MiddoBadgeTone.amber,
                       ),
                   ],
                 ),

@@ -130,13 +130,21 @@ class DeliveredOrders extends Component
 
         $nodes = collect($orders->items())
             ->map(function (Order $order) use ($receivedOrderIds) {
+                $party = $order->partyPayload();
+
                 return [
                     'id' => $order->id,
                     'menu_name' => $order->menuItem?->name ?? 'Order',
-                    'customer_name' => trim(($order->user?->first_name ?? '').' '.($order->user?->last_name ?? '')) ?: 'N/A',
+                    'customer_name' => $party['customer_name'],
+                    'account_holder_name' => $party['account_holder_name'],
+                    'receiver_name' => $party['receiver_name'],
+                    'receiver_mobile' => $party['receiver_mobile'],
+                    'has_separate_receiver' => $party['has_separate_receiver'],
                     'address' => $order->address,
                     'quantity' => $order->quantity,
                     'total_amount' => $order->total_amount,
+                    'amount_paid' => $party['amount_paid'],
+                    'amount_due' => $party['amount_due'],
                     'delivery_time' => $order->delivery_time,
                     'date_label' => $this->dateLabel($order->delivery_date->toDateString()),
                     'status_label' => str($order->order_status)->replace('_', ' ')->title()->toString(),

@@ -358,16 +358,25 @@ class KitchenDeliveryDashboardSeeder extends Seeder
         ?int $updatedBy = null,
         array $extra = [],
     ): Order {
+        $total = (int) $menu->price * $quantity;
+        $resolvedPayment = $paymentStatus ?? ($status === 'pending' ? 'paid' : 'pending');
+        $paid = $resolvedPayment === 'paid' ? $total : 0;
+
         $order = Order::create(array_merge([
             'user_id' => $customer->id,
             'menu_item_id' => $menu->id,
             'quantity' => $quantity,
             'delivery_date' => $deliveryDate,
             'delivery_time' => '12:00 PM',
-            'total_amount' => (int) $menu->price * $quantity,
+            'total_amount' => $total,
+            'amount_paid' => $paid,
+            'prepaid_amount' => $paid,
+            'cash_collected' => 0,
             'address' => 'Corp HQ, Gulshan Avenue, Dhaka',
+            'receiver_name' => trim(($customer->first_name ?? '').' '.($customer->last_name ?? '')),
+            'receiver_mobile' => $customer->mobile,
             'order_status' => $status,
-            'payment_status' => $paymentStatus ?? ($status === 'pending' ? 'paid' : 'pending'),
+            'payment_status' => $resolvedPayment,
             'created_by' => $createdBy,
             'updated_by' => $updatedBy,
         ], $extra));

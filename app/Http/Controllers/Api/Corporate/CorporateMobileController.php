@@ -523,17 +523,12 @@ class CorporateMobileController extends Controller
             $this->cartFingerprint($data, $prepayment['amount'])
         );
 
-        $paymentUrl = URL::temporarySignedRoute(
-            'corporate.gateway-prepay.show',
-            now()->addMinutes(30),
-            ['token' => $session['token']]
-        );
-
         return response()->json([
             'message' => 'Complete gateway payment, then place the order with the payment token.',
             'payment_token' => $session['token'],
-            'payment_url' => $paymentUrl,
+            'payment_url' => $session['payment_url'] ?? app(\App\Contracts\PaymentGateway::class)->paymentUrl($session['token']),
             'amount' => $session['amount'],
+            'driver' => app(\App\Contracts\PaymentGateway::class)->driver(),
             'prepayment' => $prepayment,
         ]);
     }
@@ -676,6 +671,8 @@ class CorporateMobileController extends Controller
                     'delivery_time' => $deliveryTime,
                     'total_amount' => $lineTotal,
                     'amount_paid' => $amountPaid,
+                    'prepaid_amount' => $amountPaid,
+                    'cash_collected' => 0,
                     'address' => $fullAddress,
                     'receiver_name' => $data['receiver_name'],
                     'receiver_mobile' => $data['mobile'],

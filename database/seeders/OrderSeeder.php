@@ -57,14 +57,22 @@ class OrderSeeder extends Seeder
             $deliveryDate = $today->copy()->subDays($config['days_ago']);
             $qty = min($config['qty'], $maxQty);
 
+            $total = (int) ($menuItem->price * $qty);
+            $paid = in_array($config['payment'], ['paid'], true) ? $total : 0;
+
             Order::create([
                 'user_id' => $corporate->id,
                 'menu_item_id' => $menuItem->id,
                 'quantity' => $qty,
                 'delivery_date' => $deliveryDate->toDateString(),
                 'delivery_time' => $deliveryTimes[$index % count($deliveryTimes)],
-                'total_amount' => $menuItem->price * $qty,
+                'total_amount' => $total,
+                'amount_paid' => $paid,
+                'prepaid_amount' => $paid,
+                'cash_collected' => 0,
                 'address' => $address,
+                'receiver_name' => trim($corporate->first_name.' '.$corporate->last_name),
+                'receiver_mobile' => $corporate->mobile,
                 'order_status' => $config['status'],
                 'payment_status' => $config['payment'],
                 'created_by' => $corporate->id,
@@ -89,14 +97,22 @@ class OrderSeeder extends Seeder
             $deliveryDate = $today->copy()->addDays($config['days_ahead']);
             $qty = min($config['qty'], $maxQty);
 
+            $total = (int) ($menuItem->price * $qty);
+            $paid = in_array($config['payment'], ['paid'], true) ? $total : 0;
+
             Order::create([
                 'user_id' => $corporate->id,
                 'menu_item_id' => $menuItem->id,
                 'quantity' => $qty,
                 'delivery_date' => $deliveryDate->toDateString(),
                 'delivery_time' => $deliveryTimes[$index % count($deliveryTimes)],
-                'total_amount' => $menuItem->price * $qty,
+                'total_amount' => $total,
+                'amount_paid' => $paid,
+                'prepaid_amount' => $paid,
+                'cash_collected' => 0,
                 'address' => $address,
+                'receiver_name' => trim($corporate->first_name.' '.$corporate->last_name),
+                'receiver_mobile' => $corporate->mobile,
                 'order_status' => $config['status'],
                 'payment_status' => $config['payment'],
                 'created_by' => $corporate->id,

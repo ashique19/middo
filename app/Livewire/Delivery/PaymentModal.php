@@ -25,9 +25,21 @@ class PaymentModal extends Component
 
     public int $totalAmount = 0;
 
+    public int $amountPaid = 0;
+
+    public int $amountDue = 0;
+
+    public string $accountHolderName = '';
+
+    public string $accountHolderMobile = '';
+
+    public string $receiverName = '';
+
     public string $customerName = '';
 
     public string $customerMobile = '';
+
+    public bool $hasSeparateReceiver = false;
 
     public string $paymentMethod = '';
 
@@ -53,9 +65,11 @@ class PaymentModal extends Component
             return;
         }
 
-        if ($order->isPaid()) {
+        if ($order->isPaid() || $order->amountDue() <= 0) {
             return;
         }
+
+        $party = $order->partyPayload();
 
         $this->resetErrorBag();
         $this->errorMessage = null;
@@ -66,8 +80,14 @@ class PaymentModal extends Component
         $this->menuName = $order->menuItem?->name ?? 'Order';
         $this->quantity = (int) $order->quantity;
         $this->totalAmount = (int) $order->total_amount;
-        $this->customerName = trim(($order->user?->first_name ?? '').' '.($order->user?->last_name ?? '')) ?: 'Customer';
-        $this->customerMobile = $order->user?->mobile ?? '';
+        $this->amountPaid = $order->amountPaidValue();
+        $this->amountDue = $order->amountDue();
+        $this->accountHolderName = $party['account_holder_name'];
+        $this->accountHolderMobile = (string) ($party['account_holder_mobile'] ?? '');
+        $this->receiverName = $party['receiver_name'];
+        $this->customerName = $party['customer_name'];
+        $this->customerMobile = (string) ($party['receiver_mobile'] ?? '');
+        $this->hasSeparateReceiver = (bool) $party['has_separate_receiver'];
         $this->receiverPhone = $this->customerMobile;
         $this->showModal = true;
     }
@@ -119,13 +139,20 @@ class PaymentModal extends Component
                     throw new \RuntimeException('This order is already paid.');
                 }
 
+                $due = $order->amountDue();
+                if ($due <= 0) {
+                    throw new \RuntimeException('Nothing due for this order.');
+                }
+
                 $order->update([
                     'order_status' => 'delivered_and_paid',
                     'payment_status' => 'paid',
+                    'amount_paid' => (int) $order->total_amount,
+                    'cash_collected' => $due,
                     'updated_by' => $riderId,
                 ]);
 
-                User::query()->whereKey($riderId)->lockForUpdate()->increment('balance', (int) $order->total_amount);
+                User::query()->whereKey($riderId)->lockForUpdate()->increment('balance', $due);
             });
 
             $this->dispatch('order-payment-recorded', message: "Cash payment recorded for {$this->orderLabel}. Rider balance updated.");
@@ -160,13 +187,14 @@ class PaymentModal extends Component
             return;
         }
 
+        $due = $order->amountDue();
         $paymentUrl = URL::temporarySignedRoute(
             'public.order-payment',
             now()->addDays(3),
             ['order' => $order->id]
         );
 
-        $message = "Middo payment for order #{$order->id} ({$this->menuName}): ৳{$this->totalAmount}. Pay here: {$paymentUrl}";
+        $message = "Middo payment for order #{$order->id} ({$this->menuName}): ৳{$due} due. Pay here: {$paymentUrl}";
 
         $sent = MimSms::send($this->receiverPhone, $message);
 

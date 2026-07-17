@@ -231,6 +231,7 @@
                                         <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Pay with</label>
                                         <select wire:model="paymentMethod" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm" {{ $isConfirmingOtp ? 'disabled' : '' }}>
                                             <option value="balance">Middo Balance</option>
+                                            <option value="gateway">Online payment</option>
                                         </select>
                                         @error('paymentMethod') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
                                     </div>
@@ -306,6 +307,13 @@
                                     <p class="text-[11px] text-amber-950 font-bold">Verification SMS Sent! Enter 4-Digit Code:</p>
                                     <button type="button" wire:click="$set('isConfirmingOtp', false)" class="text-[10px] text-gray-400 hover:text-gray-600 underline font-semibold">Change Info</button>
                                 </div>
+
+                                @if(!empty($prepayment['required']) && $paymentMethod === 'gateway' && $gatewayPaymentUrl)
+                                    <div class="rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] text-amber-950 space-y-1">
+                                        <p class="font-bold">Complete online prepayment (৳{{ number_format($prepayment['amount'] ?? 0) }}) first:</p>
+                                        <a href="{{ $gatewayPaymentUrl }}" target="_blank" rel="noopener" class="text-middo-orange font-bold underline break-all">Open payment page</a>
+                                    </div>
+                                @endif
                                 
                                 <div class="flex gap-2">
                                     <input wire:model="otpInput" type="text" maxlength="4" placeholder="••••" 
@@ -317,6 +325,9 @@
                                         <span wire:loading wire:target="finalizeOrder">Processing Order...</span>
                                     </button>
                                 </div>
+                                @error('otpInput') <span class="text-red-500 text-xs font-semibold block">{{ $message }}</span> @enderror
+                                @error('paymentMethod') <span class="text-red-500 text-xs font-semibold block">{{ $message }}</span> @enderror
+                            </div>
                                 @error('otpInput') <span class="text-red-500 text-xs font-semibold block mt-0.5">{{ $message }}</span> @enderror
                             </div>
                         @endif

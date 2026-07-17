@@ -159,6 +159,12 @@ class CorporateOrder {
     required this.totalAmount,
     required this.status,
     required this.paid,
+    this.amountPaid = 0,
+    this.amountDue = 0,
+    this.receiverName,
+    this.receiverMobile,
+    this.accountHolderName,
+    this.hasSeparateReceiver = false,
     this.isHistory = false,
   });
 
@@ -168,8 +174,14 @@ class CorporateOrder {
   final String deliveryTime;
   final int quantity;
   final double totalAmount;
+  final double amountPaid;
+  final double amountDue;
   final OrderStatus status;
   final bool paid;
+  final String? receiverName;
+  final String? receiverMobile;
+  final String? accountHolderName;
+  final bool hasSeparateReceiver;
   final bool isHistory;
 
   String get statusLabel => switch (status) {
@@ -185,6 +197,11 @@ class CorporateOrder {
   factory CorporateOrder.fromJson(Map<String, dynamic> json) {
     final menuJson = Map<String, dynamic>.from(json['menu_item'] as Map? ?? {});
     final statusRaw = (json['order_status'] ?? 'pending').toString();
+    final total = _asDouble(json['total_amount']);
+    final paidAmount = _asDouble(json['amount_paid']);
+    final due = json.containsKey('amount_due')
+        ? _asDouble(json['amount_due'])
+        : (total - paidAmount).clamp(0, total).toDouble();
     return CorporateOrder(
       id: json['id'].toString(),
       menuItem: MenuItem.fromJson(menuJson),
@@ -192,9 +209,15 @@ class CorporateOrder {
           DateTime.now(),
       deliveryTime: (json['delivery_time'] ?? '12:00 PM').toString(),
       quantity: _asInt(json['quantity'], 1),
-      totalAmount: _asDouble(json['total_amount']),
+      totalAmount: total,
+      amountPaid: paidAmount,
+      amountDue: due,
       status: _parseStatus(statusRaw),
       paid: json['paid'] == true || json['payment_status'] == 'paid',
+      receiverName: json['receiver_name']?.toString(),
+      receiverMobile: json['receiver_mobile']?.toString(),
+      accountHolderName: json['account_holder_name']?.toString(),
+      hasSeparateReceiver: json['has_separate_receiver'] == true,
       isHistory: json['is_history'] == true,
     );
   }

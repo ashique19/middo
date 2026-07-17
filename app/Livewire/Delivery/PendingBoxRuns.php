@@ -116,7 +116,7 @@ class PendingBoxRuns extends Component
                     'order_id' => $linkedOrder?->id,
                     'menu_name' => $linkedOrder?->menuItem?->name,
                     'customer_name' => $linkedOrder
-                        ? (trim(($linkedOrder->user?->first_name ?? '').' '.($linkedOrder->user?->last_name ?? '')) ?: null)
+                        ? $linkedOrder->partyPayload()['customer_name']
                         : null,
                     'can_hand_to_kitchen' => (bool) $canHandToKitchen,
                 ];

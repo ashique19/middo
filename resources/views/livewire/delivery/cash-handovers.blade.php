@@ -46,7 +46,7 @@
                             </td>
                             <td class="p-4 font-mono font-bold">#{{ $order->id }}</td>
                             <td class="p-4">{{ $order->menuItem?->name }}</td>
-                            <td class="p-4 text-right font-semibold">৳{{ number_format($order->total_amount) }}</td>
+                            <td class="p-4 text-right font-semibold">৳{{ number_format($order->cashCollectedAmount()) }}</td>
                         </tr>
                     @empty
                         <tr><td colspan="4" class="p-10 text-center text-gray-400 italic">No paid orders waiting for cash handover.</td></tr>

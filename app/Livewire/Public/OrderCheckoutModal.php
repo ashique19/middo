@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
 use App\Support\OrderConfirmationOtp;
+use App\Contracts\PaymentGateway;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -44,6 +45,8 @@ class OrderCheckoutModal extends Component
     public string $otpInput = '';
     public string $paymentMethod = 'balance';
     public array $prepayment = [];
+    public ?string $gatewayPaymentToken = null;
+    public ?string $gatewayPaymentUrl = null;
 
     // Dynamic Arrays from Database (Converted to arrays to avoid Dehydration/Hydration crashes)
     public array $citiesList = [];
@@ -117,6 +120,8 @@ class OrderCheckoutModal extends Component
         $this->otpInput = '';
         $this->paymentMethod = 'balance';
         $this->prepayment = [];
+        $this->gatewayPaymentToken = null;
+        $this->gatewayPaymentUrl = null;
         
         if ($this->city_id) {
             $this->loadAreasForSelectedCity($this->city_id);
@@ -306,8 +311,33 @@ class OrderCheckoutModal extends Component
         $this->refreshPrepaymentQuote();
 
         if (($this->prepayment['required'] ?? false) && $this->paymentMethod === 'balance' && ! ($this->prepayment['balance_sufficient'] ?? false)) {
-            $this->addError('paymentMethod', $this->prepayment['message'] ?? 'Insufficient Middo Balance for required prepayment.');
+            $this->addError('paymentMethod', $this->prepayment['message'] ?? 'Insufficient Middo Balance for required prepayment. Choose online pay or top up.');
             return;
+        }
+
+        $this->gatewayPaymentToken = null;
+        $this->gatewayPaymentUrl = null;
+
+        if (($this->prepayment['required'] ?? false) && $this->paymentMethod === 'gateway') {
+            $fingerprint = [
+                'menu_item_id' => (int) ($this->dish['id'] ?? 0),
+                'receiver_name' => CorporateOrderPrepayment::normalizeName($this->customerName),
+                'mobile' => CorporateOrderPrepayment::normalizeMobile($this->mobile),
+                'dates' => collect($activeOrders)->map(fn ($qty, $date) => [
+                    'date' => $date,
+                    'quantity' => (int) $qty,
+                ])->values()->all(),
+                'amount' => (int) $this->prepayment['amount'],
+            ];
+
+            $checkout = app(PaymentGateway::class)->createCheckout(
+                (int) Auth::id(),
+                (int) $this->prepayment['amount'],
+                $fingerprint
+            );
+
+            $this->gatewayPaymentToken = $checkout['token'];
+            $this->gatewayPaymentUrl = $checkout['payment_url'];
         }
 
         $result = OrderConfirmationOtp::send($this->mobile);
@@ -364,11 +394,32 @@ class OrderCheckoutModal extends Component
                 return;
             }
 
-            // Web checkout uses Middo Balance for required prepay; gateway is available via the mobile API.
             if ($this->paymentMethod === 'gateway') {
-                $this->paymentMethod = 'balance';
-                if (! ($prepayment['balance_sufficient'] ?? false)) {
-                    $this->addError('paymentMethod', 'Use Middo Balance for web checkout prepayment, or top up first.');
+                if (! filled($this->gatewayPaymentToken)) {
+                    $this->addError('paymentMethod', 'Start online payment before confirming the order.');
+                    return;
+                }
+
+                $fingerprint = [
+                    'menu_item_id' => (int) ($this->dish['id'] ?? 0),
+                    'receiver_name' => CorporateOrderPrepayment::normalizeName($this->customerName),
+                    'mobile' => CorporateOrderPrepayment::normalizeMobile($this->mobile),
+                    'dates' => collect($activeOrders)->map(fn ($qty, $date) => [
+                        'date' => $date,
+                        'quantity' => (int) $qty,
+                    ])->values()->all(),
+                    'amount' => (int) $prepayment['amount'],
+                ];
+
+                $consumed = app(PaymentGateway::class)->consumePaid(
+                    $this->gatewayPaymentToken,
+                    (int) $currentUser->id,
+                    (int) $prepayment['amount'],
+                    $fingerprint
+                );
+
+                if (! ($consumed['ok'] ?? false)) {
+                    $this->addError('paymentMethod', $consumed['message'] ?? 'Complete online payment first.');
                     return;
                 }
             }
@@ -418,6 +469,8 @@ class OrderCheckoutModal extends Component
                     'delivery_time'   => $this->deliveryWindow,
                     'total_amount'    => $lineTotal,
                     'amount_paid'     => $amountPaid,
+                    'prepaid_amount'  => $amountPaid,
+                    'cash_collected'  => 0,
                     'address'         => $fullAddress,
                     'receiver_name'   => $this->customerName,
                     'receiver_mobile' => $this->mobile,
