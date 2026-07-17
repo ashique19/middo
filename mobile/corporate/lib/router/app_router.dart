@@ -9,6 +9,7 @@ import '../screens/login_screen.dart';
 import '../screens/menu_screen.dart';
 import '../screens/schedule_screen.dart';
 import '../screens/shell_scaffold.dart';
+import '../screens/splash_screen.dart';
 import '../screens/support_screen.dart';
 import '../screens/track_screen.dart';
 import '../screens/wallet_screen.dart';
@@ -18,15 +19,22 @@ final _rootKey = GlobalKey<NavigatorState>();
 GoRouter createAppRouter() {
   return GoRouter(
     navigatorKey: _rootKey,
-    initialLocation: AuthStore.instance.isAuthenticated ? '/home' : '/login',
+    initialLocation: '/splash',
     redirect: (context, state) {
+      final loc = state.matchedLocation;
+      if (loc == '/splash') return null;
+
       final loggedIn = AuthStore.instance.isAuthenticated;
-      final loggingIn = state.matchedLocation == '/login';
+      final loggingIn = loc == '/login';
       if (!loggedIn && !loggingIn) return '/login';
       if (loggedIn && loggingIn) return '/home';
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),

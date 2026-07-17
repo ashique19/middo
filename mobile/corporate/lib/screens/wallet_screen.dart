@@ -212,41 +212,19 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 child: Column(
                   children: [
-                    _row('Company', user.companyName),
-                    _row('Mobile', user.mobile),
-                    _row('Delivery area', user.area ?? '—'),
+                    MetaRow(label: 'Company', value: user.companyName, labelWidth: 100),
+                    MetaRow(label: 'Mobile', value: user.mobile, labelWidth: 100),
+                    MetaRow(
+                      label: 'Delivery area',
+                      value: user.area ?? '—',
+                      labelWidth: 100,
+                    ),
                   ],
                 ),
               ),
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _row(String left, String right) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            left,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: MiddoColors.inkSoft,
-            ),
-          ),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              right,
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-            ),
-          ),
-        ],
       ),
     );
   }

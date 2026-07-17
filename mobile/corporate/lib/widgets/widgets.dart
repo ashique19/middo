@@ -352,3 +352,55 @@ class SectionHeader extends StatelessWidget {
     );
   }
 }
+
+/// Fixed-label / right-value row so summary card values share one column.
+class MetaRow extends StatelessWidget {
+  const MetaRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.labelWidth = 72,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final double labelWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: labelWidth,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: MiddoColors.inkSoft,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+                height: 1.35,
+                color: valueColor ?? MiddoColors.ink,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

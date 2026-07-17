@@ -121,12 +121,17 @@ class _SupportScreenState extends State<SupportScreen> {
                       ),
                       child: Column(
                         children: [
-                          _meta(
-                            'Date',
-                            '${DateFormat('MMM d').format(order.deliveryDate)} · ${order.deliveryTime}',
+                          MetaRow(
+                            label: 'Date',
+                            value:
+                                '${DateFormat('MMM d').format(order.deliveryDate)} · ${order.deliveryTime}',
                           ),
-                          _meta('Meal', order.menuItem.name),
-                          _meta('Total', bdt.format(order.totalAmount)),
+                          MetaRow(label: 'Meal', value: order.menuItem.name),
+                          MetaRow(
+                            label: 'Total',
+                            value: bdt.format(order.totalAmount),
+                            valueColor: MiddoColors.orange,
+                          ),
                         ],
                       ),
                     ),
@@ -252,29 +257,4 @@ class _SupportScreenState extends State<SupportScreen> {
     );
   }
 
-  Widget _meta(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: MiddoColors.inkSoft,
-            ),
-          ),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
