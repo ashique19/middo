@@ -112,8 +112,27 @@ FIREBASE_CREDENTIALS=/absolute/or/relative/path/to/service-account.json
 # FIREBASE_PROJECT_ID=middo-55888
 ```
 
-3. Run migrations: `php artisan migrate` (creates `device_tokens`).
-4. Ensure the queue worker is running (`QUEUE_CONNECTION=database` → `php artisan queue:work`) so jobs are processed.
+3. Run migrations: `php artisan migrate` (creates `device_tokens`), **or** create the table in phpMyAdmin with:
+
+```sql
+CREATE TABLE `device_tokens` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL,
+  `token` varchar(512) NOT NULL,
+  `platform` varchar(32) NOT NULL DEFAULT 'android',
+  `device_name` varchar(120) DEFAULT NULL,
+  `last_used_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `device_tokens_token_unique` (`token`),
+  KEY `device_tokens_user_id_platform_index` (`user_id`, `platform`),
+  CONSTRAINT `device_tokens_user_id_foreign`
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+4. Push jobs run **inline** when an order status changes (no `queue:work` / SSH required).
 
 Without a valid service account file, the API still accepts device tokens but skips sending (logged as skipped).
 

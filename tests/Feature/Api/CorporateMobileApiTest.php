@@ -420,7 +420,7 @@ class CorporateMobileApiTest extends TestCase
         ]);
     }
 
-    public function test_order_status_change_queues_push_notification(): void
+    public function test_order_status_change_dispatches_push_notification(): void
     {
         Queue::fake();
 

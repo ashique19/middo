@@ -40,7 +40,8 @@ class OrderObserver
         $this->writeLog($order, $event, ['changes' => $diff]);
 
         if (array_key_exists('order_status', $changes)) {
-            SendOrderStatusPush::dispatch(
+            // Run inline so pushes work on hosts without a queue worker / SSH.
+            SendOrderStatusPush::dispatchSync(
                 $order->id,
                 (string) $order->order_status,
             );

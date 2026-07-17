@@ -98,9 +98,9 @@ class FcmClient
      */
     public static function credentials(): ?array
     {
-        $path = config('services.fcm.credentials');
+        $path = self::resolveCredentialsPath(config('services.fcm.credentials'));
 
-        if (! filled($path) || ! is_string($path) || ! is_file($path)) {
+        if ($path === null || ! is_file($path)) {
             return null;
         }
 
@@ -123,6 +123,27 @@ class FcmClient
             'client_email' => $clientEmail,
             'private_key' => $privateKey,
         ];
+    }
+
+    /**
+     * Resolve a relative credentials path against the Laravel base path.
+     */
+    public static function resolveCredentialsPath(mixed $path): ?string
+    {
+        if (! filled($path) || ! is_string($path)) {
+            return null;
+        }
+
+        if (is_file($path)) {
+            return $path;
+        }
+
+        $fromBase = base_path($path);
+        if (is_file($fromBase)) {
+            return $fromBase;
+        }
+
+        return null;
     }
 
     public static function projectId(): ?string
