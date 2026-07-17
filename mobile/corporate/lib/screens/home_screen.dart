@@ -52,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const MiddoPageLoader(message: 'Loading home…');
           }
           if (snapshot.hasError) {
             return _ErrorState(

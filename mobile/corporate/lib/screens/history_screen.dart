@@ -36,7 +36,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const MiddoPageLoader(message: 'Loading history…');
           }
           if (snapshot.hasError) {
             return Center(child: Text(snapshot.error.toString()));

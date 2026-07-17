@@ -262,7 +262,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const MiddoLoadingScaffold(
+        title: 'Checkout',
+        message: 'Loading checkout…',
+      );
     }
     if (_error != null || _item == null || _meta == null) {
       return Scaffold(

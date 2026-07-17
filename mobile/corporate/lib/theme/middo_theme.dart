@@ -26,6 +26,10 @@ ThemeData buildMiddoTheme() {
 
   return base.copyWith(
     textTheme: textTheme,
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: MiddoColors.orange,
+      circularTrackColor: Color(0x33AB3F00),
+    ),
     appBarTheme: AppBarTheme(
       backgroundColor: MiddoColors.cream,
       foregroundColor: MiddoColors.ink,

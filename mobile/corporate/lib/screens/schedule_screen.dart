@@ -79,7 +79,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const MiddoPageLoader(message: 'Loading schedule…');
           }
           if (snapshot.hasError) {
             return Center(child: Text(snapshot.error.toString()));

@@ -78,7 +78,7 @@ class _WalletScreenState extends State<WalletScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const MiddoPageLoader(message: 'Loading wallet…');
           }
           if (snapshot.hasError) {
             return Center(child: Text(snapshot.error.toString()));

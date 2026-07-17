@@ -103,7 +103,7 @@ class _SupportScreenState extends State<SupportScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const MiddoPageLoader(message: 'Loading support…');
           }
           if (snapshot.hasError) {
             return Center(child: Text(snapshot.error.toString()));

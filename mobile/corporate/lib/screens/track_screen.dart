@@ -52,7 +52,7 @@ class _TrackScreenState extends State<TrackScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const MiddoPageLoader(message: 'Loading tracking…');
           }
           if (snapshot.hasError) {
             return Center(child: Text(snapshot.error.toString()));

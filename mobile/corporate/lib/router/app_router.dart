@@ -16,6 +16,35 @@ import '../screens/wallet_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
+CustomTransitionPage<void> _fadePage({
+  required LocalKey key,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: key,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 220),
+    reverseTransitionDuration: const Duration(milliseconds: 180),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.02, 0.01),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
 GoRouter createAppRouter() {
   return GoRouter(
     navigatorKey: _rootKey,
@@ -33,11 +62,17 @@ GoRouter createAppRouter() {
     routes: [
       GoRoute(
         path: '/splash',
-        builder: (context, state) => const SplashScreen(),
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const SplashScreen(),
+        ),
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const LoginScreen(),
+        ),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -48,7 +83,10 @@ GoRouter createAppRouter() {
             routes: [
               GoRoute(
                 path: '/home',
-                builder: (context, state) => const HomeScreen(),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const HomeScreen(),
+                ),
               ),
             ],
           ),
@@ -56,7 +94,10 @@ GoRouter createAppRouter() {
             routes: [
               GoRoute(
                 path: '/menu',
-                builder: (context, state) => const MenuScreen(),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const MenuScreen(),
+                ),
               ),
             ],
           ),
@@ -64,7 +105,10 @@ GoRouter createAppRouter() {
             routes: [
               GoRoute(
                 path: '/schedule',
-                builder: (context, state) => const ScheduleScreen(),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const ScheduleScreen(),
+                ),
               ),
             ],
           ),
@@ -72,7 +116,10 @@ GoRouter createAppRouter() {
             routes: [
               GoRoute(
                 path: '/wallet',
-                builder: (context, state) => const WalletScreen(),
+                pageBuilder: (context, state) => NoTransitionPage(
+                  key: state.pageKey,
+                  child: const WalletScreen(),
+                ),
               ),
             ],
           ),
@@ -81,27 +128,39 @@ GoRouter createAppRouter() {
       GoRoute(
         path: '/checkout/:menuItemId',
         parentNavigatorKey: _rootKey,
-        builder: (context, state) => CheckoutScreen(
-          menuItemId: state.pathParameters['menuItemId']!,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: CheckoutScreen(
+            menuItemId: state.pathParameters['menuItemId']!,
+          ),
         ),
       ),
       GoRoute(
         path: '/track/:orderId',
         parentNavigatorKey: _rootKey,
-        builder: (context, state) => TrackScreen(
-          orderId: state.pathParameters['orderId']!,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: TrackScreen(
+            orderId: state.pathParameters['orderId']!,
+          ),
         ),
       ),
       GoRoute(
         path: '/history',
         parentNavigatorKey: _rootKey,
-        builder: (context, state) => const HistoryScreen(),
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const HistoryScreen(),
+        ),
       ),
       GoRoute(
         path: '/support/:orderId',
         parentNavigatorKey: _rootKey,
-        builder: (context, state) => SupportScreen(
-          orderId: state.pathParameters['orderId']!,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: SupportScreen(
+            orderId: state.pathParameters['orderId']!,
+          ),
         ),
       ),
     ],
