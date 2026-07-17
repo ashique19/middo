@@ -192,7 +192,9 @@ class _EditOrderSheetState extends State<_EditOrderSheet> {
       builder: (context) => AlertDialog(
         title: const Text('Cancel this order?'),
         content: Text(
-          'This removes the ${DateFormat('MMM d').format(widget.order.deliveryDate)} lunch and credits ${bdt.format(widget.order.totalAmount)} back to Middo Balance. To change date or meal, cancel and place a new order.',
+          'This removes the ${DateFormat('MMM d').format(widget.order.deliveryDate)} lunch'
+          '${widget.order.amountPaid > 0 ? ' and credits ${bdt.format(widget.order.amountPaid)} prepaid amount back to Middo Balance' : ''}'
+          '. To change date or meal, cancel and place a new order.',
         ),
         actions: [
           TextButton(

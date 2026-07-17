@@ -28,6 +28,7 @@ Route::prefix('corporate')->group(function () {
         Route::get('/orders/scheduled', [CorporateMobileController::class, 'scheduled']);
         Route::get('/orders/history', [CorporateMobileController::class, 'history']);
         Route::post('/orders/send-otp', [CorporateMobileController::class, 'sendOrderOtp']);
+        Route::post('/orders/gateway-prepay', [CorporateMobileController::class, 'createGatewayPrepay']);
         Route::post('/orders', [CorporateMobileController::class, 'placeOrder']);
         Route::patch('/orders/{order}', [CorporateMobileController::class, 'updateOrder']);
         Route::delete('/orders/{order}', [CorporateMobileController::class, 'cancelOrder']);

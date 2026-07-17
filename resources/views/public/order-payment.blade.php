@@ -20,9 +20,29 @@
                 <span class="text-gray-500">Quantity</span>
                 <span class="font-semibold">{{ $order->quantity }}</span>
             </div>
+            @if(!empty($party['has_separate_receiver']))
+                <div class="flex justify-between gap-3">
+                    <span class="text-gray-500">Account</span>
+                    <span class="font-semibold text-right">{{ $party['account_holder_name'] }}</span>
+                </div>
+                <div class="flex justify-between gap-3">
+                    <span class="text-gray-500">Receiver</span>
+                    <span class="font-semibold text-right">{{ $party['receiver_name'] }} · {{ $party['receiver_mobile'] }}</span>
+                </div>
+            @endif
+            <div class="flex justify-between gap-3">
+                <span class="text-gray-500">Bill total</span>
+                <span class="font-semibold">৳{{ number_format($order->total_amount) }}</span>
+            </div>
+            @if(($party['amount_paid'] ?? 0) > 0)
+                <div class="flex justify-between gap-3">
+                    <span class="text-gray-500">Already prepaid</span>
+                    <span class="font-semibold text-emerald-700">৳{{ number_format($party['amount_paid']) }}</span>
+                </div>
+            @endif
             <div class="flex justify-between gap-3">
                 <span class="text-gray-500">Amount due</span>
-                <span class="font-black text-middo-orange">৳{{ number_format($order->total_amount) }}</span>
+                <span class="font-black text-middo-orange">৳{{ number_format($amountDue) }}</span>
             </div>
             <div class="flex justify-between gap-3">
                 <span class="text-gray-500">Status</span>
@@ -30,15 +50,21 @@
             </div>
         </div>
 
-        @if($order->payment_status === 'paid' || $order->order_status === 'delivered_and_paid')
+        @if($order->isPaid() || $amountDue <= 0)
             <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
                 This order is already paid. Thank you!
             </p>
         @else
             <p class="text-sm text-gray-600">
-                Complete payment with your preferred online method. Your Middo delivery rider sent you this secure link.
+                Complete the remaining payment for this Middo delivery.
             </p>
-            <p class="text-xs text-gray-400">Online checkout integration can be completed here.</p>
+            <form method="POST" action="{{ URL::temporarySignedRoute('public.order-payment.confirm', now()->addDays(3), ['order' => $order->id]) }}">
+                @csrf
+                <button type="submit" class="w-full bg-middo-orange text-white py-3.5 rounded-xl font-bold hover:opacity-90 transition">
+                    Pay ৳{{ number_format($amountDue) }} now
+                </button>
+            </form>
+            <p class="text-xs text-gray-400">Pseudo checkout — replace with the real payment gateway when finalized.</p>
         @endif
     </div>
 </body>

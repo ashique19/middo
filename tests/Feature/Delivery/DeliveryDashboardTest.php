@@ -235,6 +235,8 @@ class DeliveryDashboardTest extends TestCase
             ->call('openModal', $order->id)
             ->assertSet('showModal', true)
             ->assertSet('totalAmount', 500)
+            ->assertSet('amountDue', 500)
+            ->assertSet('amountPaid', 0)
             ->call('selectCash')
             ->call('confirmCashPayment')
             ->assertSet('showModal', false);
@@ -242,6 +244,7 @@ class DeliveryDashboardTest extends TestCase
         $order->refresh();
         $this->assertSame('delivered_and_paid', $order->order_status);
         $this->assertSame('paid', $order->payment_status);
+        $this->assertSame(500, (int) $order->cash_collected);
         $this->assertSame(500, $this->rider->fresh()->balance);
 
         Livewire::actingAs($this->rider)
@@ -286,5 +289,41 @@ class DeliveryDashboardTest extends TestCase
             return str_contains($request->url(), 'mimsms')
                 && ($request['mobileNumber'] ?? null) === '8801719998888';
         });
+    }
+
+    public function test_rider_cash_payment_only_collects_amount_due_after_prepay(): void
+    {
+        $order = $this->createKitchenDispatchedOrder(2);
+        $order->update([
+            'receiver_name' => 'Desk Guest',
+            'receiver_mobile' => '01718887766',
+            'amount_paid' => 250,
+            'prepaid_amount' => 250,
+            'payment_status' => 'pending',
+        ]);
+
+        Livewire::actingAs($this->rider)
+            ->test(KitchenDispatches::class)
+            ->call('acceptOrder', $order->id)
+            ->call('deliverToConsumer', $order->id);
+
+        Livewire::actingAs($this->rider)
+            ->test(\App\Livewire\Delivery\PaymentModal::class)
+            ->call('openModal', $order->id)
+            ->assertSet('amountDue', 250)
+            ->assertSet('amountPaid', 250)
+            ->assertSet('hasSeparateReceiver', true)
+            ->assertSet('receiverName', 'Desk Guest')
+            ->assertSet('accountHolderName', 'Corp User')
+            ->call('selectCash')
+            ->call('confirmCashPayment');
+
+        $order->refresh();
+        $this->assertSame('delivered_and_paid', $order->order_status);
+        $this->assertSame('paid', $order->payment_status);
+        $this->assertSame(500, (int) $order->amount_paid);
+        $this->assertSame(250, (int) $order->cash_collected);
+        $this->assertSame(250, (int) $order->prepaid_amount);
+        $this->assertSame(250, $this->rider->fresh()->balance);
     }
 }

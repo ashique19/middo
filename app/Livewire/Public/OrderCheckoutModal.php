@@ -9,10 +9,11 @@ use App\Models\Area;
 use Livewire\Attributes\On;
 use App\Models\User;
 use App\Support\CorporateOrderLimit;
+use App\Support\CorporateOrderPrepayment;
+use App\Support\OrderConfirmationOtp;
+use App\Contracts\PaymentGateway;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 
 class OrderCheckoutModal extends Component
@@ -42,6 +43,10 @@ class OrderCheckoutModal extends Component
     // Step Flag & Verification
     public bool $isConfirmingOtp = false; 
     public string $otpInput = '';
+    public string $paymentMethod = 'balance';
+    public array $prepayment = [];
+    public ?string $gatewayPaymentToken = null;
+    public ?string $gatewayPaymentUrl = null;
 
     // Dynamic Arrays from Database (Converted to arrays to avoid Dehydration/Hydration crashes)
     public array $citiesList = [];
@@ -113,12 +118,17 @@ class OrderCheckoutModal extends Component
         
         $this->isConfirmingOtp = false;
         $this->otpInput = '';
+        $this->paymentMethod = 'balance';
+        $this->prepayment = [];
+        $this->gatewayPaymentToken = null;
+        $this->gatewayPaymentUrl = null;
         
         if ($this->city_id) {
             $this->loadAreasForSelectedCity($this->city_id);
         }
         
         $this->recalculateTotals();
+        $this->refreshPrepaymentQuote();
         
         // Explicitly set modal visibility true at the very end of processing
         $this->showModal = true;
@@ -161,6 +171,41 @@ class OrderCheckoutModal extends Component
         $totalItemsCount = array_sum($this->quantities);
         $this->subtotal = (float) ($this->dish['price'] ?? 0) * $totalItemsCount;
         $this->total = $this->subtotal + $this->taxesAndFees;
+        $this->refreshPrepaymentQuote();
+    }
+
+    public function updatedCustomerName(): void
+    {
+        $this->refreshPrepaymentQuote();
+    }
+
+    public function updatedMobile(): void
+    {
+        $this->refreshPrepaymentQuote();
+    }
+
+    protected function refreshPrepaymentQuote(): void
+    {
+        $user = Auth::user();
+        if (! $user instanceof User || empty($this->dish)) {
+            $this->prepayment = [];
+
+            return;
+        }
+
+        $activeDates = array_filter($this->quantities, fn ($qty) => $qty > 0);
+        $cartTotal = 0;
+        foreach ($activeDates as $qty) {
+            $cartTotal += (int) round(($this->dish['price'] ?? 0) * (int) $qty);
+        }
+
+        $this->prepayment = CorporateOrderPrepayment::evaluate(
+            $user,
+            $this->customerName,
+            $this->mobile !== '' ? $this->mobile : (string) $user->mobile,
+            count($activeDates),
+            $cartTotal
+        );
     }
 
     /**
@@ -237,6 +282,7 @@ class OrderCheckoutModal extends Component
         if (!Auth::check()) return redirect()->guest(route('login'));
 
         $this->validate([
+            'customerName' => 'required|string|min:2|max:120',
             'addressLine1' => 'required|string|min:5|max:255',
             'city_id'      => 'required|exists:cities,id',
             'area_id'      => 'required|exists:areas,id',
@@ -244,6 +290,7 @@ class OrderCheckoutModal extends Component
             'quantities'   => 'required|array',
             'quantities.*' => 'required|integer|min:0|max:'.CorporateOrderLimit::maxAllowed(),
         ], [
+            'customerName.required' => 'Please provide the receiver name.',
             'addressLine1.required' => 'Please provide your specific street address details.',
             'city_id.required'      => 'Please select a delivery city.',
             'area_id.required'      => 'Please select an area location.',
@@ -261,32 +308,47 @@ class OrderCheckoutModal extends Component
             return;
         }
 
-        $formattedMobile = '88' . trim($this->mobile);
-        
-        $otpCode = env('APP_DEBUG') ? "1234" : (string) random_int(1000, 9999);
-        Cache::put('order_confirmation_otp_' . $formattedMobile, $otpCode, 300);
+        $this->refreshPrepaymentQuote();
 
-        try {
-            $response = Http::withHeaders(['Content-Type' => 'application/json'])
-                ->post(config('services.mimsms.base_url'), [
-                    'apiKey'          => config('services.mimsms.api_key'),
-                    'userName'        => config('services.mimsms.user_name'),
-                    'campaignName'    => 'null',
-                    'senderName'      => config('services.mimsms.sender_name'),
-                    'transactionType' => 'T', 
-                    'mobileNumber'    => $formattedMobile,
-                    'message'         => "Your Middo Order Confirmation Code is: {$otpCode}. Enter this code to finalize your schedule.",
-                ]);
-
-            if ($response->successful()) {
-                $this->isConfirmingOtp = true;
-                session()->flash('order_status', 'Confirmation code sent successfully.');
-            } else {
-                $this->addError('mobile', 'SMS channel transmission error. Please retry.');
-            }
-        } catch (\Exception $e) {
-            $this->addError('mobile', 'Connection problem with SMS provider.');
+        if (($this->prepayment['required'] ?? false) && $this->paymentMethod === 'balance' && ! ($this->prepayment['balance_sufficient'] ?? false)) {
+            $this->addError('paymentMethod', $this->prepayment['message'] ?? 'Insufficient Middo Balance for required prepayment. Choose online pay or top up.');
+            return;
         }
+
+        $this->gatewayPaymentToken = null;
+        $this->gatewayPaymentUrl = null;
+
+        if (($this->prepayment['required'] ?? false) && $this->paymentMethod === 'gateway') {
+            $fingerprint = [
+                'menu_item_id' => (int) ($this->dish['id'] ?? 0),
+                'receiver_name' => CorporateOrderPrepayment::normalizeName($this->customerName),
+                'mobile' => CorporateOrderPrepayment::normalizeMobile($this->mobile),
+                'dates' => collect($activeOrders)->map(fn ($qty, $date) => [
+                    'date' => $date,
+                    'quantity' => (int) $qty,
+                ])->values()->all(),
+                'amount' => (int) $this->prepayment['amount'],
+            ];
+
+            $checkout = app(PaymentGateway::class)->createCheckout(
+                (int) Auth::id(),
+                (int) $this->prepayment['amount'],
+                $fingerprint
+            );
+
+            $this->gatewayPaymentToken = $checkout['token'];
+            $this->gatewayPaymentUrl = $checkout['payment_url'];
+        }
+
+        $result = OrderConfirmationOtp::send($this->mobile);
+
+        if (! ($result['ok'] ?? false)) {
+            $this->addError('mobile', $result['message'] ?? 'SMS channel transmission error. Please retry.');
+            return;
+        }
+
+        $this->isConfirmingOtp = true;
+        session()->flash('order_status', $result['message'] ?? 'Confirmation code sent successfully.');
     }
 
     /**
@@ -294,17 +356,17 @@ class OrderCheckoutModal extends Component
      */
     public function finalizeOrder()
     {
-        $this->validate(['otpInput' => 'required|string|size:4']);
+        $this->validate([
+            'otpInput' => 'required|string|size:4',
+            'customerName' => 'required|string|min:2|max:120',
+            'paymentMethod' => 'nullable|in:balance,gateway',
+        ]);
 
-        $formattedMobile = '88' . trim($this->mobile);
-        $cachedOtp = Cache::get('order_confirmation_otp_' . $formattedMobile);
-
-        if (!$cachedOtp || $this->otpInput !== $cachedOtp) {
+        if (! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
             $this->addError('otpInput', 'Invalid or expired confirmation token code.');
             return;
         }
 
-        Cache::forget('order_confirmation_otp_' . $formattedMobile);
         $activeOrders = array_filter($this->quantities, fn($qty) => $qty > 0);
 
         if (empty($activeOrders)) {
@@ -316,17 +378,88 @@ class OrderCheckoutModal extends Component
             return;
         }
 
-        DB::transaction(function () use ($activeOrders) {
-            $currentUserId = Auth::id();
+        /** @var User $currentUser */
+        $currentUser = Auth::user();
+        $this->refreshPrepaymentQuote();
+        $prepayment = $this->prepayment;
+
+        if ($prepayment['required'] ?? false) {
+            if (! in_array($this->paymentMethod, ['balance', 'gateway'], true)) {
+                $this->addError('paymentMethod', $prepayment['message'] ?? 'Prepayment is required.');
+                return;
+            }
+
+            if ($this->paymentMethod === 'balance' && ! ($prepayment['balance_sufficient'] ?? false)) {
+                $this->addError('paymentMethod', 'Insufficient Middo Balance for required prepayment.');
+                return;
+            }
+
+            if ($this->paymentMethod === 'gateway') {
+                if (! filled($this->gatewayPaymentToken)) {
+                    $this->addError('paymentMethod', 'Start online payment before confirming the order.');
+                    return;
+                }
+
+                $fingerprint = [
+                    'menu_item_id' => (int) ($this->dish['id'] ?? 0),
+                    'receiver_name' => CorporateOrderPrepayment::normalizeName($this->customerName),
+                    'mobile' => CorporateOrderPrepayment::normalizeMobile($this->mobile),
+                    'dates' => collect($activeOrders)->map(fn ($qty, $date) => [
+                        'date' => $date,
+                        'quantity' => (int) $qty,
+                    ])->values()->all(),
+                    'amount' => (int) $prepayment['amount'],
+                ];
+
+                $consumed = app(PaymentGateway::class)->consumePaid(
+                    $this->gatewayPaymentToken,
+                    (int) $currentUser->id,
+                    (int) $prepayment['amount'],
+                    $fingerprint
+                );
+
+                if (! ($consumed['ok'] ?? false)) {
+                    $this->addError('paymentMethod', $consumed['message'] ?? 'Complete online payment first.');
+                    return;
+                }
+            }
+        }
+
+        $lineTotals = [];
+        foreach ($activeOrders as $qty) {
+            $lineTotals[] = (int) round(($this->dish['price'] ?? 0) * (int) $qty);
+        }
+        $allocations = CorporateOrderPrepayment::allocate(
+            ($prepayment['required'] ?? false) ? (int) $prepayment['amount'] : 0,
+            $lineTotals
+        );
+        $profileMatches = CorporateOrderPrepayment::profileMatchesReceiver(
+            $currentUser,
+            $this->customerName,
+            $this->mobile
+        );
+
+        DB::transaction(function () use ($activeOrders, $currentUser, $prepayment, $allocations, $profileMatches) {
+            $currentUserId = $currentUser->id;
             $cityModel = City::find($this->city_id);
             $areaModel = Area::find($this->area_id);
-            $currentUser = Auth::user();
+
+            if (($prepayment['required'] ?? false) && $this->paymentMethod === 'balance' && ($prepayment['amount'] ?? 0) > 0) {
+                $locked = User::query()->whereKey($currentUserId)->lockForUpdate()->firstOrFail();
+                if ((int) $locked->balance < (int) $prepayment['amount']) {
+                    throw new \RuntimeException('Insufficient Middo Balance for required prepayment.');
+                }
+                $locked->decrement('balance', (int) $prepayment['amount']);
+            }
             
             $fullAddress = trim($this->addressLine1) . ', ' . ($areaModel?->name ?? '') . ', ' . ($cityModel?->name ?? '');
             $createdOrderIds = [];
+            $index = 0;
 
             foreach ($activeOrders as $date => $qty) {
                 $lineTotal = (int) round(($this->dish['price'] ?? 0) * $qty);
+                $amountPaid = (int) ($allocations[$index] ?? 0);
+                $index++;
 
                 $order = \App\Models\Order::create([
                     'user_id'         => $currentUserId,
@@ -335,10 +468,15 @@ class OrderCheckoutModal extends Component
                     'delivery_date'   => $date,
                     'delivery_time'   => $this->deliveryWindow,
                     'total_amount'    => $lineTotal,
+                    'amount_paid'     => $amountPaid,
+                    'prepaid_amount'  => $amountPaid,
+                    'cash_collected'  => 0,
                     'address'         => $fullAddress,
+                    'receiver_name'   => $this->customerName,
+                    'receiver_mobile' => $this->mobile,
                     'area_id'         => $this->area_id,
                     'order_status'    => 'pending',
-                    'payment_status'  => 'pending',
+                    'payment_status'  => $amountPaid >= $lineTotal && $lineTotal > 0 ? 'paid' : 'pending',
                     'created_by'      => $currentUserId,
                     'updated_by'      => $currentUserId,
                 ]);
@@ -350,15 +488,16 @@ class OrderCheckoutModal extends Component
                 $grouper->assignOrder($order->load('user'), $currentUserId);
             }
             
-            if ($currentUser instanceof User) {
-                $currentUser->update([
-                    'mobile'             => $this->mobile,
-                    'address'            => $this->addressLine1,
-                    'city_id'            => $this->city_id,
-                    'area_id'            => $this->area_id,
-                    'is_mobile_verified' => true,
-                ]);
+            $profileUpdate = [
+                'address'            => $this->addressLine1,
+                'city_id'            => $this->city_id,
+                'area_id'            => $this->area_id,
+                'is_mobile_verified' => true,
+            ];
+            if ($profileMatches) {
+                $profileUpdate['mobile'] = $this->mobile;
             }
+            $currentUser->update($profileUpdate);
         });
 
         $this->showModal = false;

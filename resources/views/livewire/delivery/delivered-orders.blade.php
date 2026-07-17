@@ -38,8 +38,23 @@
                     </div>
                     <p class="text-sm text-gray-600">{{ $order['date_label'] }} · {{ $order['delivery_time'] }}</p>
                     <p class="text-sm text-gray-500">
-                        {{ $order['customer_name'] }} · {{ $order['address'] }}
+                        @if(!empty($order['has_separate_receiver']))
+                            <span class="font-semibold text-gray-700">Receiver:</span> {{ $order['receiver_name'] }}
+                            @if(!empty($order['receiver_mobile'])) · {{ $order['receiver_mobile'] }}@endif
+                            <br>
+                            <span class="text-xs">Account: {{ $order['account_holder_name'] }}</span>
+                        @else
+                            {{ $order['customer_name'] }}
+                        @endif
+                        · {{ $order['address'] }}
                     </p>
+                    @if(($order['amount_due'] ?? 0) > 0 && !($order['is_paid'] ?? false))
+                        <p class="text-xs font-bold text-middo-orange">Due ৳{{ number_format($order['amount_due']) }}
+                            @if(($order['amount_paid'] ?? 0) > 0)
+                                <span class="text-emerald-700 font-semibold">(prepaid ৳{{ number_format($order['amount_paid']) }})</span>
+                            @endif
+                        </p>
+                    @endif
                     @if(count($order['box_codes']) > 0)
                         <p class="text-xs font-mono text-gray-400">Boxes: {{ implode(', ', $order['box_codes']) }}</p>
                     @endif

@@ -43,6 +43,7 @@ class UserSeeder extends Seeder
             'role_id' => Role::where('name', 'corporate')->value('id'),
             'status' => 'active',
             'is_mobile_verified' => true,
+            'balance' => 50000,
             'address' => 'House 12, Road 5, Gulshan',
             'city_id' => $dhakaId,
             'area_id' => $gulshanId,

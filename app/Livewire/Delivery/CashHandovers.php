@@ -63,7 +63,7 @@ class CashHandovers extends Component
                     throw new \RuntimeException('One or more selected orders are not available for cash handover.');
                 }
 
-                $amount = (int) $orders->sum('total_amount');
+                $amount = (int) $orders->sum(fn (Order $order) => $order->cashCollectedAmount());
                 $rider = User::query()->whereKey($riderId)->lockForUpdate()->firstOrFail();
 
                 if ((int) $rider->balance < $amount) {
@@ -81,7 +81,7 @@ class CashHandovers extends Component
                     CashHandoverOrder::create([
                         'cash_handover_id' => $handover->id,
                         'order_id' => $order->id,
-                        'amount' => (int) $order->total_amount,
+                        'amount' => $order->cashCollectedAmount(),
                     ]);
                 }
 
@@ -118,7 +118,7 @@ class CashHandovers extends Component
 
         $selectedTotal = $eligibleOrders
             ->whereIn('id', $this->selectedOrderIds)
-            ->sum('total_amount');
+            ->sum(fn (Order $order) => $order->cashCollectedAmount());
 
         return view('livewire.delivery.cash-handovers', [
             'eligibleOrders' => $eligibleOrders,

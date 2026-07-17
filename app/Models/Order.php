@@ -18,7 +18,12 @@ class Order extends Model
         'delivery_date',
         'delivery_time',
         'total_amount',
+        'amount_paid',
+        'prepaid_amount',
+        'cash_collected',
         'address',
+        'receiver_name',
+        'receiver_mobile',
         'area_id',
         'order_status',
         'payment_status',
@@ -33,6 +38,9 @@ class Order extends Model
         'dispatched_at' => 'datetime',
         'quantity' => 'integer',
         'total_amount' => 'integer',
+        'amount_paid' => 'integer',
+        'prepaid_amount' => 'integer',
+        'cash_collected' => 'integer',
     ];
 
     public function user(): BelongsTo
@@ -121,6 +129,118 @@ class Order extends Model
     {
         return $this->order_status === 'delivered_and_paid'
             || $this->payment_status === 'paid';
+    }
+
+    public function amountPaidValue(): int
+    {
+        return (int) ($this->amount_paid ?? 0);
+    }
+
+    public function prepaidAmountValue(): int
+    {
+        return (int) ($this->prepaid_amount ?? 0);
+    }
+
+    public function amountDue(): int
+    {
+        return max(0, (int) $this->total_amount - $this->amountPaidValue());
+    }
+
+    /**
+     * Cash the rider collected at delivery (for handovers).
+     * Falls back to full total for legacy rows that predate cash_collected.
+     */
+    public function cashCollectedAmount(): int
+    {
+        $collected = (int) ($this->cash_collected ?? 0);
+
+        if ($collected > 0) {
+            return $collected;
+        }
+
+        // Legacy fully-COD paid deliveries: no prepaid, treat full bill as cash.
+        if ($this->isPaid() && $this->prepaidAmountValue() === 0 && $this->order_status === 'delivered_and_paid') {
+            return (int) $this->total_amount;
+        }
+
+        return max(0, (int) $this->total_amount - $this->prepaidAmountValue());
+    }
+
+    public function accountHolderName(): string
+    {
+        $this->loadMissing('user');
+
+        $name = trim(($this->user?->first_name ?? '').' '.($this->user?->last_name ?? ''));
+
+        return $name !== '' ? $name : 'Account holder';
+    }
+
+    public function accountHolderMobile(): ?string
+    {
+        $this->loadMissing('user');
+
+        return $this->user?->mobile;
+    }
+
+    public function receiverDisplayName(): string
+    {
+        $receiver = trim((string) ($this->receiver_name ?? ''));
+
+        return $receiver !== '' ? $receiver : $this->accountHolderName();
+    }
+
+    public function receiverDisplayMobile(): ?string
+    {
+        $mobile = trim((string) ($this->receiver_mobile ?? ''));
+
+        return $mobile !== '' ? $mobile : $this->accountHolderMobile();
+    }
+
+    /**
+     * True when checkout receiver is a different person than the account holder.
+     */
+    public function hasSeparateReceiver(): bool
+    {
+        $receiverName = trim((string) ($this->receiver_name ?? ''));
+        $receiverMobile = trim((string) ($this->receiver_mobile ?? ''));
+
+        if ($receiverName === '' && $receiverMobile === '') {
+            return false;
+        }
+
+        $holderName = mb_strtolower(trim($this->accountHolderName()));
+        $holderMobile = preg_replace('/\D+/', '', (string) $this->accountHolderMobile()) ?? '';
+        $recvName = mb_strtolower($receiverName);
+        $recvMobile = preg_replace('/\D+/', '', $receiverMobile) ?? '';
+
+        $nameDiffers = $receiverName !== '' && $recvName !== $holderName;
+        $mobileDiffers = $receiverMobile !== '' && $recvMobile !== '' && $recvMobile !== $holderMobile;
+
+        return $nameDiffers || $mobileDiffers;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function partyPayload(): array
+    {
+        $separate = $this->hasSeparateReceiver();
+
+        return [
+            'account_holder_name' => $this->accountHolderName(),
+            'account_holder_mobile' => $this->accountHolderMobile(),
+            'receiver_name' => $this->receiverDisplayName(),
+            'receiver_mobile' => $this->receiverDisplayMobile(),
+            'has_separate_receiver' => $separate,
+            // Back-compat label used by existing blades
+            'customer_name' => $separate
+                ? $this->receiverDisplayName().' (acct: '.$this->accountHolderName().')'
+                : $this->accountHolderName(),
+            'amount_paid' => $this->amountPaidValue(),
+            'amount_due' => $this->amountDue(),
+            'prepaid_amount' => $this->prepaidAmountValue(),
+            'cash_collected' => $this->cashCollectedAmount(),
+        ];
     }
 
     public function scopeKitchenDispatched($query)

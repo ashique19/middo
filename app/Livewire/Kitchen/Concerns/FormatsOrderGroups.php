@@ -37,13 +37,22 @@ trait FormatsOrderGroups
 
     protected function baseOrderNode(Order $order): array
     {
+        $party = $order->partyPayload();
+
         return [
             'id' => $order->id,
             'delivery_time' => $order->delivery_time,
             'delivery_date' => $order->delivery_date->toDateString(),
             'quantity' => $order->quantity,
             'order_status' => $order->order_status,
-            'customer_name' => trim(($order->user?->first_name ?? '').' '.($order->user?->last_name ?? '')) ?: 'N/A',
+            'customer_name' => $party['customer_name'],
+            'account_holder_name' => $party['account_holder_name'],
+            'account_holder_mobile' => $party['account_holder_mobile'],
+            'receiver_name' => $party['receiver_name'],
+            'receiver_mobile' => $party['receiver_mobile'],
+            'has_separate_receiver' => $party['has_separate_receiver'],
+            'amount_paid' => $party['amount_paid'],
+            'amount_due' => $party['amount_due'],
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
         ];
     }

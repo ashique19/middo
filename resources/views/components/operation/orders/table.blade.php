@@ -38,10 +38,21 @@
                         </td>
                         <td class="p-4 text-gray-600">{{ $order['delivery_time'] ?? '—' }}</td>
                         <td class="p-4 font-medium text-gray-800">
-                            @if(!empty($order['user']))
-                                {{ trim(($order['user']['first_name'] ?? '') . ' ' . ($order['user']['last_name'] ?? '')) ?: 'N/A' }}
+                            @php
+                                $holder = !empty($order['user'])
+                                    ? (trim(($order['user']['first_name'] ?? '').' '.($order['user']['last_name'] ?? '')) ?: 'N/A')
+                                    : 'N/A';
+                                $receiverName = trim((string) ($order['receiver_name'] ?? ''));
+                                $receiverMobile = trim((string) ($order['receiver_mobile'] ?? ''));
+                                $separate = $receiverName !== '' && mb_strtolower($receiverName) !== mb_strtolower($holder);
+                            @endphp
+                            @if($separate)
+                                <div class="space-y-0.5">
+                                    <div><span class="text-[10px] uppercase text-gray-400 font-bold">Receiver</span> {{ $receiverName }}@if($receiverMobile) · {{ $receiverMobile }}@endif</div>
+                                    <div class="text-xs text-gray-500"><span class="text-[10px] uppercase text-gray-400 font-bold">Account</span> {{ $holder }}</div>
+                                </div>
                             @else
-                                N/A
+                                {{ $holder }}
                             @endif
                         </td>
                         <td class="p-4 font-semibold text-gray-800">
