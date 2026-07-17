@@ -383,6 +383,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       iconColor: MiddoColors.orange,
                       title: 'Return Box',
                       subtitle: '${metrics.boxesInCustody} Middo Boxes ready',
+                      onTap: () => context.push('/boxes'),
                     ),
                   ],
                 ),

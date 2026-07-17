@@ -19,6 +19,8 @@ Route::controller(PublicViewController::class)->group(function () {
     Route::get('/how-it-works/kitchen', 'howItWorksKitchen')->name('how-it-works-kitchen');
     Route::get('/menu', 'menu')->name('menu');
     Route::get('/faq', 'faq')->name('faq');
+    Route::get('/privacy', 'privacy')->name('privacy');
+    Route::get('/terms', 'terms')->name('terms');
     Route::get('/contact', 'contact')->name('contact');
     Route::post('/contact/submit', 'contactSubmit')->name('contact.submit')->middleware('throttle:1,2');
 });

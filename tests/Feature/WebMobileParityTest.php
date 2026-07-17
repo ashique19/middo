@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Role;
+use App\Models\SitePage;
 use App\Models\User;
+use App\Support\CorporateGatewayPrepay;
+use App\Support\CorporateWalletTopUp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
@@ -18,8 +21,9 @@ class WebMobileParityTest extends TestCase
         $role = Role::create(['name' => 'corporate']);
 
         return User::create(array_merge([
-            'first_name' => 'Acme Corp',
-            'last_name' => '',
+            'first_name' => 'Nabila',
+            'last_name' => 'Rahman',
+            'company_name' => 'Acme Corp',
             'mobile' => '01711999888',
             'password' => '12345678',
             'role_id' => $role->id,
@@ -60,16 +64,26 @@ class WebMobileParityTest extends TestCase
         $this->assertTrue(Hash::check('newpass99', $user->fresh()->password));
     }
 
-    public function test_web_wallet_top_up_matches_mobile_api_rules(): void
+    public function test_web_wallet_top_up_uses_pseudo_gateway(): void
     {
         $user = $this->corporateUser(['balance' => 250]);
 
-        Livewire::actingAs($user)
+        $component = Livewire::actingAs($user)
             ->test(\App\Livewire\Account\WalletTopUpModal::class)
             ->call('openModal')
             ->set('amount', '500')
-            ->call('topUp')
-            ->assertSet('successMessage', 'Balance topped up by ৳500.');
+            ->call('topUp');
+
+        $token = $component->get('paymentToken');
+        $this->assertNotEmpty($token);
+        $this->assertNotEmpty($component->get('paymentUrl'));
+        $this->assertSame(250, (int) $user->fresh()->balance);
+
+        CorporateGatewayPrepay::markPaid($token);
+        CorporateWalletTopUp::creditIfPaid($token);
+
+        $component->call('refreshAfterPayment')
+            ->assertSet('successMessage', 'Balance already topped up.');
 
         $this->assertSame(750, (int) $user->fresh()->balance);
     }
@@ -95,5 +109,24 @@ class WebMobileParityTest extends TestCase
             ->assertDontSee('withdraw your full wallet balance')
             ->assertDontSee('one hour prior to the kitchen dispatch')
             ->assertSee('While an order is still pending');
+    }
+
+    public function test_privacy_and_terms_pages_render_from_seeded_site_pages(): void
+    {
+        $this->seed(\Database\Seeders\SitePageSeeder::class);
+
+        $this->get(route('privacy'))
+            ->assertOk()
+            ->assertSee('Privacy Policy')
+            ->assertSee('Information we collect');
+
+        $this->get(route('terms'))
+            ->assertOk()
+            ->assertSee('Terms & Conditions')
+            ->assertSee('Middo Boxes');
+
+        $this->assertDatabaseHas('site_pages', ['slug' => 'privacy']);
+        $this->assertDatabaseHas('site_pages', ['slug' => 'terms']);
+        $this->assertSame(2, SitePage::query()->count());
     }
 }

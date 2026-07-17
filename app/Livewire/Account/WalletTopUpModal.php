@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Account;
 
+use App\Support\CorporateWalletTopUp;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -14,11 +15,17 @@ class WalletTopUpModal extends Component
 
     public string $amount = '500';
 
+    public ?string $paymentUrl = null;
+
+    public ?string $paymentToken = null;
+
     #[On('open-wallet-top-up-modal')]
     public function openModal(): void
     {
         $this->successMessage = '';
         $this->amount = '500';
+        $this->paymentUrl = null;
+        $this->paymentToken = null;
         $this->resetErrorBag();
         $this->showModal = true;
     }
@@ -39,11 +46,29 @@ class WalletTopUpModal extends Component
 
         $user = Auth::user();
         $amount = (int) round((float) $this->amount);
+        $checkout = CorporateWalletTopUp::createCheckout($user, $amount);
 
-        $user->balance = (int) $user->balance + $amount;
-        $user->save();
+        $this->paymentToken = $checkout['token'];
+        $this->paymentUrl = $checkout['payment_url'];
+        $this->successMessage = '';
+    }
 
-        $this->successMessage = 'Balance topped up by ৳'.number_format($amount).'.';
+    public function refreshAfterPayment(): void
+    {
+        if (! filled($this->paymentToken)) {
+            return;
+        }
+
+        $result = CorporateWalletTopUp::creditIfPaid($this->paymentToken);
+
+        if (! ($result['ok'] ?? false)) {
+            $this->addError('amount', $result['message'] ?? 'Payment not completed yet. Finish checkout, then try again.');
+
+            return;
+        }
+
+        $this->successMessage = $result['message'] ?? 'Balance topped up.';
+        $this->paymentUrl = null;
         $this->dispatch('wallet-balance-updated');
     }
 

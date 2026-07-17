@@ -452,3 +452,52 @@ class GatewayPrepayResult {
   final PrepaymentQuote prepayment;
 }
 
+class WalletTopUpResult {
+  const WalletTopUpResult({
+    required this.paymentUrl,
+    required this.token,
+    required this.amount,
+    required this.user,
+  });
+
+  final String paymentUrl;
+  final String token;
+  final double amount;
+  final CorporateUser user;
+}
+
+class MiddoBoxSummary {
+  const MiddoBoxSummary({
+    required this.id,
+    required this.qrCodeId,
+    required this.boxModelType,
+    required this.locationLabel,
+  });
+
+  final int id;
+  final String qrCodeId;
+  final String boxModelType;
+  final String locationLabel;
+
+  factory MiddoBoxSummary.fromJson(Map<String, dynamic> json) {
+    return MiddoBoxSummary(
+      id: _asInt(json['id']),
+      qrCodeId: (json['qr_code_id'] ?? '').toString(),
+      boxModelType: (json['box_model_type'] ?? '').toString(),
+      locationLabel: (json['location_label'] ?? 'At your office').toString(),
+    );
+  }
+}
+
+class BoxesCustodyData {
+  const BoxesCustodyData({
+    required this.count,
+    required this.boxes,
+    required this.message,
+  });
+
+  final int count;
+  final List<MiddoBoxSummary> boxes;
+  final String message;
+}
+

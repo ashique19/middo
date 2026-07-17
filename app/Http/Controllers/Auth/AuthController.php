@@ -76,16 +76,13 @@ class AuthController extends Controller
 
             $role = Role::where('name', 'corporate')->firstOrFail();
 
-            // users.full_name is a generated column and there is no company_name
-            // field, so store the company as first_name and keep the contact person
-            // on the address line for ops reference.
-            $contact = trim($validated['first_name'].' '.$validated['last_name']);
             $user = User::create([
-                'first_name' => $validated['company_name'],
-                'last_name' => '',
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'company_name' => $validated['company_name'],
                 'mobile' => $validated['mobile'],
                 'password' => $validated['password'],
-                'address' => $validated['address'].($contact !== '' ? ' (Contact: '.$contact.')' : ''),
+                'address' => $validated['address'],
                 'city_id' => $validated['city_id'],
                 'area_id' => $validated['area_id'],
                 'role_id' => $role->id,

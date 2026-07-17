@@ -41,6 +41,7 @@ class CorporateMobileApiTest extends TestCase
         return User::create(array_merge([
             'first_name' => 'Corporate',
             'last_name' => 'User',
+            'company_name' => 'Middo Demo Corp',
             'mobile' => '01310123452',
             'password' => '12345678',
             'role_id' => $this->corporateRole->id,
@@ -136,10 +137,15 @@ class CorporateMobileApiTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('user.mobile', '01710123456')
             ->assertJsonPath('user.company_name', 'Rahman Foods Ltd')
+            ->assertJsonPath('user.first_name', 'Nabila')
+            ->assertJsonPath('user.last_name', 'Rahman')
             ->assertJsonStructure(['token', 'user']);
 
         $this->assertDatabaseHas('users', [
             'mobile' => '01710123456',
+            'first_name' => 'Nabila',
+            'last_name' => 'Rahman',
+            'company_name' => 'Rahman Foods Ltd',
             'role_id' => $this->corporateRole->id,
             'status' => 'active',
             'is_mobile_verified' => 1,
@@ -503,11 +509,41 @@ class CorporateMobileApiTest extends TestCase
         $user = $this->makeCorporate(['balance' => 1000]);
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/corporate/wallet/top-up', ['amount' => 5000])
+        $response = $this->postJson('/api/corporate/wallet/top-up', ['amount' => 5000])
             ->assertOk()
-            ->assertJsonPath('user.balance', 6000);
+            ->assertJsonPath('amount', 5000)
+            ->assertJsonStructure(['token', 'payment_url', 'user']);
 
+        // Balance is unchanged until the pseudo gateway is confirmed.
+        $this->assertSame(1000, $user->fresh()->balance);
+
+        $token = $response->json('token');
+        $this->assertNotEmpty($token);
+
+        \App\Support\CorporateGatewayPrepay::markPaid($token);
+        $credited = \App\Support\CorporateWalletTopUp::creditIfPaid($token);
+
+        $this->assertTrue($credited['ok']);
         $this->assertSame(6000, $user->fresh()->balance);
+    }
+
+    public function test_corporate_can_list_boxes_in_custody(): void
+    {
+        $user = $this->makeCorporate();
+        Sanctum::actingAs($user);
+
+        \App\Models\MiddoBox::create([
+            'qr_code_id' => 'MB-000111',
+            'box_model_type' => 'standard_insulated',
+            'held_by_user_id' => $user->id,
+            'asset_status' => 'active',
+            'total_uses_count' => 1,
+        ]);
+
+        $this->getJson('/api/corporate/boxes')
+            ->assertOk()
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('boxes.0.qr_code_id', 'MB-000111');
     }
 
     public function test_profile_can_be_updated_and_password_changed(): void

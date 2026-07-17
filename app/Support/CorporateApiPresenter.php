@@ -25,7 +25,9 @@ class CorporateApiPresenter
 
         return [
             'id' => $user->id,
-            'company_name' => $user->name !== '' ? $user->name : 'Corporate Partner',
+            'company_name' => filled($user->company_name)
+                ? $user->company_name
+                : ($user->name !== '' ? $user->name : 'Corporate Partner'),
             'first_name' => $user->first_name,
             'last_name' => $user->last_name,
             'mobile' => $user->mobile,

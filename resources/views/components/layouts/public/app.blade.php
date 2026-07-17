@@ -25,6 +25,7 @@
         <livewire:account.profile-edit-modal />
         <livewire:account.change-password-modal />
         <livewire:account.wallet-top-up-modal />
+        <livewire:corporate.middo-boxes-custody-modal />
     @endauth
 
     <x-layouts.public.footer />

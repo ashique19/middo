@@ -16,6 +16,7 @@ use App\Support\CorporateApiPresenter;
 use App\Support\CorporateGatewayPrepay;
 use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
+use App\Support\CorporateWalletTopUp;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PasswordResetOtp;
 use App\Support\SignupOtp;
@@ -141,16 +142,13 @@ class CorporateMobileController extends Controller
 
         $role = Role::query()->where('name', 'corporate')->firstOrFail();
 
-        // users.full_name is a generated column and there is no company_name
-        // field, so store the company as first_name and keep the contact person
-        // on the address line for ops reference.
-        $contact = trim($data['first_name'].' '.$data['last_name']);
         $user = User::create([
-            'first_name' => $data['company_name'],
-            'last_name' => '',
+            'first_name' => $data['first_name'],
+            'last_name' => $data['last_name'],
+            'company_name' => $data['company_name'],
             'mobile' => $data['mobile'],
             'password' => $data['password'],
-            'address' => $data['address'].($contact !== '' ? ' (Contact: '.$contact.')' : ''),
+            'address' => $data['address'],
             'city_id' => $data['city_id'],
             'area_id' => $data['area_id'],
             'role_id' => $role->id,
@@ -997,12 +995,39 @@ class CorporateMobileController extends Controller
         $user = $request->user();
         $amount = (int) round($data['amount']);
 
-        $user->balance = (int) $user->balance + $amount;
-        $user->save();
+        $checkout = CorporateWalletTopUp::createCheckout($user, $amount);
 
         return response()->json([
-            'message' => 'Balance topped up successfully.',
+            'message' => 'Complete payment in the Middo checkout to credit your balance.',
+            'token' => $checkout['token'],
+            'amount' => $checkout['amount'],
+            'payment_url' => $checkout['payment_url'],
             'user' => CorporateApiPresenter::user($user->fresh(['area', 'city', 'role'])),
+        ]);
+    }
+
+    public function boxes(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $boxes = MiddoBox::query()
+            ->where('held_by_user_id', $user->id)
+            ->where('asset_status', 'active')
+            ->orderBy('qr_code_id')
+            ->get()
+            ->map(fn (MiddoBox $box) => [
+                'id' => $box->id,
+                'qr_code_id' => $box->qr_code_id,
+                'box_model_type' => $box->box_model_type,
+                'location_label' => 'At your office',
+            ])
+            ->values();
+
+        return response()->json([
+            'count' => $boxes->count(),
+            'boxes' => $boxes,
+            'message' => 'Empty Middo Boxes stay with you until a rider collects them on the next delivery or pickup run.',
         ]);
     }
 }

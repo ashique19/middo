@@ -39,8 +39,8 @@
             <div>
                 <h4 class="font-bold mb-6 text-lg">Legal</h4>
                 <ul class="space-y-3 text-gray-400">
-                    <li><a href="#" class="hover:text-white transition">Privacy Policy</a></li>
-                    <li><a href="#" class="hover:text-white transition">Terms & Conditions</a></li>
+                    <li><a href="{{ route('privacy') }}" class="hover:text-white transition">Privacy Policy</a></li>
+                    <li><a href="{{ route('terms') }}" class="hover:text-white transition">Terms & Conditions</a></li>
                 </ul>
             </div>
         </div>

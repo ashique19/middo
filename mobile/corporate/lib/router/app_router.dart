@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/auth_store.dart';
+import '../screens/boxes_screen.dart';
 import '../screens/change_password_screen.dart';
 import '../screens/checkout_screen.dart';
 import '../screens/forgot_password_screen.dart';
@@ -171,6 +172,14 @@ GoRouter createAppRouter() {
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
           child: const HistoryScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/boxes',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const BoxesScreen(),
         ),
       ),
       GoRoute(

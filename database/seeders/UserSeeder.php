@@ -35,8 +35,9 @@ class UserSeeder extends Seeder
         ]);
 
         User::create([
-            'first_name' => 'Corporate User',
-            'last_name' => 'Corporate',
+            'first_name' => 'Nabila',
+            'last_name' => 'Rahman',
+            'company_name' => 'Middo Demo Corp',
             'email' => 'corporate@middo.com',
             'mobile' => '01310123452',
             'password' => $password,

@@ -77,6 +77,24 @@ class PublicViewController extends Controller
         return view('public.faq');
     }
 
+    public function privacy(): View
+    {
+        return $this->sitePage('privacy');
+    }
+
+    public function terms(): View
+    {
+        return $this->sitePage('terms');
+    }
+
+    private function sitePage(string $slug): View
+    {
+        $page = \App\Models\SitePage::publishedBySlug($slug);
+        abort_unless($page, 404);
+
+        return view('public.site-page', compact('page'));
+    }
+
     public function contactSubmit(Request $request)
     {
         $validated = $request->validate([

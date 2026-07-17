@@ -116,7 +116,9 @@ abstract class CorporateRepository {
     required String message,
   });
 
-  Future<CorporateUser> topUp(double amount);
+  Future<WalletTopUpResult> topUp(double amount);
+
+  Future<BoxesCustodyData> boxes();
 
   MenuItem menuById(String id);
 }
@@ -541,12 +543,38 @@ class ApiCorporateRepository implements CorporateRepository {
   }
 
   @override
-  Future<CorporateUser> topUp(double amount) async {
+  Future<WalletTopUpResult> topUp(double amount) async {
     final json = await _client.post('/wallet/top-up', body: {
       'amount': amount,
     });
-    return CorporateUser.fromJson(
-      Map<String, dynamic>.from(json['user'] as Map),
+    final amountRaw = json['amount'];
+    final parsedAmount = amountRaw is num
+        ? amountRaw.toDouble()
+        : double.tryParse('$amountRaw') ?? amount;
+    return WalletTopUpResult(
+      paymentUrl: json['payment_url']?.toString() ?? '',
+      token: json['token']?.toString() ?? '',
+      amount: parsedAmount,
+      user: CorporateUser.fromJson(
+        Map<String, dynamic>.from(json['user'] as Map),
+      ),
+    );
+  }
+
+  @override
+  Future<BoxesCustodyData> boxes() async {
+    final json = await _client.get('/boxes');
+    final raw = json['boxes'] as List? ?? [];
+    final countRaw = json['count'];
+    final count = countRaw is num
+        ? countRaw.toInt()
+        : int.tryParse('$countRaw') ?? raw.length;
+    return BoxesCustodyData(
+      count: count,
+      message: json['message']?.toString() ?? '',
+      boxes: raw
+          .map((e) => MiddoBoxSummary.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
     );
   }
 
@@ -838,7 +866,33 @@ class MockCorporateRepository implements CorporateRepository {
   }) async {}
 
   @override
-  Future<CorporateUser> topUp(double amount) async => _mock.user;
+  Future<WalletTopUpResult> topUp(double amount) async {
+    return WalletTopUpResult(
+      paymentUrl: 'https://example.com/pay',
+      token: 'mock-token',
+      amount: amount,
+      user: _mock.user,
+    );
+  }
+
+  @override
+  Future<BoxesCustodyData> boxes() async {
+    final count = _mock.dashboard.metrics.boxesInCustody;
+    return BoxesCustodyData(
+      count: count,
+      message:
+          'Empty Middo Boxes stay with you until a rider collects them on the next delivery or pickup run.',
+      boxes: List.generate(
+        count.clamp(0, 5),
+        (i) => MiddoBoxSummary(
+          id: i + 1,
+          qrCodeId: 'MB-${(i + 1).toString().padLeft(6, '0')}',
+          boxModelType: 'standard_insulated',
+          locationLabel: 'At your office',
+        ),
+      ),
+    );
+  }
 
   @override
   MenuItem menuById(String id) => _mock.menuById(id);

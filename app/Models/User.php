@@ -18,19 +18,19 @@ use Laravel\Sanctum\HasApiTokens;
 
 // Updated the Fillable attribute
 #[Fillable([
-    'first_name', 
-    'last_name', 
+    'first_name',
+    'last_name',
+    'company_name',
     'full_name',
     'balance',
-    'mobile', 
-    'password', 
-    'role_id', 
-    'status',                // Added
-    'is_mobile_verified',    // Added
-    'address',               // Included as per your migration
-    'city_id',               // Included as per your migration
-    'area_id',               // Included as per your migration
-    'balance'                // Included as per your migration
+    'mobile',
+    'password',
+    'role_id',
+    'status',
+    'is_mobile_verified',
+    'address',
+    'city_id',
+    'area_id',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
