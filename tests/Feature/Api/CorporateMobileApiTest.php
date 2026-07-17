@@ -188,6 +188,66 @@ class CorporateMobileApiTest extends TestCase
         return [$city, $area];
     }
 
+    public function test_pending_order_can_be_updated_and_cancelled(): void
+    {
+        $user = $this->makeCorporate(['balance' => 1000]);
+        $menu = $this->makeMenuItem();
+        Sanctum::actingAs($user);
+
+        $order = Order::create([
+            'user_id' => $user->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 2,
+            'delivery_date' => now('Asia/Dhaka')->addDay()->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 840,
+            'address' => 'Gulshan',
+            'order_status' => 'pending',
+            'payment_status' => 'pending',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $this->patchJson("/api/corporate/orders/{$order->id}", ['quantity' => 3])
+            ->assertOk()
+            ->assertJsonPath('order.quantity', 3)
+            ->assertJsonPath('order.total_amount', 1260);
+
+        $this->assertSame(3, $order->fresh()->quantity);
+
+        $this->deleteJson("/api/corporate/orders/{$order->id}")
+            ->assertOk()
+            ->assertJsonPath('refunded_amount', 1260)
+            ->assertJsonPath('balance', 2260);
+
+        $this->assertDatabaseMissing('orders', ['id' => $order->id]);
+        $this->assertSame(2260, $user->fresh()->balance);
+    }
+
+    public function test_non_pending_order_cannot_be_edited(): void
+    {
+        $user = $this->makeCorporate();
+        $menu = $this->makeMenuItem();
+        Sanctum::actingAs($user);
+
+        $order = Order::create([
+            'user_id' => $user->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => now('Asia/Dhaka')->addDay()->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 420,
+            'address' => 'Gulshan',
+            'order_status' => 'processing',
+            'payment_status' => 'pending',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $this->patchJson("/api/corporate/orders/{$order->id}", ['quantity' => 2])
+            ->assertUnprocessable();
+    }
+
     public function test_wallet_top_up_increases_balance(): void
     {
         $user = $this->makeCorporate(['balance' => 1000]);

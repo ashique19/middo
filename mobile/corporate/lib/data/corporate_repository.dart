@@ -39,6 +39,13 @@ abstract class CorporateRepository {
     String deliveryTime = '12:00 PM',
   });
 
+  Future<CorporateOrder> updateOrder({
+    required String orderId,
+    required int quantity,
+  });
+
+  Future<void> cancelOrder(String orderId);
+
   Future<({CorporateOrder order, List<TrackEvent> events})> track(String orderId);
 
   Future<({CorporateOrder order, List<SupportMessage> messages, bool hasExisting})>
@@ -224,6 +231,24 @@ class ApiCorporateRepository implements CorporateRepository {
   }
 
   @override
+  Future<CorporateOrder> updateOrder({
+    required String orderId,
+    required int quantity,
+  }) async {
+    final json = await _client.patch('/orders/$orderId', body: {
+      'quantity': quantity,
+    });
+    return CorporateOrder.fromJson(
+      Map<String, dynamic>.from(json['order'] as Map),
+    );
+  }
+
+  @override
+  Future<void> cancelOrder(String orderId) async {
+    await _client.delete('/orders/$orderId');
+  }
+
+  @override
   Future<({CorporateOrder order, List<TrackEvent> events})> track(
     String orderId,
   ) async {
@@ -382,6 +407,28 @@ class MockCorporateRepository implements CorporateRepository {
     String deliveryTime = '12:00 PM',
   }) async =>
       _mock.upcomingOrders;
+
+  @override
+  Future<CorporateOrder> updateOrder({
+    required String orderId,
+    required int quantity,
+  }) async {
+    final order = _mock.orderById(orderId);
+    return CorporateOrder(
+      id: order.id,
+      menuItem: order.menuItem,
+      deliveryDate: order.deliveryDate,
+      deliveryTime: order.deliveryTime,
+      quantity: quantity,
+      totalAmount: order.menuItem.price * quantity,
+      status: order.status,
+      paid: order.paid,
+      isHistory: order.isHistory,
+    );
+  }
+
+  @override
+  Future<void> cancelOrder(String orderId) async {}
 
   @override
   Future<({CorporateOrder order, List<TrackEvent> events})> track(

@@ -31,6 +31,19 @@ class ApiClient {
   }) =>
       _send('POST', path, body: body, auth: auth);
 
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    Map<String, dynamic>? body,
+    bool auth = true,
+  }) =>
+      _send('PATCH', path, body: body, auth: auth);
+
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    bool auth = true,
+  }) =>
+      _send('DELETE', path, auth: auth);
+
   Future<Map<String, dynamic>> _send(
     String method,
     String path, {
@@ -49,14 +62,23 @@ class ApiClient {
 
     late http.Response response;
     try {
-      if (method == 'GET') {
-        response = await _client.get(uri, headers: headers);
-      } else {
-        response = await _client.post(
-          uri,
-          headers: headers,
-          body: body == null ? null : jsonEncode(body),
-        );
+      switch (method) {
+        case 'GET':
+          response = await _client.get(uri, headers: headers);
+        case 'PATCH':
+          response = await _client.patch(
+            uri,
+            headers: headers,
+            body: body == null ? null : jsonEncode(body),
+          );
+        case 'DELETE':
+          response = await _client.delete(uri, headers: headers);
+        default:
+          response = await _client.post(
+            uri,
+            headers: headers,
+            body: body == null ? null : jsonEncode(body),
+          );
       }
     } catch (_) {
       throw ApiException(

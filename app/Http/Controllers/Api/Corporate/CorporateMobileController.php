@@ -346,6 +346,58 @@ class CorporateMobileController extends Controller
         }
     }
 
+    public function updateOrder(Request $request, int $order): JsonResponse
+    {
+        $model = $this->findOwnedPendingOrder($request->user()->id, $order);
+        $date = optional($model->delivery_date)->toDateString()
+            ?? now('Asia/Dhaka')->toDateString();
+        $maxQty = max(1, CorporateOrderLimit::remainingQtyForDate(
+            $request->user()->id,
+            $date,
+            $model->id
+        ));
+
+        $data = $request->validate([
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.$maxQty],
+        ], [
+            'quantity.max' => sprintf(
+                'Maximum %d meals allowed per day. You can set up to %d for this order.',
+                CorporateOrderLimit::maxAllowed(),
+                $maxQty
+            ),
+        ]);
+
+        $model->loadMissing('menuItem');
+        $model->update([
+            'quantity' => (int) $data['quantity'],
+            'total_amount' => (int) round(($model->menuItem?->price ?? 0) * (int) $data['quantity']),
+            'updated_by' => $request->user()->id,
+        ]);
+
+        return response()->json([
+            'message' => 'Order updated.',
+            'order' => CorporateApiPresenter::order($model->fresh('menuItem')),
+            'max_quantity' => $maxQty,
+        ]);
+    }
+
+    public function cancelOrder(Request $request, int $order): JsonResponse
+    {
+        $model = $this->findOwnedPendingOrder($request->user()->id, $order);
+        $refund = (float) $model->total_amount;
+
+        DB::transaction(function () use ($request, $model, $refund) {
+            $request->user()->increment('balance', $refund);
+            $model->delete();
+        });
+
+        return response()->json([
+            'message' => 'Order cancelled and amount credited to Middo Balance.',
+            'refunded_amount' => $refund,
+            'balance' => (float) $request->user()->fresh()->balance,
+        ]);
+    }
+
     public function track(Request $request, int $order): JsonResponse
     {
         $model = Order::with('menuItem')
@@ -368,6 +420,23 @@ class CorporateMobileController extends Controller
             'order' => CorporateApiPresenter::order($model),
             'events' => $mapped,
         ]);
+    }
+
+    private function findOwnedPendingOrder(int $userId, int $orderId): Order
+    {
+        $order = Order::with('menuItem')
+            ->where('id', $orderId)
+            ->where('user_id', $userId)
+            ->where('order_status', 'pending')
+            ->first();
+
+        if (! $order) {
+            throw ValidationException::withMessages([
+                'order' => ['Only pending orders can be edited or cancelled.'],
+            ]);
+        }
+
+        return $order;
     }
 
     public function supportThread(Request $request, int $order): JsonResponse

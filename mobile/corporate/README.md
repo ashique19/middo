@@ -80,6 +80,8 @@ Design reference (HTML prototype): `/designs/corporate-mobile/`
 | GET | `/api/corporate/menu` | featured menu + checkout dates/cities |
 | POST | `/api/corporate/orders/send-otp` | SMS OTP for checkout receiver mobile |
 | POST | `/api/corporate/orders` | multi-date schedule (requires OTP + receiver) |
+| PATCH | `/api/corporate/orders/{id}` | update pending order quantity |
+| DELETE | `/api/corporate/orders/{id}` | cancel pending order (refund balance) |
 | GET | `/api/corporate/orders/scheduled` | upcoming |
 | GET | `/api/corporate/orders/history` | past |
 | GET | `/api/corporate/orders/{id}/track` | order logs timeline |
