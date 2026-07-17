@@ -1,4 +1,4 @@
-package com.middo.middo_corporate
+package com.middo.corporates
 
 import io.flutter.embedding.android.FlutterActivity
 

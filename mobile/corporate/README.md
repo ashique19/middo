@@ -111,9 +111,11 @@ Without `FCM_SERVER_KEY`, the API still accepts device tokens but skips sending 
 
 ### Android app
 
-1. Create a Firebase project and add an Android app with package `com.middo.middo_corporate`.
-2. Download the real `google-services.json` and replace `android/app/google-services.json` (the repo ships a placeholder so the project still builds).
+1. Create a Firebase project and add an Android app with package `com.middo.corporates`.
+2. Download the real `google-services.json` and place it at `android/app/google-services.json`.
 3. Rebuild the APK. After login, the app registers its FCM token with `POST /api/corporate/device-tokens`.
 4. Tapping a notification opens `/track/{orderId}`.
 
 Foreground updates show a snackbar with a Track action.
+
+**Android application id:** `com.middo.corporates` (must match Firebase).
