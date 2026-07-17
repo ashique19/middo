@@ -38,5 +38,6 @@ Route::prefix('corporate')->group(function () {
         Route::post('/orders/{order}/support', [CorporateMobileController::class, 'supportMessage']);
         Route::post('/wallet/top-up', [CorporateMobileController::class, 'topUp']);
         Route::get('/boxes', [CorporateMobileController::class, 'boxes']);
+        Route::post('/boxes/{box}/ready-for-pickup', [CorporateMobileController::class, 'markBoxReadyForPickup']);
     });
 });

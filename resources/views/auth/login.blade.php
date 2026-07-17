@@ -28,11 +28,19 @@
                             Your account is
                             <span class="uppercase tracking-wide">{{ session('account_status') }}</span>.
                         </p>
-                        <p class="mt-1">
-                            Please
-                            <a href="{{ route('contact') }}" class="font-bold underline text-middo-orange hover:opacity-90">contact Middo</a>
-                            for help.
-                        </p>
+                        @if(session('account_status') === 'pending')
+                            <p class="mt-1">
+                                Kitchen applications are reviewed by the Middo admin team before activation. You'll be notified once approved. In the meantime, you can
+                                <a href="{{ route('contact') }}" class="font-bold underline text-middo-orange hover:opacity-90">contact Middo</a>
+                                to check on your application status.
+                            </p>
+                        @else
+                            <p class="mt-1">
+                                Please
+                                <a href="{{ route('contact') }}" class="font-bold underline text-middo-orange hover:opacity-90">contact Middo</a>
+                                for help.
+                            </p>
+                        @endif
                     </div>
                 @endif
 

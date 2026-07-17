@@ -120,6 +120,8 @@ abstract class CorporateRepository {
 
   Future<BoxesCustodyData> boxes();
 
+  Future<void> markBoxReadyForPickup(int boxId);
+
   MenuItem menuById(String id);
 }
 
@@ -579,6 +581,11 @@ class ApiCorporateRepository implements CorporateRepository {
   }
 
   @override
+  Future<void> markBoxReadyForPickup(int boxId) async {
+    await _client.post('/boxes/$boxId/ready-for-pickup', body: {});
+  }
+
+  @override
   MenuItem menuById(String id) {
     return _menuCache[id] ??
         MenuItem(
@@ -892,6 +899,11 @@ class MockCorporateRepository implements CorporateRepository {
         ),
       ),
     );
+  }
+
+  @override
+  Future<void> markBoxReadyForPickup(int boxId) async {
+    // mock: no-op
   }
 
   @override

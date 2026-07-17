@@ -381,8 +381,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     _QuickTile(
                       icon: Icons.inventory_2_outlined,
                       iconColor: MiddoColors.orange,
-                      title: 'Return Box',
-                      subtitle: '${metrics.boxesInCustody} Middo Boxes ready',
+                      title: 'Boxes with you',
+                      subtitle: '${metrics.boxesInCustody} box(es) at your office',
                       onTap: () => context.push('/boxes'),
                     ),
                   ],

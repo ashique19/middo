@@ -23,11 +23,21 @@
 
                     @forelse($boxes as $box)
                         <div class="flex items-center justify-between gap-3 rounded-xl border border-[#EBE3D3] bg-[#F7F4EB] px-3 py-2.5">
-                            <div>
+                            <div class="flex-1 min-w-0">
                                 <div class="text-sm font-black text-[#2B1A11] font-mono">{{ $box['qr_code_id'] }}</div>
                                 <div class="text-[11px] font-semibold text-[#A69988]">{{ str($box['box_model_type'])->headline() }}</div>
                             </div>
-                            <span class="text-[10px] font-black uppercase tracking-wider text-[#8A441B] bg-amber-100 px-2 py-1 rounded-full">At office</span>
+                            @if($box['ready_for_pickup'])
+                                <span class="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-1 rounded-full shrink-0">Ready for pickup</span>
+                            @else
+                                <button type="button"
+                                        wire:click="markReadyForPickup({{ $box['id'] }})"
+                                        wire:loading.attr="disabled"
+                                        class="text-[10px] font-black uppercase tracking-wider text-[#8A441B] bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded-full shrink-0 transition">
+                                    <span wire:loading.remove wire:target="markReadyForPickup({{ $box['id'] }})">Mark ready</span>
+                                    <span wire:loading wire:target="markReadyForPickup({{ $box['id'] }})">...</span>
+                                </button>
+                            @endif
                         </div>
                     @empty
                         <div class="rounded-xl border border-dashed border-[#EBE3D3] px-4 py-8 text-center text-sm font-semibold text-gray-400">

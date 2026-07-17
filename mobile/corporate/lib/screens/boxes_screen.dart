@@ -15,6 +15,7 @@ class BoxesScreen extends StatefulWidget {
 
 class _BoxesScreenState extends State<BoxesScreen> {
   late Future<BoxesCustodyData> _future;
+  final Set<int> _markingReady = {};
 
   @override
   void didChangeDependencies() {
@@ -28,12 +29,39 @@ class _BoxesScreenState extends State<BoxesScreen> {
     await next;
   }
 
+  Future<void> _markReady(int boxId) async {
+    setState(() => _markingReady.add(boxId));
+    try {
+      await AppScope.of(context).markBoxReadyForPickup(boxId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Box marked as ready for pickup.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        await _reload();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not update box status. Please try again.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _markingReady.remove(boxId));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: MiddoColors.cream,
       appBar: AppBar(
-        title: const Text('Middo Boxes'),
+        title: const Text('Boxes with you'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
@@ -132,6 +160,59 @@ class _BoxesScreenState extends State<BoxesScreen> {
                               ],
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          if (box.readyForPickup)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                    color: Colors.green.shade200),
+                              ),
+                              child: Text(
+                                'Ready',
+                                style: TextStyle(
+                                  color: Colors.green.shade700,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            )
+                          else
+                            SizedBox(
+                              height: 32,
+                              child: _markingReady.contains(box.id)
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : OutlinedButton(
+                                      onPressed: () =>
+                                          _markReady(box.id),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10),
+                                        side: BorderSide(
+                                            color: MiddoColors.orange),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Mark ready',
+                                        style: TextStyle(
+                                          color: MiddoColors.orange,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                            ),
                         ],
                       ),
                     ),
@@ -144,6 +225,24 @@ class _BoxesScreenState extends State<BoxesScreen> {
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                     height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Contact Middo from an order\'s Support tab.'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    'Need help with a box?',
+                    style: TextStyle(
+                      color: MiddoColors.orange,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],

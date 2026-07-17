@@ -94,8 +94,9 @@
                     @forelse($upcomingEvents as $order)
                         <x-operation.dashboard.meal-card :order="$order" :is-history="false" />
                     @empty
-                        <div class="col-span-full bg-white border border-[#EBE3D3] rounded-2xl p-10 text-center text-sm font-semibold text-gray-400 italic shadow-sm">
-                            No food tracking operations scheduled throughout the upcoming production cycles.
+                        <div class="col-span-full bg-white border border-[#EBE3D3] rounded-2xl p-10 text-center shadow-sm">
+                            <p class="text-sm font-bold text-gray-500">No upcoming lunches scheduled yet.</p>
+                            <p class="text-xs text-gray-400 mt-1">Ready to order? <a href="{{ route('menu') }}" class="text-middo-orange font-bold hover:underline">Browse the menu</a> and schedule your next office lunch.</p>
                         </div>
                     @endforelse
                 </div>
@@ -129,8 +130,9 @@
                     @forelse($recentLunches as $lunch)
                         <x-operation.dashboard.meal-card :order="$lunch" :is-history="true" />
                     @empty
-                        <div class="col-span-full bg-white border border-[#EBE3D3] rounded-2xl p-10 text-center text-sm font-semibold text-gray-400 italic shadow-sm">
-                            No previous food delivery history recorded within this billing cycle.
+                        <div class="col-span-full bg-white border border-[#EBE3D3] rounded-2xl p-10 text-center shadow-sm">
+                            <p class="text-sm font-bold text-gray-500">No past orders yet.</p>
+                            <p class="text-xs text-gray-400 mt-1">Once you've received your first lunch, it'll appear here. <a href="{{ route('corporates.orders.scheduled') }}" class="text-middo-orange font-bold hover:underline">View scheduled orders</a>.</p>
                         </div>
                     @endforelse
                 </div>
@@ -215,15 +217,16 @@
                 </button>
             </div>
 
-            {{-- VISUAL MAP LOGISTICS COMPONENT --}}
+            {{-- DELIVERY AREA CARD --}}
             <div class="bg-white border border-[#EBE3D3] rounded-2xl p-2 shadow-sm space-y-2">
-                <div class="text-[10px] font-black uppercase text-gray-400 px-1 tracking-wider">Delivery Area</div>
+                <div class="text-[10px] font-black uppercase text-gray-400 px-1 tracking-wider">Delivery Zone</div>
                 <div class="w-full h-32 bg-[#E3DEC3] rounded-xl overflow-hidden relative flex items-center justify-center text-xs font-bold text-[#635347]">
                     <div class="absolute inset-0 bg-cover bg-center opacity-60" style="background-image: url('{{ asset('img/public/how-it-works-corporates.jpg') }}');"></div>
                     <a href="{{ route('corporates.orders.scheduled') }}" class="relative z-10 bg-white/90 px-3 py-1.5 rounded-full border border-gray-200 shadow-sm hover:bg-white transition">
                         View Scheduled Orders
                     </a>
                 </div>
+                <p class="text-[10px] text-gray-400 px-1 pb-1">Deliveries are made to your registered office address.</p>
             </div>
 
         </div>

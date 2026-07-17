@@ -16,6 +16,8 @@ class MiddoBox extends Model
         'held_by_user_id',
         'kitchen_id',
         'asset_status',
+        'ready_for_pickup',
+        'ready_for_pickup_at',
         'total_uses_count',
         'last_scanned_at',
     ];
@@ -23,6 +25,8 @@ class MiddoBox extends Model
     protected $casts = [
         'total_uses_count' => 'integer',
         'last_scanned_at' => 'datetime',
+        'ready_for_pickup' => 'boolean',
+        'ready_for_pickup_at' => 'datetime',
     ];
 
     public function heldByUser(): BelongsTo

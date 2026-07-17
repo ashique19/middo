@@ -17,6 +17,7 @@ class ProfileEditModal extends Component
     public string $last_name = '';
     public string $mobile = '';
     public ?string $email = null;
+    public ?string $company_name = null;
     public ?string $address = null;
     public ?string $city_id = null;
     public ?string $area_id = null;
@@ -58,6 +59,7 @@ class ProfileEditModal extends Component
             'last_name' => 'required|string|min:2|max:255',
             'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/', 'unique:users,mobile,'.$user->id],
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email,'.$user->id],
+            'company_name' => 'nullable|string|max:255',
             'address' => 'nullable|string|max:1000',
             'city_id' => 'required|exists:cities,id',
             'area_id' => 'required|exists:areas,id',
@@ -71,6 +73,7 @@ class ProfileEditModal extends Component
         $user->last_name = $validated['last_name'];
         $user->mobile = $validated['mobile'];
         $user->email = $validated['email'] ?: null;
+        $user->company_name = $validated['company_name'] ?: null;
         $user->address = $validated['address'];
         $user->city_id = $validated['city_id'];
         $user->area_id = $validated['area_id'];
@@ -92,6 +95,7 @@ class ProfileEditModal extends Component
         $this->last_name = $user->last_name ?? '';
         $this->mobile = $user->mobile ?? '';
         $this->email = $user->email;
+        $this->company_name = $user->company_name;
         $this->address = $user->address;
         $this->city_id = $user->city_id ? (string) $user->city_id : null;
         $this->area_id = $user->area_id ? (string) $user->area_id : null;

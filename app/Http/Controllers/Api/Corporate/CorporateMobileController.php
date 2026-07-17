@@ -18,6 +18,9 @@ use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
 use App\Support\CorporateWalletTopUp;
 use App\Support\OrderConfirmationOtp;
+use App\Support\OrderCutoff;
+use App\Support\WalletLedger;
+use App\Models\WalletTransaction;
 use App\Support\PasswordResetOtp;
 use App\Support\SignupOtp;
 use Illuminate\Http\JsonResponse;
@@ -274,6 +277,7 @@ class CorporateMobileController extends Controller
                 'max:255',
                 'unique:users,email,'.$user->id,
             ],
+            'company_name' => ['nullable', 'string', 'max:255'],
             'address' => ['nullable', 'string', 'max:1000'],
             'city_id' => ['required', 'integer', 'exists:cities,id'],
             'area_id' => ['required', 'integer', 'exists:areas,id'],
@@ -287,6 +291,9 @@ class CorporateMobileController extends Controller
         $user->last_name = $data['last_name'];
         $user->mobile = $data['mobile'];
         $user->email = $data['email'] ?? null;
+        if (array_key_exists('company_name', $data)) {
+            $user->company_name = $data['company_name'] ?: null;
+        }
         $user->address = $data['address'] ?? null;
         $user->city_id = $data['city_id'];
         $user->area_id = $data['area_id'];
@@ -679,14 +686,18 @@ class CorporateMobileController extends Controller
             &$created
         ) {
             if ($prepayment['required'] && $paymentMethod === 'balance' && $prepayment['amount'] > 0) {
-                $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-                if ((int) $locked->balance < $prepayment['amount']) {
+                try {
+                    WalletLedger::debit(
+                        $user,
+                        (int) $prepayment['amount'],
+                        'Order prepayment'
+                    );
+                    $user->refresh();
+                } catch (\RuntimeException $e) {
                     throw ValidationException::withMessages([
-                        'payment_method' => ['Insufficient Middo Balance to complete prepayment.'],
+                        'payment_method' => [$e->getMessage()],
                     ]);
                 }
-                $locked->decrement('balance', $prepayment['amount']);
-                $user->refresh();
             }
 
             foreach ($data['dates'] as $index => $line) {
@@ -873,9 +884,18 @@ class CorporateMobileController extends Controller
 
         DB::transaction(function () use ($request, $model, $refund) {
             if ($refund > 0) {
-                $request->user()->increment('balance', $refund);
+                WalletLedger::credit(
+                    $request->user(),
+                    $refund,
+                    WalletTransaction::TYPE_REFUND,
+                    'Refund for cancelled order #'.$model->id,
+                    $model
+                );
             }
-            $model->delete();
+            $model->update([
+                'order_status' => 'cancelled',
+                'updated_by' => $request->user()->id,
+            ]);
         });
 
         return response()->json([
@@ -922,6 +942,12 @@ class CorporateMobileController extends Controller
         if (! $order) {
             throw ValidationException::withMessages([
                 'order' => ['Only pending orders can be edited or cancelled.'],
+            ]);
+        }
+
+        if (! OrderCutoff::allowsModification($order)) {
+            throw ValidationException::withMessages([
+                'order' => [OrderCutoff::modificationDeniedMessage()],
             ]);
         }
 
@@ -1006,6 +1032,37 @@ class CorporateMobileController extends Controller
         ]);
     }
 
+    public function markBoxReadyForPickup(Request $request, int $boxId): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $box = MiddoBox::query()
+            ->where('id', $boxId)
+            ->where('held_by_user_id', $user->id)
+            ->where('asset_status', 'active')
+            ->first();
+
+        if (! $box) {
+            return response()->json(['message' => 'Box not found or not in your custody.'], 404);
+        }
+
+        $box->update([
+            'ready_for_pickup' => true,
+            'ready_for_pickup_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Box marked as ready for pickup. A rider will collect it on the next run.',
+            'box' => [
+                'id' => $box->id,
+                'qr_code_id' => $box->qr_code_id,
+                'ready_for_pickup' => true,
+                'ready_for_pickup_at' => $box->ready_for_pickup_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
     public function boxes(Request $request): JsonResponse
     {
         /** @var User $user */
@@ -1021,6 +1078,8 @@ class CorporateMobileController extends Controller
                 'qr_code_id' => $box->qr_code_id,
                 'box_model_type' => $box->box_model_type,
                 'location_label' => 'At your office',
+                'ready_for_pickup' => (bool) $box->ready_for_pickup,
+                'ready_for_pickup_at' => $box->ready_for_pickup_at?->toIso8601String(),
             ])
             ->values();
 

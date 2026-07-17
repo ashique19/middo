@@ -53,8 +53,7 @@ class CorporateUser {
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
-    if (parts.isNotEmpty) return parts.join(' ');
-    return companyName;
+    return parts.join(' ');
   }
 
   factory CorporateUser.fromJson(Map<String, dynamic> json) {
@@ -472,12 +471,14 @@ class MiddoBoxSummary {
     required this.qrCodeId,
     required this.boxModelType,
     required this.locationLabel,
+    this.readyForPickup = false,
   });
 
   final int id;
   final String qrCodeId;
   final String boxModelType;
   final String locationLabel;
+  final bool readyForPickup;
 
   factory MiddoBoxSummary.fromJson(Map<String, dynamic> json) {
     return MiddoBoxSummary(
@@ -485,6 +486,7 @@ class MiddoBoxSummary {
       qrCodeId: (json['qr_code_id'] ?? '').toString(),
       boxModelType: (json['box_model_type'] ?? '').toString(),
       locationLabel: (json['location_label'] ?? 'At your office').toString(),
+      readyForPickup: json['ready_for_pickup'] == true,
     );
   }
 }

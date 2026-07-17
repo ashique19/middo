@@ -183,18 +183,24 @@
                         <h4 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-3">Order Summary & Customer Info</h4>
                         
                         {{-- Corporate Mini User Badge --}}
-                        <div class="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm mb-3">
+                        <div class="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm mb-1">
                             <div class="w-10 h-10 rounded-full bg-middo-orange/10 border border-middo-orange/20 text-middo-orange flex items-center justify-center font-bold text-sm uppercase shadow-inner overflow-hidden shrink-0">
                                 {{ substr($customerName !== '' ? $customerName : (auth()->user()?->name ?? 'U'), 0, 2) }}
                             </div>
                             <div class="min-w-0 flex-1">
-                                <p class="text-[11px] text-gray-400 leading-none font-medium">Receiver name</p>
+                                <p class="text-[11px] text-gray-400 leading-none font-medium">Desk receiver name <span class="text-gray-300">(who gets the box at your office)</span></p>
                                 <input wire:model.live="customerName" type="text" placeholder="Desk / contact person"
                                     class="mt-1 w-full border-gray-200 bg-white rounded-lg text-sm p-2 shadow-sm font-extrabold text-gray-800"
                                     {{ $isConfirmingOtp ? 'disabled' : '' }}>
                                 @error('customerName') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
                             </div>
                         </div>
+                        @if(auth()->check())
+                            <p class="text-[10px] text-gray-400 mb-3 px-1">
+                                Billing account: <span class="font-bold text-gray-600">{{ auth()->user()->name ?? auth()->user()->first_name }}</span>
+                                @if(auth()->user()->company_name) — {{ auth()->user()->company_name }}@endif
+                            </p>
+                        @endif
 
                         {{-- Calculation Bill Table Matrix showing multi-date breakouts --}}
                         <div class="space-y-1.5 text-xs text-gray-600 border-b border-gray-200/80 pb-3 mb-3 max-h-[120px] overflow-y-auto pr-1">
@@ -223,9 +229,18 @@
                                 @if(!empty($prepayment['required']))
                                     <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-950 space-y-1">
                                         <p class="font-bold">Prepayment required: ৳{{ number_format($prepayment['amount'] ?? 0) }}
-                                            ({{ ($prepayment['ratio'] ?? 0) >= 1 ? '100%' : '50%' }})</p>
+                                            ({{ ($prepayment['ratio'] ?? 0) >= 1 ? '100%' : '50%' }}) — charged to your billing account</p>
                                         <p>{{ $prepayment['message'] ?? '' }}</p>
-                                        <p>Middo Balance: ৳{{ number_format($prepayment['balance'] ?? 0) }}</p>
+                                        <div class="flex items-center justify-between gap-2">
+                                            <p>Middo Balance: <span class="font-bold">৳{{ number_format($prepayment['balance'] ?? 0) }}</span></p>
+                                            @if(empty($prepayment['balance_sufficient']) || ($prepayment['balance'] ?? 0) < ($prepayment['amount'] ?? 0))
+                                                <button type="button"
+                                                        @click="$dispatch('open-wallet-top-up-modal')"
+                                                        class="text-[10px] font-black text-white bg-middo-orange hover:bg-[#733614] px-2 py-1 rounded-lg transition shrink-0">
+                                                    + Add Money
+                                                </button>
+                                            @endif
+                                        </div>
                                     </div>
                                     <div class="pt-1">
                                         <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Pay with</label>

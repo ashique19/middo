@@ -7,18 +7,35 @@
 
     {{-- DESKTOP LINKS NAVIGATION --}}
     <div class="flex space-x-8 lg:space-x-10 items-center">
-        <a href="{{ route('menu') }}" class="text-[#2B1A11] font-extrabold tracking-tight text-sm hover:text-middo-orange transition-colors relative py-1 group">
-            <span>Menu</span>
-            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>
-        </a>
-        <a href="{{ route('how-it-works-corporates') }}" class="text-[#2B1A11] font-extrabold tracking-tight text-sm hover:text-middo-orange transition-colors relative py-1 group">
-            <span>For Corporates</span>
-            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>
-        </a>
-        <a href="{{ route('how-it-works-kitchen') }}" class="text-[#2B1A11] font-extrabold tracking-tight text-sm hover:text-middo-orange transition-colors relative py-1 group">
-            <span>For Kitchens</span>
-            <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>
-        </a>
+        @if(auth()->check() && auth()->user()->role?->name === 'corporate')
+            {{-- Product nav for logged-in corporate users --}}
+            <a href="{{ route('menu') }}" class="text-[#2B1A11] font-extrabold tracking-tight text-sm hover:text-middo-orange transition-colors relative py-1 group">
+                <span>Menu</span>
+                <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>
+            </a>
+            <a href="{{ route('corporates.orders.scheduled') }}" class="text-[#2B1A11] font-extrabold tracking-tight text-sm hover:text-middo-orange transition-colors relative py-1 group">
+                <span>Scheduled</span>
+                <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>
+            </a>
+            <a href="{{ route('corporates.orders.history') }}" class="text-[#2B1A11] font-extrabold tracking-tight text-sm hover:text-middo-orange transition-colors relative py-1 group">
+                <span>History</span>
+                <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>
+            </a>
+        @else
+            {{-- Marketing nav for guests --}}
+            <a href="{{ route('menu') }}" class="text-[#2B1A11] font-extrabold tracking-tight text-sm hover:text-middo-orange transition-colors relative py-1 group">
+                <span>Menu</span>
+                <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>
+            </a>
+            <a href="{{ route('how-it-works-corporates') }}" class="text-[#2B1A11] font-extrabold tracking-tight text-sm hover:text-middo-orange transition-colors relative py-1 group">
+                <span>For Corporates</span>
+                <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>
+            </a>
+            <a href="{{ route('how-it-works-kitchen') }}" class="text-[#2B1A11] font-extrabold tracking-tight text-sm hover:text-middo-orange transition-colors relative py-1 group">
+                <span>For Kitchens</span>
+                <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>
+            </a>
+        @endif
     </div>
 
     {{-- DESKTOP ACTIONS USER HUB --}}
@@ -131,9 +148,28 @@
         @endif
         
         @auth
-            <a href="{{ route('corporates.orders.scheduled') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
-                Track Today's Lunch
-            </a>
+            @php
+                $todayActiveOrder = null;
+                if (auth()->user()->role?->name === 'corporate') {
+                    $todayActiveOrder = \App\Models\Order::query()
+                        ->where('user_id', auth()->id())
+                        ->whereDate('delivery_date', now('Asia/Dhaka')->toDateString())
+                        ->whereIn('order_status', \App\Models\Order::ACTIVE_STATUSES)
+                        ->orderByDesc('id')
+                        ->first();
+                }
+            @endphp
+            @if($todayActiveOrder)
+                <button type="button"
+                        @click="$dispatch('open-track-order-modal', { orderId: {{ $todayActiveOrder->id }} })"
+                        class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
+                    Track Today's Lunch
+                </button>
+            @else
+                <a href="{{ route('corporates.orders.scheduled') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
+                    Track Today's Lunch
+                </a>
+            @endif
         @else
             <a href="{{ route('login') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
                 Track Today's Lunch

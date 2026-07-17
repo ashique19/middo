@@ -26,7 +26,7 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">First Name</label>
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">First Name <span class="text-gray-400 normal-case font-medium">(your name)</span></label>
                     <input type="text" wire:model="first_name"
                            class="w-full border border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none">
                     @error('first_name') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
@@ -52,6 +52,14 @@
                            class="w-full border border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none">
                     @error('email') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
                 </div>
+            </div>
+
+            <div>
+                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Company Name <span class="text-gray-300 normal-case">(optional)</span></label>
+                <input type="text" wire:model="company_name" placeholder="Your company or organisation"
+                       class="w-full border border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none">
+                <p class="text-[10px] text-gray-400 mt-0.5">Your first + last name identifies you as the buyer. Company name is shown on order receipts.</p>
+                @error('company_name') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
             </div>
 
             <div>

@@ -476,7 +476,7 @@ class CorporateMobileApiTest extends TestCase
             ->assertJsonPath('refunded_amount', 420)
             ->assertJsonPath('balance', 1420);
 
-        $this->assertDatabaseMissing('orders', ['id' => $order->id]);
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'order_status' => 'cancelled']);
         $this->assertSame(1420, $user->fresh()->balance);
     }
 

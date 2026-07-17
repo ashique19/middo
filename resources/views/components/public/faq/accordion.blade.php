@@ -1,13 +1,14 @@
 <section class="py-16 bg-[#F5F2E9]">
     <div class="max-w-4xl mx-auto px-6">
         @php
+            $orderCutoffLabel = \App\Support\OrderCutoff::label();
             $faqGroups = [
                 'GENERAL FAQs' => [
                     ['q' => 'What is Middo\'s core mission?', 'a' => 'To provide quality-assured corporate catering with zero compromise.'],
                 ],
                 'CORPORATE INDIVIDUAL Q&A' => [
                     ['q' => 'Is the individual pre-paid wallet balance refundable?', 'a' => 'Wallet balance is used to pay for scheduled meals. Unused balance stays on your Middo account for future orders. Contact Middo support if you need help with your balance.'],
-                    ['q' => 'Can I change or cancel a scheduled meal?', 'a' => 'Yes. While an order is still pending (before kitchen dispatch), you can edit quantities or cancel it from your Active / Scheduled Orders.'],
+                    ['q' => 'Can I change or cancel a scheduled meal?', 'a' => 'Yes — but only before the ' . $orderCutoffLabel . ' order deadline on the delivery day. While an order is still pending (before the ' . $orderCutoffLabel . ' cutoff), you can edit quantities or cancel it from your Active / Scheduled Orders. After that point the order is locked and sent to the kitchen.'],
                     ['q' => 'What is "Middo Box traceability"?', 'a' => 'Each thermal Middo Box is uniquely tracked for temperature and position, ensuring your gourmet meal arrives perfectly preserved to your desk.'],
                     ['q' => 'What happens if I miss my desk-side delivery?', 'a' => 'Your dedicated Rider will leave a secure delivery card. We\'ll also notify you, and your meal can be re delivered or held for a specified time.']
                 ],

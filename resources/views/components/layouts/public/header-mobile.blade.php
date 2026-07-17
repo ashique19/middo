@@ -116,7 +116,7 @@
             <div class="px-5 py-5 space-y-5 text-left">
                 
                 @if(!auth()->user())
-                {{-- Navigation Core Links Segment --}}
+                {{-- Marketing Navigation for Guests --}}
                 <div class="space-y-1">
                     <span class="text-[10px] font-black uppercase tracking-wider text-[#A69988] block mb-2 px-1">Navigation</span>
                     
@@ -142,6 +142,33 @@
                     </a>
                 </div>
                 
+                <div class="border-t border-dashed border-amber-900/10 my-2"></div>
+
+                @elseif(auth()->user()->role?->name === 'corporate')
+                {{-- Product Navigation for Corporate Users --}}
+                <div class="space-y-1">
+                    <span class="text-[10px] font-black uppercase tracking-wider text-[#A69988] block mb-2 px-1">Product</span>
+
+                    <a href="{{ route('menu') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
+                        <svg class="w-4 h-4 text-middo-orange opacity-85" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                        </svg>
+                        <span>Menu</span>
+                    </a>
+                    <a href="{{ route('corporates.orders.scheduled') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
+                        <svg class="w-4 h-4 text-middo-orange opacity-85" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                        </svg>
+                        <span>Scheduled</span>
+                    </a>
+                    <a href="{{ route('corporates.orders.history') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
+                        <svg class="w-4 h-4 text-middo-orange opacity-85" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>History</span>
+                    </a>
+                </div>
+
                 <div class="border-t border-dashed border-amber-900/10 my-2"></div>
 
                 @endif
@@ -197,9 +224,28 @@
         {{-- BOTTOM STICKY ACTION FOOTER --}}
         <div class="p-4 border-t border-amber-900/5 bg-[#FDFBF7]">
             @auth
-                <a href="{{ route('corporates.orders.scheduled') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
-                    Track Today's Lunch
-                </a>
+                @php
+                    $mobileTodayActiveOrder = null;
+                    if (auth()->user()->role?->name === 'corporate') {
+                        $mobileTodayActiveOrder = \App\Models\Order::query()
+                            ->where('user_id', auth()->id())
+                            ->whereDate('delivery_date', now('Asia/Dhaka')->toDateString())
+                            ->whereIn('order_status', \App\Models\Order::ACTIVE_STATUSES)
+                            ->orderByDesc('id')
+                            ->first();
+                    }
+                @endphp
+                @if($mobileTodayActiveOrder)
+                    <button type="button"
+                            @click="$dispatch('open-track-order-modal', { orderId: {{ $mobileTodayActiveOrder->id }} }); mobileMenuOpen = false"
+                            class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center">
+                        Track Today's Lunch
+                    </button>
+                @else
+                    <a href="{{ route('corporates.orders.scheduled') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
+                        Track Today's Lunch
+                    </a>
+                @endif
             @else
                 <a href="{{ route('login') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
                     Track Today's Lunch
