@@ -40,11 +40,19 @@ class OrderObserver
         $this->writeLog($order, $event, ['changes' => $diff]);
 
         if (array_key_exists('order_status', $changes)) {
-            // Run inline so pushes work on hosts without a queue worker / SSH.
-            SendOrderStatusPush::dispatchSync(
-                $order->id,
-                (string) $order->order_status,
-            );
+            try {
+                // Run inline so pushes work on hosts without a queue worker / SSH.
+                SendOrderStatusPush::dispatchSync(
+                    $order->id,
+                    (string) $order->order_status,
+                );
+            } catch (\Throwable $e) {
+                // Push must never roll back / break the order save itself.
+                \Illuminate\Support\Facades\Log::warning('Failed to dispatch order status push', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 

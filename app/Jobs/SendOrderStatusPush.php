@@ -9,6 +9,8 @@ use App\Support\OrderStatusPushCopy;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class SendOrderStatusPush implements ShouldQueue
 {
@@ -21,6 +23,26 @@ class SendOrderStatusPush implements ShouldQueue
 
     public function handle(): void
     {
+        try {
+            $this->send();
+        } catch (Throwable $e) {
+            // Never let push failures (missing table, FCM outage, etc.) break order updates.
+            Log::warning('Order status push failed', [
+                'order_id' => $this->orderId,
+                'status' => $this->status,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    protected function send(): void
+    {
+        if (! Schema::hasTable('device_tokens')) {
+            Log::warning('Order status push skipped — device_tokens table is missing. Run the migration or create the table in phpMyAdmin.');
+
+            return;
+        }
+
         $order = Order::query()
             ->with(['menuItem:id,name', 'user:id'])
             ->find($this->orderId);
