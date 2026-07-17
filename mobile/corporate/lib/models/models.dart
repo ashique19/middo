@@ -1,3 +1,22 @@
+/// PHP/MySQL JSON often encodes numerics as strings — parse both shapes.
+double _asDouble(dynamic value, [double fallback = 0]) {
+  if (value == null) return fallback;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString()) ?? fallback;
+}
+
+int _asInt(dynamic value, [int fallback = 0]) {
+  if (value == null) return fallback;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString()) ?? fallback;
+}
+
+int? _asIntOrNull(dynamic value) {
+  if (value == null || value.toString().trim().isEmpty) return null;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
+}
+
 class CorporateUser {
   const CorporateUser({
     required this.companyName,
@@ -43,14 +62,14 @@ class CorporateUser {
       companyName: (json['company_name'] ?? 'Corporate Partner').toString(),
       mobile: (json['mobile'] ?? '').toString(),
       email: json['email']?.toString(),
-      balance: (json['balance'] as num?)?.toDouble() ?? 0,
+      balance: _asDouble(json['balance']),
       area: json['area']?.toString(),
       city: json['city']?.toString(),
       address: json['address']?.toString(),
       firstName: json['first_name']?.toString(),
       lastName: json['last_name']?.toString(),
-      areaId: (json['area_id'] as num?)?.toInt(),
-      cityId: (json['city_id'] as num?)?.toInt(),
+      areaId: _asIntOrNull(json['area_id']),
+      cityId: _asIntOrNull(json['city_id']),
     );
   }
 }
@@ -63,7 +82,7 @@ class LocationArea {
 
   factory LocationArea.fromJson(Map<String, dynamic> json) {
     return LocationArea(
-      id: (json['id'] as num).toInt(),
+      id: _asInt(json['id']),
       name: (json['name'] ?? '').toString(),
     );
   }
@@ -82,7 +101,7 @@ class LocationCity {
 
   factory LocationCity.fromJson(Map<String, dynamic> json) {
     return LocationCity(
-      id: (json['id'] as num).toInt(),
+      id: _asInt(json['id']),
       name: (json['name'] ?? '').toString(),
       areas: (json['areas'] as List? ?? [])
           .map((e) => LocationArea.fromJson(Map<String, dynamic>.from(e as Map)))
@@ -119,7 +138,7 @@ class MenuItem {
       id: json['id'].toString(),
       name: (json['name'] ?? 'Meal').toString(),
       description: (json['description'] ?? '').toString(),
-      price: (json['price'] as num?)?.toDouble() ?? 0,
+      price: _asDouble(json['price']),
       imageAsset: 'assets/images/menu-1.jpg',
       imageUrl: image,
       tags: (json['tags'] as List?)?.map((e) => e.toString()).toList() ??
@@ -172,8 +191,8 @@ class CorporateOrder {
       deliveryDate: DateTime.tryParse(json['delivery_date']?.toString() ?? '') ??
           DateTime.now(),
       deliveryTime: (json['delivery_time'] ?? '12:00 PM').toString(),
-      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-      totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0,
+      quantity: _asInt(json['quantity'], 1),
+      totalAmount: _asDouble(json['total_amount']),
       status: _parseStatus(statusRaw),
       paid: json['paid'] == true || json['payment_status'] == 'paid',
       isHistory: json['is_history'] == true,
@@ -260,12 +279,12 @@ class DashboardMetrics {
 
   factory DashboardMetrics.fromJson(Map<String, dynamic> json) {
     return DashboardMetrics(
-      activeOrders: (json['active_orders'] as num?)?.toInt() ?? 0,
+      activeOrders: _asInt(json['active_orders']),
       nextMealLabel: (json['next_meal'] ?? 'None').toString(),
       nextDeliveryHint: (json['next_delivery_hint'] ?? '').toString(),
-      monthlySpend: (json['monthly_spend'] as num?)?.toDouble() ?? 0,
-      monthlySaved: (json['monthly_saved'] as num?)?.toDouble() ?? 0,
-      boxesInCustody: (json['boxes_in_custody'] as num?)?.toInt() ?? 0,
+      monthlySpend: _asDouble(json['monthly_spend']),
+      monthlySaved: _asDouble(json['monthly_saved']),
+      boxesInCustody: _asInt(json['boxes_in_custody']),
     );
   }
 }
