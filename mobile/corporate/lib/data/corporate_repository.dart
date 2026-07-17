@@ -37,6 +37,22 @@ abstract class CorporateRepository {
 
   Future<CorporateUser> me();
 
+  Future<CorporateUser> updateProfile({
+    required String firstName,
+    required String lastName,
+    required String mobile,
+    String? email,
+    String? address,
+    required int cityId,
+    required int areaId,
+  });
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String password,
+    required String passwordConfirmation,
+  });
+
   Future<DashboardData> dashboard();
 
   Future<List<MenuItem>> menu();
@@ -206,6 +222,43 @@ class ApiCorporateRepository implements CorporateRepository {
     return CorporateUser.fromJson(
       Map<String, dynamic>.from(json['user'] as Map),
     );
+  }
+
+  @override
+  Future<CorporateUser> updateProfile({
+    required String firstName,
+    required String lastName,
+    required String mobile,
+    String? email,
+    String? address,
+    required int cityId,
+    required int areaId,
+  }) async {
+    final json = await _client.patch('/profile', body: {
+      'first_name': firstName,
+      'last_name': lastName,
+      'mobile': mobile,
+      'email': email,
+      'address': address,
+      'city_id': cityId,
+      'area_id': areaId,
+    });
+    return CorporateUser.fromJson(
+      Map<String, dynamic>.from(json['user'] as Map),
+    );
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    await _client.post('/change-password', body: {
+      'current_password': currentPassword,
+      'password': password,
+      'password_confirmation': passwordConfirmation,
+    });
   }
 
   @override
@@ -485,6 +538,40 @@ class MockCorporateRepository implements CorporateRepository {
 
   @override
   Future<CorporateUser> me() async => _mock.user;
+
+  @override
+  Future<CorporateUser> updateProfile({
+    required String firstName,
+    required String lastName,
+    required String mobile,
+    String? email,
+    String? address,
+    required int cityId,
+    required int areaId,
+  }) async {
+    return CorporateUser(
+      companyName: '$firstName $lastName'.trim(),
+      mobile: mobile,
+      email: email,
+      balance: _mock.user.balance,
+      address: address,
+      firstName: firstName,
+      lastName: lastName,
+      cityId: cityId,
+      areaId: areaId,
+    );
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    if (currentPassword.isEmpty || password.length < 8) {
+      throw ApiException('Unable to change password.');
+    }
+  }
 
   @override
   Future<DashboardData> dashboard() async {
