@@ -257,14 +257,21 @@ class Order extends Model
             ->whereIn('order_status', ['delivered', 'delivered_and_paid']);
     }
 
+    public const ACTIVE_STATUSES = [
+        'pending',
+        'processing',
+        'packed',
+        'on_the_way_to_delivery',
+    ];
+
     public function scopeActive($query)
     {
-        return $query->whereIn('order_status', [
-            'pending',
-            'processing',
-            'packed',
-            'on_the_way_to_delivery',
-        ]);
+        return $query->whereIn('order_status', self::ACTIVE_STATUSES);
+    }
+
+    public function isEditableByCorporate(): bool
+    {
+        return \App\Support\OrderCutoff::allowsModification($this);
     }
 
     public function logs(): HasMany

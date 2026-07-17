@@ -382,13 +382,13 @@ class CorporateMobileController extends Controller
 
         $activeOrdersCount = Order::query()
             ->where('user_id', $userId)
-            ->whereIn('order_status', ['pending', 'processing', 'packed', 'on_the_way_to_delivery'])
+            ->active()
             ->count();
 
         $nextMeal = Order::query()
             ->where('user_id', $userId)
             ->where('delivery_date', '>=', $today)
-            ->whereIn('order_status', ['pending', 'processing', 'packed', 'on_the_way_to_delivery'])
+            ->active()
             ->orderBy('delivery_date')
             ->orderBy('delivery_time')
             ->first();
@@ -1029,6 +1029,32 @@ class CorporateMobileController extends Controller
             'amount' => $checkout['amount'],
             'payment_url' => $checkout['payment_url'],
             'user' => CorporateApiPresenter::user($user->fresh(['area', 'city', 'role'])),
+        ]);
+    }
+
+    public function walletTransactions(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $rows = WalletTransaction::query()
+            ->where('user_id', $user->id)
+            ->latest()
+            ->limit(50)
+            ->get()
+            ->map(fn (WalletTransaction $tx) => [
+                'id' => $tx->id,
+                'type' => $tx->type,
+                'amount' => (int) $tx->amount,
+                'balance_after' => (int) $tx->balance_after,
+                'description' => $tx->description,
+                'at' => optional($tx->created_at)?->timezone('Asia/Dhaka')->toIso8601String(),
+            ])
+            ->values();
+
+        return response()->json([
+            'balance' => (int) $user->balance,
+            'transactions' => $rows,
         ]);
     }
 

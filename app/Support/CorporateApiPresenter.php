@@ -121,9 +121,8 @@ class CorporateApiPresenter
 
     public static function availableDates(): array
     {
-        $dhakaNow = now('Asia/Dhaka');
-        $cutoff = now('Asia/Dhaka')->setTime(15, 28, 0);
-        $isPastCutoff = $dhakaNow->greaterThanOrEqualTo($cutoff);
+        $dhakaNow = now(OrderCutoff::timezone());
+        $isPastCutoff = OrderCutoff::isPastForDeliveryDate($dhakaNow);
         $startOffset = $isPastCutoff ? 1 : 0;
         $dates = [];
 
@@ -133,7 +132,7 @@ class CorporateApiPresenter
 
         return [
             'is_past_cutoff' => $isPastCutoff,
-            'cutoff_label' => $cutoff->format('g:i A'),
+            'cutoff_label' => OrderCutoff::label(),
             'dates' => $dates,
             'delivery_windows' => ['12:00 PM', '11:30 AM'],
             'cities' => self::citiesWithAreas(),

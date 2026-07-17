@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Contracts\PaymentGateway;
 use App\Models\User;
+use App\Models\WalletTransaction;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -65,11 +66,33 @@ class CorporateWalletTopUp
             return ['ok' => false, 'message' => 'Invalid wallet payment payload.'];
         }
 
-        return DB::transaction(function () use ($token, $payload, $userId, $amount) {
-            /** @var User $locked */
-            $locked = User::query()->lockForUpdate()->findOrFail($userId);
-            $locked->balance = (int) $locked->balance + $amount;
-            $locked->save();
+        // Idempotency: existing ledger row for this gateway token.
+        $existing = WalletTransaction::query()
+            ->where('gateway_token', $token)
+            ->where('type', WalletTransaction::TYPE_TOPUP)
+            ->first();
+
+        if ($existing) {
+            $payload['credited'] = true;
+            Cache::put(CorporateGatewayPrepay::cacheKey($token), $payload, now()->addMinutes(30));
+
+            return [
+                'ok' => true,
+                'amount' => $amount,
+                'balance' => (int) $user->fresh()->balance,
+                'message' => 'Balance already topped up.',
+            ];
+        }
+
+        return DB::transaction(function () use ($token, $payload, $user, $amount) {
+            WalletLedger::credit(
+                $user,
+                $amount,
+                WalletTransaction::TYPE_TOPUP,
+                'Wallet top-up via payment gateway',
+                null,
+                $token
+            );
 
             $payload['credited'] = true;
             $payload['credited_at'] = now()->toIso8601String();
@@ -78,7 +101,7 @@ class CorporateWalletTopUp
             return [
                 'ok' => true,
                 'amount' => $amount,
-                'balance' => (int) $locked->balance,
+                'balance' => (int) $user->fresh()->balance,
                 'message' => 'Middo Balance topped up successfully.',
             ];
         });

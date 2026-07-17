@@ -1,41 +1,41 @@
-<aside x-data="{ mobileMenuOpen: false, isSidebarExpanded: true }" 
-       class="transition-all duration-300" 
+<aside x-data="{ mobileMenuOpen: false, isSidebarExpanded: true }"
+       class="transition-all duration-300"
        :class="isSidebarExpanded ? 'md:w-64' : 'md:w-20'">
-    
-    <button @click="mobileMenuOpen = true" class="md:hidden p-4 text-middo-dark">
+
+    <button @click="mobileMenuOpen = true" class="md:hidden p-4 text-middo-dark min-h-[48px] min-w-[48px]" aria-label="Open menu">
         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
     </button>
 
     <div class="fixed inset-y-0 left-0 z-50 bg-[#2D2D2D] text-white transition-all duration-300 transform md:translate-x-0"
          :class="[isSidebarExpanded ? 'w-64' : 'w-20', mobileMenuOpen ? 'translate-x-0' : '-translate-x-full']">
-        
+
         <div class="p-6 flex items-center justify-between">
             <img src="{{ asset('img/settings/logo-white.png') }}" alt="Middo" class="h-8" :class="isSidebarExpanded ? 'block' : 'hidden'">
-            
-            <button @click="isSidebarExpanded = !isSidebarExpanded" class="hidden md:block text-white hover:text-middo-orange">
+
+            <button @click="isSidebarExpanded = !isSidebarExpanded" class="hidden md:block text-white hover:text-middo-orange p-2">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="isSidebarExpanded ? 'M11 19l-7-7 7-7m8 14l-7-7 7-7' : 'M13 5l7 7-7 7M5 5l7 7-7 7'"></path>
                 </svg>
             </button>
-            <button @click="mobileMenuOpen = false" class="md:hidden text-white">✕</button>
+            <button @click="mobileMenuOpen = false" class="md:hidden text-white text-2xl p-2 min-h-[44px] min-w-[44px]" aria-label="Close menu">✕</button>
         </div>
 
-        <nav class="mt-6 px-4 space-y-2">
+        <nav class="mt-4 px-3 space-y-1 overflow-y-auto max-h-[calc(100vh-7rem)]">
             @foreach($navs as $nav)
                 @if($nav->children->isNotEmpty())
                     <div x-data="{ open: {{ $nav->children->contains(fn ($child) => $child->route_name && request()->routeIs($child->route_name)) ? 'true' : 'false' }} }">
-                        <button @click="open = !open; isSidebarExpanded = true" 
-                                class="w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-gray-700">
+                        <button @click="open = !open; isSidebarExpanded = true"
+                                class="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-gray-700 min-h-[48px] text-left">
                             <span class="text-xl shrink-0">{!! $nav->icon ?? '📁' !!}</span>
                             <span :class="isSidebarExpanded ? 'block' : 'hidden'">{{ $nav->title }}</span>
                             <svg x-show="isSidebarExpanded" class="w-4 h-4 ml-auto transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
                         </button>
-                        
+
                         <div x-show="open && isSidebarExpanded" class="ml-4 border-l border-gray-600 space-y-1 mt-1">
                             @foreach($nav->children as $child)
                                 @if($child->route_name && Route::has($child->route_name))
-                                    <a href="{{ route($child->route_name) }}" 
-                                    class="block px-4 py-2 text-sm hover:text-middo-orange transition {{ request()->routeIs($child->route_name) ? 'text-middo-orange' : 'text-gray-300' }}">
+                                    <a href="{{ route($child->route_name) }}"
+                                    class="flex items-center px-4 py-3 text-sm min-h-[44px] hover:text-middo-orange transition {{ request()->routeIs($child->route_name) ? 'text-middo-orange' : 'text-gray-300' }}">
                                         {{ $child->title }}
                                     </a>
                                 @endif
@@ -43,8 +43,8 @@
                         </div>
                     </div>
                 @elseif($nav->route_name && Route::has($nav->route_name))
-                    <a href="{{ route($nav->route_name) }}" 
-                    class="flex items-center gap-4 px-4 py-3 rounded-xl transition {{ request()->routeIs($nav->route_name) ? 'bg-middo-orange' : 'hover:bg-gray-700' }}">
+                    <a href="{{ route($nav->route_name) }}"
+                    class="flex items-center gap-4 px-4 py-3.5 rounded-xl min-h-[48px] transition {{ request()->routeIs($nav->route_name) ? 'bg-middo-orange' : 'hover:bg-gray-700' }}">
                         <span class="text-xl shrink-0">{!! $nav->icon ?? '📄' !!}</span>
                         <span :class="isSidebarExpanded ? 'block' : 'hidden'">{{ $nav->title }}</span>
                     </a>

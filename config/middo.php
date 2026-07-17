@@ -37,4 +37,18 @@ return [
 
     'dispatch_deadline_minutes_before' => (int) env('DISPATCH_DEADLINE_MINUTES_BEFORE', 60),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Corporate Order Cutoff (place / edit / cancel)
+    |--------------------------------------------------------------------------
+    |
+    | On the delivery calendar day (Asia/Dhaka), orders may be placed, edited,
+    | or cancelled only before this wall-clock time.
+    |
+    */
+
+    'order_cutoff_timezone' => env('ORDER_CUTOFF_TIMEZONE', 'Asia/Dhaka'),
+    'order_cutoff_hour' => (int) env('ORDER_CUTOFF_HOUR', 15),
+    'order_cutoff_minute' => (int) env('ORDER_CUTOFF_MINUTE', 28),
+
 ];

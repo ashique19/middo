@@ -3,6 +3,9 @@
 namespace App\Livewire\Corporate;
 
 use App\Models\Order;
+use App\Models\WalletTransaction;
+use App\Support\OrderCutoff;
+use App\Support\WalletLedger;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
@@ -16,6 +19,8 @@ class DeleteOrderModal extends Component
 
     public array $order = [];
 
+    public string $errorMessage = '';
+
     #[On('open-delete-order-modal')]
     public function openModal($orderId): void
     {
@@ -25,12 +30,13 @@ class DeleteOrderModal extends Component
             return;
         }
 
-        $order = $this->findPendingOrder((int) $id);
+        $order = $this->findEditableOrder((int) $id);
 
         if (! $order) {
             return;
         }
 
+        $this->errorMessage = '';
         $this->orderId = $order->id;
         $this->order = $order->load('menuItem')->toArray();
         $this->showModal = true;
@@ -41,14 +47,15 @@ class DeleteOrderModal extends Component
         $this->showModal = false;
         $this->orderId = null;
         $this->order = [];
+        $this->errorMessage = '';
     }
 
     public function confirmDelete()
     {
-        $order = $this->findPendingOrder($this->orderId);
+        $order = $this->findEditableOrder($this->orderId);
 
         if (! $order) {
-            $this->closeModal();
+            $this->errorMessage = OrderCutoff::modificationDeniedMessage();
 
             return;
         }
@@ -57,9 +64,18 @@ class DeleteOrderModal extends Component
             $user = Auth::user();
             $refund = (int) ($order->amount_paid ?? 0);
             if ($refund > 0) {
-                $user->increment('balance', $refund);
+                WalletLedger::credit(
+                    $user,
+                    $refund,
+                    WalletTransaction::TYPE_REFUND,
+                    'Refund for cancelled order #'.$order->id,
+                    $order
+                );
             }
-            $order->delete();
+            $order->update([
+                'order_status' => 'cancelled',
+                'updated_by' => Auth::id(),
+            ]);
         });
 
         $this->closeModal();
@@ -68,17 +84,23 @@ class DeleteOrderModal extends Component
         return redirect()->to(url()->previous());
     }
 
-    protected function findPendingOrder(?int $orderId): ?Order
+    protected function findEditableOrder(?int $orderId): ?Order
     {
         if (! $orderId) {
             return null;
         }
 
-        return Order::with('menuItem')
+        $order = Order::with('menuItem')
             ->where('id', $orderId)
             ->where('user_id', Auth::id())
             ->where('order_status', 'pending')
             ->first();
+
+        if (! $order || ! OrderCutoff::allowsModification($order)) {
+            return null;
+        }
+
+        return $order;
     }
 
     public function render()

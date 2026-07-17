@@ -97,7 +97,7 @@ class CorporateOrderPrepayment
 
         $message = null;
         if ($ratio >= 1.0) {
-            $message = 'Receiver name or mobile differs from your profile. Full prepayment is required via Middo Balance or payment gateway.';
+            $message = 'This meal is for a different worker than your Middo buyer profile (name or mobile). Full prepayment is required via Middo Balance or payment gateway.';
         } elseif ($ratio >= 0.5) {
             $message = sprintf(
                 'You would have %d active orders (limit %d without prepayment). 50%% prepayment (৳%s) is required via Middo Balance or payment gateway.',

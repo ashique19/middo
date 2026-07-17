@@ -11,6 +11,8 @@ use App\Models\User;
 use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
 use App\Support\OrderConfirmationOtp;
+use App\Support\OrderCutoff;
+use App\Support\WalletLedger;
 use App\Contracts\PaymentGateway;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,8 +23,8 @@ class OrderCheckoutModal extends Component
     public bool $showModal = false;
     public array $dish = [];
 
-    // Cut-off Configuration Scope 
-    public int $cutoffHour = 15;   
+    // Cut-off mirrors config/middo.php via OrderCutoff
+    public int $cutoffHour = 15;
     public int $cutoffMinute = 28; 
 
     // Checkout Form States
@@ -62,10 +64,13 @@ class OrderCheckoutModal extends Component
      */
     public function mount(): void
     {
+        $this->cutoffHour = OrderCutoff::hour();
+        $this->cutoffMinute = OrderCutoff::minute();
         $this->citiesList = City::all()->toArray();
 
         if (Auth::check()) {
             $user = Auth::user();
+            // Buyer = individual worker; company is org-only (not the receiver default).
             $this->customerName = $user->name ?? 'User';
             $this->addressLine1 = $user->address ?? '';
             $this->city_id = $user->city_id ?? (!empty($this->citiesList) ? $this->citiesList[0]['id'] : null);
@@ -94,17 +99,18 @@ class OrderCheckoutModal extends Component
         $user = Auth::user();
         $this->customerName = $user->name ?? 'User';
         $this->dish = MenuItem::findOrFail($id)->toArray();
-        
-        $dhakaNow = now()->setTimezone('Asia/Dhaka');
-        $cutoffTime = now()->setTimezone('Asia/Dhaka')->setTime($this->cutoffHour, $this->cutoffMinute, 0);
-        $this->isPastCutoff = $dhakaNow->greaterThanOrEqualTo($cutoffTime);
+
+        $this->cutoffHour = OrderCutoff::hour();
+        $this->cutoffMinute = OrderCutoff::minute();
+        $dhakaNow = now(OrderCutoff::timezone());
+        $this->isPastCutoff = OrderCutoff::isPastForDeliveryDate($dhakaNow);
 
         $this->availableDates = [];
         $this->quantities = [];
         $startOffset = $this->isPastCutoff ? 1 : 0;
-        
+
         for ($i = $startOffset; $i < ($startOffset + 9); $i++) {
-            $dateString = now()->setTimezone('Asia/Dhaka')->addDays($i)->format('Y-m-d');
+            $dateString = $dhakaNow->copy()->addDays($i)->format('Y-m-d');
             $this->availableDates[] = $dateString;
             $this->quantities[$dateString] = ($i === $startOffset) ? 1 : 0;
         }
@@ -446,11 +452,15 @@ class OrderCheckoutModal extends Component
             $areaModel = Area::find($this->area_id);
 
             if (($prepayment['required'] ?? false) && $this->paymentMethod === 'balance' && ($prepayment['amount'] ?? 0) > 0) {
-                $locked = User::query()->whereKey($currentUserId)->lockForUpdate()->firstOrFail();
-                if ((int) $locked->balance < (int) $prepayment['amount']) {
-                    throw new \RuntimeException('Insufficient Middo Balance for required prepayment.');
+                try {
+                    WalletLedger::debit(
+                        $currentUser,
+                        (int) $prepayment['amount'],
+                        'Order prepayment'
+                    );
+                } catch (\RuntimeException $e) {
+                    throw new \RuntimeException($e->getMessage());
                 }
-                $locked->decrement('balance', (int) $prepayment['amount']);
             }
             
             $fullAddress = trim($this->addressLine1) . ', ' . ($areaModel?->name ?? '') . ', ' . ($cityModel?->name ?? '');
@@ -509,7 +519,7 @@ class OrderCheckoutModal extends Component
 
     public function getCutoffFormattedProperty(): string
     {
-        return Carbon::createFromTime($this->cutoffHour, $this->cutoffMinute)->format('g:i A');
+        return OrderCutoff::label();
     }
 
     public function render()

@@ -4,6 +4,7 @@ namespace App\Livewire\Corporate;
 
 use App\Models\Order;
 use App\Support\CorporateOrderLimit;
+use App\Support\OrderCutoff;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -18,6 +19,8 @@ class EditOrderModal extends Component
 
     public array $order = [];
 
+    public string $errorMessage = '';
+
     #[On('open-edit-order-modal')]
     public function openModal($orderId): void
     {
@@ -27,13 +30,14 @@ class EditOrderModal extends Component
             return;
         }
 
-        $order = $this->findPendingOrder((int) $id);
+        $order = $this->findEditableOrder((int) $id);
 
         if (! $order) {
             return;
         }
 
         $this->resetErrorBag();
+        $this->errorMessage = '';
         $this->orderId = $order->id;
         $this->quantity = $order->quantity;
         $this->order = $order->load('menuItem')->toArray();
@@ -45,6 +49,7 @@ class EditOrderModal extends Component
         $this->showModal = false;
         $this->orderId = null;
         $this->order = [];
+        $this->errorMessage = '';
     }
 
     public function decrementQuantity(): void
@@ -84,10 +89,10 @@ class EditOrderModal extends Component
             'quantity.max' => $this->dailyLimitMessage(),
         ]);
 
-        $order = $this->findPendingOrder($this->orderId);
+        $order = $this->findEditableOrder($this->orderId);
 
         if (! $order) {
-            $this->closeModal();
+            $this->errorMessage = OrderCutoff::modificationDeniedMessage();
 
             return;
         }
@@ -110,17 +115,23 @@ class EditOrderModal extends Component
         return "Maximum {$max} meals allowed per day on {$formattedDate}. You can set up to {$this->maxQuantity} for this order.";
     }
 
-    protected function findPendingOrder(?int $orderId): ?Order
+    protected function findEditableOrder(?int $orderId): ?Order
     {
         if (! $orderId) {
             return null;
         }
 
-        return Order::with('menuItem')
+        $order = Order::with('menuItem')
             ->where('id', $orderId)
             ->where('user_id', Auth::id())
             ->where('order_status', 'pending')
             ->first();
+
+        if (! $order || ! OrderCutoff::allowsModification($order)) {
+            return null;
+        }
+
+        return $order;
     }
 
     public function render()

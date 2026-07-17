@@ -74,7 +74,7 @@
             <div class="pt-2 text-[10px] text-[#635347] font-bold flex items-center justify-between uppercase tracking-wider">
                 <span class="text-left">Status:</span>
                 <div class="flex items-center gap-1.5">
-                    @if($showActions && ($order['order_status'] ?? '') === 'pending')
+                    @if($showActions && ($order['order_status'] ?? '') === 'pending' && ! \App\Support\OrderCutoff::isPastForDeliveryDate($order['delivery_date'] ?? now()))
                         <button
                             type="button"
                             @click="$dispatch('open-edit-order-modal', { orderId: {{ $order['id'] }} })"
