@@ -43,11 +43,14 @@ return [
     ],
 
     /*
-    | Firebase Cloud Messaging (legacy HTTP API key from Firebase Console
-    | → Project settings → Cloud Messaging). Leave empty to skip pushes.
+    | Firebase Cloud Messaging (HTTP v1).
+    | Download a service account JSON from Firebase Console → Project settings
+    | → Service accounts → Generate new private key. Point FIREBASE_CREDENTIALS
+    | at that file path. Leave unset / missing to skip sending pushes.
     */
     'fcm' => [
-        'server_key' => env('FCM_SERVER_KEY'),
+        'credentials' => env('FIREBASE_CREDENTIALS', storage_path('app/firebase/service-account.json')),
+        'project_id' => env('FIREBASE_PROJECT_ID'),
     ],
 
 ];

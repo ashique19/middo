@@ -97,17 +97,27 @@ Design reference (HTML prototype): `/designs/corporate-mobile/`
 | POST | `/api/corporate/device-tokens` | register FCM device token |
 | DELETE | `/api/corporate/device-tokens` | unregister FCM device token |
 
-## Push notifications (FCM)
+## Push notifications (FCM HTTP v1)
 
-Order status changes (`processing`, `on_the_way_to_delivery`, `delivered` / `delivered_and_paid`, `cancelled`) enqueue `SendOrderStatusPush`, which delivers via the FCM legacy HTTP API.
+Order status changes (`processing`, `on_the_way_to_delivery`, `delivered` / `delivered_and_paid`, `cancelled`) enqueue `SendOrderStatusPush`, which delivers via the **FCM HTTP v1** API (service account OAuth — not the deprecated legacy server key).
 
 ### Server
 
-1. Set `FCM_SERVER_KEY` in `.env` (Firebase Console → Project settings → Cloud Messaging → Server key).
-2. Run migrations: `php artisan migrate` (creates `device_tokens`).
-3. Ensure the queue worker is running (`QUEUE_CONNECTION=database` → `php artisan queue:work`) so jobs are processed.
+1. In Firebase Console → **Project settings → Service accounts**, click **Generate new private key** and download the JSON.
+2. Place it on the server (recommended path: `storage/app/firebase/service-account.json`) and set in `.env`:
 
-Without `FCM_SERVER_KEY`, the API still accepts device tokens but skips sending (logged as skipped).
+```env
+FIREBASE_CREDENTIALS=/absolute/or/relative/path/to/service-account.json
+# Optional — defaults to project_id inside the JSON (middo-55888):
+# FIREBASE_PROJECT_ID=middo-55888
+```
+
+3. Run migrations: `php artisan migrate` (creates `device_tokens`).
+4. Ensure the queue worker is running (`QUEUE_CONNECTION=database` → `php artisan queue:work`) so jobs are processed.
+
+Without a valid service account file, the API still accepts device tokens but skips sending (logged as skipped).
+
+Do **not** commit the service account JSON — it is gitignored under `storage/app/firebase/`.
 
 ### Android app
 
