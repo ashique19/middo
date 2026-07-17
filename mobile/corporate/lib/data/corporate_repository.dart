@@ -10,6 +10,29 @@ abstract class CorporateRepository {
     required String password,
   });
 
+  Future<CorporateUser> register({
+    required String firstName,
+    required String lastName,
+    required String mobile,
+    required String password,
+    required String passwordConfirmation,
+    required String companyName,
+    required String address,
+    required int cityId,
+    required int areaId,
+  });
+
+  Future<String?> forgotPassword({required String mobile});
+
+  Future<void> resetPassword({
+    required String mobile,
+    required String otp,
+    required String password,
+    required String passwordConfirmation,
+  });
+
+  Future<List<LocationCity>> locations();
+
   Future<void> logout();
 
   Future<CorporateUser> me();
@@ -90,6 +113,81 @@ class ApiCorporateRepository implements CorporateRepository {
     return CorporateUser.fromJson(
       Map<String, dynamic>.from(json['user'] as Map),
     );
+  }
+
+  @override
+  Future<CorporateUser> register({
+    required String firstName,
+    required String lastName,
+    required String mobile,
+    required String password,
+    required String passwordConfirmation,
+    required String companyName,
+    required String address,
+    required int cityId,
+    required int areaId,
+  }) async {
+    final json = await _client.post(
+      '/register',
+      auth: false,
+      body: {
+        'first_name': firstName,
+        'last_name': lastName,
+        'mobile': mobile,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+        'company_name': companyName,
+        'address': address,
+        'city_id': cityId,
+        'area_id': areaId,
+        'device_name': 'middo-corporate-flutter',
+      },
+    );
+    final token = json['token']?.toString();
+    if (token == null || token.isEmpty) {
+      throw ApiException('Signup succeeded but no token was returned.');
+    }
+    await AuthStore.instance.saveToken(token);
+    return CorporateUser.fromJson(
+      Map<String, dynamic>.from(json['user'] as Map),
+    );
+  }
+
+  @override
+  Future<String?> forgotPassword({required String mobile}) async {
+    final json = await _client.post(
+      '/forgot-password',
+      auth: false,
+      body: {'mobile': mobile},
+    );
+    return json['debug_otp']?.toString();
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String mobile,
+    required String otp,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    await _client.post(
+      '/reset-password',
+      auth: false,
+      body: {
+        'mobile': mobile,
+        'otp': otp,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      },
+    );
+  }
+
+  @override
+  Future<List<LocationCity>> locations() async {
+    final json = await _client.get('/locations', auth: false);
+    return (json['cities'] as List? ?? [])
+        .map((e) => LocationCity.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   @override
@@ -334,6 +432,52 @@ class MockCorporateRepository implements CorporateRepository {
   }) async {
     await AuthStore.instance.saveToken('mock-token');
     return _mock.user;
+  }
+
+  @override
+  Future<CorporateUser> register({
+    required String firstName,
+    required String lastName,
+    required String mobile,
+    required String password,
+    required String passwordConfirmation,
+    required String companyName,
+    required String address,
+    required int cityId,
+    required int areaId,
+  }) async {
+    await AuthStore.instance.saveToken('mock-token');
+    return CorporateUser(
+      companyName: companyName,
+      mobile: mobile,
+      balance: 0,
+      address: address,
+      firstName: firstName,
+      lastName: lastName,
+      cityId: cityId,
+      areaId: areaId,
+    );
+  }
+
+  @override
+  Future<String?> forgotPassword({required String mobile}) async => '1234';
+
+  @override
+  Future<void> resetPassword({
+    required String mobile,
+    required String otp,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    if (otp != '1234') {
+      throw ApiException('Invalid or expired reset code.');
+    }
+  }
+
+  @override
+  Future<List<LocationCity>> locations() async {
+    final meta = await checkoutMeta();
+    return meta.cities;
   }
 
   @override

@@ -9,10 +9,12 @@ use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Models\OrderComplaint;
+use App\Models\Role;
 use App\Models\User;
 use App\Support\CorporateApiPresenter;
 use App\Support\CorporateOrderLimit;
 use App\Support\OrderConfirmationOtp;
+use App\Support\PasswordResetOtp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -71,6 +73,142 @@ class CorporateMobileController extends Controller
         $request->user()?->currentAccessToken()?->delete();
 
         return response()->json(['message' => 'Logged out.']);
+    }
+
+    public function locations(): JsonResponse
+    {
+        return response()->json([
+            'cities' => CorporateApiPresenter::citiesWithAreas(),
+        ]);
+    }
+
+    public function register(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'first_name' => ['required', 'string', 'min:2', 'max:255'],
+            'last_name' => ['required', 'string', 'min:2', 'max:255'],
+            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/', 'unique:users,mobile'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'company_name' => ['required', 'string', 'min:4', 'max:255'],
+            'address' => ['required', 'string', 'min:10', 'max:255'],
+            'city_id' => ['required', 'integer', 'exists:cities,id'],
+            'area_id' => ['required', 'integer', 'exists:areas,id'],
+            'device_name' => ['nullable', 'string', 'max:120'],
+        ], [
+            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
+            'mobile.unique' => 'This mobile number is already registered.',
+        ]);
+
+        $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
+
+        $role = Role::query()->where('name', 'corporate')->firstOrFail();
+
+        // users.full_name is a generated column and there is no company_name
+        // field, so store the company as first_name and keep the contact person
+        // on the address line for ops reference.
+        $contact = trim($data['first_name'].' '.$data['last_name']);
+        $user = User::create([
+            'first_name' => $data['company_name'],
+            'last_name' => '',
+            'mobile' => $data['mobile'],
+            'password' => $data['password'],
+            'address' => $data['address'].($contact !== '' ? ' (Contact: '.$contact.')' : ''),
+            'city_id' => $data['city_id'],
+            'area_id' => $data['area_id'],
+            'role_id' => $role->id,
+            'status' => 'active',
+            'is_mobile_verified' => false,
+            'balance' => 0,
+        ]);
+
+        $user->load(['role', 'area', 'city']);
+
+        $token = $user->createToken(
+            $data['device_name'] ?? 'middo-corporate-mobile'
+        )->plainTextToken;
+
+        return response()->json([
+            'message' => 'Account created successfully.',
+            'token' => $token,
+            'token_type' => 'Bearer',
+            'user' => CorporateApiPresenter::user($user),
+        ], 201);
+    }
+
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/'],
+        ], [
+            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
+        ]);
+
+        $user = User::query()
+            ->with('role')
+            ->where('mobile', $data['mobile'])
+            ->first();
+
+        // Always return a generic success to avoid account enumeration.
+        if (! $user || $user->role?->name !== 'corporate') {
+            return response()->json([
+                'message' => 'If this mobile is registered, a reset code has been sent.',
+                'mobile' => $data['mobile'],
+                'expires_in' => 300,
+            ]);
+        }
+
+        $result = PasswordResetOtp::send($data['mobile']);
+
+        if (! $result['ok']) {
+            throw ValidationException::withMessages([
+                'mobile' => [$result['message']],
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'If this mobile is registered, a reset code has been sent.',
+            'mobile' => $data['mobile'],
+            'expires_in' => 300,
+            'debug_otp' => $result['debug_otp'] ?? null,
+        ]);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/'],
+            'otp' => ['required', 'string', 'size:4'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ], [
+            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
+            'otp.size' => 'Enter the 4-digit reset code sent by SMS.',
+        ]);
+
+        $user = User::query()
+            ->with('role')
+            ->where('mobile', $data['mobile'])
+            ->first();
+
+        if (! $user || $user->role?->name !== 'corporate') {
+            throw ValidationException::withMessages([
+                'mobile' => ['Unable to reset password for this mobile number.'],
+            ]);
+        }
+
+        if (! PasswordResetOtp::verify($data['mobile'], $data['otp'])) {
+            throw ValidationException::withMessages([
+                'otp' => ['Invalid or expired reset code.'],
+            ]);
+        }
+
+        $user->update([
+            'password' => $data['password'],
+            'is_mobile_verified' => true,
+        ]);
+
+        return response()->json([
+            'message' => 'Password updated. You can sign in with your new password.',
+        ]);
     }
 
     public function me(Request $request): JsonResponse

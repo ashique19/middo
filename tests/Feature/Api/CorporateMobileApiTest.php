@@ -9,7 +9,9 @@ use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\OrderConfirmationOtp;
+use App\Support\PasswordResetOtp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -71,6 +73,66 @@ class CorporateMobileApiTest extends TestCase
             ->assertJsonPath('user.mobile', '01310123452')
             ->assertJsonPath('user.role', 'corporate')
             ->assertJsonStructure(['token', 'token_type', 'user']);
+    }
+
+    public function test_corporate_can_register_and_receive_token(): void
+    {
+        [$city, $area] = $this->makeCityArea();
+
+        $this->postJson('/api/corporate/register', [
+            'first_name' => 'Nabila',
+            'last_name' => 'Rahman',
+            'mobile' => '01710123456',
+            'password' => 'password12',
+            'password_confirmation' => 'password12',
+            'company_name' => 'Rahman Foods Ltd',
+            'address' => 'House 9, Road 11, Banani',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+        ])->assertCreated()
+            ->assertJsonPath('user.mobile', '01710123456')
+            ->assertJsonPath('user.company_name', 'Rahman Foods Ltd')
+            ->assertJsonStructure(['token', 'user']);
+
+        $this->assertDatabaseHas('users', [
+            'mobile' => '01710123456',
+            'role_id' => $this->corporateRole->id,
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_forgot_and_reset_password_flow(): void
+    {
+        Http::fake(['*' => Http::response(['status' => 'success'], 200)]);
+
+        $user = $this->makeCorporate(['mobile' => '01810123456']);
+
+        $this->postJson('/api/corporate/forgot-password', [
+            'mobile' => '01810123456',
+        ])->assertOk()
+            ->assertJsonPath('debug_otp', '1234');
+
+        $this->assertNotEmpty(PasswordResetOtp::cacheKey('01810123456'));
+
+        $this->postJson('/api/corporate/reset-password', [
+            'mobile' => '01810123456',
+            'otp' => '0000',
+            'password' => 'newpass99',
+            'password_confirmation' => 'newpass99',
+        ])->assertUnprocessable();
+
+        $this->postJson('/api/corporate/forgot-password', [
+            'mobile' => '01810123456',
+        ])->assertOk();
+
+        $this->postJson('/api/corporate/reset-password', [
+            'mobile' => '01810123456',
+            'otp' => '1234',
+            'password' => 'newpass99',
+            'password_confirmation' => 'newpass99',
+        ])->assertOk();
+
+        $this->assertTrue(Hash::check('newpass99', $user->fresh()->password));
     }
 
     public function test_non_corporate_cannot_login_to_mobile_api(): void

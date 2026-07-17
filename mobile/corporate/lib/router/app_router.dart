@@ -3,12 +3,14 @@ import 'package:go_router/go_router.dart';
 
 import '../data/auth_store.dart';
 import '../screens/checkout_screen.dart';
+import '../screens/forgot_password_screen.dart';
 import '../screens/history_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/menu_screen.dart';
 import '../screens/schedule_screen.dart';
 import '../screens/shell_scaffold.dart';
+import '../screens/signup_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/support_screen.dart';
 import '../screens/track_screen.dart';
@@ -53,10 +55,12 @@ GoRouter createAppRouter() {
       final loc = state.matchedLocation;
       if (loc == '/splash') return null;
 
+      const publicAuth = {'/login', '/signup', '/forgot-password'};
       final loggedIn = AuthStore.instance.isAuthenticated;
-      final loggingIn = loc == '/login';
-      if (!loggedIn && !loggingIn) return '/login';
-      if (loggedIn && loggingIn) return '/home';
+      final onPublicAuth = publicAuth.contains(loc);
+
+      if (!loggedIn && !onPublicAuth) return '/login';
+      if (loggedIn && onPublicAuth) return '/home';
       return null;
     },
     routes: [
@@ -72,6 +76,20 @@ GoRouter createAppRouter() {
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
           child: const LoginScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/signup',
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const SignupScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const ForgotPasswordScreen(),
         ),
       ),
       StatefulShellRoute.indexedStack(

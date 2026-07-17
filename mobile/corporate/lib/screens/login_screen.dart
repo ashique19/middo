@@ -151,10 +151,24 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed:
+                              _loading ? null : () => context.go('/forgot-password'),
+                          child: const Text('Forgot password?'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       FilledButton(
                         onPressed: _loading ? null : _submit,
                         child: Text(_loading ? 'Signing in…' : 'Sign In'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton(
+                        onPressed: _loading ? null : () => context.go('/signup'),
+                        child: const Text('New to Middo? Create account'),
                       ),
                     ],
                   ),

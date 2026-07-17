@@ -21,8 +21,11 @@ class ApiClient {
 
   final http.Client _client;
 
-  Future<Map<String, dynamic>> get(String path) =>
-      _send('GET', path);
+  Future<Map<String, dynamic>> get(
+    String path, {
+    bool auth = true,
+  }) =>
+      _send('GET', path, auth: auth);
 
   Future<Map<String, dynamic>> post(
     String path, {

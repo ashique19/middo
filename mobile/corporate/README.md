@@ -75,6 +75,10 @@ Design reference (HTML prototype): `/designs/corporate-mobile/`
 | Method | Path | Notes |
 |---|---|---|
 | POST | `/api/corporate/login` | mobile + password → Sanctum token |
+| POST | `/api/corporate/register` | create corporate account → token |
+| POST | `/api/corporate/forgot-password` | SMS OTP for password reset |
+| POST | `/api/corporate/reset-password` | otp + new password |
+| GET | `/api/corporate/locations` | cities + areas for signup |
 | POST | `/api/corporate/logout` | revoke current token |
 | GET | `/api/corporate/dashboard` | KPIs + upcoming/recent |
 | GET | `/api/corporate/menu` | featured menu + checkout dates/cities |
