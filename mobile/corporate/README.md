@@ -89,8 +89,7 @@ Design reference (HTML prototype): `/designs/corporate-mobile/`
 | POST | `/api/corporate/orders/send-otp` | SMS OTP + prepayment quote |
 | POST | `/api/corporate/orders/gateway-prepay` | start online prepayment session |
 | POST | `/api/corporate/orders` | multi-date schedule (OTP; prepay via `payment_method` when required) |
-| PATCH | `/api/corporate/orders/{id}` | update pending order quantity |
-| DELETE | `/api/corporate/orders/{id}` | cancel pending order (refund balance) |
+| DELETE | `/api/corporate/orders/{id}` | cancel pending order before cut-off (refund balance) |
 | GET | `/api/corporate/orders/scheduled` | upcoming |
 | GET | `/api/corporate/orders/history` | past |
 | GET | `/api/corporate/orders/{id}/track` | order logs timeline |
