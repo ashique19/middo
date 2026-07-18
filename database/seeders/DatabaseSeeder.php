@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             SitePageSeeder::class,
             UserSeeder::class,
             MenuItemSeeder::class,
+            MealPackageSeeder::class,
             MealItemTestSeeder::class,
             MiddoBoxTestSeeder::class,
             OrderSeeder::class,
