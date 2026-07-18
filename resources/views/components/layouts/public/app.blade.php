@@ -17,7 +17,6 @@
 
     @auth
         <livewire:public.order-checkout-modal />
-        <livewire:corporate.edit-order-modal />
         <livewire:corporate.delete-order-modal />
         <livewire:corporate.track-order-modal />
         <livewire:corporate.complaint-support-modal />

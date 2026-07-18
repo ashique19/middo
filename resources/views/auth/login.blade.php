@@ -66,7 +66,7 @@
                         @enderror
                     </div>
 
-                    <div class="mb-6 relative">
+                    <div class="mb-4 relative">
                         <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                             <svg class="w-5 h-5 text-middo-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                         </span>
@@ -77,6 +77,13 @@
                             <p class="text-red-400 text-xs mt-1 ml-1 font-semibold">{{ $message }}</p>
                         @enderror
                     </div>
+
+                    <label class="mb-6 flex items-center gap-2.5 cursor-pointer select-none">
+                        <input type="checkbox" name="remember" value="1"
+                            {{ old('remember') ? 'checked' : '' }}
+                            class="w-4 h-4 rounded border-white/40 bg-middo-cream text-middo-orange focus:ring-middo-orange focus:ring-offset-0">
+                        <span class="text-sm text-white/90 font-medium">Remember me</span>
+                    </label>
 
                     <button type="submit" class="w-full bg-middo-orange text-white p-4 rounded-xl font-bold hover:opacity-90 transition shadow-lg">
                         Sign In

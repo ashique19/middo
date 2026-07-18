@@ -80,7 +80,8 @@ class Dashboard extends Component
             ->orderBy('delivery_date', 'desc')
             ->take(5)
             ->get()
-            ->toArray();
+            ->map(fn (Order $order) => $this->presentOrder($order))
+            ->all();
     }
 
     public function loadUpcomingEvents(): void
@@ -94,7 +95,18 @@ class Dashboard extends Component
             ->orderBy('delivery_time', 'asc')
             ->take(3)
             ->get()
-            ->toArray();
+            ->map(fn (Order $order) => $this->presentOrder($order))
+            ->all();
+    }
+
+    protected function presentOrder(Order $order): array
+    {
+        $row = $order->toArray();
+        $party = $order->partyPayload();
+        $row['payment_method'] = $party['payment_method'];
+        $row['payment_method_label'] = $party['payment_method_label'];
+
+        return $row;
     }
 
     #[On('corporate-orders-changed')]

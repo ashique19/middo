@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\OrderCutoff;
+use App\Support\OrderPaymentMethod;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -29,6 +30,7 @@ class Order extends Model
         'area_id',
         'order_status',
         'payment_status',
+        'payment_method',
         'dispatched_at',
         'delivery_rider_id',
         'created_by',
@@ -158,6 +160,16 @@ class Order extends Model
         return max(0, (int) $this->total_amount - $this->amountPaidValue());
     }
 
+    public function paymentMethodKey(): ?string
+    {
+        return OrderPaymentMethod::resolve($this);
+    }
+
+    public function paymentMethodLabel(): string
+    {
+        return OrderPaymentMethod::labelForOrder($this);
+    }
+
     /**
      * Cash the rider collected at delivery (for handovers).
      * Only counts explicit cash_collected, plus legacy fully-COD paid rows
@@ -253,6 +265,8 @@ class Order extends Model
             'amount_due' => $this->amountDue(),
             'prepaid_amount' => $this->prepaidAmountValue(),
             'cash_collected' => $this->cashCollectedAmount(),
+            'payment_method' => $this->paymentMethodKey(),
+            'payment_method_label' => $this->paymentMethodLabel(),
         ];
     }
 

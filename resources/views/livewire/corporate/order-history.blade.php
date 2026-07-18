@@ -15,26 +15,33 @@
                 </p>
             </div>
 
-            <a href="{{ route('menu') }}"
-               class="shrink-0 inline-flex items-center gap-1.5 bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl shadow-sm transition-colors">
-                <span>Order Again</span>
-                <span>➔</span>
-            </a>
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+                <x-orders.view-mode-toggle :view-mode="$viewMode" />
+                <a href="{{ route('menu') }}"
+                   class="inline-flex items-center gap-1.5 bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl shadow-sm transition-colors">
+                    <span>Order Again</span>
+                    <span>➔</span>
+                </a>
+            </div>
         </div>
 
-        {{-- Orders Grid --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            @forelse($orders as $order)
-                <x-operation.dashboard.meal-card :order="$order" :is-history="true" />
-            @empty
-                <div class="col-span-full bg-white border border-[#EBE3D3] rounded-2xl p-12 text-center shadow-sm">
-                    <p class="text-sm font-semibold text-gray-400 italic">No lunch history recorded yet.</p>
-                    <a href="{{ route('menu') }}"
-                       class="inline-block mt-4 text-xs font-black text-[#8A441B] hover:text-[#733614] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-4 py-2 rounded-xl transition">
-                        Place Your First Order
-                    </a>
-                </div>
-            @endforelse
-        </div>
+        @if($viewMode === 'list')
+            <x-operation.orders.table :orders="$orders" empty-message="No lunch history recorded yet." />
+        @else
+            {{-- Orders Grid --}}
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                @forelse($orders as $order)
+                    <x-operation.dashboard.meal-card :order="$order" :is-history="true" />
+                @empty
+                    <div class="col-span-full bg-white border border-[#EBE3D3] rounded-2xl p-12 text-center shadow-sm">
+                        <p class="text-sm font-semibold text-gray-400 italic">No lunch history recorded yet.</p>
+                        <a href="{{ route('menu') }}"
+                           class="inline-block mt-4 text-xs font-black text-[#8A441B] hover:text-[#733614] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-4 py-2 rounded-xl transition">
+                            Place Your First Order
+                        </a>
+                    </div>
+                @endforelse
+            </div>
+        @endif
     </div>
 </div>

@@ -21,16 +21,30 @@
                     <th class="p-4">Address</th>
                     <th class="p-4">Status</th>
                     <th class="p-4">Payment</th>
+                    <th class="p-4">Method</th>
                     <th class="p-4 text-right">Total</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 text-sm">
                 @forelse($orders as $order)
+                    @php
+                        $methodLabel = $order['payment_method_label']
+                            ?? \App\Support\OrderPaymentMethod::label($order['payment_method'] ?? null);
+                        if ($methodLabel === '—' && ($order['payment_status'] ?? 'pending') === 'pending') {
+                            $methodLabel = 'Cash on Delivery';
+                        }
+                        $customerName = $order['customer_name']
+                            ?? (! empty($order['user'])
+                                ? (trim(($order['user']['first_name'] ?? '').' '.($order['user']['last_name'] ?? '')) ?: 'N/A')
+                                : ($order['receiver_name'] ?? 'N/A'));
+                        $menuName = $order['menu_item']['name'] ?? ($order['menu_name'] ?? 'Custom Selection');
+                        $groupName = $order['order_group']['name'] ?? ($order['group_name'] ?? '—');
+                    @endphp
                     <tr wire:key="operation-order-row-{{ $order['id'] }}" class="hover:bg-gray-50/70 transition">
                         <td class="p-4 font-mono font-semibold text-gray-800">#{{ $order['id'] }}</td>
                         @if($showGroup)
                             <td class="p-4 text-xs font-semibold text-middo-orange">
-                                {{ $order['order_group']['name'] ?? '—' }}
+                                {{ $groupName }}
                             </td>
                         @endif
                         <td class="p-4 font-medium text-gray-700">
@@ -41,14 +55,15 @@
                             @php
                                 $holder = !empty($order['user'])
                                     ? (trim(($order['user']['first_name'] ?? '').' '.($order['user']['last_name'] ?? '')) ?: 'N/A')
-                                    : 'N/A';
+                                    : ($order['account_holder_name'] ?? $customerName);
                                 $receiverName = trim((string) ($order['receiver_name'] ?? ''));
                                 $receiverMobile = trim((string) ($order['receiver_mobile'] ?? ''));
-                                $separate = $receiverName !== '' && mb_strtolower($receiverName) !== mb_strtolower($holder);
+                                $separate = !empty($order['has_separate_receiver'])
+                                    || ($receiverName !== '' && mb_strtolower($receiverName) !== mb_strtolower($holder));
                             @endphp
                             @if($separate)
                                 <div class="space-y-0.5">
-                                    <div><span class="text-[10px] uppercase text-gray-400 font-bold">Receiver</span> {{ $receiverName }}@if($receiverMobile) · {{ $receiverMobile }}@endif</div>
+                                    <div><span class="text-[10px] uppercase text-gray-400 font-bold">Receiver</span> {{ $receiverName !== '' ? $receiverName : $customerName }}@if($receiverMobile) · {{ $receiverMobile }}@endif</div>
                                     <div class="text-xs text-gray-500"><span class="text-[10px] uppercase text-gray-400 font-bold">Account</span> {{ $holder }}</div>
                                 </div>
                             @else
@@ -56,7 +71,7 @@
                             @endif
                         </td>
                         <td class="p-4 font-semibold text-gray-800">
-                            {{ $order['menu_item']['name'] ?? 'Custom Selection' }}
+                            {{ $menuName }}
                         </td>
                         <td class="p-4 text-center font-mono font-bold text-middo-orange">{{ $order['quantity'] ?? 1 }}</td>
                         <td class="p-4 text-gray-600 max-w-xs truncate" title="{{ $order['address'] ?? '' }}">
@@ -72,13 +87,18 @@
                                 {{ $order['payment_status'] ?? 'pending' }}
                             </span>
                         </td>
+                        <td class="p-4">
+                            <span class="inline-flex px-2 py-1 rounded-md text-[11px] font-bold tracking-wide bg-sky-50 text-sky-800 border border-sky-200/70">
+                                {{ $methodLabel }}
+                            </span>
+                        </td>
                         <td class="p-4 text-right font-mono font-bold text-gray-900">
                             ৳{{ number_format($order['total_amount'] ?? 0, 0) }}
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ $showGroup ? 11 : 10 }}" class="p-12 text-center text-sm font-semibold text-gray-400 italic">
+                        <td colspan="{{ $showGroup ? 12 : 11 }}" class="p-12 text-center text-sm font-semibold text-gray-400 italic">
                             {{ $emptyMessage }}
                         </td>
                     </tr>

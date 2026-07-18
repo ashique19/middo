@@ -445,6 +445,9 @@ class ApiCorporateRepository implements CorporateRepository {
         deliveryTime: deliveryTime,
       ),
     );
+    final methods = json['payment_methods'] is List
+        ? (json['payment_methods'] as List).map((e) => e.toString()).toList()
+        : <String>['balance', 'gateway'];
     return OrderOtpResult(
       debugOtp: json['debug_otp']?.toString(),
       prepayment: PrepaymentQuote.fromJson(
@@ -452,6 +455,8 @@ class ApiCorporateRepository implements CorporateRepository {
             ? Map<String, dynamic>.from(json['prepayment'] as Map)
             : null,
       ),
+      codAllowed: json['cod_allowed'] == true,
+      paymentMethods: methods,
     );
   }
 
@@ -917,9 +922,10 @@ class MockCorporateRepository implements CorporateRepository {
     required ReceiverDetails receiver,
     String deliveryTime = '12:00 PM',
   }) async {
-    return const OrderOtpResult(
+    final activeDates = quantities.values.where((qty) => qty > 0).length;
+    return OrderOtpResult(
       debugOtp: '1234',
-      prepayment: PrepaymentQuote(
+      prepayment: const PrepaymentQuote(
         required: false,
         ratio: 0,
         amount: 0,
@@ -927,6 +933,10 @@ class MockCorporateRepository implements CorporateRepository {
         balance: 10000,
         balanceSufficient: true,
       ),
+      codAllowed: activeDates == 1,
+      paymentMethods: activeDates == 1
+          ? const ['cash_on_delivery', 'balance', 'gateway']
+          : const ['cash_on_delivery'],
     );
   }
 

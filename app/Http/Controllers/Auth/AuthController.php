@@ -158,7 +158,9 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        if (Auth::attempt($credentials)) {
+        $remember = $request->boolean('remember');
+
+        if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
 
             $user = Auth::user();
@@ -168,7 +170,7 @@ class AuthController extends Controller
                 Auth::logout();
 
                 return back()
-                    ->withInput($request->only('mobile', 'redirect'))
+                    ->withInput($request->only('mobile', 'redirect', 'remember'))
                     ->with('account_status', $status);
             }
 

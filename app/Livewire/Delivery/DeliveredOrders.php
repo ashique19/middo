@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Delivery;
 
+use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\MiddoBoxLog;
 use App\Models\Order;
 use Carbon\Carbon;
@@ -13,6 +14,7 @@ use Livewire\WithPagination;
 
 class DeliveredOrders extends Component
 {
+    use WithOrdersListView;
     use WithPagination;
 
     public ?string $statusMessage = null;
@@ -146,12 +148,17 @@ class DeliveredOrders extends Component
                     'amount_paid' => $party['amount_paid'],
                     'amount_due' => $party['amount_due'],
                     'delivery_time' => $order->delivery_time,
+                    'delivery_date' => $order->delivery_date->toDateString(),
                     'date_label' => $this->dateLabel($order->delivery_date->toDateString()),
                     'status_label' => str($order->order_status)->replace('_', ' ')->title()->toString(),
+                    'order_status' => $order->order_status,
                     'payment_status' => $order->payment_status,
+                    'payment_method' => $party['payment_method'],
+                    'payment_method_label' => $party['payment_method_label'],
                     'is_paid' => $order->isPaid(),
                     'boxes_received' => in_array($order->id, $receivedOrderIds, true),
                     'box_codes' => $order->middoBoxes->pluck('qr_code_id')->all(),
+                    'menu_item' => ['name' => $order->menuItem?->name ?? 'Order'],
                 ];
             })
             ->all();

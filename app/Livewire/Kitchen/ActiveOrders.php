@@ -2,19 +2,23 @@
 
 namespace App\Livewire\Kitchen;
 
+use App\Livewire\Concerns\WithOrdersListView;
 use App\Livewire\Kitchen\Concerns\FormatsOrderGroups;
 use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Support\DispatchDeadline;
+use App\Support\OrdersExcelExport;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ActiveOrders extends Component
 {
     use FormatsOrderGroups;
+    use WithOrdersListView;
     use WithPagination;
 
     public int $boxInventoryCount = 0;
@@ -96,10 +100,34 @@ class ActiveOrders extends Component
 
         $offset = ($groups->currentPage() - 1) * $groups->perPage();
         $groupNodes = $this->buildGroupNodes($groups->getCollection(), $offset);
+        $flatOrders = collect($groupNodes)
+            ->flatMap(fn (array $group) => collect($group['orders'])->map(
+                fn (array $order) => array_merge($order, ['group_name' => $group['name']])
+            ))
+            ->values()
+            ->all();
 
         return view('livewire.kitchen.active-orders', [
             'groups' => $groups,
             'groupNodes' => $groupNodes,
+            'flatOrders' => $flatOrders,
         ])->layout('layouts.private.app', ['title' => 'My Active Orders']);
+    }
+
+    public function exportExcel(): StreamedResponse
+    {
+        $kitchenId = Auth::id();
+        $today = now('Asia/Dhaka')->toDateString();
+
+        $orders = Order::query()
+            ->with(['menuItem', 'user', 'orderGroup'])
+            ->active()
+            ->whereDate('delivery_date', '>=', $today)
+            ->whereHas('orderGroup', fn ($q) => $q->where('kitchen_id', $kitchenId))
+            ->orderBy('delivery_date')
+            ->orderBy('delivery_time')
+            ->get();
+
+        return OrdersExcelExport::download($orders, 'kitchen-active-orders-'.now('Asia/Dhaka')->format('Y-m-d').'.csv');
     }
 }

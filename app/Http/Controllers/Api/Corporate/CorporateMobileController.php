@@ -24,6 +24,7 @@ use App\Support\CorporateWalletTopUp;
 use App\Support\MealOrderGrouper;
 use App\Support\OrderConfirmationOtp;
 use App\Support\OrderCutoff;
+use App\Support\OrderPaymentMethod;
 use App\Support\PackageBilling;
 use App\Support\PackageSubscriptionService;
 use App\Support\PasswordResetOtp;
@@ -517,6 +518,10 @@ class CorporateMobileController extends Controller
 
         $menuItem = MenuItem::query()->findOrFail($data['menu_item_id']);
         $prepayment = $this->prepaymentQuote($request->user(), $data, $menuItem);
+        $codAllowed = OrderPaymentMethod::allowsCashOnDelivery(
+            (bool) $prepayment['required'],
+            count($data['dates'])
+        );
 
         $result = OrderConfirmationOtp::send($data['mobile']);
 
@@ -532,6 +537,12 @@ class CorporateMobileController extends Controller
             'expires_in' => 300,
             'debug_otp' => $result['debug_otp'] ?? null,
             'prepayment' => $prepayment,
+            'cod_allowed' => $codAllowed,
+            'payment_methods' => $prepayment['required']
+                ? [OrderPaymentMethod::BALANCE, OrderPaymentMethod::GATEWAY]
+                : ($codAllowed
+                    ? OrderPaymentMethod::all()
+                    : [OrderPaymentMethod::CASH_ON_DELIVERY]),
         ]);
     }
 
@@ -556,17 +567,31 @@ class CorporateMobileController extends Controller
 
         $menuItem = MenuItem::query()->findOrFail($data['menu_item_id']);
         $prepayment = $this->prepaymentQuote($request->user(), $data, $menuItem);
+        $activeDateCount = count($data['dates']);
+        $codAllowed = OrderPaymentMethod::allowsCashOnDelivery(
+            (bool) $prepayment['required'],
+            $activeDateCount
+        );
 
-        if (! $prepayment['required'] || $prepayment['amount'] <= 0) {
+        $cartTotal = 0;
+        foreach ($data['dates'] as $line) {
+            $cartTotal += (int) round($menuItem->price * (int) $line['quantity']);
+        }
+
+        $chargeAmount = $prepayment['required']
+            ? (int) $prepayment['amount']
+            : ($codAllowed ? $cartTotal : 0);
+
+        if ($chargeAmount <= 0) {
             throw ValidationException::withMessages([
-                'payment_method' => ['Prepayment is not required for this cart.'],
+                'payment_method' => ['Online payment is not available for this cart. Choose Cash on Delivery.'],
             ]);
         }
 
         $session = CorporateGatewayPrepay::create(
             $request->user()->id,
-            $prepayment['amount'],
-            $this->cartFingerprint($data, $prepayment['amount'])
+            $chargeAmount,
+            $this->cartFingerprint($data, $chargeAmount)
         );
 
         return response()->json([
@@ -576,6 +601,7 @@ class CorporateMobileController extends Controller
             'amount' => $session['amount'],
             'driver' => app(PaymentGateway::class)->driver(),
             'prepayment' => $prepayment,
+            'cod_allowed' => $codAllowed,
         ]);
     }
 
@@ -593,7 +619,7 @@ class CorporateMobileController extends Controller
             'city_id' => ['required', 'integer', 'exists:cities,id'],
             'area_id' => ['required', 'integer', 'exists:areas,id'],
             'otp' => ['required', 'string', 'size:4'],
-            'payment_method' => ['nullable', 'in:balance,gateway'],
+            'payment_method' => ['nullable', 'in:balance,gateway,cash_on_delivery'],
             'payment_token' => ['nullable', 'string', 'max:80'],
         ], [
             'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
@@ -618,10 +644,11 @@ class CorporateMobileController extends Controller
         $area = Area::query()->findOrFail($data['area_id']);
         $fullAddress = trim($data['address']).', '.$area->name.', '.$city->name;
         $prepayment = $this->prepaymentQuote($user, $data, $menuItem);
+        $activeDateCount = count($data['dates']);
 
         $paymentMethod = $data['payment_method'] ?? null;
         if ($prepayment['required']) {
-            if (! in_array($paymentMethod, ['balance', 'gateway'], true)) {
+            if (! in_array($paymentMethod, [OrderPaymentMethod::BALANCE, OrderPaymentMethod::GATEWAY], true)) {
                 throw ValidationException::withMessages([
                     'payment_method' => [
                         $prepayment['message'] ?? 'Prepayment is required. Pay from Middo Balance or payment gateway.',
@@ -629,50 +656,64 @@ class CorporateMobileController extends Controller
                     'prepayment' => [$prepayment['message'] ?? 'Prepayment required.'],
                 ]);
             }
-
-            if ($paymentMethod === 'balance' && ! $prepayment['balance_sufficient']) {
+        } elseif (OrderPaymentMethod::allowsCashOnDelivery(false, $activeDateCount)) {
+            if ($paymentMethod === null || $paymentMethod === '') {
+                $paymentMethod = OrderPaymentMethod::CASH_ON_DELIVERY;
+            }
+            if (! in_array($paymentMethod, OrderPaymentMethod::all(), true)) {
                 throw ValidationException::withMessages([
-                    'payment_method' => [
-                        sprintf(
-                            'Insufficient Middo Balance. Need ৳%s, available ৳%s. Top up or use payment gateway.',
-                            number_format($prepayment['amount']),
-                            number_format($prepayment['balance'])
-                        ),
-                    ],
+                    'payment_method' => ['Choose Cash on Delivery, Middo Balance, or online payment.'],
                 ]);
             }
-
-            if ($paymentMethod === 'gateway') {
-                $token = (string) ($data['payment_token'] ?? '');
-                if ($token === '') {
-                    throw ValidationException::withMessages([
-                        'payment_token' => ['Complete gateway payment first, then submit the payment token.'],
-                    ]);
-                }
-
-                $consumed = CorporateGatewayPrepay::consumePaidToken(
-                    $token,
-                    $user->id,
-                    $prepayment['amount'],
-                    $this->cartFingerprint($data, $prepayment['amount'])
-                );
-
-                if (! ($consumed['ok'] ?? false)) {
-                    throw ValidationException::withMessages([
-                        'payment_token' => [$consumed['message'] ?? 'Invalid gateway payment.'],
-                    ]);
-                }
-            }
+        } else {
+            // Multi-date carts without forced prepayment settle as COD.
+            $paymentMethod = OrderPaymentMethod::CASH_ON_DELIVERY;
         }
 
         $lineTotals = [];
         foreach ($data['dates'] as $line) {
             $lineTotals[] = (int) round($menuItem->price * (int) $line['quantity']);
         }
-        $prepaidAllocations = CorporateOrderPrepayment::allocate(
-            $prepayment['required'] ? $prepayment['amount'] : 0,
-            $lineTotals
-        );
+        $cartTotal = (int) array_sum($lineTotals);
+        $chargeAmount = $paymentMethod === OrderPaymentMethod::CASH_ON_DELIVERY
+            ? 0
+            : ($prepayment['required'] ? (int) $prepayment['amount'] : $cartTotal);
+
+        if ($chargeAmount > 0 && $paymentMethod === OrderPaymentMethod::BALANCE && (int) $user->balance < $chargeAmount) {
+            throw ValidationException::withMessages([
+                'payment_method' => [
+                    sprintf(
+                        'Insufficient Middo Balance. Need ৳%s, available ৳%s. Top up or use payment gateway.',
+                        number_format($chargeAmount),
+                        number_format((int) $user->balance)
+                    ),
+                ],
+            ]);
+        }
+
+        if ($chargeAmount > 0 && $paymentMethod === OrderPaymentMethod::GATEWAY) {
+            $token = (string) ($data['payment_token'] ?? '');
+            if ($token === '') {
+                throw ValidationException::withMessages([
+                    'payment_token' => ['Complete gateway payment first, then submit the payment token.'],
+                ]);
+            }
+
+            $consumed = CorporateGatewayPrepay::consumePaidToken(
+                $token,
+                $user->id,
+                $chargeAmount,
+                $this->cartFingerprint($data, $chargeAmount)
+            );
+
+            if (! ($consumed['ok'] ?? false)) {
+                throw ValidationException::withMessages([
+                    'payment_token' => [$consumed['message'] ?? 'Invalid gateway payment.'],
+                ]);
+            }
+        }
+
+        $prepaidAllocations = CorporateOrderPrepayment::allocate($chargeAmount, $lineTotals);
 
         $created = [];
         $profileMatches = CorporateOrderPrepayment::profileMatchesReceiver(
@@ -691,14 +732,15 @@ class CorporateMobileController extends Controller
             $prepayment,
             $prepaidAllocations,
             $profileMatches,
+            $chargeAmount,
             &$created
         ) {
-            if ($prepayment['required'] && $paymentMethod === 'balance' && $prepayment['amount'] > 0) {
+            if ($chargeAmount > 0 && $paymentMethod === OrderPaymentMethod::BALANCE) {
                 try {
                     WalletLedger::debit(
                         $user,
-                        (int) $prepayment['amount'],
-                        'Order prepayment'
+                        $chargeAmount,
+                        $prepayment['required'] ? 'Order prepayment' : 'Order payment'
                     );
                     $user->refresh();
                 } catch (\RuntimeException $e) {
@@ -730,6 +772,7 @@ class CorporateMobileController extends Controller
                     'area_id' => $data['area_id'],
                     'order_status' => 'pending',
                     'payment_status' => $amountPaid >= $lineTotal && $lineTotal > 0 ? 'paid' : 'pending',
+                    'payment_method' => $paymentMethod,
                     'created_by' => $user->id,
                     'updated_by' => $user->id,
                 ]);

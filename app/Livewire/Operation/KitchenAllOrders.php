@@ -2,15 +2,19 @@
 
 namespace App\Livewire\Operation;
 
+use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\User;
+use App\Support\OrdersExcelExport;
 use Carbon\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KitchenAllOrders extends Component
 {
+    use WithOrdersListView;
     use WithPagination;
 
     public User $kitchen;
@@ -39,8 +43,29 @@ class KitchenAllOrders extends Component
             'receiver_name' => $party['receiver_name'],
             'receiver_mobile' => $party['receiver_mobile'],
             'has_separate_receiver' => $party['has_separate_receiver'],
+            'payment_status' => $order->payment_status,
+            'payment_method' => $party['payment_method'],
+            'payment_method_label' => $party['payment_method_label'],
+            'total_amount' => $order->total_amount,
+            'address' => $order->address,
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
         ];
+    }
+
+    public function exportExcel(): StreamedResponse
+    {
+        $orders = Order::query()
+            ->with(['menuItem', 'user', 'orderGroup'])
+            ->whereHas('orderGroup', fn ($q) => $q->where('kitchen_id', $this->kitchen->id))
+            ->orderByDesc('delivery_date')
+            ->orderBy('delivery_time')
+            ->limit(2000)
+            ->get();
+
+        return OrdersExcelExport::download(
+            $orders,
+            'kitchen-'.$this->kitchen->id.'-orders-'.now('Asia/Dhaka')->format('Y-m-d').'.csv'
+        );
     }
 
     protected function dateLabel(string $date): string
@@ -124,10 +149,17 @@ class KitchenAllOrders extends Component
             ->paginate(20);
 
         $groupNodes = $this->buildGroupNodes($groups);
+        $flatOrders = collect($groupNodes)
+            ->flatMap(fn (array $group) => collect($group['orders'])->map(
+                fn (array $order) => array_merge($order, ['group_name' => $group['name']])
+            ))
+            ->values()
+            ->all();
 
         return view('livewire.operation.kitchen-all-orders', [
             'groups' => $groups,
             'groupNodes' => $groupNodes,
+            'flatOrders' => $flatOrders,
         ])->layout('layouts.private.app', [
             'title' => $this->kitchen->name.' — All Orders',
         ]);

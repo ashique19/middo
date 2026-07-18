@@ -161,6 +161,7 @@ class PackageSubscriptionService
                     'area_id' => $areaId,
                     'order_status' => 'pending',
                     'payment_status' => 'paid',
+                    'payment_method' => $paymentMethod,
                     'created_by' => $locked->id,
                     'updated_by' => $locked->id,
                 ]);

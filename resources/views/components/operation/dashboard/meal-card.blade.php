@@ -77,15 +77,6 @@
                     @if($showActions && ($order['order_status'] ?? '') === 'pending' && ! \App\Support\OrderCutoff::isPastForDeliveryDate($order['delivery_date'] ?? now()))
                         <button
                             type="button"
-                            @click="$dispatch('open-edit-order-modal', { orderId: {{ $order['id'] }} })"
-                            aria-label="Edit order"
-                            class="p-1 rounded-md text-[#8A441B] bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition active:scale-95">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                            </svg>
-                        </button>
-                        <button
-                            type="button"
                             @click="$dispatch('open-delete-order-modal', { orderId: {{ $order['id'] }} })"
                             aria-label="Delete order"
                             class="p-1 rounded-md text-red-600 bg-red-50 hover:bg-red-100 border border-red-200/80 transition active:scale-95">
@@ -102,13 +93,25 @@
 
             {{-- Optional Contextual Payment Status (Omitted in history views for cleaner layout) --}}
             @if(!$isHistory)
-                <div class="pt-1 text-[10px] text-[#635347] font-bold flex items-center justify-between uppercase tracking-wider">
-                    <span class="text-left">Payment:</span>
-                    @if(($order['payment_status'] ?? 'pending') === 'pending')
-                        <span class="bg-red-50 text-red-700 px-1.5 py-0.5 rounded border border-red-200/60 font-mono text-right">Pending</span>
-                    @else
-                        <span class="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200/60 font-mono text-right">Paid</span>
-                    @endif
+                @php
+                    $paymentMethodLabel = $order['payment_method_label']
+                        ?? \App\Support\OrderPaymentMethod::label($order['payment_method'] ?? null);
+                    if ($paymentMethodLabel === '—' && ($order['payment_status'] ?? 'pending') === 'pending') {
+                        $paymentMethodLabel = 'Cash on Delivery';
+                    }
+                @endphp
+                <div class="pt-1 text-[10px] text-[#635347] font-bold flex items-center justify-between uppercase tracking-wider gap-2">
+                    <span class="text-left shrink-0">Payment:</span>
+                    <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                        @if($paymentMethodLabel !== '—')
+                            <span class="bg-sky-50 text-sky-800 px-1.5 py-0.5 rounded border border-sky-200/60 font-mono text-right normal-case tracking-normal">{{ $paymentMethodLabel }}</span>
+                        @endif
+                        @if(($order['payment_status'] ?? 'pending') === 'pending')
+                            <span class="bg-red-50 text-red-700 px-1.5 py-0.5 rounded border border-red-200/60 font-mono text-right">Pending</span>
+                        @else
+                            <span class="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200/60 font-mono text-right">Paid</span>
+                        @endif
+                    </div>
                 </div>
             @endif
         </div>

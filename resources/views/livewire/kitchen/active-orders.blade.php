@@ -6,6 +6,9 @@
             <p class="text-sm font-semibold text-gray-500">
                 Active order groups assigned to your kitchen. Open Menu for meal items and recipes.
             </p>
+            <div class="pt-2">
+                <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
+            </div>
         </div>
 
         <div class="rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm min-w-[220px]">
@@ -47,6 +50,12 @@
 
     <livewire:kitchen.dispatch-order-modal />
 
+    @if($viewMode === 'list')
+        <x-operation.orders.table :orders="$flatOrders" :show-group="true" empty-message="No active order groups assigned to you." />
+        @if($groups->hasPages())
+            <div class="mt-4 px-1">{{ $groups->links() }}</div>
+        @endif
+    @else
     @forelse($groupNodes as $group)
         <div
             wire:key="kitchen-active-group-{{ $group['id'] }}"
@@ -78,6 +87,9 @@
                                     Qty <strong class="text-middo-orange">{{ $order['quantity'] }}</strong>
                                     · {{ $order['delivery_time'] }}
                                     · {{ ucfirst($order['order_status']) }}
+                                    @if(!empty($order['payment_method_label']))
+                                        · <span class="text-sky-800 font-semibold">{{ $order['payment_method_label'] }}</span>
+                                    @endif
                                 </span>
                             </div>
 
@@ -118,5 +130,6 @@
         <div class="mt-4 px-1">
             {{ $groups->links() }}
         </div>
+    @endif
     @endif
 </div>
