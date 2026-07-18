@@ -53,6 +53,11 @@ trait FormatsOrderGroups
             'has_separate_receiver' => $party['has_separate_receiver'],
             'amount_paid' => $party['amount_paid'],
             'amount_due' => $party['amount_due'],
+            'payment_status' => $order->payment_status,
+            'payment_method' => $party['payment_method'],
+            'payment_method_label' => $party['payment_method_label'],
+            'total_amount' => $order->total_amount,
+            'address' => $order->address,
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
         ];
     }

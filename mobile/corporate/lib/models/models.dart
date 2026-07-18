@@ -175,6 +175,9 @@ class CorporateOrder {
     this.accountHolderName,
     this.hasSeparateReceiver = false,
     this.isHistory = false,
+    this.paymentMethod,
+    this.paymentMethodLabel,
+    this.canDelete = false,
   });
 
   final String id;
@@ -192,6 +195,9 @@ class CorporateOrder {
   final String? accountHolderName;
   final bool hasSeparateReceiver;
   final bool isHistory;
+  final String? paymentMethod;
+  final String? paymentMethodLabel;
+  final bool canDelete;
 
   String get statusLabel => switch (status) {
         OrderStatus.pending => 'Pending',
@@ -229,6 +235,9 @@ class CorporateOrder {
       accountHolderName: json['account_holder_name']?.toString(),
       hasSeparateReceiver: json['has_separate_receiver'] == true,
       isHistory: json['is_history'] == true,
+      paymentMethod: json['payment_method']?.toString(),
+      paymentMethodLabel: json['payment_method_label']?.toString(),
+      canDelete: json['can_delete'] == true,
     );
   }
 
@@ -443,10 +452,14 @@ class OrderOtpResult {
   const OrderOtpResult({
     this.debugOtp,
     required this.prepayment,
+    this.codAllowed = false,
+    this.paymentMethods = const ['balance', 'gateway'],
   });
 
   final String? debugOtp;
   final PrepaymentQuote prepayment;
+  final bool codAllowed;
+  final List<String> paymentMethods;
 }
 
 class GatewayPrepayResult {

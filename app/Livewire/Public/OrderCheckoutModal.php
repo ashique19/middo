@@ -13,6 +13,7 @@ use App\Support\CorporateOrderPrepayment;
 use App\Support\MealOrderGrouper;
 use App\Support\OrderConfirmationOtp;
 use App\Support\OrderCutoff;
+use App\Support\OrderPaymentMethod;
 use App\Support\WalletLedger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -60,7 +61,7 @@ class OrderCheckoutModal extends Component
 
     public string $otpInput = '';
 
-    public string $paymentMethod = 'balance';
+    public string $paymentMethod = 'cash_on_delivery';
 
     public array $prepayment = [];
 
@@ -148,7 +149,7 @@ class OrderCheckoutModal extends Component
 
         $this->isConfirmingOtp = false;
         $this->otpInput = '';
-        $this->paymentMethod = 'balance';
+        $this->paymentMethod = OrderPaymentMethod::CASH_ON_DELIVERY;
         $this->prepayment = [];
         $this->gatewayPaymentToken = null;
         $this->gatewayPaymentUrl = null;
@@ -238,6 +239,50 @@ class OrderCheckoutModal extends Component
             count($activeDates),
             $cartTotal
         );
+
+        $this->syncDefaultPaymentMethod(count($activeDates));
+    }
+
+    protected function syncDefaultPaymentMethod(int $activeDateCount): void
+    {
+        $prepayRequired = (bool) ($this->prepayment['required'] ?? false);
+
+        if ($prepayRequired) {
+            if (! in_array($this->paymentMethod, [OrderPaymentMethod::BALANCE, OrderPaymentMethod::GATEWAY], true)) {
+                $this->paymentMethod = OrderPaymentMethod::BALANCE;
+            }
+
+            return;
+        }
+
+        if (OrderPaymentMethod::allowsCashOnDelivery(false, $activeDateCount)) {
+            if (! in_array($this->paymentMethod, OrderPaymentMethod::all(), true)) {
+                $this->paymentMethod = OrderPaymentMethod::CASH_ON_DELIVERY;
+            }
+
+            return;
+        }
+
+        // Multi-date carts without forced prepayment still settle residual as COD.
+        if ($this->paymentMethod === OrderPaymentMethod::CASH_ON_DELIVERY
+            || ! in_array($this->paymentMethod, [OrderPaymentMethod::BALANCE, OrderPaymentMethod::GATEWAY, OrderPaymentMethod::CASH_ON_DELIVERY], true)) {
+            $this->paymentMethod = OrderPaymentMethod::CASH_ON_DELIVERY;
+        }
+    }
+
+    public function getCodAllowedProperty(): bool
+    {
+        $activeDates = array_filter($this->quantities, fn ($qty) => $qty > 0);
+
+        return OrderPaymentMethod::allowsCashOnDelivery(
+            (bool) ($this->prepayment['required'] ?? false),
+            count($activeDates)
+        );
+    }
+
+    public function getShowsPaymentMethodPickerProperty(): bool
+    {
+        return (bool) ($this->prepayment['required'] ?? false) || $this->codAllowed;
     }
 
     /**
@@ -271,6 +316,14 @@ class OrderCheckoutModal extends Component
     public function changeDateQuantity(string $date, int $amount): void
     {
         if ($this->isConfirmingOtp || ! isset($this->quantities[$date]) || $this->quantities[$date] === 0) {
+            return;
+        }
+
+        // Pressing "-" at quantity 1 deselects the date (same as tap toggle).
+        if ($amount < 0 && $this->quantities[$date] <= 1) {
+            $this->quantities[$date] = 0;
+            $this->recalculateTotals();
+
             return;
         }
 
@@ -349,8 +402,28 @@ class OrderCheckoutModal extends Component
 
         $this->refreshPrepaymentQuote();
 
-        if (($this->prepayment['required'] ?? false) && $this->paymentMethod === 'balance' && ! ($this->prepayment['balance_sufficient'] ?? false)) {
-            $this->addError('paymentMethod', $this->prepayment['message'] ?? 'Insufficient Middo Balance for required prepayment. Choose online pay or top up.');
+        $activeDateCount = count($activeOrders);
+        $this->syncDefaultPaymentMethod($activeDateCount);
+
+        $resolved = $this->resolveCheckoutPaymentMethod($this->prepayment, $activeDateCount);
+        if ($resolved === null) {
+            return;
+        }
+        $this->paymentMethod = $resolved;
+
+        $cartTotal = 0;
+        foreach ($activeOrders as $qty) {
+            $cartTotal += (int) round(($this->dish['price'] ?? 0) * (int) $qty);
+        }
+        $chargeAmount = $this->checkoutChargeAmount($this->prepayment, $cartTotal);
+
+        if ($chargeAmount > 0
+            && $this->paymentMethod === OrderPaymentMethod::BALANCE
+            && (int) Auth::user()->balance < $chargeAmount) {
+            $this->addError(
+                'paymentMethod',
+                $this->prepayment['message'] ?? 'Insufficient Middo Balance. Choose online pay, Cash on Delivery, or top up.'
+            );
 
             return;
         }
@@ -358,7 +431,7 @@ class OrderCheckoutModal extends Component
         $this->gatewayPaymentToken = null;
         $this->gatewayPaymentUrl = null;
 
-        if (($this->prepayment['required'] ?? false) && $this->paymentMethod === 'gateway') {
+        if ($chargeAmount > 0 && $this->paymentMethod === OrderPaymentMethod::GATEWAY) {
             $fingerprint = [
                 'menu_item_id' => (int) ($this->dish['id'] ?? 0),
                 'receiver_name' => CorporateOrderPrepayment::normalizeName($this->customerName),
@@ -367,12 +440,12 @@ class OrderCheckoutModal extends Component
                     'date' => $date,
                     'quantity' => (int) $qty,
                 ])->values()->all(),
-                'amount' => (int) $this->prepayment['amount'],
+                'amount' => $chargeAmount,
             ];
 
             $checkout = app(PaymentGateway::class)->createCheckout(
                 (int) Auth::id(),
-                (int) $this->prepayment['amount'],
+                $chargeAmount,
                 $fingerprint
             );
 
@@ -400,7 +473,7 @@ class OrderCheckoutModal extends Component
         $this->validate([
             'otpInput' => 'required|string|size:4',
             'customerName' => 'required|string|min:2|max:120',
-            'paymentMethod' => 'nullable|in:balance,gateway',
+            'paymentMethod' => 'nullable|in:balance,gateway,cash_on_delivery',
         ]);
 
         if (! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
@@ -434,20 +507,20 @@ class OrderCheckoutModal extends Component
         $this->refreshPrepaymentQuote();
         $prepayment = $this->prepayment;
 
+        $resolvedPaymentMethod = $this->resolveCheckoutPaymentMethod($prepayment, count($activeOrders));
+        if ($resolvedPaymentMethod === null) {
+            return;
+        }
+        $this->paymentMethod = $resolvedPaymentMethod;
+
         if ($prepayment['required'] ?? false) {
-            if (! in_array($this->paymentMethod, ['balance', 'gateway'], true)) {
-                $this->addError('paymentMethod', $prepayment['message'] ?? 'Prepayment is required.');
-
-                return;
-            }
-
-            if ($this->paymentMethod === 'balance' && ! ($prepayment['balance_sufficient'] ?? false)) {
+            if ($this->paymentMethod === OrderPaymentMethod::BALANCE && ! ($prepayment['balance_sufficient'] ?? false)) {
                 $this->addError('paymentMethod', 'Insufficient Middo Balance for required prepayment.');
 
                 return;
             }
 
-            if ($this->paymentMethod === 'gateway') {
+            if ($this->paymentMethod === OrderPaymentMethod::GATEWAY) {
                 if (! filled($this->gatewayPaymentToken)) {
                     $this->addError('paymentMethod', 'Start online payment before confirming the order.');
 
@@ -484,27 +557,71 @@ class OrderCheckoutModal extends Component
         foreach ($activeOrders as $qty) {
             $lineTotals[] = (int) round(($this->dish['price'] ?? 0) * (int) $qty);
         }
-        $allocations = CorporateOrderPrepayment::allocate(
-            ($prepayment['required'] ?? false) ? (int) $prepayment['amount'] : 0,
-            $lineTotals
-        );
+        $cartTotal = (int) array_sum($lineTotals);
+        $chargeAmount = $this->checkoutChargeAmount($prepayment, $cartTotal);
+        $allocations = CorporateOrderPrepayment::allocate($chargeAmount, $lineTotals);
         $profileMatches = CorporateOrderPrepayment::profileMatchesReceiver(
             $currentUser,
             $this->customerName,
             $this->mobile
         );
 
-        DB::transaction(function () use ($activeOrders, $currentUser, $prepayment, $allocations, $profileMatches) {
+        // Optional full pay via gateway when COD is allowed and user chose online.
+        if ($chargeAmount > 0
+            && $this->paymentMethod === OrderPaymentMethod::GATEWAY
+            && ! ($prepayment['required'] ?? false)) {
+            if (! filled($this->gatewayPaymentToken)) {
+                $this->addError('paymentMethod', 'Start online payment before confirming the order.');
+
+                return;
+            }
+
+            $fingerprint = [
+                'menu_item_id' => (int) ($this->dish['id'] ?? 0),
+                'receiver_name' => CorporateOrderPrepayment::normalizeName($this->customerName),
+                'mobile' => CorporateOrderPrepayment::normalizeMobile($this->mobile),
+                'dates' => collect($activeOrders)->map(fn ($qty, $date) => [
+                    'date' => $date,
+                    'quantity' => (int) $qty,
+                ])->values()->all(),
+                'amount' => $chargeAmount,
+            ];
+
+            $consumed = app(PaymentGateway::class)->consumePaid(
+                $this->gatewayPaymentToken,
+                (int) $currentUser->id,
+                $chargeAmount,
+                $fingerprint
+            );
+
+            if (! ($consumed['ok'] ?? false)) {
+                $this->addError('paymentMethod', $consumed['message'] ?? 'Complete online payment first.');
+
+                return;
+            }
+        }
+
+        if ($chargeAmount > 0
+            && $this->paymentMethod === OrderPaymentMethod::BALANCE
+            && (int) $currentUser->balance < $chargeAmount) {
+            $this->addError('paymentMethod', 'Insufficient Middo Balance for this payment.');
+
+            return;
+        }
+
+        $paymentMethod = $this->paymentMethod;
+
+        DB::transaction(function () use ($activeOrders, $currentUser, $prepayment, $allocations, $profileMatches, $chargeAmount, $paymentMethod) {
             $currentUserId = $currentUser->id;
             $cityModel = City::find($this->city_id);
             $areaModel = Area::find($this->area_id);
 
-            if (($prepayment['required'] ?? false) && $this->paymentMethod === 'balance' && ($prepayment['amount'] ?? 0) > 0) {
+            if ($chargeAmount > 0 && $paymentMethod === OrderPaymentMethod::BALANCE) {
                 try {
                     WalletLedger::debit(
                         $currentUser,
-                        (int) $prepayment['amount'],
-                        'Order prepayment'
+                        $chargeAmount,
+                        ($prepayment['required'] ?? false) ? 'Order prepayment' : 'Order payment'
                     );
                 } catch (\RuntimeException $e) {
                     throw new \RuntimeException($e->getMessage());
@@ -536,6 +653,7 @@ class OrderCheckoutModal extends Component
                     'area_id' => $this->area_id,
                     'order_status' => 'pending',
                     'payment_status' => $amountPaid >= $lineTotal && $lineTotal > 0 ? 'paid' : 'pending',
+                    'payment_method' => $paymentMethod,
                     'created_by' => $currentUserId,
                     'updated_by' => $currentUserId,
                 ]);
@@ -568,6 +686,52 @@ class OrderCheckoutModal extends Component
     public function getCutoffFormattedProperty(): string
     {
         return OrderCutoff::label();
+    }
+
+    /**
+     * @param  array<string, mixed>  $prepayment
+     */
+    protected function resolveCheckoutPaymentMethod(array $prepayment, int $activeDateCount): ?string
+    {
+        $prepayRequired = (bool) ($prepayment['required'] ?? false);
+
+        if ($prepayRequired) {
+            if (! in_array($this->paymentMethod, [OrderPaymentMethod::BALANCE, OrderPaymentMethod::GATEWAY], true)) {
+                $this->addError('paymentMethod', $prepayment['message'] ?? 'Prepayment is required.');
+
+                return null;
+            }
+
+            return $this->paymentMethod;
+        }
+
+        if (OrderPaymentMethod::allowsCashOnDelivery(false, $activeDateCount)) {
+            if (! in_array($this->paymentMethod, OrderPaymentMethod::all(), true)) {
+                return OrderPaymentMethod::CASH_ON_DELIVERY;
+            }
+
+            return $this->paymentMethod;
+        }
+
+        // Multi-date without forced prepayment settles as COD.
+        return OrderPaymentMethod::CASH_ON_DELIVERY;
+    }
+
+    /**
+     * @param  array<string, mixed>  $prepayment
+     */
+    protected function checkoutChargeAmount(array $prepayment, int $cartTotal): int
+    {
+        if ($this->paymentMethod === OrderPaymentMethod::CASH_ON_DELIVERY) {
+            return 0;
+        }
+
+        if ($prepayment['required'] ?? false) {
+            return (int) ($prepayment['amount'] ?? 0);
+        }
+
+        // Optional full payment for a single order via balance/gateway.
+        return max(0, $cartTotal);
     }
 
     public function render()

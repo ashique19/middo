@@ -2,18 +2,23 @@
 
 namespace App\Livewire\Operation;
 
+use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Support\MealOrderGrouper;
 use App\Support\OrderGroupManager;
+use App\Support\OrdersExcelExport;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ActiveOrders extends Component
 {
+    use WithOrdersListView;
+
     public array $dateSections = [];
 
     /** @var string[] Expanded date accordion keys */
@@ -195,7 +200,10 @@ class ActiveOrders extends Component
             'amount_due' => $party['amount_due'],
             'order_status' => $order->order_status,
             'payment_status' => $order->payment_status,
+            'payment_method' => $party['payment_method'],
+            'payment_method_label' => $party['payment_method_label'],
             'address' => $order->address,
+            'delivery_date' => $order->delivery_date->toDateString(),
             'is_ungrouped' => $isUngrouped,
             'customer_name' => $party['customer_name'],
             'account_holder_name' => $party['account_holder_name'],
@@ -205,6 +213,41 @@ class ActiveOrders extends Component
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
             'group_name' => $order->orderGroup?->name,
         ];
+    }
+
+    public function getFlatOrdersProperty(): array
+    {
+        $rows = [];
+        foreach ($this->dateSections as $section) {
+            foreach ($section['groups'] as $group) {
+                foreach ($group['orders'] as $order) {
+                    $rows[] = array_merge($order, [
+                        'group_name' => $group['name'],
+                        'delivery_date' => $section['date'],
+                    ]);
+                }
+            }
+            foreach ($section['ungrouped'] as $order) {
+                $rows[] = array_merge($order, [
+                    'group_name' => 'Ungrouped',
+                    'delivery_date' => $section['date'],
+                ]);
+            }
+        }
+
+        return $rows;
+    }
+
+    public function exportExcel(): StreamedResponse
+    {
+        $orders = Order::with(['menuItem', 'user', 'orderGroup'])
+            ->future()
+            ->active()
+            ->orderBy('delivery_date')
+            ->orderBy('delivery_time')
+            ->get();
+
+        return OrdersExcelExport::download($orders, 'active-orders-'.now('Asia/Dhaka')->format('Y-m-d').'.csv');
     }
 
     protected function dateLabel(string $date): string

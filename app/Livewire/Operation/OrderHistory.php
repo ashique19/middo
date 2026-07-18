@@ -2,16 +2,20 @@
 
 namespace App\Livewire\Operation;
 
+use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Order;
 use App\Models\OrderGroup;
+use App\Support\OrdersExcelExport;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderHistory extends Component
 {
+    use WithOrdersListView;
     use WithPagination;
 
     /** @var string[] */
@@ -163,7 +167,10 @@ class OrderHistory extends Component
             'total_amount' => $order->total_amount,
             'order_status' => $order->order_status,
             'payment_status' => $order->payment_status,
+            'payment_method' => $party['payment_method'],
+            'payment_method_label' => $party['payment_method_label'],
             'address' => $order->address,
+            'delivery_date' => $order->delivery_date->toDateString(),
             'customer_name' => $party['customer_name'],
             'account_holder_name' => $party['account_holder_name'],
             'receiver_name' => $party['receiver_name'],
@@ -172,7 +179,20 @@ class OrderHistory extends Component
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
             'kitchen_label' => $order->orderGroup?->kitchenDisplayName() ?? 'Unassigned',
             'order_group_id' => $order->orderGroup?->id,
+            'group_name' => $order->orderGroup?->name,
         ];
+    }
+
+    public function exportExcel(): StreamedResponse
+    {
+        $orders = Order::with(['menuItem', 'user', 'orderGroup'])
+            ->past()
+            ->orderByDesc('delivery_date')
+            ->orderByDesc('delivery_time')
+            ->limit(2000)
+            ->get();
+
+        return OrdersExcelExport::download($orders, 'order-history-'.now('Asia/Dhaka')->format('Y-m-d').'.csv');
     }
 
     public function render()
@@ -184,10 +204,33 @@ class OrderHistory extends Component
             ->paginate(20);
 
         $dateSections = $this->buildDateSections(collect($orders->items()));
+        $flatOrders = collect($dateSections)
+            ->flatMap(function (array $section) {
+                $rows = [];
+                foreach ($section['groups'] as $group) {
+                    foreach ($group['orders'] as $order) {
+                        $rows[] = array_merge($order, [
+                            'group_name' => $group['name'],
+                            'delivery_date' => $section['date'],
+                        ]);
+                    }
+                }
+                foreach ($section['ungrouped'] as $order) {
+                    $rows[] = array_merge($order, [
+                        'group_name' => 'Ungrouped',
+                        'delivery_date' => $section['date'],
+                    ]);
+                }
+
+                return $rows;
+            })
+            ->values()
+            ->all();
 
         return view('livewire.operation.order-history', [
             'orders' => $orders,
             'dateSections' => $dateSections,
+            'flatOrders' => $flatOrders,
         ])->layout('layouts.private.app', ['title' => 'Order History']);
     }
 }

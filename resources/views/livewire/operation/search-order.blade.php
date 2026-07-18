@@ -1,10 +1,13 @@
 <div wire:key="operation-search-order" class="max-w-7xl mx-auto py-10 px-6 space-y-6">
     <div class="space-y-4">
-        <div class="space-y-1">
-            <h1 class="text-3xl font-bold text-middo-dark">Search Order</h1>
-            <p class="text-sm font-semibold text-gray-500">
-                Search by order ID, customer name, mobile, menu, address, or delivery date.
-            </p>
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="space-y-1">
+                <h1 class="text-3xl font-bold text-middo-dark">Search Order</h1>
+                <p class="text-sm font-semibold text-gray-500">
+                    Search by order ID, customer name, mobile, menu, address, or delivery date.
+                </p>
+            </div>
+            <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
         </div>
 
         <div class="max-w-xl">

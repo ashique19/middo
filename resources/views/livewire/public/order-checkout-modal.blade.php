@@ -120,7 +120,7 @@
                                     <div class="w-full max-w-[80px] h-6 mt-1 flex items-center justify-center">
                                         @if($isActive)
                                             <div class="flex items-center justify-between border border-emerald-700 rounded-lg bg-emerald-900/40 overflow-hidden w-full" wire:key="counter-{{ $dateStr }}">
-                                                <button type="button" wire:click="changeDateQuantity('{{ $dateStr }}', -1)" class="px-2 py-0.5 hover:bg-emerald-700 text-white font-extrabold text-xs select-none transition disabled:opacity-20" {{ $dateQty <= 1 ? 'disabled' : '' }}>-</button>
+                                                <button type="button" wire:click="changeDateQuantity('{{ $dateStr }}', -1)" title="{{ $dateQty <= 1 ? 'Deselect date' : 'Decrease quantity' }}" class="px-2 py-0.5 hover:bg-emerald-700 text-white font-extrabold text-xs select-none transition">-</button>
                                                 <span class="text-xs font-black text-white px-1">{{ $dateQty }}</span>
                                                 <button type="button" wire:click="changeDateQuantity('{{ $dateStr }}', 1)" class="px-2 py-0.5 hover:bg-emerald-700 text-white font-extrabold text-xs select-none transition disabled:opacity-20" {{ $dateQty >= $this->remainingQtyForDate($dateStr) ? 'disabled' : '' }}>+</button>
                                             </div>
@@ -242,13 +242,23 @@
                                             @endif
                                         </div>
                                     </div>
+                                @endif
+                                @if($this->showsPaymentMethodPicker)
                                     <div class="pt-1">
-                                        <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Pay with</label>
-                                        <select wire:model="paymentMethod" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                        <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Payment method</label>
+                                        <select wire:model.live="paymentMethod" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                            @if($this->codAllowed)
+                                                <option value="cash_on_delivery">Cash on Delivery</option>
+                                            @endif
                                             <option value="balance">Middo Balance</option>
                                             <option value="gateway">Online payment</option>
                                         </select>
                                         @error('paymentMethod') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
+                                    </div>
+                                @elseif($paymentMethod === 'cash_on_delivery')
+                                    <div class="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-[11px] text-emerald-950">
+                                        <p class="font-bold">Payment method: Cash on Delivery</p>
+                                        <p class="mt-0.5 text-emerald-800/80">Pay the rider when your meal is delivered.</p>
                                     </div>
                                 @endif
                             </div>
@@ -323,10 +333,16 @@
                                     <button type="button" wire:click="$set('isConfirmingOtp', false)" class="text-[10px] text-gray-400 hover:text-gray-600 underline font-semibold">Change Info</button>
                                 </div>
 
-                                @if(!empty($prepayment['required']) && $paymentMethod === 'gateway' && $gatewayPaymentUrl)
+                                @if($paymentMethod === 'gateway' && $gatewayPaymentUrl)
                                     <div class="rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] text-amber-950 space-y-1">
-                                        <p class="font-bold">Complete online prepayment (৳{{ number_format($prepayment['amount'] ?? 0) }}) first:</p>
+                                        <p class="font-bold">Complete online payment (৳{{ number_format(!empty($prepayment['required']) ? ($prepayment['amount'] ?? 0) : $total) }}) first:</p>
                                         <a href="{{ $gatewayPaymentUrl }}" target="_blank" rel="noopener" class="text-middo-orange font-bold underline break-all">Open payment page</a>
+                                    </div>
+                                @endif
+                                @if($paymentMethod === 'cash_on_delivery')
+                                    <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-950">
+                                        <p class="font-bold">Cash on Delivery selected</p>
+                                        <p class="mt-0.5">Pay the rider when your meal arrives.</p>
                                     </div>
                                 @endif
                                 

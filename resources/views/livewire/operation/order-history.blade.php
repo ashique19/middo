@@ -1,11 +1,18 @@
 <div class="max-w-7xl mx-auto py-10 px-6 space-y-6">
-    <div class="space-y-1">
-        <h1 class="text-3xl font-bold text-middo-dark">Order History</h1>
-        <p class="text-sm font-semibold text-gray-500">
-            Past deliveries grouped by date and order group. Showing {{ $orders->count() }} of {{ $orders->total() }} orders.
-        </p>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="space-y-1">
+            <h1 class="text-3xl font-bold text-middo-dark">Order History</h1>
+            <p class="text-sm font-semibold text-gray-500">
+                Past deliveries grouped by date and order group. Showing {{ $orders->count() }} of {{ $orders->total() }} orders.
+            </p>
+        </div>
+        <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
     </div>
 
+    @if($viewMode === 'list')
+        <x-operation.orders.table :orders="$flatOrders" :show-group="true" empty-message="No past orders found." />
+        <div>{{ $orders->links() }}</div>
+    @else
     @forelse($dateSections as $section)
         @php $isExpanded = in_array($section['date'], $expandedDates, true); @endphp
 
@@ -110,5 +117,6 @@
         <div class="mt-4 px-1">
             {{ $orders->links() }}
         </div>
+    @endif
     @endif
 </div>

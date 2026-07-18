@@ -1,10 +1,13 @@
 <div class="max-w-7xl mx-auto py-10 px-6 space-y-6">
-    <div class="space-y-1">
-        <a href="{{ route('delivery.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
-        <h1 class="text-3xl font-bold text-middo-dark">Delivered orders</h1>
-        <p class="text-sm font-semibold text-gray-500">
-            Collect payment and receive Middo boxes from the customer.
-        </p>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="space-y-1">
+            <a href="{{ route('delivery.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
+            <h1 class="text-3xl font-bold text-middo-dark">Delivered orders</h1>
+            <p class="text-sm font-semibold text-gray-500">
+                Collect payment and receive Middo boxes from the customer.
+            </p>
+        </div>
+        <x-orders.view-mode-toggle :view-mode="$viewMode" />
     </div>
 
     @if($statusMessage)
@@ -21,6 +24,12 @@
 
     <livewire:delivery.payment-modal />
 
+    @if($viewMode === 'list')
+        <x-operation.orders.table :orders="$nodes" empty-message="No delivered orders yet." />
+        @if($orders->hasPages())
+            <div class="mt-4 px-1">{{ $orders->links() }}</div>
+        @endif
+    @else
     @forelse($nodes as $order)
         <div
             wire:key="delivered-order-{{ $order['id'] }}"
@@ -35,6 +44,11 @@
                         <span class="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                             {{ $order['status_label'] }}
                         </span>
+                        @if(!empty($order['payment_method_label']))
+                            <span class="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                                {{ $order['payment_method_label'] }}
+                            </span>
+                        @endif
                     </div>
                     <p class="text-sm text-gray-600">{{ $order['date_label'] }} · {{ $order['delivery_time'] }}</p>
                     <p class="text-sm text-gray-500">
@@ -103,5 +117,6 @@
         <div class="mt-4 px-1">
             {{ $orders->links() }}
         </div>
+    @endif
     @endif
 </div>

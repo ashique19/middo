@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Corporate;
 
+use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Order;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
@@ -9,6 +10,8 @@ use Livewire\Component;
 
 class OrderHistory extends Component
 {
+    use WithOrdersListView;
+
     public array $orders = [];
 
     public function mount(): void
@@ -30,7 +33,15 @@ class OrderHistory extends Component
             ->orderBy('delivery_date', 'desc')
             ->orderBy('delivery_time', 'desc')
             ->get()
-            ->toArray();
+            ->map(function (Order $order) {
+                $row = $order->toArray();
+                $party = $order->partyPayload();
+                $row['payment_method'] = $party['payment_method'];
+                $row['payment_method_label'] = $party['payment_method_label'];
+
+                return $row;
+            })
+            ->all();
     }
 
     public function render()

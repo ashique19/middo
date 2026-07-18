@@ -2,11 +2,16 @@
 
 namespace App\Livewire\Operation;
 
+use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Order;
+use App\Support\OrdersExcelExport;
 use Livewire\Component;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SearchOrder extends Component
 {
+    use WithOrdersListView;
+
     public string $search = '';
 
     public array $orders = [];
@@ -52,7 +57,51 @@ class SearchOrder extends Component
             ->orderByDesc('delivery_time')
             ->limit(50)
             ->get()
-            ->toArray();
+            ->map(function (Order $order) {
+                $row = $order->toArray();
+                $party = $order->partyPayload();
+                $row['payment_method'] = $party['payment_method'];
+                $row['payment_method_label'] = $party['payment_method_label'];
+                $row['customer_name'] = $party['customer_name'];
+                $row['has_separate_receiver'] = $party['has_separate_receiver'];
+                $row['account_holder_name'] = $party['account_holder_name'];
+
+                return $row;
+            })
+            ->all();
+    }
+
+    public function exportExcel(): StreamedResponse
+    {
+        $term = trim($this->search);
+        $query = Order::with(['menuItem', 'user', 'orderGroup']);
+
+        if ($term !== '') {
+            $query->where(function ($q) use ($term) {
+                if (is_numeric($term)) {
+                    $q->where('id', $term);
+                }
+
+                $q->orWhere('address', 'like', "%{$term}%")
+                    ->orWhere('delivery_date', 'like', "%{$term}%")
+                    ->orWhereHas('user', function ($userQuery) use ($term) {
+                        $userQuery->where('first_name', 'like', "%{$term}%")
+                            ->orWhere('last_name', 'like', "%{$term}%")
+                            ->orWhere('mobile', 'like', "%{$term}%");
+                    })
+                    ->orWhereHas('menuItem', function ($menuQuery) use ($term) {
+                        $menuQuery->where('name', 'like', "%{$term}%");
+                    });
+            });
+        }
+
+        $orders = $query
+            ->orderByDesc('delivery_date')
+            ->orderByDesc('delivery_time')
+            ->limit(2000)
+            ->get();
+
+        return OrdersExcelExport::download($orders, 'search-orders-'.now('Asia/Dhaka')->format('Y-m-d').'.csv');
     }
 
     public function render()

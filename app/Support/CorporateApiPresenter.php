@@ -84,6 +84,8 @@ class CorporateApiPresenter
             'has_separate_receiver' => $order->hasSeparateReceiver(),
             'order_status' => $order->order_status,
             'payment_status' => $order->payment_status,
+            'payment_method' => $order->paymentMethodKey(),
+            'payment_method_label' => $order->paymentMethodLabel(),
             'paid' => $order->payment_status === 'paid',
             'package_subscription_id' => $order->package_subscription_id
                 ? (string) $order->package_subscription_id
@@ -91,6 +93,7 @@ class CorporateApiPresenter
             'can_skip' => $order->package_subscription_id
                 && $order->order_status === 'pending'
                 && OrderCutoff::allowsModification($order),
+            'can_delete' => OrderCutoff::allowsModification($order),
             'is_history' => optional($order->delivery_date)->lt(now('Asia/Dhaka')->startOfDay()) ?? false,
         ];
     }

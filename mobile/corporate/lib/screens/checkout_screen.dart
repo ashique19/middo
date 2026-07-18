@@ -40,7 +40,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? _formError;
   String? _debugOtp;
   PrepaymentQuote? _prepayment;
-  String _paymentMethod = 'balance';
+  String _paymentMethod = 'cash_on_delivery';
+  bool _codAllowed = false;
+  List<String> _paymentMethods = const ['cash_on_delivery'];
   String? _paymentToken;
   CorporateUser? _profile;
 
@@ -178,11 +180,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  int get _activeDateCount =>
+      _quantities.values.where((qty) => qty > 0).length;
+
   void _continueFromDates() {
     if (_totalQty == 0) return;
     setState(() {
       _step = _CheckoutStep.receiver;
       _formError = null;
+      if (_activeDateCount == 1 &&
+          !(_prepayment?.required ?? false) &&
+          _paymentMethod != 'balance' &&
+          _paymentMethod != 'gateway') {
+        _paymentMethod = 'cash_on_delivery';
+      }
     });
   }
 
@@ -202,37 +213,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       var paymentToken = _paymentToken;
       var paymentMethod = _paymentMethod;
-      if (result.prepayment.required) {
-        if (paymentMethod == 'gateway') {
-          final gateway = await AppScope.of(context).createGatewayPrepay(
-            menuItemId: item.id,
-            quantities: _quantities,
-            receiver: receiver,
-          );
-          paymentToken = gateway.paymentToken;
-          final uri = Uri.tryParse(gateway.paymentUrl);
-          if (uri != null) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Complete ৳${gateway.amount.toStringAsFixed(0)} payment in the browser, then verify OTP.',
-              ),
-              backgroundColor: MiddoColors.forest,
-            ),
-          );
-        } else if (!result.prepayment.balanceSufficient) {
-          setState(() {
-            _prepayment = result.prepayment;
-            _formError =
-                'Insufficient Middo Balance. Need ${bdt.format(result.prepayment.amount)}, available ${bdt.format(result.prepayment.balance)}. Top up or pay online.';
-          });
-          return;
+      final methods = result.paymentMethods;
+      final codAllowed = result.codAllowed;
+
+      if (!methods.contains(paymentMethod)) {
+        paymentMethod = methods.contains('cash_on_delivery')
+            ? 'cash_on_delivery'
+            : (methods.contains('balance') ? 'balance' : methods.first);
+      }
+
+      final needsCharge = result.prepayment.required ||
+          (paymentMethod == 'balance' || paymentMethod == 'gateway');
+
+      if (needsCharge && paymentMethod == 'gateway') {
+        final gateway = await AppScope.of(context).createGatewayPrepay(
+          menuItemId: item.id,
+          quantities: _quantities,
+          receiver: receiver,
+        );
+        paymentToken = gateway.paymentToken;
+        final uri = Uri.tryParse(gateway.paymentUrl);
+        if (uri != null) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
         }
-      } else {
-        paymentMethod = 'balance';
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Complete ৳${gateway.amount.toStringAsFixed(0)} payment in the browser, then verify OTP.',
+            ),
+            backgroundColor: MiddoColors.forest,
+          ),
+        );
+      } else if (needsCharge &&
+          paymentMethod == 'balance' &&
+          result.prepayment.required &&
+          !result.prepayment.balanceSufficient) {
+        setState(() {
+          _prepayment = result.prepayment;
+          _codAllowed = codAllowed;
+          _paymentMethods = methods;
+          _formError =
+              'Insufficient Middo Balance. Need ${bdt.format(result.prepayment.amount)}, available ${bdt.format(result.prepayment.balance)}. Top up or pay online.';
+        });
+        return;
+      } else if (paymentMethod == 'cash_on_delivery') {
         paymentToken = null;
       }
 
@@ -240,6 +265,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _step = _CheckoutStep.otp;
         _debugOtp = result.debugOtp;
         _prepayment = result.prepayment;
+        _codAllowed = codAllowed;
+        _paymentMethods = methods;
         _paymentMethod = paymentMethod;
         _paymentToken = paymentToken;
         _otpCtrl.clear();
@@ -278,17 +305,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _formError = null;
     });
     try {
-      final prepay = _prepayment;
       await AppScope.of(context).placeOrder(
         menuItemId: item.id,
         quantities: _quantities,
         receiver: receiver,
         otp: otp,
-        paymentMethod: prepay?.required == true ? _paymentMethod : null,
+        paymentMethod: _paymentMethod,
         paymentToken:
-            prepay?.required == true && _paymentMethod == 'gateway'
-                ? _paymentToken
-                : null,
+            _paymentMethod == 'gateway' ? _paymentToken : null,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -629,15 +653,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
       ),
       const SizedBox(height: 12),
-      const Text(
-        'If prepayment is required',
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+      Text(
+        _activeDateCount == 1
+            ? 'Payment method'
+            : 'If prepayment is required',
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
       ),
       const SizedBox(height: 6),
       SegmentedButton<String>(
-        segments: const [
-          ButtonSegment(value: 'balance', label: Text('Balance')),
-          ButtonSegment(value: 'gateway', label: Text('Online pay')),
+        segments: [
+          if (_activeDateCount == 1 || _codAllowed)
+            const ButtonSegment(
+              value: 'cash_on_delivery',
+              label: Text('COD'),
+            ),
+          const ButtonSegment(value: 'balance', label: Text('Balance')),
+          const ButtonSegment(value: 'gateway', label: Text('Online')),
         ],
         selected: {_paymentMethod},
         onSelectionChanged: (value) {
@@ -647,6 +678,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           });
         },
       ),
+      if (_paymentMethod == 'cash_on_delivery') ...[
+        const SizedBox(height: 8),
+        const Text(
+          'Cash on Delivery — pay the rider when your meal arrives.',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: MiddoColors.inkSoft,
+          ),
+        ),
+      ],
       const SizedBox(height: 12),
       TextField(
         controller: _addressCtrl,
@@ -749,6 +791,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'Charge ${bdt.format(_prepayment!.amount)} via '
             '${_paymentMethod == 'gateway' ? 'online payment' : 'Middo Balance'}.',
             style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: MiddoColors.ink,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+      if (_paymentMethod == 'cash_on_delivery') ...[
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF8F1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFB7D9C0)),
+          ),
+          child: const Text(
+            'Cash on Delivery selected — pay the rider when your meal arrives.',
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: MiddoColors.ink,
