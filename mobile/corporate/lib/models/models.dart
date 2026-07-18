@@ -515,3 +515,156 @@ class BoxesCustodyData {
   final String message;
 }
 
+class MealPackage {
+  const MealPackage({
+    required this.id,
+    required this.name,
+    required this.summary,
+    required this.pricePerDay,
+    required this.dietTag,
+    required this.durationDays,
+    required this.startDate,
+    required this.endDate,
+    required this.daysCount,
+    this.thumbnail,
+    this.days = const [],
+  });
+
+  final String id;
+  final String name;
+  final String summary;
+  final int pricePerDay;
+  final String dietTag;
+  final int durationDays;
+  final String startDate;
+  final String endDate;
+  final int daysCount;
+  final String? thumbnail;
+  final List<MealPackageDay> days;
+
+  factory MealPackage.fromJson(Map<String, dynamic> json) {
+    return MealPackage(
+      id: json['id'].toString(),
+      name: (json['name'] ?? 'Package').toString(),
+      summary: (json['summary'] ?? '').toString(),
+      pricePerDay: _asInt(json['price_per_day']),
+      dietTag: (json['diet_tag'] ?? 'classic').toString(),
+      durationDays: _asInt(json['duration_days'], 30),
+      startDate: (json['start_date'] ?? '').toString(),
+      endDate: (json['end_date'] ?? '').toString(),
+      daysCount: _asInt(json['days_count']),
+      thumbnail: json['thumbnail']?.toString(),
+      days: (json['days'] as List? ?? [])
+          .map((e) => MealPackageDay.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+    );
+  }
+}
+
+class MealPackageDay {
+  const MealPackageDay({
+    required this.date,
+    required this.weekday,
+    this.menuItem,
+  });
+
+  final String date;
+  final int weekday;
+  final MenuItem? menuItem;
+
+  factory MealPackageDay.fromJson(Map<String, dynamic> json) {
+    final menu = json['menu_item'];
+    return MealPackageDay(
+      date: (json['date'] ?? '').toString(),
+      weekday: _asInt(json['weekday']),
+      menuItem: menu is Map
+          ? MenuItem.fromJson(Map<String, dynamic>.from(menu))
+          : null,
+    );
+  }
+}
+
+class PackageQuote {
+  const PackageQuote({
+    required this.billableDays,
+    required this.pricePerDay,
+    required this.quantity,
+    required this.totalAmount,
+    required this.days,
+  });
+
+  final int billableDays;
+  final int pricePerDay;
+  final int quantity;
+  final int totalAmount;
+  final List<Map<String, dynamic>> days;
+
+  factory PackageQuote.fromJson(Map<String, dynamic> json) {
+    return PackageQuote(
+      billableDays: _asInt(json['billable_days']),
+      pricePerDay: _asInt(json['price_per_day']),
+      quantity: _asInt(json['quantity'], 1),
+      totalAmount: _asInt(json['total_amount']),
+      days: (json['days'] as List? ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
+    );
+  }
+}
+
+class PackageSubscription {
+  const PackageSubscription({
+    required this.id,
+    required this.quantity,
+    required this.billableDays,
+    required this.pricePerDay,
+    required this.totalAmount,
+    required this.amountPaid,
+    required this.status,
+    required this.startDate,
+    required this.endDate,
+    this.package,
+    this.orders = const [],
+    this.omittedWeekdays = const [],
+  });
+
+  final String id;
+  final MealPackage? package;
+  final int quantity;
+  final int billableDays;
+  final int pricePerDay;
+  final int totalAmount;
+  final int amountPaid;
+  final String status;
+  final String startDate;
+  final String endDate;
+  final List<CorporateOrder> orders;
+  final List<int> omittedWeekdays;
+
+  String get name => package?.name ?? 'Package';
+
+  factory PackageSubscription.fromJson(Map<String, dynamic> json) {
+    final pkg = json['package'];
+    return PackageSubscription(
+      id: json['id'].toString(),
+      package: pkg is Map
+          ? MealPackage.fromJson(Map<String, dynamic>.from(pkg))
+          : null,
+      quantity: _asInt(json['quantity'], 1),
+      billableDays: _asInt(json['billable_days']),
+      pricePerDay: _asInt(json['price_per_day']),
+      totalAmount: _asInt(json['total_amount']),
+      amountPaid: _asInt(json['amount_paid']),
+      status: (json['status'] ?? 'active').toString(),
+      startDate: (json['start_date'] ?? '').toString(),
+      endDate: (json['end_date'] ?? '').toString(),
+      omittedWeekdays: (json['omitted_weekdays'] as List? ?? [])
+          .map((e) => _asInt(e))
+          .toList(),
+      orders: (json['orders'] as List? ?? [])
+          .map((e) => CorporateOrder.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+    );
+  }
+}
+

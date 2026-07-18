@@ -7,10 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Area;
 use App\Models\City;
 use App\Models\DeviceToken;
+use App\Models\MealPackage;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Models\OrderComplaint;
+use App\Models\PackageSubscription;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WalletTransaction;
@@ -22,6 +24,8 @@ use App\Support\CorporateWalletTopUp;
 use App\Support\MealOrderGrouper;
 use App\Support\OrderConfirmationOtp;
 use App\Support\OrderCutoff;
+use App\Support\PackageBilling;
+use App\Support\PackageSubscriptionService;
 use App\Support\PasswordResetOtp;
 use App\Support\SignupOtp;
 use App\Support\WalletLedger;
@@ -1133,6 +1137,211 @@ class CorporateMobileController extends Controller
             'count' => $boxes->count(),
             'boxes' => $boxes,
             'message' => 'Empty Middo Boxes stay with you until a rider collects them on the next delivery or pickup run.',
+        ]);
+    }
+
+    public function packages(): JsonResponse
+    {
+        $items = MealPackage::query()
+            ->published()
+            ->withCount('days')
+            ->where('end_date', '>=', now('Asia/Dhaka')->toDateString())
+            ->orderBy('display_order')
+            ->orderBy('price_per_day')
+            ->get()
+            ->map(fn (MealPackage $package) => CorporateApiPresenter::mealPackage($package))
+            ->values();
+
+        return response()->json([
+            'packages' => $items,
+            'weekday_labels' => PackageBilling::WEEKDAY_LABELS,
+        ]);
+    }
+
+    public function sendPackageOtp(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/'],
+        ], [
+            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
+        ]);
+
+        $result = OrderConfirmationOtp::send($data['mobile']);
+
+        if (! $result['ok']) {
+            throw ValidationException::withMessages([
+                'mobile' => [$result['message']],
+            ]);
+        }
+
+        return response()->json([
+            'message' => $result['message'],
+            'mobile' => $data['mobile'],
+            'expires_in' => 300,
+            'debug_otp' => $result['debug_otp'] ?? null,
+        ]);
+    }
+
+    public function packageShow(int $package): JsonResponse
+    {
+        $model = MealPackage::query()
+            ->published()
+            ->withCount('days')
+            ->findOrFail($package);
+
+        return response()->json([
+            'package' => CorporateApiPresenter::mealPackage($model, withDays: true),
+            'weekday_labels' => PackageBilling::WEEKDAY_LABELS,
+        ]);
+    }
+
+    public function packageQuote(Request $request, int $package): JsonResponse
+    {
+        $model = MealPackage::query()->published()->findOrFail($package);
+        $data = $request->validate([
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.CorporateOrderLimit::maxAllowed()],
+            'omitted_weekdays' => ['nullable', 'array'],
+            'omitted_weekdays.*' => ['integer', 'min:0', 'max:6'],
+            'extra_skipped_dates' => ['nullable', 'array'],
+            'extra_skipped_dates.*' => ['date'],
+        ]);
+
+        $quote = PackageBilling::quote(
+            $model,
+            (int) $data['quantity'],
+            PackageBilling::normalizeOmittedWeekdays($data['omitted_weekdays'] ?? []),
+            $data['extra_skipped_dates'] ?? []
+        );
+
+        return response()->json([
+            'package' => CorporateApiPresenter::mealPackage($model),
+            'quote' => $quote,
+            'balance' => (int) $request->user()->balance,
+        ]);
+    }
+
+    public function subscribePackage(Request $request, int $package): JsonResponse
+    {
+        $model = MealPackage::query()->published()->findOrFail($package);
+        $data = $request->validate([
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.CorporateOrderLimit::maxAllowed()],
+            'omitted_weekdays' => ['nullable', 'array'],
+            'omitted_weekdays.*' => ['integer', 'min:0', 'max:6'],
+            'extra_skipped_dates' => ['nullable', 'array'],
+            'extra_skipped_dates.*' => ['date'],
+            'receiver_name' => ['required', 'string', 'min:2', 'max:120'],
+            'receiver_mobile' => ['required', 'string', 'min:11', 'max:20'],
+            'address' => ['required', 'string', 'min:5', 'max:500'],
+            'city_id' => ['required', 'exists:cities,id'],
+            'area_id' => ['required', 'exists:areas,id'],
+            'delivery_time' => ['required', 'in:12:00 PM,11:30 AM'],
+            'otp' => ['required', 'string', 'size:4'],
+            'payment_method' => ['required', 'in:balance,gateway'],
+            'payment_token' => ['nullable', 'string'],
+        ]);
+
+        if (! OrderConfirmationOtp::verify($data['receiver_mobile'], $data['otp'])) {
+            throw ValidationException::withMessages([
+                'otp' => ['Invalid or expired confirmation code.'],
+            ]);
+        }
+
+        $omitted = PackageBilling::normalizeOmittedWeekdays($data['omitted_weekdays'] ?? []);
+        $quote = PackageBilling::quote(
+            $model,
+            (int) $data['quantity'],
+            $omitted,
+            $data['extra_skipped_dates'] ?? []
+        );
+
+        foreach ($quote['days'] as $day) {
+            if (CorporateOrderLimit::exceedsDailyLimit(
+                (int) $request->user()->id,
+                $day['date'],
+                (int) $data['quantity']
+            )) {
+                throw ValidationException::withMessages([
+                    'quantity' => ["Daily quantity limit exceeded for {$day['date']}."],
+                ]);
+            }
+        }
+
+        try {
+            $result = app(PackageSubscriptionService::class)->subscribe(
+                $request->user(),
+                $model,
+                (int) $data['quantity'],
+                $omitted,
+                $data['extra_skipped_dates'] ?? [],
+                $data['receiver_name'],
+                $data['receiver_mobile'],
+                $data['address'],
+                (int) $data['city_id'],
+                (int) $data['area_id'],
+                $data['delivery_time'],
+                $data['payment_method'],
+                $data['payment_token'] ?? null
+            );
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'payment_method' => [$e->getMessage()],
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Package prepaid and scheduled.',
+            'subscription' => CorporateApiPresenter::packageSubscription($result['subscription']),
+            'balance' => (float) $request->user()->fresh()->balance,
+        ], 201);
+    }
+
+    public function myPackages(Request $request): JsonResponse
+    {
+        $subs = PackageSubscription::query()
+            ->forUser($request->user()->id)
+            ->with(['package', 'orders.menuItem'])
+            ->latest()
+            ->get()
+            ->map(fn (PackageSubscription $sub) => CorporateApiPresenter::packageSubscription($sub))
+            ->values();
+
+        return response()->json(['subscriptions' => $subs]);
+    }
+
+    public function myPackageShow(Request $request, int $subscription): JsonResponse
+    {
+        $sub = PackageSubscription::query()
+            ->forUser($request->user()->id)
+            ->with(['package', 'orders.menuItem'])
+            ->findOrFail($subscription);
+
+        return response()->json([
+            'subscription' => CorporateApiPresenter::packageSubscription($sub),
+        ]);
+    }
+
+    public function skipPackageDay(Request $request, int $order): JsonResponse
+    {
+        $model = Order::query()
+            ->where('id', $order)
+            ->where('user_id', $request->user()->id)
+            ->whereNotNull('package_subscription_id')
+            ->firstOrFail();
+
+        try {
+            $refund = (int) ($model->amount_paid ?: $model->total_amount);
+            $updated = app(PackageSubscriptionService::class)->skipDay($request->user(), $model);
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'order' => [$e->getMessage()],
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Day skipped. Amount credited to Middo Balance.',
+            'refunded_amount' => $refund,
+            'order' => CorporateApiPresenter::order($updated),
+            'balance' => (float) $request->user()->fresh()->balance,
         ]);
     }
 }

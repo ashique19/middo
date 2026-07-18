@@ -25,6 +25,9 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
         return view('operation.meal-items.page');
     })->name('operation.meal-items.index');
 
+    Route::get('/packages', fn () => view('operation.packages.page'))->name('operation.packages.index');
+    Route::get('/packages/{package}/edit', \App\Livewire\Shared\PackageBuilder::class)->name('operation.packages.edit');
+
     Route::get('/orders/active', ActiveOrders::class)->name('operation.orders.active');
     Route::get('/orders/history', OrderHistory::class)->name('operation.orders.history');
     Route::get('/orders/search', SearchOrder::class)->name('operation.orders.search');

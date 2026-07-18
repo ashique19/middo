@@ -10,11 +10,15 @@ import '../screens/history_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/menu_screen.dart';
+import '../screens/package_checkout_screen.dart';
+import '../screens/packages_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/schedule_screen.dart';
 import '../screens/shell_scaffold.dart';
 import '../screens/signup_screen.dart';
 import '../screens/splash_screen.dart';
+import '../screens/subscription_detail_screen.dart';
+import '../screens/subscriptions_screen.dart';
 import '../screens/support_screen.dart';
 import '../screens/track_screen.dart';
 import '../screens/wallet_screen.dart';
@@ -153,6 +157,42 @@ GoRouter createAppRouter() {
           key: state.pageKey,
           child: CheckoutScreen(
             menuItemId: state.pathParameters['menuItemId']!,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/packages',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const PackagesScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/packages/:packageId',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: PackageCheckoutScreen(
+            packageId: state.pathParameters['packageId']!,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/subscriptions',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const SubscriptionsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/subscriptions/:subscriptionId',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: SubscriptionDetailScreen(
+            subscriptionId: state.pathParameters['subscriptionId']!,
           ),
         ),
       ),

@@ -88,7 +88,20 @@ class _MenuScreenState extends State<MenuScreen> {
                   fontSize: 13,
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => context.push('/packages'),
+                  icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                  label: const Text('Browse 30-day packages'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: MiddoColors.orange,
+                    textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               SizedBox(
                 height: 38,
                 child: ListView.separated(

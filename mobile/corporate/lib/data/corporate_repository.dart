@@ -122,6 +122,36 @@ abstract class CorporateRepository {
 
   Future<void> markBoxReadyForPickup(int boxId);
 
+  Future<List<MealPackage>> packages();
+
+  Future<MealPackage> packageShow(String packageId);
+
+  Future<PackageQuote> packageQuote({
+    required String packageId,
+    required int quantity,
+    required List<int> omittedWeekdays,
+  });
+
+  Future<String?> sendPackageOtp({required String mobile});
+
+  Future<PackageSubscription> subscribePackage({
+    required String packageId,
+    required int quantity,
+    required List<int> omittedWeekdays,
+    required ReceiverDetails receiver,
+    required String otp,
+    String deliveryTime = '12:00 PM',
+    String paymentMethod = 'balance',
+    String? paymentToken,
+  });
+
+  Future<List<PackageSubscription>> myPackages();
+
+  Future<PackageSubscription> myPackageShow(String subscriptionId);
+
+  Future<({CorporateOrder order, double balance, int refundedAmount})>
+      skipPackageDay(String orderId);
+
   MenuItem menuById(String id);
 }
 
@@ -586,6 +616,117 @@ class ApiCorporateRepository implements CorporateRepository {
   }
 
   @override
+  Future<List<MealPackage>> packages() async {
+    final json = await _client.get('/packages');
+    return (json['packages'] as List? ?? [])
+        .map((e) => MealPackage.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  @override
+  Future<MealPackage> packageShow(String packageId) async {
+    final json = await _client.get('/packages/$packageId');
+    return MealPackage.fromJson(
+      Map<String, dynamic>.from(json['package'] as Map),
+    );
+  }
+
+  @override
+  Future<PackageQuote> packageQuote({
+    required String packageId,
+    required int quantity,
+    required List<int> omittedWeekdays,
+  }) async {
+    final json = await _client.post(
+      '/packages/$packageId/quote',
+      body: {
+        'quantity': quantity,
+        'omitted_weekdays': omittedWeekdays,
+      },
+    );
+    return PackageQuote.fromJson(
+      Map<String, dynamic>.from(json['quote'] as Map),
+    );
+  }
+
+  @override
+  Future<String?> sendPackageOtp({required String mobile}) async {
+    final json = await _client.post(
+      '/packages/send-otp',
+      body: {'mobile': mobile},
+    );
+    return json['debug_otp']?.toString();
+  }
+
+  @override
+  Future<PackageSubscription> subscribePackage({
+    required String packageId,
+    required int quantity,
+    required List<int> omittedWeekdays,
+    required ReceiverDetails receiver,
+    required String otp,
+    String deliveryTime = '12:00 PM',
+    String paymentMethod = 'balance',
+    String? paymentToken,
+  }) async {
+    final json = await _client.post(
+      '/packages/$packageId/subscribe',
+      body: {
+        'quantity': quantity,
+        'omitted_weekdays': omittedWeekdays,
+        'receiver_name': receiver.receiverName,
+        'receiver_mobile': receiver.mobile,
+        'address': receiver.address,
+        'city_id': receiver.cityId,
+        'area_id': receiver.areaId,
+        'delivery_time': deliveryTime,
+        'otp': otp,
+        'payment_method': paymentMethod,
+        if (paymentToken != null) 'payment_token': paymentToken,
+      },
+    );
+    return PackageSubscription.fromJson(
+      Map<String, dynamic>.from(json['subscription'] as Map),
+    );
+  }
+
+  @override
+  Future<List<PackageSubscription>> myPackages() async {
+    final json = await _client.get('/subscriptions');
+    return (json['subscriptions'] as List? ?? [])
+        .map(
+          (e) => PackageSubscription.fromJson(
+            Map<String, dynamic>.from(e as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<PackageSubscription> myPackageShow(String subscriptionId) async {
+    final json = await _client.get('/subscriptions/$subscriptionId');
+    return PackageSubscription.fromJson(
+      Map<String, dynamic>.from(json['subscription'] as Map),
+    );
+  }
+
+  @override
+  Future<({CorporateOrder order, double balance, int refundedAmount})>
+      skipPackageDay(String orderId) async {
+    final json = await _client.post(
+      '/orders/$orderId/skip-package-day',
+      body: {},
+    );
+    return (
+      order: CorporateOrder.fromJson(
+        Map<String, dynamic>.from(json['order'] as Map),
+      ),
+      balance: (json['balance'] as num?)?.toDouble() ?? 0,
+      refundedAmount: (json['refunded_amount'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  @override
   MenuItem menuById(String id) {
     return _menuCache[id] ??
         MenuItem(
@@ -904,6 +1045,101 @@ class MockCorporateRepository implements CorporateRepository {
   @override
   Future<void> markBoxReadyForPickup(int boxId) async {
     // mock: no-op
+  }
+
+  @override
+  Future<List<MealPackage>> packages() async => [
+        MealPackage(
+          id: 'p1',
+          name: '৳79 / day · Classic',
+          summary: 'Month-long office lunch plan',
+          pricePerDay: 79,
+          dietTag: 'classic',
+          durationDays: 30,
+          startDate: DateTime.now().add(const Duration(days: 1)).toIso8601String().substring(0, 10),
+          endDate: DateTime.now().add(const Duration(days: 30)).toIso8601String().substring(0, 10),
+          daysCount: 30,
+        ),
+      ];
+
+  @override
+  Future<MealPackage> packageShow(String packageId) async =>
+      (await packages()).first;
+
+  @override
+  Future<PackageQuote> packageQuote({
+    required String packageId,
+    required int quantity,
+    required List<int> omittedWeekdays,
+  }) async {
+    const billable = 22;
+    return PackageQuote(
+      billableDays: billable,
+      pricePerDay: 79,
+      quantity: quantity,
+      totalAmount: billable * 79 * quantity,
+      days: const [],
+    );
+  }
+
+  @override
+  Future<String?> sendPackageOtp({required String mobile}) async => '1234';
+
+  @override
+  Future<PackageSubscription> subscribePackage({
+    required String packageId,
+    required int quantity,
+    required List<int> omittedWeekdays,
+    required ReceiverDetails receiver,
+    required String otp,
+    String deliveryTime = '12:00 PM',
+    String paymentMethod = 'balance',
+    String? paymentToken,
+  }) async {
+    final pkg = await packageShow(packageId);
+    return PackageSubscription(
+      id: 'sub1',
+      package: pkg,
+      quantity: quantity,
+      billableDays: 22,
+      pricePerDay: 79,
+      totalAmount: 22 * 79 * quantity,
+      amountPaid: 22 * 79 * quantity,
+      status: 'active',
+      startDate: pkg.startDate,
+      endDate: pkg.endDate,
+      omittedWeekdays: omittedWeekdays,
+    );
+  }
+
+  @override
+  Future<List<PackageSubscription>> myPackages() async => [];
+
+  @override
+  Future<PackageSubscription> myPackageShow(String subscriptionId) async {
+    final pkg = await packageShow('p1');
+    return PackageSubscription(
+      id: subscriptionId,
+      package: pkg,
+      quantity: 1,
+      billableDays: 22,
+      pricePerDay: 79,
+      totalAmount: 1738,
+      amountPaid: 1738,
+      status: 'active',
+      startDate: pkg.startDate,
+      endDate: pkg.endDate,
+    );
+  }
+
+  @override
+  Future<({CorporateOrder order, double balance, int refundedAmount})>
+      skipPackageDay(String orderId) async {
+    return (
+      order: _mock.orderById(orderId),
+      balance: _mock.user.balance + 79,
+      refundedAmount: 79,
+    );
   }
 
   @override

@@ -13,6 +13,10 @@
                 <span>Menu</span>
                 <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>
             </a>
+            <a href="{{ route('corporates.packages.index') }}" class="text-[#2B1A11] font-extrabold tracking-tight text-sm hover:text-middo-orange transition-colors relative py-1 group">
+                <span>Packages</span>
+                <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>
+            </a>
             <a href="{{ route('corporates.orders.scheduled') }}" class="text-[#2B1A11] font-extrabold tracking-tight text-sm hover:text-middo-orange transition-colors relative py-1 group">
                 <span>Scheduled</span>
                 <span class="absolute bottom-0 left-0 w-0 h-0.5 bg-middo-orange transition-all group-hover:w-full"></span>

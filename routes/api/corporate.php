@@ -26,6 +26,14 @@ Route::prefix('corporate')->group(function () {
         Route::delete('/device-tokens', [CorporateMobileController::class, 'unregisterDeviceToken']);
         Route::get('/dashboard', [CorporateMobileController::class, 'dashboard']);
         Route::get('/menu', [CorporateMobileController::class, 'menu']);
+        Route::get('/packages', [CorporateMobileController::class, 'packages']);
+        Route::post('/packages/send-otp', [CorporateMobileController::class, 'sendPackageOtp']);
+        Route::get('/packages/{package}', [CorporateMobileController::class, 'packageShow']);
+        Route::post('/packages/{package}/quote', [CorporateMobileController::class, 'packageQuote']);
+        Route::post('/packages/{package}/subscribe', [CorporateMobileController::class, 'subscribePackage']);
+        Route::get('/subscriptions', [CorporateMobileController::class, 'myPackages']);
+        Route::get('/subscriptions/{subscription}', [CorporateMobileController::class, 'myPackageShow']);
+        Route::post('/orders/{order}/skip-package-day', [CorporateMobileController::class, 'skipPackageDay']);
         Route::get('/orders/scheduled', [CorporateMobileController::class, 'scheduled']);
         Route::get('/orders/history', [CorporateMobileController::class, 'history']);
         Route::post('/orders/send-otp', [CorporateMobileController::class, 'sendOrderOtp']);
