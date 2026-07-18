@@ -15,6 +15,7 @@ class Order extends Model
     protected $fillable = [
         'user_id',
         'menu_item_id',
+        'package_subscription_id',
         'quantity',
         'delivery_date',
         'delivery_time',
@@ -57,6 +58,16 @@ class Order extends Model
     public function menuItem(): BelongsTo
     {
         return $this->belongsTo(MenuItem::class);
+    }
+
+    public function packageSubscription(): BelongsTo
+    {
+        return $this->belongsTo(PackageSubscription::class);
+    }
+
+    public function isPackageOrder(): bool
+    {
+        return $this->package_subscription_id !== null;
     }
 
     public function createdBy(): BelongsTo

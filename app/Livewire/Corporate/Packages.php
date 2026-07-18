@@ -1,0 +1,113 @@
+<?php
+
+namespace App\Livewire\Corporate;
+
+use App\Models\MealPackage;
+use App\Models\PackageSubscription;
+use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\On;
+use Livewire\Component;
+
+class Packages extends Component
+{
+    public string $filter = 'all';
+
+    public array $packages = [];
+
+    public array $subscriptions = [];
+
+    public function mount(): void
+    {
+        $this->loadPackages();
+        $this->loadSubscriptions();
+    }
+
+    public function updatedFilter(): void
+    {
+        $this->loadPackages();
+    }
+
+    #[On('package-subscribed')]
+    #[On('corporate-orders-changed')]
+    public function refresh(): void
+    {
+        $this->loadPackages();
+        $this->loadSubscriptions();
+    }
+
+    protected function loadPackages(): void
+    {
+        $query = MealPackage::query()
+            ->published()
+            ->with(['days' => fn ($q) => $q->with('menuItem')->orderBy('delivery_date')->limit(7)])
+            ->withCount('days')
+            ->where('end_date', '>=', now('Asia/Dhaka')->toDateString())
+            ->orderBy('display_order')
+            ->orderBy('price_per_day');
+
+        if ($this->filter !== 'all') {
+            $query->where('diet_tag', $this->filter);
+        }
+
+        $this->packages = $query->get()->map(function (MealPackage $package) {
+            return [
+                'id' => $package->id,
+                'name' => $package->name,
+                'summary' => $package->summary,
+                'price_per_day' => (int) $package->price_per_day,
+                'diet_tag' => $package->diet_tag,
+                'duration_days' => (int) $package->duration_days,
+                'start_date' => $package->start_date->toDateString(),
+                'end_date' => $package->end_date->toDateString(),
+                'thumbnail' => $package->thumbnail ? asset($package->thumbnail) : null,
+                'days_count' => (int) $package->days_count,
+                'sample_days' => $package->days->map(fn ($d) => [
+                    'date' => $d->delivery_date->toDateString(),
+                    'name' => $d->menuItem?->name,
+                    'thumbnail' => $d->menuItem?->thumbnail ? asset($d->menuItem->thumbnail) : null,
+                ])->values()->all(),
+            ];
+        })->values()->all();
+    }
+
+    protected function loadSubscriptions(): void
+    {
+        $this->subscriptions = PackageSubscription::query()
+            ->forUser(Auth::id())
+            ->with(['package', 'orders' => fn ($q) => $q->orderBy('delivery_date')])
+            ->latest()
+            ->take(10)
+            ->get()
+            ->map(function (PackageSubscription $sub) {
+                $pending = $sub->orders->where('order_status', 'pending')->count();
+                $total = $sub->orders->where('order_status', '!=', 'cancelled')->count();
+                $deliveredish = $sub->orders->whereIn('order_status', ['delivered', 'delivered_and_paid'])->count();
+
+                return [
+                    'id' => $sub->id,
+                    'name' => $sub->package?->name ?? 'Package',
+                    'status' => $sub->status,
+                    'price_per_day' => (int) $sub->price_per_day,
+                    'billable_days' => (int) $sub->billable_days,
+                    'total_amount' => (int) $sub->total_amount,
+                    'quantity' => (int) $sub->quantity,
+                    'start_date' => $sub->start_date->toDateString(),
+                    'end_date' => $sub->end_date->toDateString(),
+                    'pending_days' => $pending,
+                    'active_days' => $total,
+                    'completed_days' => $deliveredish,
+                ];
+            })->values()->all();
+    }
+
+    public function openSubscribe(int $packageId): void
+    {
+        $this->dispatch('open-package-subscribe', packageId: $packageId);
+    }
+
+    public function render()
+    {
+        return view('livewire.corporate.packages')
+            ->layout('layouts.public.app');
+    }
+}

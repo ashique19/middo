@@ -22,6 +22,9 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 
     Route::get('/menu', fn () => view('admin.menu.page'))->name('admin.menu.index');
     Route::get('/meal-items', fn () => view('admin.meal-items.page'))->name('admin.meal-items.index');
+    Route::get('/packages', fn () => view('admin.packages.page'))->name('admin.packages.index');
+    Route::get('/packages/create', \App\Livewire\Shared\PackageBuilder::class)->name('admin.packages.create');
+    Route::get('/packages/{package}/edit', \App\Livewire\Shared\PackageBuilder::class)->name('admin.packages.edit');
 
     Route::get('/orders/active', ActiveOrders::class)->name('admin.orders.active');
     Route::get('/orders/history', OrderHistory::class)->name('admin.orders.history');

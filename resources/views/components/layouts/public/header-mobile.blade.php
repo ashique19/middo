@@ -155,6 +155,12 @@
                         </svg>
                         <span>Menu</span>
                     </a>
+                    <a href="{{ route('corporates.packages.index') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
+                        <svg class="w-4 h-4 text-middo-orange opacity-85" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H4.5a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21" />
+                        </svg>
+                        <span>Packages</span>
+                    </a>
                     <a href="{{ route('corporates.orders.scheduled') }}" class="text-[14px] font-extrabold text-[#2B1A11] hover:text-middo-orange transition py-2.5 px-1.5 flex items-center gap-3 rounded-xl hover:bg-[#F6F2E8]" @click="mobileMenuOpen = false">
                         <svg class="w-4 h-4 text-middo-orange opacity-85" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />

@@ -41,6 +41,7 @@ class NavSeeder extends Seeder
         ]);
         Nav::create(['title' => 'Menu items', 'route_name' => 'admin.menu.index', 'order' => 1, 'role_id' => $adminId, 'parent_id' => $adminMenuNav->id]);
         Nav::create(['title' => 'Meal items', 'route_name' => 'admin.meal-items.index', 'order' => 2, 'role_id' => $adminId, 'parent_id' => $adminMenuNav->id]);
+        Nav::create(['title' => 'Packages', 'route_name' => 'admin.packages.index', 'order' => 3, 'role_id' => $adminId, 'parent_id' => $adminMenuNav->id]);
 
         $adminOrdersNav = Nav::create([
             'title' => 'Orders',
@@ -87,6 +88,7 @@ class NavSeeder extends Seeder
         ]);
         Nav::create(['title' => 'Menu items', 'route_name' => 'operation.menu.index', 'order' => 1, 'role_id' => $operationId, 'parent_id' => $menuNav->id]);
         Nav::create(['title' => 'Meal items', 'route_name' => 'operation.meal-items.index', 'order' => 2, 'role_id' => $operationId, 'parent_id' => $menuNav->id]);
+        Nav::create(['title' => 'Packages', 'route_name' => 'operation.packages.index', 'order' => 3, 'role_id' => $operationId, 'parent_id' => $menuNav->id]);
 
         $ordersNav = Nav::create([
             'title' => 'Orders',
@@ -109,8 +111,9 @@ class NavSeeder extends Seeder
 
         // ── Other roles (private sidebar when used) ───────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'corporates.dashboard', 'order' => 1, 'role_id' => $corporateId]);
-        Nav::create(['title' => 'Scheduled Orders', 'route_name' => 'corporates.orders.scheduled', 'order' => 2, 'role_id' => $corporateId]);
-        Nav::create(['title' => 'Order History', 'route_name' => 'corporates.orders.history', 'order' => 3, 'role_id' => $corporateId]);
+        Nav::create(['title' => 'Packages', 'route_name' => 'corporates.packages.index', 'order' => 2, 'role_id' => $corporateId]);
+        Nav::create(['title' => 'Scheduled Orders', 'route_name' => 'corporates.orders.scheduled', 'order' => 3, 'role_id' => $corporateId]);
+        Nav::create(['title' => 'Order History', 'route_name' => 'corporates.orders.history', 'order' => 4, 'role_id' => $corporateId]);
 
         Nav::create(['title' => 'Dashboard', 'route_name' => 'kitchen.dashboard', 'order' => 1, 'role_id' => $kitchenId]);
         Nav::create(['title' => 'Middo order groups', 'route_name' => 'kitchen.order-groups.middo', 'order' => 2, 'role_id' => $kitchenId]);

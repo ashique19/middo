@@ -2,10 +2,12 @@
 
 namespace App\Support;
 
+use App\Models\MealPackage;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderComplaint;
 use App\Models\OrderLog;
+use App\Models\PackageSubscription;
 use App\Models\User;
 
 class CorporateApiPresenter
@@ -83,7 +85,77 @@ class CorporateApiPresenter
             'order_status' => $order->order_status,
             'payment_status' => $order->payment_status,
             'paid' => $order->payment_status === 'paid',
+            'package_subscription_id' => $order->package_subscription_id
+                ? (string) $order->package_subscription_id
+                : null,
+            'can_skip' => $order->package_subscription_id
+                && $order->order_status === 'pending'
+                && OrderCutoff::allowsModification($order),
             'is_history' => optional($order->delivery_date)->lt(now('Asia/Dhaka')->startOfDay()) ?? false,
+        ];
+    }
+
+    public static function mealPackage(MealPackage $package, bool $withDays = false): array
+    {
+        $image = $package->thumbnail;
+        if ($image && ! preg_match('/^https?:\/\//', $image)) {
+            $image = asset(ltrim($image, '/'));
+        }
+
+        $payload = [
+            'id' => (string) $package->id,
+            'name' => $package->name,
+            'summary' => $package->summary ?? '',
+            'price_per_day' => (int) $package->price_per_day,
+            'diet_tag' => $package->diet_tag,
+            'duration_days' => (int) $package->duration_days,
+            'start_date' => optional($package->start_date)->toDateString(),
+            'end_date' => optional($package->end_date)->toDateString(),
+            'thumbnail' => $image,
+            'days_count' => $package->days_count ?? $package->days()->count(),
+        ];
+
+        if ($withDays) {
+            $package->loadMissing('days.menuItem');
+            $payload['days'] = $package->days->map(fn ($day) => [
+                'date' => $day->delivery_date->toDateString(),
+                'weekday' => (int) $day->delivery_date->dayOfWeek,
+                'menu_item' => $day->menuItem ? self::menuItem($day->menuItem) : null,
+            ])->values()->all();
+        }
+
+        return $payload;
+    }
+
+    public static function packageSubscription(PackageSubscription $subscription): array
+    {
+        $subscription->loadMissing(['package', 'orders.menuItem']);
+
+        return [
+            'id' => (string) $subscription->id,
+            'package' => $subscription->package
+                ? self::mealPackage($subscription->package)
+                : null,
+            'quantity' => (int) $subscription->quantity,
+            'start_date' => optional($subscription->start_date)->toDateString(),
+            'end_date' => optional($subscription->end_date)->toDateString(),
+            'omitted_weekdays' => $subscription->omitted_weekdays ?? [],
+            'billable_days' => (int) $subscription->billable_days,
+            'price_per_day' => (int) $subscription->price_per_day,
+            'total_amount' => (int) $subscription->total_amount,
+            'amount_paid' => (int) $subscription->amount_paid,
+            'payment_status' => $subscription->payment_status,
+            'status' => $subscription->status,
+            'delivery_time' => $subscription->delivery_time,
+            'address' => $subscription->address,
+            'receiver_name' => $subscription->receiver_name,
+            'receiver_mobile' => $subscription->receiver_mobile,
+            'orders' => $subscription->orders
+                ->sortBy('delivery_date')
+                ->values()
+                ->map(fn (Order $order) => self::order($order))
+                ->all(),
+            'weekday_labels' => PackageBilling::WEEKDAY_LABELS,
         ];
     }
 
