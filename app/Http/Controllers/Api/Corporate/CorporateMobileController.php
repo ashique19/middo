@@ -911,36 +911,9 @@ class CorporateMobileController extends Controller
 
     public function updateOrder(Request $request, int $order): JsonResponse
     {
-        $model = $this->findOwnedPendingOrder($request->user()->id, $order);
-        $date = optional($model->delivery_date)->toDateString()
-            ?? now('Asia/Dhaka')->toDateString();
-        $maxQty = max(1, CorporateOrderLimit::remainingQtyForDate(
-            $request->user()->id,
-            $date,
-            $model->id
-        ));
-
-        $data = $request->validate([
-            'quantity' => ['required', 'integer', 'min:1', 'max:'.$maxQty],
-        ], [
-            'quantity.max' => sprintf(
-                'Maximum %d meals allowed per day. You can set up to %d for this order.',
-                CorporateOrderLimit::maxAllowed(),
-                $maxQty
-            ),
-        ]);
-
-        $model->loadMissing('menuItem');
-        $model->update([
-            'quantity' => (int) $data['quantity'],
-            'total_amount' => (int) round(($model->menuItem?->price ?? 0) * (int) $data['quantity']),
-            'updated_by' => $request->user()->id,
-        ]);
-
-        return response()->json([
-            'message' => 'Order updated.',
-            'order' => CorporateApiPresenter::order($model->fresh('menuItem')),
-            'max_quantity' => $maxQty,
+        // Order editing has been removed; cancel and place a new order instead.
+        throw ValidationException::withMessages([
+            'order' => ['Orders can no longer be edited. Cancel this order and place a new one if you need changes.'],
         ]);
     }
 

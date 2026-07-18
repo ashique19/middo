@@ -443,7 +443,7 @@ class CorporateMobileApiTest extends TestCase
         return [$city, $area];
     }
 
-    public function test_pending_order_can_be_updated_and_cancelled(): void
+    public function test_pending_order_can_be_cancelled_and_edit_is_disabled(): void
     {
         $user = $this->makeCorporate(['balance' => 1000]);
         $menu = $this->makeMenuItem();
@@ -465,11 +465,10 @@ class CorporateMobileApiTest extends TestCase
         ]);
 
         $this->patchJson("/api/corporate/orders/{$order->id}", ['quantity' => 3])
-            ->assertOk()
-            ->assertJsonPath('order.quantity', 3)
-            ->assertJsonPath('order.total_amount', 1260);
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['order']);
 
-        $this->assertSame(3, $order->fresh()->quantity);
+        $this->assertSame(2, $order->fresh()->quantity);
 
         $this->deleteJson("/api/corporate/orders/{$order->id}")
             ->assertOk()
@@ -480,7 +479,7 @@ class CorporateMobileApiTest extends TestCase
         $this->assertSame(1420, $user->fresh()->balance);
     }
 
-    public function test_non_pending_order_cannot_be_edited(): void
+    public function test_order_edit_endpoint_is_disabled(): void
     {
         $user = $this->makeCorporate();
         $menu = $this->makeMenuItem();
@@ -494,14 +493,15 @@ class CorporateMobileApiTest extends TestCase
             'delivery_time' => '12:00 PM',
             'total_amount' => 420,
             'address' => 'Gulshan',
-            'order_status' => 'processing',
+            'order_status' => 'pending',
             'payment_status' => 'pending',
             'created_by' => $user->id,
             'updated_by' => $user->id,
         ]);
 
         $this->patchJson("/api/corporate/orders/{$order->id}", ['quantity' => 2])
-            ->assertUnprocessable();
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['order']);
     }
 
     public function test_wallet_top_up_increases_balance(): void
