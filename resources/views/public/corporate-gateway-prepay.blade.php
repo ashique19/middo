@@ -12,7 +12,8 @@
             {{ $is_wallet ? 'Add Middo Balance' : 'Middo Prepayment' }}
         </h1>
         <p class="text-sm text-gray-500">
-            {{ $is_wallet ? 'Wallet top-up' : 'Corporate order checkout' }} · {{ $driver }} gateway
+            {{ $is_wallet ? 'Wallet top-up' : 'Corporate order checkout' }}
+            · {{ $driver === 'eps' ? 'EPS' : $driver }} gateway
         </p>
 
         <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 space-y-2 text-sm">
@@ -40,6 +41,12 @@
             @endif
         </div>
 
+        @if(!empty($eps_message) && ! $paid)
+            <p class="text-sm font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                {{ $eps_message }}
+            </p>
+        @endif
+
         @if($paid)
             @if($is_wallet)
                 <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
@@ -60,15 +67,27 @@
                     or when you would exceed 3 active orders.
                 @endif
             </p>
-            <form method="POST" action="{{ URL::temporarySignedRoute('corporate.gateway-prepay.confirm', now()->addMinutes(30), ['token' => $token]) }}">
-                @csrf
-                <button type="submit" class="w-full bg-middo-orange text-white py-3.5 rounded-xl font-bold hover:opacity-90 transition">
-                    Pay ৳{{ number_format($amount) }} now
-                </button>
-            </form>
-            <p class="text-xs text-gray-400">
-                Pseudo gateway for development. Replace <code>PaymentGateway</code> binding with the real provider when finalized.
-            </p>
+            @if($driver === 'eps' && !empty($redirect_url))
+                <a href="{{ $redirect_url }}"
+                   class="block w-full text-center bg-middo-orange text-white py-3.5 rounded-xl font-bold hover:opacity-90 transition">
+                    Continue to EPS · ৳{{ number_format($amount) }}
+                </a>
+                <p class="text-xs text-gray-400">
+                    You will complete payment on EPS (Easy Payment System), then return here.
+                </p>
+            @else
+                <form method="POST" action="{{ URL::temporarySignedRoute('corporate.gateway-prepay.confirm', now()->addMinutes(45), ['token' => $token]) }}">
+                    @csrf
+                    <button type="submit" class="w-full bg-middo-orange text-white py-3.5 rounded-xl font-bold hover:opacity-90 transition">
+                        Pay ৳{{ number_format($amount) }} now
+                    </button>
+                </form>
+                @if($driver === 'pseudo')
+                    <p class="text-xs text-gray-400">
+                        Pseudo gateway for development and automated tests.
+                    </p>
+                @endif
+            @endif
         @endif
     </div>
 </body>

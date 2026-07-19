@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Contracts\PaymentGateway;
+use App\Models\User;
 use App\Support\CorporateWalletTopUp;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,8 +30,10 @@ class CorporateGatewayPrepayController extends Controller
             'driver' => $gateway->driver(),
             'purpose' => $purpose,
             'is_wallet' => $isWallet,
+            'redirect_url' => $payload['redirect_url'] ?? null,
+            'eps_message' => $request->query('eps_message'),
             'balance' => $isWallet && ($payload['credited'] ?? false)
-                ? (int) (\App\Models\User::query()->find((int) ($payload['user_id'] ?? 0))?->balance ?? 0)
+                ? (int) (User::query()->find((int) ($payload['user_id'] ?? 0))?->balance ?? 0)
                 : null,
         ]);
     }
@@ -42,8 +45,14 @@ class CorporateGatewayPrepayController extends Controller
         $payload = $gateway->find($token);
         abort_unless(is_array($payload), 404);
 
+        // Real drivers (EPS): send the customer to the hosted checkout instead of faking payment.
+        if ($gateway->driver() !== 'pseudo') {
+            $redirect = $payload['redirect_url'] ?? $gateway->paymentUrl($token);
+
+            return redirect()->away($redirect);
+        }
+
         if (! ($payload['paid'] ?? false)) {
-            // Pseudo driver: mark paid immediately. Real drivers will confirm via webhook/callback.
             $gateway->markPaid($token);
         }
 
@@ -55,7 +64,7 @@ class CorporateGatewayPrepayController extends Controller
         return redirect()->to(
             URL::temporarySignedRoute(
                 'corporate.gateway-prepay.show',
-                now()->addMinutes(30),
+                now()->addMinutes(45),
                 ['token' => $token]
             )
         );

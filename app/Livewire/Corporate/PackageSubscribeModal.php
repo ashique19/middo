@@ -305,7 +305,7 @@ class PackageSubscribeModal extends Component
         );
 
         $this->gatewayPaymentToken = $checkout['token'] ?? null;
-        $this->gatewayPaymentUrl = $checkout['url'] ?? null;
+        $this->gatewayPaymentUrl = $checkout['payment_url'] ?? null;
         $this->paymentMethod = 'gateway';
     }
 

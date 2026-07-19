@@ -9,7 +9,10 @@
 <body class="bg-gray-50 text-middo-dark font-sans min-h-screen flex items-center justify-center p-6">
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm max-w-md w-full p-6 space-y-4">
         <h1 class="text-2xl font-black text-middo-dark">Middo Payment</h1>
-        <p class="text-sm text-gray-500">Order #{{ $order->id }}</p>
+        <p class="text-sm text-gray-500">
+            Order #{{ $order->id }}
+            · {{ ($driver ?? 'pseudo') === 'eps' ? 'EPS' : ($driver ?? 'pseudo') }} gateway
+        </p>
 
         <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 space-y-2 text-sm">
             <div class="flex justify-between gap-3">
@@ -50,6 +53,12 @@
             </div>
         </div>
 
+        @if(session('payment_error'))
+            <p class="text-sm font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                {{ session('payment_error') }}
+            </p>
+        @endif
+
         @if($order->isPaid() || $amountDue <= 0)
             <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
                 This order is already paid. Thank you!
@@ -61,10 +70,20 @@
             <form method="POST" action="{{ URL::temporarySignedRoute('public.order-payment.confirm', now()->addDays(3), ['order' => $order->id]) }}">
                 @csrf
                 <button type="submit" class="w-full bg-middo-orange text-white py-3.5 rounded-xl font-bold hover:opacity-90 transition">
-                    Pay ৳{{ number_format($amountDue) }} now
+                    @if(($driver ?? 'pseudo') === 'eps')
+                        Pay ৳{{ number_format($amountDue) }} with EPS
+                    @else
+                        Pay ৳{{ number_format($amountDue) }} now
+                    @endif
                 </button>
             </form>
-            <p class="text-xs text-gray-400">Pseudo checkout — replace with the real payment gateway when finalized.</p>
+            <p class="text-xs text-gray-400">
+                @if(($driver ?? 'pseudo') === 'eps')
+                    You will be redirected to EPS (Easy Payment System) to complete payment securely.
+                @else
+                    Pseudo checkout for development and automated tests.
+                @endif
+            </p>
         @endif
     </div>
 </body>
