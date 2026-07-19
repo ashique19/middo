@@ -30,6 +30,9 @@ class OrdersExcelExport
                 'Receiver',
                 'Receiver Mobile',
                 'Menu',
+                'Source',
+                'Package',
+                'Subscription #',
                 'Qty',
                 'Address',
                 'Status',
@@ -46,8 +49,9 @@ class OrdersExcelExport
                     continue;
                 }
 
-                $order->loadMissing(['menuItem', 'user', 'orderGroup']);
+                $order->loadMissing(['menuItem', 'user', 'orderGroup', 'packageSubscription.package']);
                 $party = $order->partyPayload();
+                $package = PackageOrderPresenter::fields($order);
 
                 fputcsv($out, [
                     $order->id,
@@ -57,6 +61,9 @@ class OrdersExcelExport
                     $party['receiver_name'],
                     $party['receiver_mobile'],
                     $order->menuItem?->name ?? 'Custom Selection',
+                    $package['is_package'] ? 'Package' : 'A la carte',
+                    $package['package_name'] ?? '',
+                    $package['package_subscription_id'] ?? '',
                     $order->quantity,
                     $order->address,
                     $order->order_status,

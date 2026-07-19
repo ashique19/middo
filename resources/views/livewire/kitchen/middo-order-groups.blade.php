@@ -26,6 +26,11 @@
             <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-inherit bg-white/40">
                 <span class="text-sm font-black text-middo-dark">{{ $group['name'] }}</span>
                 <span class="text-xs font-semibold text-gray-600">{{ $group['menu_name'] }}</span>
+                @if(($group['package_source'] ?? null) === 'package')
+                    <x-package-badge />
+                @elseif(($group['package_source'] ?? null) === 'mixed')
+                    <x-package-badge label="Mixed" title="Includes package and à la carte orders" />
+                @endif
                 <span class="text-xs font-medium text-gray-500">{{ $group['date_label'] }}</span>
                 <span class="text-xs font-bold text-middo-orange">Qty {{ $group['total_quantity'] }}</span>
                 <span class="text-xs text-gray-500">{{ count($group['orders']) }} order(s)</span>
@@ -51,7 +56,12 @@
                             class="flex items-center gap-3 px-4 py-3 hover:bg-white/60 transition">
                             <span class="shrink-0 w-6 text-center text-gray-400 font-mono text-xs select-none">└</span>
                             <div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 text-sm">
-                                <span class="font-mono font-bold text-middo-dark">#{{ $order['id'] }}</span>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-mono font-bold text-middo-dark">#{{ $order['id'] }}</span>
+                                    @if(!empty($order['is_package']))
+                                        <x-package-badge :title="$order['package_name'] ?? 'Meal package'" />
+                                    @endif
+                                </div>
                                 <span class="font-medium truncate">{{ $order['customer_name'] }}</span>
                                 <span class="truncate text-gray-700">{{ $order['menu_name'] }}</span>
                                 <span class="text-gray-500">

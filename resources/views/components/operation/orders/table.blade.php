@@ -41,7 +41,14 @@
                         $groupName = $order['order_group']['name'] ?? ($order['group_name'] ?? '—');
                     @endphp
                     <tr wire:key="operation-order-row-{{ $order['id'] }}" class="hover:bg-gray-50/70 transition">
-                        <td class="p-4 font-mono font-semibold text-gray-800">#{{ $order['id'] }}</td>
+                        <td class="p-4 font-mono font-semibold text-gray-800">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span>#{{ $order['id'] }}</span>
+                                @if(!empty($order['is_package']) || !empty($order['package_subscription_id']))
+                                    <x-package-badge :title="$order['package_name'] ?? 'Meal package'" />
+                                @endif
+                            </div>
+                        </td>
                         @if($showGroup)
                             <td class="p-4 text-xs font-semibold text-middo-orange">
                                 {{ $groupName }}

@@ -1,7 +1,7 @@
 <div class="block w-full max-w-6xl mx-auto py-8 px-4 sm:px-6">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-            <a href="{{ $canManage ? route('admin.packages.index') : route('operation.packages.index') }}"
+            <a href="{{ $this->indexRoute() }}"
                class="text-xs font-bold text-middo-orange hover:underline">← Back to packages</a>
             <h1 class="text-3xl font-bold text-gray-800 mt-1">
                 {{ $packageId ? ($canManage ? 'Edit Package' : 'View Package') : 'Create Package' }}
@@ -79,14 +79,25 @@
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">Status</label>
-                        <select wire:model="status" @disabled(! $canManage)
+                        <select wire:model="status" @disabled(! $canPublish)
                                 class="w-full rounded-xl border-gray-200 text-sm focus:ring-middo-orange focus:border-middo-orange">
                             <option value="draft">Draft</option>
-                            <option value="published">Published</option>
-                            <option value="archived">Archived</option>
+                            @if($canPublish)
+                                <option value="published">Published</option>
+                                <option value="archived">Archived</option>
+                            @endif
                         </select>
+                        @unless($canPublish)
+                            <p class="text-[11px] text-gray-400 mt-1">Only admins can publish.</p>
+                        @endunless
                     </div>
                 </div>
+
+                @if($daysSoftLocked)
+                    <div class="rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-xs px-3 py-2 font-semibold">
+                        Active subscriptions soft-lock existing day menus. You can still fill empty days; use subscription day swap to change sold days.
+                    </div>
+                @endif
 
                 @if($canManage)
                     <div>

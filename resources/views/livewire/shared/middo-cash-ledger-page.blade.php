@@ -1,9 +1,15 @@
 <div class="max-w-7xl mx-auto py-10 px-6 space-y-6">
-    <div class="space-y-1">
-        <h1 class="text-3xl font-bold text-middo-dark">Middo cash ledger</h1>
-        <p class="text-sm font-semibold text-gray-500">
-            System cash balance: <span class="text-middo-dark font-black">৳{{ number_format($balance) }}</span>
-        </p>
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="space-y-1">
+            <h1 class="text-3xl font-bold text-middo-dark">Middo cash ledger</h1>
+            <p class="text-sm font-semibold text-gray-500">
+                System cash balance: <span class="text-middo-dark font-black">৳{{ number_format($balance) }}</span>
+            </p>
+        </div>
+        <select wire:model.live="entryFilter" class="text-sm border border-gray-200 rounded-xl px-3 py-2 font-semibold text-gray-700">
+            <option value="all">All entries</option>
+            <option value="package">Package-related</option>
+        </select>
     </div>
 
     <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">

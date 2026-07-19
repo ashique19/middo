@@ -5,6 +5,7 @@ namespace App\Livewire\Operation;
 use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Order;
 use App\Support\OrdersExcelExport;
+use App\Support\PackageOrderPresenter;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -16,8 +17,20 @@ class SearchOrder extends Component
 
     public array $orders = [];
 
+    /** all|package|alacarte */
+    public string $packageFilter = 'all';
+
     public function updatedSearch(): void
     {
+        $this->searchOrders();
+    }
+
+    public function updatedPackageFilter(): void
+    {
+        if (! in_array($this->packageFilter, ['all', 'package', 'alacarte'], true)) {
+            $this->packageFilter = 'all';
+        }
+
         $this->searchOrders();
     }
 
@@ -36,7 +49,7 @@ class SearchOrder extends Component
             return;
         }
 
-        $this->orders = Order::with(['menuItem', 'user'])
+        $this->orders = Order::with(['menuItem', 'user', 'packageSubscription.package'])
             ->where(function ($query) use ($term) {
                 if (is_numeric($term)) {
                     $query->where('id', $term);
@@ -53,6 +66,8 @@ class SearchOrder extends Component
                         $menuQuery->where('name', 'like', "%{$term}%");
                     });
             })
+            ->when($this->packageFilter === 'package', fn ($q) => $q->whereNotNull('package_subscription_id'))
+            ->when($this->packageFilter === 'alacarte', fn ($q) => $q->whereNull('package_subscription_id'))
             ->orderByDesc('delivery_date')
             ->orderByDesc('delivery_time')
             ->limit(50)
@@ -66,7 +81,7 @@ class SearchOrder extends Component
                 $row['has_separate_receiver'] = $party['has_separate_receiver'];
                 $row['account_holder_name'] = $party['account_holder_name'];
 
-                return $row;
+                return array_merge($row, PackageOrderPresenter::fields($order));
             })
             ->all();
     }
