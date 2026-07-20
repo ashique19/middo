@@ -15,6 +15,7 @@ use App\Livewire\Shared\OrderShow;
 use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
 use App\Livewire\Shared\PackageInsights;
+use App\Livewire\Shared\StaffProfileShow;
 use App\Livewire\Shared\SubscriptionShow;
 use Illuminate\Support\Facades\Route;
 
@@ -25,6 +26,8 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/kitchens/active', Kitchens::class)->name('admin.kitchens.active');
     Route::get('/kitchens/onboarding', KitchenOnboarding::class)->name('admin.kitchens.onboarding');
     Route::get('/kitchens/{kitchen}/orders', KitchenAllOrders::class)->name('admin.kitchens.orders');
+    Route::get('/kitchens/{kitchen}', StaffProfileShow::class)->name('admin.kitchens.show');
+    Route::get('/deliveries/{delivery}', StaffProfileShow::class)->name('admin.deliveries.show');
     Route::redirect('/kitchens', '/admin/kitchens/active')->name('admin.kitchens.index');
 
     Route::get('/menu', fn () => view('admin.menu.page'))->name('admin.menu.index');

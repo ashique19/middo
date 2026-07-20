@@ -69,9 +69,14 @@
         <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
             <div class="flex items-center justify-between gap-2">
                 <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400">Kitchen</h2>
-                @if($this->kitchenOrdersRoute())
-                    <a href="{{ $this->kitchenOrdersRoute() }}" class="text-xs font-bold text-middo-orange hover:underline">Kitchen orders →</a>
-                @endif
+                <div class="flex items-center gap-3">
+                    @if($this->kitchenShowRoute())
+                        <a href="{{ $this->kitchenShowRoute() }}" class="text-xs font-bold text-middo-orange hover:underline">Profile →</a>
+                    @endif
+                    @if($this->kitchenOrdersRoute())
+                        <a href="{{ $this->kitchenOrdersRoute() }}" class="text-xs font-bold text-gray-500 hover:text-middo-orange hover:underline">Orders →</a>
+                    @endif
+                </div>
             </div>
             @if($kitchen)
                 <p class="text-lg font-black text-middo-dark">{{ $kitchen->name ?: trim($kitchen->first_name.' '.$kitchen->last_name) }}</p>
@@ -107,7 +112,12 @@
 
         {{-- Delivery --}}
         <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
-            <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400">Delivery</h2>
+            <div class="flex items-center justify-between gap-2">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400">Delivery</h2>
+                @if($this->deliveryShowRoute())
+                    <a href="{{ $this->deliveryShowRoute() }}" class="text-xs font-bold text-middo-orange hover:underline">Profile →</a>
+                @endif
+            </div>
             @if($rider)
                 <p class="text-lg font-black text-middo-dark">{{ $rider->name ?: trim($rider->first_name.' '.$rider->last_name) }}</p>
                 <dl class="space-y-2 text-sm">

@@ -118,7 +118,23 @@ class OrderShowTest extends TestCase
             ->assertSee('Rider Ali')
             ->assertSee('Banani Road 11')
             ->assertSee('Tracking log')
-            ->assertSee('Status Updated');
+            ->assertSee('Status Updated')
+            ->assertSee('Profile →')
+            ->assertSee(route('operation.kitchens.show', $kitchen), false)
+            ->assertSee(route('operation.deliveries.show', $rider), false);
+
+        $this->actingAs($ops)
+            ->get(route('operation.kitchens.show', $kitchen))
+            ->assertOk()
+            ->assertSee('Chef One')
+            ->assertSee('kitchen profile')
+            ->assertSee('Profile details');
+
+        $this->actingAs($ops)
+            ->get(route('operation.deliveries.show', $rider))
+            ->assertOk()
+            ->assertSee('Rider Ali')
+            ->assertSee('delivery profile');
 
         Livewire::actingAs($ops)
             ->test(OrderShow::class, ['order' => $order])
@@ -129,7 +145,9 @@ class OrderShowTest extends TestCase
             ->get(route('admin.orders.show', $order))
             ->assertOk()
             ->assertSee('Acme Foods')
-            ->assertSee('Rider Ali');
+            ->assertSee('Rider Ali')
+            ->assertSee(route('admin.kitchens.show', $kitchen), false)
+            ->assertSee(route('admin.deliveries.show', $rider), false);
     }
 
     public function test_corporate_cannot_open_staff_order_show(): void

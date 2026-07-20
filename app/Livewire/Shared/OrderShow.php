@@ -24,7 +24,7 @@ class OrderShow extends Component
             'user.area',
             'menuItem',
             'area.city',
-            'orderGroup.kitchen',
+            'orderGroup.kitchen.role',
             'orderGroup.menuItem',
             'deliveryRider.role',
             'packageSubscription.package',
@@ -66,6 +66,30 @@ class OrderShow extends Component
         }
 
         return route($this->rolePrefix().'.kitchens.orders', $kitchen);
+    }
+
+    public function kitchenShowRoute(): ?string
+    {
+        $kitchen = $this->order->orderGroup?->kitchen;
+        if (! $kitchen || $kitchen->role?->name !== 'kitchen') {
+            return null;
+        }
+
+        $name = $this->rolePrefix().'.kitchens.show';
+
+        return Route::has($name) ? route($name, $kitchen) : null;
+    }
+
+    public function deliveryShowRoute(): ?string
+    {
+        $rider = $this->order->deliveryRider;
+        if (! $rider || $rider->role?->name !== 'delivery') {
+            return null;
+        }
+
+        $name = $this->rolePrefix().'.deliveries.show';
+
+        return Route::has($name) ? route($name, $rider) : null;
     }
 
     public function subscriptionShowRoute(): ?string
