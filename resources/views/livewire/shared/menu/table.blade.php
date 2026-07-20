@@ -1,9 +1,10 @@
-<div class="block w-full max-w-6xl mx-auto py-8 px-4 sm:px-6">
-    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+<div class="block w-full max-w-6xl mx-auto py-8 px-4 sm:px-6 space-y-6">
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
-            <h1 class="text-3xl font-bold text-gray-800">Menu{{ $canManage ? ' Management' : '' }}</h1>
+            <h1 class="text-3xl font-bold text-middo-dark">Menu items</h1>
             <p class="text-sm text-gray-500 mt-1">
-                {{ $canManage ? 'Create and edit menus, pricing, costs, and meal attachments.' : 'View menus, costs, and attached meal items (read-only).' }}
+                Menus → meal items → recipes → ingredients.
+                {{ $canManage ? 'Create menus and attach meal components.' : 'Browse the menu hierarchy (read-only).' }}
             </p>
         </div>
         <div class="flex items-center gap-3 self-end md:self-auto">
@@ -26,17 +27,15 @@
         </div>
     </div>
 
-    <div class="bg-white shadow-md border border-gray-100 rounded-2xl overflow-hidden mb-4">
+    <div class="bg-white shadow-sm border border-gray-100 rounded-2xl overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse min-w-[960px]">
+            <table class="w-full text-left border-collapse min-w-[820px]">
                 <thead>
                     <tr class="bg-gray-50 border-b border-gray-100 text-xs font-semibold uppercase tracking-wider text-gray-500">
                         <th class="p-4 w-20">Image</th>
-                        <th class="p-4">Item Details</th>
+                        <th class="p-4">Menu</th>
                         <th class="p-4">Price</th>
-                        <th class="p-4">Meals Cost</th>
-                        <th class="p-4">Other Cost</th>
-                        <th class="p-4 text-center">Meals</th>
+                        <th class="p-4 text-center">Meal items</th>
                         <th class="p-4 text-center">Flags</th>
                         <th class="p-4 text-right">Actions</th>
                     </tr>
@@ -52,15 +51,29 @@
                                 @endif
                             </td>
                             <td class="p-4">
-                                <div class="font-semibold text-gray-800">{{ $item->name }}</div>
+                                <a href="{{ $this->showRoute($item) }}" class="font-semibold text-middo-dark hover:text-middo-orange transition">
+                                    {{ $item->name }}
+                                </a>
+                                <div class="text-[11px] font-semibold text-middo-orange mt-0.5">
+                                    <a href="{{ $this->showRoute($item) }}" class="hover:underline">Meal items →</a>
+                                </div>
                                 @if($item->summary)
-                                    <div class="text-xs text-gray-400 max-w-xs truncate">{{ $item->summary }}</div>
+                                    <div class="text-xs text-gray-400 max-w-xs truncate mt-0.5">{{ $item->summary }}</div>
                                 @endif
                             </td>
-                            <td class="p-4 font-medium">৳{{ number_format($item->price) }}</td>
-                            <td class="p-4 text-gray-700">৳{{ number_format($item->meals_cost) }}</td>
-                            <td class="p-4 text-gray-700">৳{{ number_format($item->other_cost) }}</td>
-                            <td class="p-4 text-center font-bold text-middo-orange">{{ $item->meal_items_count }}</td>
+                            <td class="p-4">
+                                <div class="font-semibold text-gray-800">৳{{ number_format($item->price) }}</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5">
+                                    Meals ৳{{ number_format($item->meals_cost) }}
+                                    · Other ৳{{ number_format($item->other_cost) }}
+                                </div>
+                            </td>
+                            <td class="p-4 text-center">
+                                <a href="{{ $this->showRoute($item) }}"
+                                   class="inline-flex min-w-[2.5rem] justify-center px-2.5 py-1 rounded-lg text-sm font-bold text-middo-orange hover:bg-orange-50 transition">
+                                    {{ $item->meal_items_count }}
+                                </a>
+                            </td>
                             <td class="p-4 text-center">
                                 <div class="flex items-center justify-center gap-2">
                                     @if($canManage)
@@ -73,18 +86,27 @@
                                             Home
                                         </button>
                                     @else
-                                        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase {{ $item->is_featured ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-50 text-gray-400' }}">Featured</span>
-                                        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase {{ $item->is_homepage ? 'bg-blue-100 text-blue-800' : 'bg-gray-50 text-gray-400' }}">Home</span>
+                                        @if($item->is_featured)
+                                            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase bg-emerald-100 text-emerald-800">Featured</span>
+                                        @endif
+                                        @if($item->is_homepage)
+                                            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase bg-blue-100 text-blue-800">Home</span>
+                                        @endif
+                                        @if(! $item->is_featured && ! $item->is_homepage)
+                                            <span class="text-xs text-gray-400">—</span>
+                                        @endif
                                     @endif
                                 </div>
                             </td>
                             <td class="p-4 text-right">
                                 <div class="inline-flex items-center gap-2">
-                                    <button type="button"
-                                        wire:click="$dispatch('open-attach-meal-items-modal', { menuItemId: {{ $item->id }} })"
-                                        class="inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white hover:border-middo-orange hover:text-middo-orange transition">
-                                        Meal Items
-                                    </button>
+                                    @if($canManage)
+                                        <button type="button"
+                                            wire:click="$dispatch('open-attach-meal-items-modal', { menuItemId: {{ $item->id }} })"
+                                            class="inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-white hover:border-middo-orange hover:text-middo-orange transition">
+                                            Attach
+                                        </button>
+                                    @endif
                                     <button type="button"
                                         wire:click="$dispatch('editMenuItem', { id: {{ $item->id }} })"
                                         class="inline-flex px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 bg-gray-100 hover:bg-middo-orange hover:text-white transition">
@@ -104,7 +126,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="p-12 text-center text-gray-400">No menu items found.</td>
+                            <td colspan="6" class="p-12 text-center text-gray-400">No menu items found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -112,7 +134,7 @@
         </div>
     </div>
 
-    <div class="mt-4 px-1">{{ $items->links() }}</div>
+    <div class="px-1">{{ $items->links() }}</div>
 
     <livewire:shared.menu-edit-modal />
     <livewire:shared.attach-meal-items-modal />

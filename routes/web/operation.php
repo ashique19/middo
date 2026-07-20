@@ -10,12 +10,14 @@ use App\Livewire\Operation\OrderHistory;
 use App\Livewire\Operation\SearchOrder;
 use App\Livewire\Shared\CorporateShow;
 use App\Livewire\Shared\CorporateTable;
+use App\Livewire\Shared\MealItemShow;
 use App\Livewire\Shared\MenuShow;
 use App\Livewire\Shared\MiddoCashLedgerPage;
 use App\Livewire\Shared\OrderShow;
 use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
 use App\Livewire\Shared\PackageInsights;
+use App\Livewire\Shared\RecipeShow;
 use App\Livewire\Shared\StaffProfileShow;
 use App\Livewire\Shared\SubscriptionShow;
 use Illuminate\Support\Facades\Route;
@@ -38,6 +40,8 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/meal-items', function () {
         return view('operation.meal-items.page');
     })->name('operation.meal-items.index');
+    Route::get('/meal-items/{mealItem}', MealItemShow::class)->name('operation.meal-items.show');
+    Route::get('/recipes/{recipe}', RecipeShow::class)->name('operation.recipes.show');
 
     Route::get('/packages', fn () => view('operation.packages.page'))->name('operation.packages.index');
     Route::get('/packages/create', PackageBuilder::class)->name('operation.packages.create');

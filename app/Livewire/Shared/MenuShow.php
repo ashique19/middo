@@ -29,6 +29,11 @@ class MenuShow extends Component
         return route($this->rolePrefix().'.menu.index');
     }
 
+    public function mealItemShowRoute(int $mealItemId): string
+    {
+        return route($this->rolePrefix().'.meal-items.show', $mealItemId);
+    }
+
     public function render()
     {
         $item = $this->menuItem;
@@ -39,6 +44,7 @@ class MenuShow extends Component
         return view('livewire.shared.menu.show', [
             'item' => $item,
             'kitchenCommissionPct' => $kitchenCommissionPct,
+            'canManage' => Auth::user()?->role?->name === 'admin',
         ])->layout('layouts.private.app', [
             'title' => $item->name.' · Menu',
         ]);

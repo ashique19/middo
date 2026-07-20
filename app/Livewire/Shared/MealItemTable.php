@@ -43,6 +43,25 @@ class MealItemTable extends Component
     {
     }
 
+    protected function rolePrefix(): string
+    {
+        return Auth::user()?->role?->name === 'admin' ? 'admin' : 'operation';
+    }
+
+    public function showRoute(MealItem $item): string
+    {
+        return route($this->rolePrefix().'.meal-items.show', $item);
+    }
+
+    public function recipeShowRoute(?int $recipeId): ?string
+    {
+        if (! $recipeId) {
+            return null;
+        }
+
+        return route($this->rolePrefix().'.recipes.show', $recipeId);
+    }
+
     public function render()
     {
         $items = MealItem::query()

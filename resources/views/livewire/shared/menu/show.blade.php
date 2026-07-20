@@ -1,6 +1,11 @@
 <div class="max-w-5xl mx-auto py-8 px-4 sm:px-6 space-y-6">
     <div class="space-y-2">
-        <a href="{{ $this->indexRoute() }}" class="text-sm font-semibold text-middo-orange hover:underline">← Menu</a>
+        <nav class="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-400">
+            <a href="{{ $this->indexRoute() }}" class="text-middo-orange hover:underline">Menu items</a>
+            <span>/</span>
+            <span class="text-gray-600">{{ $item->name }}</span>
+        </nav>
+
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="flex items-start gap-4 min-w-0">
                 @if($item->thumbnail)
@@ -12,6 +17,7 @@
                     </div>
                 @endif
                 <div class="min-w-0">
+                    <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Menu item</p>
                     <h1 class="text-3xl font-bold text-middo-dark truncate">{{ $item->name }}</h1>
                     @if($item->summary)
                         <p class="text-sm text-gray-500 mt-1">{{ $item->summary }}</p>
@@ -68,19 +74,36 @@
     </div>
 
     <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-        <div class="px-5 py-4 border-b border-gray-100">
-            <h2 class="text-lg font-bold text-middo-dark">Meal items</h2>
+        <div class="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Meal items</h2>
+                <p class="text-xs font-semibold text-gray-400 mt-0.5">Open a meal item to view its recipes</p>
+            </div>
+            @if($canManage)
+                <button type="button"
+                    wire:click="$dispatch('open-attach-meal-items-modal', { menuItemId: {{ $item->id }} })"
+                    class="inline-flex px-3 py-1.5 rounded-xl text-xs font-bold border border-gray-200 text-middo-dark hover:border-middo-orange hover:text-middo-orange transition">
+                    Manage meal items
+                </button>
+            @endif
         </div>
         <ul class="divide-y divide-gray-100">
             @forelse($item->mealItems as $meal)
-                <li class="px-5 py-3.5 flex items-center justify-between gap-3 text-sm">
+                <li class="px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-sm">
                     <div class="min-w-0">
-                        <p class="font-bold text-middo-dark truncate">{{ $meal->name }}</p>
+                        <a href="{{ $this->mealItemShowRoute($meal->id) }}"
+                           class="font-bold text-middo-dark hover:text-middo-orange transition truncate block">
+                            {{ $meal->name }}
+                        </a>
                         <p class="text-[11px] font-semibold text-gray-400 mt-0.5">
                             Sort {{ $meal->pivot->sort_order ?? '—' }}
+                            · ৳{{ number_format((int) $meal->total_cost) }}
                         </p>
                     </div>
-                    <p class="font-mono font-bold text-gray-800 shrink-0">৳{{ number_format((int) $meal->total_cost) }}</p>
+                    <a href="{{ $this->mealItemShowRoute($meal->id) }}"
+                       class="shrink-0 text-xs font-bold text-middo-orange hover:underline">
+                        Recipes →
+                    </a>
                 </li>
             @empty
                 <li class="px-5 py-10 text-center text-sm font-semibold text-gray-400 italic">
@@ -89,4 +112,8 @@
             @endforelse
         </ul>
     </div>
+
+    @if($canManage)
+        <livewire:shared.attach-meal-items-modal />
+    @endif
 </div>

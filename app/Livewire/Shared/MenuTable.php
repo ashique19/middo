@@ -63,6 +63,16 @@ class MenuTable extends Component
         abort_unless($this->canManage, 403);
     }
 
+    protected function rolePrefix(): string
+    {
+        return Auth::user()?->role?->name === 'admin' ? 'admin' : 'operation';
+    }
+
+    public function showRoute(MenuItem $item): string
+    {
+        return route($this->rolePrefix().'.menu.show', $item);
+    }
+
     public function render()
     {
         $items = MenuItem::query()

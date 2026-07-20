@@ -1,9 +1,10 @@
-<div class="block w-full max-w-6xl mx-auto py-8 px-4 sm:px-6">
-    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+<div class="block w-full max-w-6xl mx-auto py-8 px-4 sm:px-6 space-y-6">
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
-            <h1 class="text-3xl font-bold text-gray-800">Meal Items</h1>
+            <h1 class="text-3xl font-bold text-middo-dark">Meal items</h1>
             <p class="text-sm text-gray-500 mt-1">
-                {{ $canManage ? 'Shared meal components, recipes, and kitchen costs.' : 'Browse meal items and active recipes (read-only).' }}
+                Meal items → recipes → ingredients.
+                {{ $canManage ? 'Manage shared meal components and kitchen recipes.' : 'Browse meal items and recipes (read-only).' }}
             </p>
         </div>
         <div class="flex items-center gap-3">
@@ -20,18 +21,16 @@
         </div>
     </div>
 
-    <div class="bg-white shadow-md border border-gray-100 rounded-2xl overflow-hidden">
+    <div class="bg-white shadow-sm border border-gray-100 rounded-2xl overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left min-w-[900px]">
+            <table class="w-full text-left min-w-[780px]">
                 <thead>
                     <tr class="bg-gray-50 border-b text-xs font-semibold uppercase tracking-wider text-gray-500">
                         <th class="p-4 w-20">Image</th>
-                        <th class="p-4">Name</th>
-                        <th class="p-4">Active Recipe</th>
-                        <th class="p-4 text-center">Menus</th>
-                        <th class="p-4">Ing. Cost</th>
-                        <th class="p-4">Other</th>
-                        <th class="p-4">Total</th>
+                        <th class="p-4">Meal item</th>
+                        <th class="p-4">Active recipe</th>
+                        <th class="p-4 text-center">Recipes</th>
+                        <th class="p-4">Cost</th>
                         <th class="p-4 text-right">Actions</th>
                     </tr>
                 </thead>
@@ -46,20 +45,53 @@
                                 @endif
                             </td>
                             <td class="p-4">
-                                <div class="font-semibold text-gray-800">{{ $item->name }}</div>
-                                @if($item->summary)<div class="text-xs text-gray-400 truncate max-w-xs">{{ $item->summary }}</div>@endif
+                                <a href="{{ $this->showRoute($item) }}" class="font-semibold text-middo-dark hover:text-middo-orange transition">
+                                    {{ $item->name }}
+                                </a>
+                                <div class="text-[11px] font-semibold text-middo-orange mt-0.5">
+                                    <a href="{{ $this->showRoute($item) }}" class="hover:underline">Recipes →</a>
+                                </div>
+                                @if($item->summary)
+                                    <div class="text-xs text-gray-400 truncate max-w-xs mt-0.5">{{ $item->summary }}</div>
+                                @endif
+                                <div class="text-[11px] text-gray-400 mt-0.5">
+                                    In {{ $item->menu_items_count }} menu{{ $item->menu_items_count === 1 ? '' : 's' }}
+                                </div>
                             </td>
-                            <td class="p-4 text-gray-700">{{ $item->activeRecipe?->title ?? '—' }}</td>
-                            <td class="p-4 text-center font-bold text-middo-orange">{{ $item->menu_items_count }}</td>
-                            <td class="p-4">৳{{ number_format($item->recipe_ingredient_cost) }}</td>
-                            <td class="p-4">৳{{ number_format($item->other_costs) }}</td>
-                            <td class="p-4 font-semibold">৳{{ number_format($item->total_cost) }}</td>
+                            <td class="p-4">
+                                @if($item->activeRecipe && $this->recipeShowRoute($item->activeRecipe->id))
+                                    <a href="{{ $this->recipeShowRoute($item->activeRecipe->id) }}"
+                                       class="font-medium text-gray-800 hover:text-middo-orange transition">
+                                        {{ $item->activeRecipe->title }}
+                                    </a>
+                                    <div class="text-[11px] font-semibold text-middo-orange mt-0.5">
+                                        <a href="{{ $this->recipeShowRoute($item->activeRecipe->id) }}" class="hover:underline">Ingredients →</a>
+                                    </div>
+                                @else
+                                    <span class="text-gray-400">—</span>
+                                @endif
+                            </td>
+                            <td class="p-4 text-center">
+                                <a href="{{ $this->showRoute($item) }}"
+                                   class="inline-flex min-w-[2.5rem] justify-center px-2.5 py-1 rounded-lg text-sm font-bold text-middo-orange hover:bg-orange-50 transition">
+                                    {{ $item->recipes_count }}
+                                </a>
+                            </td>
+                            <td class="p-4">
+                                <div class="font-semibold text-gray-800">৳{{ number_format($item->total_cost) }}</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5">
+                                    Ing ৳{{ number_format($item->recipe_ingredient_cost) }}
+                                    · Other ৳{{ number_format($item->other_costs) }}
+                                </div>
+                            </td>
                             <td class="p-4 text-right">
                                 <div class="inline-flex gap-2">
-                                    <button type="button" wire:click="$dispatch('open-recipe-manager', { mealItemId: {{ $item->id }} })"
-                                        class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 hover:border-middo-orange hover:text-middo-orange">
-                                        {{ $canManage ? 'Recipes ('.$item->recipes_count.')' : 'Recipe' }}
-                                    </button>
+                                    @if($canManage)
+                                        <button type="button" wire:click="$dispatch('open-recipe-manager', { mealItemId: {{ $item->id }} })"
+                                            class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 hover:border-middo-orange hover:text-middo-orange">
+                                            Manage
+                                        </button>
+                                    @endif
                                     <button type="button" wire:click="$dispatch('editMealItem', { id: {{ $item->id }} })"
                                         class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 border border-gray-200 hover:bg-middo-orange hover:text-white">
                                         {{ $canManage ? 'Edit' : 'View' }}
@@ -74,14 +106,14 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="p-12 text-center text-gray-400">No meal items found.</td></tr>
+                        <tr><td colspan="6" class="p-12 text-center text-gray-400">No meal items found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </div>
 
-    <div class="mt-4">{{ $items->links() }}</div>
+    <div>{{ $items->links() }}</div>
 
     <livewire:shared.meal-item-edit-modal />
     <livewire:shared.recipe-manager-modal />
