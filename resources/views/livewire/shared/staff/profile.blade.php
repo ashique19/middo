@@ -23,8 +23,32 @@
                     'bg-yellow-100 text-yellow-800 border-yellow-200' => $staff->status === 'pending',
                     'bg-gray-100 text-gray-600 border-gray-200' => ! in_array($staff->status, ['active', 'pending'], true),
                 ])>
-                    {{ $staff->status }}
+                    {{ $staff->status === 'inactive' ? 'suspended' : $staff->status }}
                 </span>
+                @if($this->canManageKitchenStatus())
+                    <button type="button"
+                            wire:click="activate"
+                            wire:confirm="Activate {{ $staff->name }}? They will be able to log in."
+                            @disabled($staff->status === 'active')
+                            @class([
+                                'inline-flex px-3 py-1.5 rounded-xl text-xs font-bold transition',
+                                'bg-emerald-600 text-white hover:bg-emerald-700' => $staff->status !== 'active',
+                                'bg-emerald-100 text-emerald-400 cursor-not-allowed' => $staff->status === 'active',
+                            ])>
+                        Activate
+                    </button>
+                    <button type="button"
+                            wire:click="suspend"
+                            wire:confirm="Suspend {{ $staff->name }}? They will not be able to log in."
+                            @disabled($staff->status === 'inactive')
+                            @class([
+                                'inline-flex px-3 py-1.5 rounded-xl text-xs font-bold border transition',
+                                'border-red-200 text-red-600 hover:bg-red-50' => $staff->status !== 'inactive',
+                                'border-gray-200 text-gray-400 cursor-not-allowed' => $staff->status === 'inactive',
+                            ])>
+                        Suspend
+                    </button>
+                @endif
                 @if($this->kitchenOrdersRoute())
                     <a href="{{ $this->kitchenOrdersRoute() }}"
                        class="inline-flex px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-middo-dark hover:border-middo-orange hover:text-middo-orange transition">
@@ -34,6 +58,12 @@
             </div>
         </div>
     </div>
+
+    @if (session()->has('message'))
+        <div class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-4 py-3 rounded-xl text-sm font-semibold">
+            {{ session('message') }}
+        </div>
+    @endif
 
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">

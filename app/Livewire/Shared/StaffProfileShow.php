@@ -41,9 +41,15 @@ class StaffProfileShow extends Component
 
     public function backRoute(): string
     {
-        return $this->staffRole === 'kitchen'
-            ? route($this->rolePrefix().'.kitchens.'.($this->rolePrefix() === 'admin' ? 'active' : 'index'))
-            : route($this->rolePrefix().'.orders.active');
+        if ($this->staffRole !== 'kitchen') {
+            return route($this->rolePrefix().'.orders.active');
+        }
+
+        if ($this->rolePrefix() === 'admin' && $this->staff->status === 'pending') {
+            return route('admin.kitchens.onboarding');
+        }
+
+        return route($this->rolePrefix().'.kitchens.'.($this->rolePrefix() === 'admin' ? 'active' : 'index'));
     }
 
     public function kitchenOrdersRoute(): ?string
@@ -53,6 +59,32 @@ class StaffProfileShow extends Component
         }
 
         return route($this->rolePrefix().'.kitchens.orders', $this->staff);
+    }
+
+    public function canManageKitchenStatus(): bool
+    {
+        return $this->staffRole === 'kitchen'
+            && Auth::user()?->role?->name === 'admin';
+    }
+
+    public function activate(): void
+    {
+        abort_unless($this->canManageKitchenStatus(), 403);
+
+        $this->staff->update(['status' => 'active']);
+        $this->staff->refresh();
+
+        session()->flash('message', "{$this->staff->name} activated.");
+    }
+
+    public function suspend(): void
+    {
+        abort_unless($this->canManageKitchenStatus(), 403);
+
+        $this->staff->update(['status' => 'inactive']);
+        $this->staff->refresh();
+
+        session()->flash('message', "{$this->staff->name} suspended.");
     }
 
     /**

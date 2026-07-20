@@ -29,35 +29,45 @@
 
             <div wire:key="kitchen-section-{{ $section['key'] }}" class="border-b border-gray-100 last:border-b-0">
                 <div class="flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition">
-                    <button
-                        type="button"
-                        wire:click="toggleKitchen('{{ $section['key'] }}')"
-                        class="flex flex-1 items-center gap-4 min-w-0 text-left">
-                        <span class="flex-1 min-w-0 text-base font-black text-middo-dark truncate">
-                            {{ $section['name'] }}
-                        </span>
+                    <div class="flex flex-1 items-center gap-4 min-w-0">
+                        <div class="flex-1 min-w-0">
+                            <a href="{{ route($routePrefix.'.kitchens.show', $section['key']) }}"
+                               class="block text-base font-black text-middo-dark truncate hover:text-middo-orange transition">
+                                {{ $section['name'] }}
+                            </a>
+                            <a href="{{ route($routePrefix.'.kitchens.show', $section['key']) }}"
+                               class="text-[11px] font-semibold text-middo-orange hover:underline">
+                                View details →
+                            </a>
+                        </div>
 
-                        <span class="hidden sm:inline shrink-0 text-sm text-gray-500 whitespace-nowrap">
-                            <span class="font-semibold text-middo-orange">{{ $section['active_count'] }}</span>
-                            active · {{ $section['date_label'] }}
-                        </span>
+                        <button
+                            type="button"
+                            wire:click="toggleKitchen('{{ $section['key'] }}')"
+                            class="inline-flex items-center gap-3 shrink-0 text-left rounded-lg px-2 py-1 hover:bg-gray-100 transition"
+                            aria-label="Toggle kitchen orders">
+                            <span class="hidden sm:inline text-sm text-gray-500 whitespace-nowrap">
+                                <span class="font-semibold text-middo-orange">{{ $section['active_count'] }}</span>
+                                active · {{ $section['date_label'] }}
+                            </span>
 
-                        <span class="sm:hidden shrink-0 text-sm font-semibold text-middo-orange whitespace-nowrap">
-                            {{ $section['active_count'] }}
-                        </span>
+                            <span class="sm:hidden text-sm font-semibold text-middo-orange whitespace-nowrap">
+                                {{ $section['active_count'] }}
+                            </span>
 
-                        <svg
-                            @class([
-                                'w-5 h-5 text-gray-500 shrink-0 transition-transform',
-                                'rotate-180' => $isExpanded,
-                            ])
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                    </button>
+                            <svg
+                                @class([
+                                    'w-5 h-5 text-gray-500 shrink-0 transition-transform',
+                                    'rotate-180' => $isExpanded,
+                                ])
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                    </div>
 
                     <a
                         href="{{ route($routePrefix.'.kitchens.orders', $section['key']) }}"

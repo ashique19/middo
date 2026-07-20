@@ -37,9 +37,15 @@
                     @forelse($kitchens as $kitchen)
                         <tr wire:key="onboard-kitchen-{{ $kitchen->id }}" class="hover:bg-gray-50/70">
                             <td class="p-4">
-                                <div class="font-semibold text-gray-800">{{ $kitchen->name }}</div>
+                                <a href="{{ route('admin.kitchens.show', $kitchen) }}"
+                                   class="font-semibold text-gray-800 hover:text-middo-orange transition">
+                                    {{ $kitchen->name }}
+                                </a>
+                                <div class="text-[11px] font-semibold text-middo-orange mt-0.5">
+                                    <a href="{{ route('admin.kitchens.show', $kitchen) }}" class="hover:underline">View details →</a>
+                                </div>
                                 @if($kitchen->email)
-                                    <div class="text-xs text-gray-400">{{ $kitchen->email }}</div>
+                                    <div class="text-xs text-gray-400 mt-0.5">{{ $kitchen->email }}</div>
                                 @endif
                                 <span class="mt-1 inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-yellow-100 text-yellow-800">
                                     Pending
