@@ -91,7 +91,7 @@ class RecipeManagerModal extends Component
     public function startEdit(int $recipeId): void
     {
         $recipe = Recipe::with(['ingredients', 'photos'])->findOrFail($recipeId);
-        abort_unless($recipe->meal_item_id === $this->mealItemId, 404);
+        abort_unless((int) $recipe->meal_item_id === (int) $this->mealItemId, 404);
 
         $this->editing = true;
         $this->recipeId = $recipe->id;

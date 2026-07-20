@@ -18,6 +18,7 @@ class Recipe extends Model
     ];
 
     protected $casts = [
+        'meal_item_id' => 'integer',
         'is_active' => 'boolean',
     ];
 
