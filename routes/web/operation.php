@@ -9,6 +9,7 @@ use App\Livewire\Operation\MiddoBoxes;
 use App\Livewire\Operation\OrderHistory;
 use App\Livewire\Operation\SearchOrder;
 use App\Livewire\Shared\MiddoCashLedgerPage;
+use App\Livewire\Shared\OrderShow;
 use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
 use App\Livewire\Shared\PackageInsights;
@@ -40,6 +41,7 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/orders/active', ActiveOrders::class)->name('operation.orders.active');
     Route::get('/orders/history', OrderHistory::class)->name('operation.orders.history');
     Route::get('/orders/search', SearchOrder::class)->name('operation.orders.search');
+    Route::get('/orders/{order}', OrderShow::class)->name('operation.orders.show');
 
     Route::get('/middo-boxes', MiddoBoxes::class)->name('operation.middo-boxes.index');
     Route::get('/middo-boxes/{middoBox}/print', MiddoBoxPrintController::class)->name('operation.middo-boxes.print');

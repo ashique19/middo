@@ -44,6 +44,11 @@
                                     · {{ ucfirst($order['order_status']) }}
                                 </span>
                             </div>
+                            <a
+                                href="{{ \App\Support\StaffOrderRoutes::show($order['id']) }}"
+                                class="shrink-0 inline-flex items-center px-2.5 py-1 rounded-lg border border-gray-200 bg-white text-[11px] font-bold text-middo-dark hover:border-middo-orange hover:text-middo-orange transition">
+                                View
+                            </a>
                         </li>
                     @endforeach
                 </ul>

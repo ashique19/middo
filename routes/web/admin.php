@@ -9,6 +9,7 @@ use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\OrderHistory;
 use App\Livewire\Operation\SearchOrder;
 use App\Livewire\Shared\MiddoCashLedgerPage;
+use App\Livewire\Shared\OrderShow;
 use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
 use App\Livewire\Shared\PackageInsights;
@@ -37,6 +38,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/orders/active', ActiveOrders::class)->name('admin.orders.active');
     Route::get('/orders/history', OrderHistory::class)->name('admin.orders.history');
     Route::get('/orders/search', SearchOrder::class)->name('admin.orders.search');
+    Route::get('/orders/{order}', OrderShow::class)->name('admin.orders.show');
 
     Route::get('/navs-roles', [NavRoleController::class, 'index'])->name('admin.navrole.index');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('admin.middo-cash');
