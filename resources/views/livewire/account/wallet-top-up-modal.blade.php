@@ -46,7 +46,7 @@
                                 <input type="number" wire:model="amount" min="100" max="500000" step="1"
                                        class="w-full border border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none">
                                 @error('amount') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
-                                <p class="text-[11px] text-gray-400 font-medium mt-1.5">Paid via Middo’s temporary pseudo payment gateway (same as order prepay).</p>
+                                <p class="text-[11px] text-gray-400 font-medium mt-1.5">Paid via Middo’s online payment gateway (EPS — same as order prepay).</p>
                             </div>
 
                             <div class="flex flex-wrap gap-2">

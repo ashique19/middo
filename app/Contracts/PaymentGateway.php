@@ -3,8 +3,8 @@
 namespace App\Contracts;
 
 /**
- * Swap PseudoPaymentGateway for a real SSLCommerz/bKash driver later
- * by binding a different implementation in AppServiceProvider.
+ * Bound in AppServiceProvider. Default driver is EPS (eps.com.bd);
+ * use PAYMENT_GATEWAY_DRIVER=pseudo for local/test confirm-button checkout.
  */
 interface PaymentGateway
 {

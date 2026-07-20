@@ -29,12 +29,11 @@ class CorporateGatewayPrepay
      */
     public static function fingerprint(array $cartFingerprint): string
     {
-        /** @var \App\Support\Payments\PseudoPaymentGateway $gateway */
         $gateway = app(PaymentGateway::class);
 
         return method_exists($gateway, 'fingerprint')
             ? $gateway->fingerprint($cartFingerprint)
-            : hash('sha256', json_encode($cartFingerprint));
+            : hash('sha256', (string) json_encode($cartFingerprint));
     }
 
     public static function markPaid(string $token): bool

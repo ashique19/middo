@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Contracts\PaymentGateway;
 use App\Models\Order;
 use App\Observers\OrderObserver;
+use App\Support\Payments\EpsPaymentGateway;
 use App\Support\Payments\PseudoPaymentGateway;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -17,11 +18,11 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(PaymentGateway::class, function () {
-            // Swap this binding for a real SSLCommerz/bKash driver when ready.
-            $driver = config('payments.driver', 'pseudo');
+            $driver = config('payments.driver', 'eps');
 
             return match ($driver) {
-                default => new PseudoPaymentGateway,
+                'pseudo' => new PseudoPaymentGateway,
+                default => new EpsPaymentGateway,
             };
         });
     }

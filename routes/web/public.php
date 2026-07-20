@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\CorporateGatewayPrepayController;
 use App\Http\Controllers\DashboardRedirectController;
+use App\Http\Controllers\EpsPaymentCallbackController;
 use App\Http\Controllers\OrderPaymentController;
 use App\Http\Controllers\PublicViewController;
 use App\Models\Area;
@@ -69,3 +70,10 @@ Route::get('/pay/corporate-prepay/{token}', [CorporateGatewayPrepayController::c
     ->name('corporate.gateway-prepay.show');
 Route::post('/pay/corporate-prepay/{token}', [CorporateGatewayPrepayController::class, 'confirm'])
     ->name('corporate.gateway-prepay.confirm');
+
+Route::get('/pay/eps/success/{token}', [EpsPaymentCallbackController::class, 'success'])
+    ->name('payments.eps.success');
+Route::get('/pay/eps/fail/{token}', [EpsPaymentCallbackController::class, 'fail'])
+    ->name('payments.eps.fail');
+Route::get('/pay/eps/cancel/{token}', [EpsPaymentCallbackController::class, 'cancel'])
+    ->name('payments.eps.cancel');

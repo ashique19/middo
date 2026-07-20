@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Wallet top-ups reuse the same PseudoPaymentGateway checkout as order prepay.
- * Payment is credited when the hosted checkout marks the session paid.
+ * Wallet top-ups reuse the same PaymentGateway checkout as order prepay.
+ * Payment is credited when the hosted checkout (EPS or pseudo) marks the session paid.
  */
 class CorporateWalletTopUp
 {
