@@ -67,7 +67,7 @@ class NavSeeder extends Seeder
         Nav::create(['title' => 'Admins', 'route_name' => 'admin.users.admin', 'order' => 1, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
         Nav::create(['title' => 'Operations', 'route_name' => 'admin.users.operation', 'order' => 2, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
         Nav::create(['title' => 'Kitchens', 'route_name' => 'admin.users.kitchen', 'order' => 3, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
-        Nav::create(['title' => 'Corporates', 'route_name' => 'admin.users.corporate', 'order' => 4, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
+        Nav::create(['title' => 'Corporates', 'route_name' => 'admin.corporates.index', 'order' => 4, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
         Nav::create(['title' => 'Delivery', 'route_name' => 'admin.users.delivery', 'order' => 5, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
 
         Nav::create([
@@ -80,13 +80,14 @@ class NavSeeder extends Seeder
 
         // ── Operation ────────────────────────────────────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'operation.dashboard', 'order' => 1, 'role_id' => $operationId]);
-        Nav::create(['title' => 'Kitchens', 'route_name' => 'operation.kitchens.index', 'order' => 2, 'role_id' => $operationId, 'icon' => '👨‍🍳']);
+        Nav::create(['title' => 'Corporates', 'route_name' => 'operation.corporates.index', 'order' => 2, 'role_id' => $operationId, 'icon' => '🏢']);
+        Nav::create(['title' => 'Kitchens', 'route_name' => 'operation.kitchens.index', 'order' => 3, 'role_id' => $operationId, 'icon' => '👨‍🍳']);
 
         $menuNav = Nav::create([
             'title' => 'Menu',
             'route_name' => null,
             'icon' => '🍽️',
-            'order' => 3,
+            'order' => 4,
             'role_id' => $operationId,
         ]);
         Nav::create(['title' => 'Menu items', 'route_name' => 'operation.menu.index', 'order' => 1, 'role_id' => $operationId, 'parent_id' => $menuNav->id]);
@@ -100,7 +101,7 @@ class NavSeeder extends Seeder
             'title' => 'Orders',
             'route_name' => null,
             'icon' => '📦',
-            'order' => 4,
+            'order' => 5,
             'role_id' => $operationId,
         ]);
         Nav::create(['title' => 'Active orders', 'route_name' => 'operation.orders.active', 'order' => 1, 'role_id' => $operationId, 'parent_id' => $ordersNav->id]);
@@ -111,7 +112,7 @@ class NavSeeder extends Seeder
             'title' => 'Middo Boxes',
             'route_name' => 'operation.middo-boxes.index',
             'icon' => '📦',
-            'order' => 5,
+            'order' => 6,
             'role_id' => $operationId,
         ]);
 

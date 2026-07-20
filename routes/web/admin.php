@@ -8,6 +8,8 @@ use App\Livewire\Operation\KitchenAllOrders;
 use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\OrderHistory;
 use App\Livewire\Operation\SearchOrder;
+use App\Livewire\Shared\CorporateShow;
+use App\Livewire\Shared\CorporateTable;
 use App\Livewire\Shared\MiddoCashLedgerPage;
 use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
@@ -41,11 +43,15 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/navs-roles', [NavRoleController::class, 'index'])->name('admin.navrole.index');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('admin.middo-cash');
 
+    Route::get('/corporates', CorporateTable::class)->name('admin.corporates.index');
+    Route::get('/corporates/{corporate}', CorporateShow::class)->name('admin.corporates.show');
+
     // User Management (one page per role)
     Route::get('/users/admin', fn () => view('admin.users.page', ['role' => 'admin']))->name('admin.users.admin');
     Route::get('/users/operation', fn () => view('admin.users.page', ['role' => 'operation']))->name('admin.users.operation');
     Route::get('/users/kitchen', fn () => view('admin.users.page', ['role' => 'kitchen']))->name('admin.users.kitchen');
-    Route::get('/users/corporate', fn () => view('admin.users.page', ['role' => 'corporate']))->name('admin.users.corporate');
+    // Legacy corporates URL — same Livewire list (nav may still point here until migrated).
+    Route::get('/users/corporate', CorporateTable::class)->name('admin.users.corporate');
     Route::get('/users/delivery', fn () => view('admin.users.page', ['role' => 'delivery']))->name('admin.users.delivery');
     Route::get('/users/{role?}', fn ($role = null) => view('admin.users.page', ['role' => $role]))->name('admin.users.index');
 });

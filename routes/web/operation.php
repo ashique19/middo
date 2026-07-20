@@ -8,6 +8,8 @@ use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\MiddoBoxes;
 use App\Livewire\Operation\OrderHistory;
 use App\Livewire\Operation\SearchOrder;
+use App\Livewire\Shared\CorporateShow;
+use App\Livewire\Shared\CorporateTable;
 use App\Livewire\Shared\MiddoCashLedgerPage;
 use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
@@ -18,6 +20,8 @@ use Illuminate\Support\Facades\Route;
 // routes/web/operation.php
 Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('operation.dashboard');
+    Route::get('/corporates', CorporateTable::class)->name('operation.corporates.index');
+    Route::get('/corporates/{corporate}', CorporateShow::class)->name('operation.corporates.show');
     Route::get('/kitchens', Kitchens::class)->name('operation.kitchens.index');
     Route::get('/kitchens/{kitchen}/orders', KitchenAllOrders::class)->name('operation.kitchens.orders');
 
