@@ -4,6 +4,10 @@
     'showGroup' => false,
 ])
 
+@php
+    $showUrl = fn ($id) => \App\Support\StaffOrderRoutes::show((int) $id);
+@endphp
+
 <div class="bg-white shadow-md border border-gray-100 rounded-2xl overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse min-w-[960px]">
@@ -23,6 +27,7 @@
                     <th class="p-4">Payment</th>
                     <th class="p-4">Method</th>
                     <th class="p-4 text-right">Total</th>
+                    <th class="p-4 text-right">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 text-sm">
@@ -43,7 +48,7 @@
                     <tr wire:key="operation-order-row-{{ $order['id'] }}" class="hover:bg-gray-50/70 transition">
                         <td class="p-4 font-mono font-semibold text-gray-800">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <span>#{{ $order['id'] }}</span>
+                                <a href="{{ $showUrl($order['id']) }}" class="hover:text-middo-orange transition">#{{ $order['id'] }}</a>
                                 @if(!empty($order['is_package']) || !empty($order['package_subscription_id']))
                                     <x-package-badge :title="$order['package_name'] ?? 'Meal package'" />
                                 @endif
@@ -102,10 +107,16 @@
                         <td class="p-4 text-right font-mono font-bold text-gray-900">
                             ৳{{ number_format($order['total_amount'] ?? 0, 0) }}
                         </td>
+                        <td class="p-4 text-right">
+                            <a href="{{ $showUrl($order['id']) }}"
+                               class="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-bold text-middo-dark hover:border-middo-orange hover:text-middo-orange transition">
+                                View
+                            </a>
+                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ $showGroup ? 12 : 11 }}" class="p-12 text-center text-sm font-semibold text-gray-400 italic">
+                        <td colspan="{{ $showGroup ? 13 : 12 }}" class="p-12 text-center text-sm font-semibold text-gray-400 italic">
                             {{ $emptyMessage }}
                         </td>
                     </tr>
