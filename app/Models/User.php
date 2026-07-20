@@ -2,16 +2,12 @@
 
 namespace App\Models;
 
-use App\Models\MiddoBox;
-use App\Models\Order;
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Models\Area;
-use App\Models\City;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -54,8 +50,9 @@ class User extends Authenticatable
     }
 
     // ... your existing relationship methods (role, city, area)
-    public function role() {
-        return $this->belongsTo(\App\Models\Role::class);
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
     }
 
     public function city(): BelongsTo
@@ -115,13 +112,20 @@ class User extends Authenticatable
         return $this->hasMany(DeviceToken::class);
     }
 
+    public function logs(): HasMany
+    {
+        return $this->hasMany(UserLog::class);
+    }
+
     public function getNameAttribute(): string
     {
         $name = trim(sprintf('%s %s', $this->first_name, $this->last_name));
+
         return $name !== '' ? $name : ($this->first_name ?? $this->last_name ?? '');
     }
 
-    public function hasPermission($permissionName) {
+    public function hasPermission($permissionName)
+    {
         return $this->role && $this->role->permissions()->where('name', $permissionName)->exists();
     }
 }

@@ -15,6 +15,7 @@ use App\Models\OrderComplaint;
 use App\Models\PackageSubscription;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserLog;
 use App\Models\WalletTransaction;
 use App\Support\CorporateApiPresenter;
 use App\Support\CorporateGatewayPrepay;
@@ -29,6 +30,7 @@ use App\Support\PackageBilling;
 use App\Support\PackageSubscriptionService;
 use App\Support\PasswordResetOtp;
 use App\Support\SignupOtp;
+use App\Support\UserAudit;
 use App\Support\WalletLedger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,12 +56,35 @@ class CorporateMobileController extends Controller
             ->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            UserAudit::record(
+                user: $user,
+                event: UserLog::EVENT_LOGIN_FAILED,
+                source: UserAudit::SOURCE_CORPORATE_MOBILE,
+                performedBy: $user?->id,
+                metadata: [
+                    'mobile' => $credentials['mobile'],
+                    'device_name' => $credentials['device_name'] ?? null,
+                ],
+            );
+
             throw ValidationException::withMessages([
                 'mobile' => ['Invalid mobile number or password.'],
             ]);
         }
 
         if ($user->status !== 'active') {
+            UserAudit::record(
+                user: $user,
+                event: UserLog::EVENT_LOGIN_BLOCKED,
+                source: UserAudit::SOURCE_CORPORATE_MOBILE,
+                performedBy: $user->id,
+                metadata: [
+                    'reason' => 'inactive',
+                    'status' => $user->status,
+                    'device_name' => $credentials['device_name'] ?? null,
+                ],
+            );
+
             return response()->json([
                 'message' => 'Account is not active.',
                 'status' => $user->status,
@@ -67,6 +92,18 @@ class CorporateMobileController extends Controller
         }
 
         if ($user->role?->name !== 'corporate') {
+            UserAudit::record(
+                user: $user,
+                event: UserLog::EVENT_LOGIN_BLOCKED,
+                source: UserAudit::SOURCE_CORPORATE_MOBILE,
+                performedBy: $user->id,
+                metadata: [
+                    'reason' => 'wrong_role',
+                    'role' => $user->role?->name,
+                    'device_name' => $credentials['device_name'] ?? null,
+                ],
+            );
+
             return response()->json([
                 'message' => 'Login as Corporate to continue.',
             ], 403);
@@ -75,6 +112,16 @@ class CorporateMobileController extends Controller
         $token = $user->createToken(
             $credentials['device_name'] ?? 'middo-corporate-mobile'
         )->plainTextToken;
+
+        UserAudit::record(
+            user: $user,
+            event: UserLog::EVENT_LOGIN,
+            source: UserAudit::SOURCE_CORPORATE_MOBILE,
+            performedBy: $user->id,
+            metadata: [
+                'device_name' => $credentials['device_name'] ?? 'middo-corporate-mobile',
+            ],
+        );
 
         return response()->json([
             'token' => $token,
@@ -85,7 +132,18 @@ class CorporateMobileController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
+        $user = $request->user();
+
         $request->user()?->currentAccessToken()?->delete();
+
+        if ($user instanceof User) {
+            UserAudit::record(
+                user: $user,
+                event: UserLog::EVENT_LOGOUT,
+                source: UserAudit::SOURCE_CORPORATE_MOBILE,
+                performedBy: $user->id,
+            );
+        }
 
         return response()->json(['message' => 'Logged out.']);
     }

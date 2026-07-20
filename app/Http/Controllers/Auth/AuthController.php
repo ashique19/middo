@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
+use App\Models\UserLog;
 use App\Support\PasswordResetOtp;
 use App\Support\SignupOtp;
+use App\Support\UserAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -91,16 +93,18 @@ class AuthController extends Controller
             ]);
 
             Auth::login($user);
-            return response()->json(['success' => true, 'redirect' => '/dashboard']);   
-                
+
+            return response()->json(['success' => true, 'redirect' => '/dashboard']);
+
         } catch (ValidationException $e) {
             // This returns the specific field errors (e.g., mobile: "has already been taken")
             return response()->json(['errors' => $e->errors()], 422);
-            
+
         } catch (\Exception $e) {
-            Log::error('Registration failed: ' . $e->getMessage());
+            Log::error('Registration failed: '.$e->getMessage());
+
             return response()->json([
-                'errors' => ['general' => ['Registration failed. Please try again later.']]
+                'errors' => ['general' => ['Registration failed. Please try again later.']],
             ], 500);
         }
     }
@@ -145,7 +149,8 @@ class AuthController extends Controller
         } catch (ValidationException $e) {
             return response()->json(['errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            Log::error('Kitchen Reg Failed: ' . $e->getMessage());
+            Log::error('Kitchen Reg Failed: '.$e->getMessage());
+
             return response()->json(['errors' => ['general' => ['System error. Try again later.']]], 500);
         }
     }
@@ -168,6 +173,17 @@ class AuthController extends Controller
             if ($user->status !== 'active') {
                 $status = $user->status;
                 Auth::logout();
+
+                UserAudit::record(
+                    user: $user,
+                    event: UserLog::EVENT_LOGIN_BLOCKED,
+                    performedBy: $user->id,
+                    metadata: [
+                        'reason' => 'inactive',
+                        'status' => $status,
+                        'remember' => $remember,
+                    ],
+                );
 
                 return back()
                     ->withInput($request->only('mobile', 'redirect', 'remember'))
@@ -218,6 +234,7 @@ class AuthController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect('/');
     }
 
