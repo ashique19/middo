@@ -1,0 +1,133 @@
+<div class="max-w-6xl mx-auto py-8 px-4 sm:px-6 space-y-6">
+    <div class="space-y-2">
+        <a href="{{ $this->indexRoute() }}" class="text-sm font-semibold text-middo-orange hover:underline">← Subscriptions</a>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">Subscription #{{ $subscription->id }}</h1>
+                <p class="text-sm text-gray-500 mt-1">
+                    {{ $subscription->package?->name }} ·
+                    {{ $subscription->user?->company_name ?: trim(($subscription->user?->first_name.' '.$subscription->user?->last_name)) }}
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <x-package-badge />
+                <span @class([
+                    'px-2.5 py-1 rounded-full text-[11px] font-bold uppercase',
+                    'bg-emerald-100 text-emerald-800 border border-emerald-200' => $subscription->status === 'active',
+                    'bg-gray-100 text-gray-600 border border-gray-200' => $subscription->status === 'completed',
+                    'bg-red-50 text-red-700 border border-red-200' => $subscription->status === 'cancelled',
+                ])>
+                    {{ $subscription->status }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    @if($statusMessage)
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{{ $statusMessage }}</div>
+    @endif
+    @if($errorMessage)
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $errorMessage }}</div>
+    @endif
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Prepaid</p>
+            <p class="text-2xl font-black text-middo-dark">৳{{ number_format($subscription->amount_paid) }}</p>
+            <p class="text-xs text-gray-500 mt-1">{{ $subscription->billable_days }} days · ৳{{ number_format($subscription->price_per_day) }}/day · qty {{ $subscription->quantity }}</p>
+        </div>
+        <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Window</p>
+            <p class="text-lg font-bold text-gray-800">{{ $subscription->start_date?->format('M d, Y') }} – {{ $subscription->end_date?->format('M d, Y') }}</p>
+            <p class="text-xs text-gray-500 mt-1">Omitted weekdays: {{ empty($subscription->omitted_weekdays) ? 'none' : implode(', ', $subscription->omitted_weekdays) }}</p>
+        </div>
+        <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Receiver</p>
+            <p class="text-lg font-bold text-gray-800">{{ $subscription->receiver_name }}</p>
+            <p class="text-xs text-gray-500 mt-1">{{ $subscription->receiver_mobile }} · {{ $subscription->area?->name }}</p>
+        </div>
+    </div>
+
+    @if($canManage)
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+            <h2 class="text-lg font-bold text-gray-800">Delivery details</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input wire:model="delivery_time" type="text" placeholder="Delivery time" class="rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                <input wire:model="receiver_mobile" type="text" placeholder="Receiver mobile" class="rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                <input wire:model="receiver_name" type="text" placeholder="Receiver name" class="rounded-xl border border-gray-200 px-3 py-2 text-sm md:col-span-2">
+                <textarea wire:model="address" rows="2" placeholder="Address" class="rounded-xl border border-gray-200 px-3 py-2 text-sm md:col-span-2"></textarea>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" wire:click="saveDelivery" class="px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold">
+                    Update future pending days
+                </button>
+                <button type="button" wire:click="cancelRemaining" wire:confirm="Cancel remaining pending days and refund wallets?" class="px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-bold">
+                    Cancel remaining
+                </button>
+                @if($isAdmin)
+                    <button type="button" wire:click="forceComplete" wire:confirm="Mark this subscription completed without further refunds?" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700">
+                        Force complete
+                    </button>
+                @endif
+                <a href="{{ $this->activeOrdersRoute() }}" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-middo-orange">
+                    Open active orders
+                </a>
+            </div>
+        </div>
+
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
+            <h2 class="text-lg font-bold text-gray-800">Swap menu for a pending day</h2>
+            <select wire:model="swapMenuItemId" class="w-full md:w-96 rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                <option value="">Select menu item…</option>
+                @foreach($menuItems as $menu)
+                    <option value="{{ $menu->id }}">{{ $menu->name }} (৳{{ number_format($menu->price) }})</option>
+                @endforeach
+            </select>
+            <p class="text-xs text-gray-500">Choose a menu above, then click Swap on a pending order row below.</p>
+        </div>
+    @endif
+
+    <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="text-lg font-bold text-gray-800">Delivery days</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left min-w-[900px]">
+                <thead>
+                    <tr class="bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        <th class="p-4">Order</th>
+                        <th class="p-4">Date</th>
+                        <th class="p-4">Menu</th>
+                        <th class="p-4">Group</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4 text-right">Amount</th>
+                        <th class="p-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-sm">
+                    @foreach($subscription->orders as $order)
+                        <tr wire:key="sub-order-{{ $order->id }}">
+                            <td class="p-4 font-mono font-semibold">
+                                <div class="flex items-center gap-2">
+                                    #{{ $order->id }}
+                                    <x-package-badge />
+                                </div>
+                            </td>
+                            <td class="p-4">{{ $order->delivery_date->format('D, M d') }} · {{ $order->delivery_time }}</td>
+                            <td class="p-4 font-semibold">{{ $order->menuItem?->name ?? '—' }}</td>
+                            <td class="p-4 text-xs text-middo-orange font-semibold">{{ $order->orderGroup?->name ?? 'Ungrouped' }}</td>
+                            <td class="p-4 capitalize">{{ $order->order_status }}</td>
+                            <td class="p-4 text-right">৳{{ number_format($order->total_amount) }}</td>
+                            <td class="p-4 text-right space-x-2">
+                                @if($canManage && $order->order_status === 'pending')
+                                    <button type="button" wire:click="swapOrderMenu({{ $order->id }})" class="text-xs font-bold text-sky-700 hover:underline">Swap</button>
+                                    <button type="button" wire:click="skipOrder({{ $order->id }})" wire:confirm="Skip this day and refund?" class="text-xs font-bold text-red-600 hover:underline">Skip</button>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

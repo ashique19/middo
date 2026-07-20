@@ -74,7 +74,7 @@ class ActiveOrders extends Component
         $groups = OrderGroup::with([
             'menuItem',
             'orders' => fn ($query) => $query
-                ->with(['menuItem', 'user'])
+                ->with(['menuItem', 'user', 'packageSubscription.package'])
                 ->active()
                 ->orderBy('delivery_time'),
         ])

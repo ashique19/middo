@@ -5,6 +5,7 @@ namespace App\Livewire\Shared;
 use App\Models\MealPackage;
 use App\Models\MealPackageDay;
 use App\Models\MenuItem;
+use App\Models\PackageSubscription;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,10 @@ class PackageBuilder extends Component
     public ?int $packageId = null;
 
     public bool $canManage = false;
+
+    public bool $canPublish = false;
+
+    public bool $daysSoftLocked = false;
 
     public string $name = '';
 
@@ -44,6 +49,9 @@ class PackageBuilder extends Component
     /** @var array<string, int|null> date => menu_item_id */
     public array $dayAssignments = [];
 
+    /** @var array<string, int|null> original assigned days used for soft-lock */
+    public array $lockedDayAssignments = [];
+
     public ?string $assignDate = null;
 
     public ?int $assignMenuItemId = null;
@@ -56,14 +64,22 @@ class PackageBuilder extends Component
 
     public function mount(?int $package = null): void
     {
-        $this->canManage = Auth::user()?->role?->name === 'admin';
+        $role = Auth::user()?->role?->name;
+        $this->canPublish = $role === 'admin';
         $this->packageId = $package;
 
         if ($package) {
             $model = MealPackage::with('days')->findOrFail($package);
             $this->fillFromModel($model);
+            $this->daysSoftLocked = PackageSubscription::query()
+                ->where('meal_package_id', $model->id)
+                ->where('status', PackageSubscription::STATUS_ACTIVE)
+                ->exists();
+            $this->canManage = $this->canPublish || ($role === 'operation' && $model->status === MealPackage::STATUS_DRAFT);
         } else {
+            $this->canManage = in_array($role, ['admin', 'operation'], true);
             abort_unless($this->canManage, 403);
+            $this->status = MealPackage::STATUS_DRAFT;
             $start = now('Asia/Dhaka')->addDay()->startOfDay();
             $this->start_date = $start->toDateString();
             $this->end_date = $start->copy()->addDays($this->duration_days - 1)->toDateString();
@@ -86,18 +102,22 @@ class PackageBuilder extends Component
 
         $this->rebuildDayKeys();
         foreach ($model->days as $day) {
-            $this->dayAssignments[$day->delivery_date->toDateString()] = $day->menu_item_id;
+            $key = $day->delivery_date->toDateString();
+            $this->dayAssignments[$key] = $day->menu_item_id;
+            $this->lockedDayAssignments[$key] = $day->menu_item_id;
         }
     }
 
     public function updatedStartDate(): void
     {
+        abort_unless($this->canManage, 403);
         $this->syncEndDate();
         $this->rebuildDayKeys();
     }
 
     public function updatedDurationDays(): void
     {
+        abort_unless($this->canManage, 403);
         $this->duration_days = max(1, min(60, (int) $this->duration_days));
         $this->syncEndDate();
         $this->rebuildDayKeys();
@@ -136,6 +156,13 @@ class PackageBuilder extends Component
     public function openAssign(string $date): void
     {
         abort_unless($this->canManage, 403);
+
+        if ($this->isDayLocked($date)) {
+            $this->errorMessage = 'This day is locked because active subscriptions already use it. Swap menus from the subscription page.';
+
+            return;
+        }
+
         $this->assignDate = $date;
         $this->assignMenuItemId = $this->dayAssignments[$date] ?? null;
     }
@@ -154,6 +181,13 @@ class PackageBuilder extends Component
             return;
         }
 
+        if ($this->isDayLocked($this->assignDate)) {
+            $this->errorMessage = 'This day is locked because active subscriptions already use it.';
+            $this->closeAssign();
+
+            return;
+        }
+
         $this->dayAssignments[$this->assignDate] = (int) $this->assignMenuItemId;
         $this->closeAssign();
     }
@@ -161,6 +195,13 @@ class PackageBuilder extends Component
     public function clearDay(string $date): void
     {
         abort_unless($this->canManage, 403);
+
+        if ($this->isDayLocked($date)) {
+            $this->errorMessage = 'This day is locked because active subscriptions already use it.';
+
+            return;
+        }
+
         $this->dayAssignments[$date] = null;
     }
 
@@ -175,6 +216,9 @@ class PackageBuilder extends Component
         }
 
         foreach ($this->dayAssignments as $date => $_) {
+            if ($this->isDayLocked($date)) {
+                continue;
+            }
             $dow = Carbon::parse($date)->dayOfWeek;
             if ($dow !== Carbon::FRIDAY && $dow !== Carbon::SATURDAY) {
                 $this->dayAssignments[$date] = (int) $this->bulkMenuItemId;
@@ -195,6 +239,9 @@ class PackageBuilder extends Component
         }
 
         foreach ($this->dayAssignments as $date => $_) {
+            if ($this->isDayLocked($date)) {
+                continue;
+            }
             $this->dayAssignments[$date] = (int) $this->bulkMenuItemId;
         }
 
@@ -206,6 +253,9 @@ class PackageBuilder extends Component
         abort_unless($this->canManage, 403);
 
         foreach ($this->dayAssignments as $date => $_) {
+            if ($this->isDayLocked($date)) {
+                continue;
+            }
             $dow = Carbon::parse($date)->dayOfWeek;
             if ($dow === Carbon::FRIDAY || $dow === Carbon::SATURDAY) {
                 $this->dayAssignments[$date] = null;
@@ -213,9 +263,22 @@ class PackageBuilder extends Component
         }
     }
 
+    protected function isDayLocked(string $date): bool
+    {
+        if (! $this->daysSoftLocked) {
+            return false;
+        }
+
+        return ! empty($this->lockedDayAssignments[$date]);
+    }
+
     public function save(): void
     {
         abort_unless($this->canManage, 403);
+
+        if (! $this->canPublish && $this->status !== MealPackage::STATUS_DRAFT) {
+            $this->status = MealPackage::STATUS_DRAFT;
+        }
 
         $this->validate([
             'name' => 'required|string|max:255',
@@ -230,8 +293,24 @@ class PackageBuilder extends Component
             'thumbnail' => 'nullable|image|max:2048',
         ]);
 
+        if (! $this->canPublish && $this->status !== MealPackage::STATUS_DRAFT) {
+            $this->errorMessage = 'Only admins can publish or archive packages.';
+
+            return;
+        }
+
         $this->syncEndDate();
         $this->rebuildDayKeys();
+
+        if ($this->daysSoftLocked) {
+            foreach ($this->lockedDayAssignments as $date => $menuItemId) {
+                if (! empty($menuItemId) && (int) ($this->dayAssignments[$date] ?? 0) !== (int) $menuItemId) {
+                    $this->errorMessage = 'Active subscriptions lock existing day menus. Use subscription day swap instead.';
+
+                    return;
+                }
+            }
+        }
 
         $assigned = collect($this->dayAssignments)->filter()->count();
         if ($this->status === MealPackage::STATUS_PUBLISHED && $assigned < 1) {
@@ -297,11 +376,22 @@ class PackageBuilder extends Component
                     'menu_item_id' => $menuItemId,
                 ]);
             }
+
+            $this->lockedDayAssignments = collect($this->dayAssignments)
+                ->filter()
+                ->all();
         });
 
         $this->successMessage = 'Package saved.';
         $this->errorMessage = '';
         $this->dispatch('package-updated');
+    }
+
+    public function indexRoute(): string
+    {
+        return Auth::user()?->role?->name === 'admin'
+            ? route('admin.packages.index')
+            : route('operation.packages.index');
     }
 
     public function render()

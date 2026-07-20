@@ -3,7 +3,8 @@
         <div>
             <h1 class="text-3xl font-bold text-gray-800">Packages{{ $canManage ? ' Management' : '' }}</h1>
             <p class="text-sm text-gray-500 mt-1">
-                {{ $canManage ? 'Create 30-day meal packages with a menu for each date.' : 'View meal packages and assigned daily menus (read-only).' }}
+                {{ $canCreate ? 'Create 30-day meal packages with a menu for each date.' : 'View meal packages and assigned daily menus.' }}
+                @if($canCreate && ! $canPublish) Operation can save drafts; only admins publish. @endif
             </p>
         </div>
         <div class="flex items-center gap-3 self-end md:self-auto">
@@ -20,8 +21,8 @@
                     </svg>
                 </div>
             </div>
-            @if($canManage)
-                <a href="{{ route('admin.packages.create') }}"
+            @if($canCreate)
+                <a href="{{ $canPublish ? route('admin.packages.create') : route('operation.packages.create') }}"
                    class="inline-flex items-center gap-2 bg-middo-orange hover:bg-[#733614] text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-sm transition">
                     + New Package
                 </a>
@@ -81,12 +82,18 @@
                                 </span>
                             </td>
                             <td class="p-4 text-right">
-                                <div class="inline-flex items-center gap-2">
-                                    <a href="{{ $canManage ? route('admin.packages.edit', $package) : route('operation.packages.edit', $package) }}"
+                                <div class="inline-flex items-center gap-2 flex-wrap justify-end">
+                                    <a href="{{ $canPublish ? route('admin.packages.edit', $package) : route('operation.packages.edit', $package) }}"
                                        class="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 hover:bg-gray-50">
-                                        {{ $canManage ? 'Edit' : 'View' }}
+                                        {{ ($canPublish || ($canCreate && $package->status === 'draft')) ? 'Edit' : 'View' }}
                                     </a>
-                                    @if($canManage)
+                                    @if($canCreate)
+                                        <button type="button" wire:click="clonePackage({{ $package->id }})"
+                                            class="px-3 py-1.5 rounded-lg text-xs font-bold border border-sky-200 text-sky-800 hover:bg-sky-50">
+                                            Clone
+                                        </button>
+                                    @endif
+                                    @if($canPublish)
                                         <button type="button" wire:click="togglePublish({{ $package->id }})"
                                             class="px-3 py-1.5 rounded-lg text-xs font-bold border border-emerald-200 text-emerald-800 hover:bg-emerald-50">
                                             {{ $package->status === 'published' ? 'Unpublish' : 'Publish' }}

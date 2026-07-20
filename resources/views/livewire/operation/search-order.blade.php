@@ -10,13 +10,20 @@
             <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
         </div>
 
-        <div class="max-w-xl">
+        <div class="flex flex-wrap items-center gap-3 max-w-3xl">
             <input
                 type="search"
                 wire:model.live.debounce.300ms="search"
                 placeholder="Start typing to search orders..."
-                class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-middo-dark shadow-sm focus:border-middo-orange focus:ring-middo-orange"
+                class="flex-1 min-w-[220px] rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-middo-dark shadow-sm focus:border-middo-orange focus:ring-middo-orange"
             />
+            <select
+                wire:model.live="packageFilter"
+                class="text-sm border border-gray-200 rounded-xl px-3 py-2 font-semibold text-gray-700 focus:ring-middo-orange focus:border-middo-orange">
+                <option value="all">All sources</option>
+                <option value="package">Package only</option>
+                <option value="alacarte">À la carte only</option>
+            </select>
         </div>
     </div>
 

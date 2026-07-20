@@ -6,6 +6,7 @@ use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Support\OrdersExcelExport;
+use App\Support\PackageOrderPresenter;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\On;
@@ -21,8 +22,22 @@ class OrderHistory extends Component
     /** @var string[] */
     public array $expandedDates = [];
 
+    /** all|package|alacarte */
+    public string $packageFilter = 'all';
+
     public function mount(): void
     {
+        $this->setDefaultExpandedDate();
+    }
+
+    public function updatedPackageFilter(): void
+    {
+        if (! in_array($this->packageFilter, ['all', 'package', 'alacarte'], true)) {
+            $this->packageFilter = 'all';
+        }
+
+        $this->resetPage();
+        $this->expandedDates = [];
         $this->setDefaultExpandedDate();
     }
 
@@ -160,7 +175,7 @@ class OrderHistory extends Component
     {
         $party = $order->partyPayload();
 
-        return [
+        return array_merge([
             'id' => $order->id,
             'delivery_time' => $order->delivery_time,
             'quantity' => $order->quantity,
@@ -180,13 +195,15 @@ class OrderHistory extends Component
             'kitchen_label' => $order->orderGroup?->kitchenDisplayName() ?? 'Unassigned',
             'order_group_id' => $order->orderGroup?->id,
             'group_name' => $order->orderGroup?->name,
-        ];
+        ], PackageOrderPresenter::fields($order));
     }
 
     public function exportExcel(): StreamedResponse
     {
-        $orders = Order::with(['menuItem', 'user', 'orderGroup'])
+        $orders = Order::with(['menuItem', 'user', 'orderGroup', 'packageSubscription.package'])
             ->past()
+            ->when($this->packageFilter === 'package', fn ($q) => $q->whereNotNull('package_subscription_id'))
+            ->when($this->packageFilter === 'alacarte', fn ($q) => $q->whereNull('package_subscription_id'))
             ->orderByDesc('delivery_date')
             ->orderByDesc('delivery_time')
             ->limit(2000)
@@ -197,8 +214,16 @@ class OrderHistory extends Component
 
     public function render()
     {
-        $orders = Order::with(['menuItem', 'user', 'orderGroup.kitchen', 'orderGroup.menuItem'])
+        $orders = Order::with([
+            'menuItem',
+            'user',
+            'orderGroup.kitchen',
+            'orderGroup.menuItem',
+            'packageSubscription.package',
+        ])
             ->past()
+            ->when($this->packageFilter === 'package', fn ($q) => $q->whereNotNull('package_subscription_id'))
+            ->when($this->packageFilter === 'alacarte', fn ($q) => $q->whereNull('package_subscription_id'))
             ->orderByDesc('delivery_date')
             ->orderByDesc('delivery_time')
             ->paginate(20);

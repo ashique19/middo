@@ -8,6 +8,7 @@ use App\Models\OrderGroup;
 use App\Support\MealOrderGrouper;
 use App\Support\OrderGroupManager;
 use App\Support\OrdersExcelExport;
+use App\Support\PackageOrderPresenter;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -26,8 +27,20 @@ class ActiveOrders extends Component
 
     public ?string $statusMessage = null;
 
+    /** all|package|alacarte */
+    public string $packageFilter = 'all';
+
     public function mount(): void
     {
+        $this->loadOrders();
+    }
+
+    public function updatedPackageFilter(): void
+    {
+        if (! in_array($this->packageFilter, ['all', 'package', 'alacarte'], true)) {
+            $this->packageFilter = 'all';
+        }
+
         $this->loadOrders();
     }
 
@@ -113,9 +126,11 @@ class ActiveOrders extends Component
 
     protected function loadOrders(): void
     {
-        $orders = Order::with(['menuItem', 'user', 'orderGroup'])
+        $orders = Order::with(['menuItem', 'user', 'orderGroup', 'packageSubscription.package'])
             ->future()
             ->active()
+            ->when($this->packageFilter === 'package', fn ($q) => $q->whereNotNull('package_subscription_id'))
+            ->when($this->packageFilter === 'alacarte', fn ($q) => $q->whereNull('package_subscription_id'))
             ->orderBy('delivery_date')
             ->orderBy('delivery_time')
             ->get();
@@ -146,26 +161,45 @@ class ActiveOrders extends Component
             'bg-indigo-50/80 border-indigo-200',
         ];
 
-        $groups = OrderGroup::with(['menuItem', 'kitchen', 'orders.menuItem', 'orders.user'])
+        $dayOrderIds = $dayOrders->pluck('id')->all();
+
+        $groups = OrderGroup::with([
+            'menuItem',
+            'kitchen',
+            'orders' => fn ($q) => $q->with(['menuItem', 'user', 'packageSubscription.package']),
+        ])
             ->whereDate('delivery_date', $date)
             ->orderBy('name')
             ->get()
             ->values()
-            ->map(function (OrderGroup $group, int $index) use ($colorPalette) {
+            ->map(function (OrderGroup $group, int $index) use ($colorPalette, $dayOrderIds) {
+                $orders = $group->orders
+                    ->filter(fn (Order $order) => in_array($order->id, $dayOrderIds, true))
+                    ->sortBy('delivery_time')
+                    ->values();
+
+                $orderNodes = $orders
+                    ->map(fn (Order $order) => $this->formatOrderNode($order, false))
+                    ->all();
+
+                if ($orderNodes === []) {
+                    return null;
+                }
+
                 return [
                     'id' => $group->id,
                     'name' => $group->name,
                     'menu_name' => $group->menuItem?->name ?? 'Unknown',
                     'kitchen_label' => $group->kitchenDisplayName(),
-                    'total_quantity' => $group->orders->sum('quantity'),
+                    'total_quantity' => $orders->sum('quantity'),
                     'color' => $colorPalette[$index % count($colorPalette)],
-                    'orders' => $group->orders
-                        ->sortBy('delivery_time')
-                        ->values()
-                        ->map(fn (Order $order) => $this->formatOrderNode($order, false))
-                        ->all(),
+                    'package_source' => PackageOrderPresenter::groupSource($orderNodes),
+                    'has_package_orders' => PackageOrderPresenter::collectionHasPackage($orderNodes),
+                    'orders' => $orderNodes,
                 ];
             })
+            ->filter()
+            ->values()
             ->all();
 
         $groupedOrderIds = collect($groups)
@@ -182,6 +216,7 @@ class ActiveOrders extends Component
             'label' => $this->dateLabel($date),
             'count' => $dayOrders->count(),
             'total_quantity' => $dayOrders->sum('quantity'),
+            'has_package_orders' => PackageOrderPresenter::collectionHasPackage($dayOrders),
             'groups' => $groups,
             'ungrouped' => $ungrouped,
         ];
@@ -191,7 +226,7 @@ class ActiveOrders extends Component
     {
         $party = $order->partyPayload();
 
-        return [
+        return array_merge([
             'id' => $order->id,
             'delivery_time' => $order->delivery_time,
             'quantity' => $order->quantity,
@@ -212,7 +247,7 @@ class ActiveOrders extends Component
             'has_separate_receiver' => $party['has_separate_receiver'],
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
             'group_name' => $order->orderGroup?->name,
-        ];
+        ], PackageOrderPresenter::fields($order));
     }
 
     public function getFlatOrdersProperty(): array
@@ -240,9 +275,11 @@ class ActiveOrders extends Component
 
     public function exportExcel(): StreamedResponse
     {
-        $orders = Order::with(['menuItem', 'user', 'orderGroup'])
+        $orders = Order::with(['menuItem', 'user', 'orderGroup', 'packageSubscription.package'])
             ->future()
             ->active()
+            ->when($this->packageFilter === 'package', fn ($q) => $q->whereNotNull('package_subscription_id'))
+            ->when($this->packageFilter === 'alacarte', fn ($q) => $q->whereNull('package_subscription_id'))
             ->orderBy('delivery_date')
             ->orderBy('delivery_time')
             ->get();

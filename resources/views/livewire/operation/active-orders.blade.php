@@ -6,7 +6,16 @@
                 Drag orders between groups or onto other orders. Drop on the ungrouped zone to remove from a group.
             </p>
         </div>
-        <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
+        <div class="flex flex-wrap items-center gap-3">
+            <select
+                wire:model.live="packageFilter"
+                class="text-sm border border-gray-200 rounded-xl px-3 py-2 font-semibold text-gray-700 focus:ring-middo-orange focus:border-middo-orange">
+                <option value="all">All sources</option>
+                <option value="package">Package only</option>
+                <option value="alacarte">À la carte only</option>
+            </select>
+            <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
+        </div>
     </div>
 
     @if($statusMessage)
@@ -29,8 +38,11 @@
                 type="button"
                 wire:click="toggleDate('{{ $section['date'] }}')"
                 class="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-gray-50 transition">
-                <span class="text-base font-black text-middo-dark">
+                <span class="text-base font-black text-middo-dark inline-flex items-center gap-2 flex-wrap">
                     {{ $section['label'] }} ({{ $section['count'] }} {{ str('order')->plural($section['count']) }} · Qty {{ $section['total_quantity'] }})
+                    @if(!empty($section['has_package_orders']))
+                        <x-package-badge />
+                    @endif
                 </span>
                 <svg
                     @class([
@@ -76,6 +88,11 @@
                                     Kitchen: {{ $group['kitchen_label'] }}
                                 </button>
                                 <span class="text-xs font-semibold text-gray-600">{{ $group['menu_name'] }}</span>
+                                @if(($group['package_source'] ?? null) === 'package')
+                                    <x-package-badge />
+                                @elseif(($group['package_source'] ?? null) === 'mixed')
+                                    <x-package-badge label="Mixed" title="Includes package and à la carte orders" />
+                                @endif
                                 <span class="text-xs font-bold text-middo-orange">Qty {{ $group['total_quantity'] }}</span>
                                 <span class="text-xs text-gray-500">{{ count($group['orders']) }} order(s)</span>
                             </div>
@@ -91,7 +108,19 @@
                                         class="flex items-center gap-3 px-4 py-3 hover:bg-white/60 transition cursor-grab active:cursor-grabbing">
                                         <span class="shrink-0 w-6 text-center text-gray-400 font-mono text-xs select-none">└</span>
                                         <div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 text-sm">
-                                            <span class="font-mono font-bold text-middo-dark">#{{ $order['id'] }}</span>
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <span class="font-mono font-bold text-middo-dark">#{{ $order['id'] }}</span>
+                                                @if(!empty($order['is_package']))
+                                                    <x-package-badge :title="$order['package_name'] ?? 'Meal package'" />
+                                                    @if(!empty($order['package_subscription_id']))
+                                                        <a href="{{ auth()->user()?->role?->name === 'admin' ? route('admin.subscriptions.show', $order['package_subscription_id']) : route('operation.subscriptions.show', $order['package_subscription_id']) }}"
+                                                           class="text-[10px] font-bold text-sky-700 hover:underline"
+                                                           @click.stop>
+                                                            Sub #{{ $order['package_subscription_id'] }}
+                                                        </a>
+                                                    @endif
+                                                @endif
+                                            </div>
                                             <span class="font-medium truncate">{{ $order['customer_name'] }}</span>
                                             <span class="truncate text-gray-700">{{ $order['menu_name'] }}</span>
                                             <span class="text-gray-500">Qty <strong class="text-middo-orange">{{ $order['quantity'] }}</strong> · {{ $order['delivery_time'] }}</span>
@@ -131,9 +160,12 @@
                                         @drop.prevent="(() => { const id = parseInt($event.dataTransfer.getData('orderId')); if (id && id !== {{ $order['id'] }}) $wire.handleOrderDrop(id, 'order', {{ $order['id'] }}); })()"
                                         class="flex items-center gap-3 px-4 py-3 hover:bg-white transition cursor-grab active:cursor-grabbing">
                                         <div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 text-sm">
-                                            <div class="flex items-center gap-2">
+                                            <div class="flex items-center gap-2 flex-wrap">
                                                 <span class="font-mono font-bold text-middo-dark">#{{ $order['id'] }}</span>
                                                 <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-gray-200 text-gray-600">Ungrouped</span>
+                                                @if(!empty($order['is_package']))
+                                                    <x-package-badge :title="$order['package_name'] ?? 'Meal package'" />
+                                                @endif
                                             </div>
                                             <span class="font-medium truncate">{{ $order['customer_name'] }}</span>
                                             <span class="truncate text-gray-700">{{ $order['menu_name'] }}</span>

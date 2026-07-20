@@ -11,10 +11,24 @@ class MiddoCashLedgerPage extends Component
 {
     use WithPagination;
 
+    /** all|package */
+    public string $entryFilter = 'all';
+
+    public function updatingEntryFilter(): void
+    {
+        $this->resetPage();
+    }
+
     public function render()
     {
         $entries = MiddoCashLedgerEntry::query()
             ->with('createdByUser')
+            ->when($this->entryFilter === 'package', function ($query) {
+                $query->where(function ($q) {
+                    $q->where('description', 'like', '%Package%')
+                        ->orWhere('description', 'like', '%package%');
+                });
+            })
             ->orderByDesc('id')
             ->paginate(30);
 
