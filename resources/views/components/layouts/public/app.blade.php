@@ -7,7 +7,7 @@
     <title>Middo | Elevated Office Dining</title>
     <link rel="icon" type="image/x-icon" href="{{ asset('img/settings/favicon.ico') }}">
 </head>
-<body class="bg-middo-cream text-middo-dark font-sans">
+<body class="bg-middo-cream text-middo-dark font-sans overflow-x-hidden">
 
     <x-layouts.public.header />
 

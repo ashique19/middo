@@ -1,12 +1,12 @@
-<div class="min-h-screen bg-[#F7F4EB] text-[#2B1A11] antialiased font-sans p-4 md:p-8">
-    <div class="max-w-[1100px] mx-auto space-y-8">
+<div class="min-h-screen bg-[#F7F4EB] text-[#2B1A11] antialiased font-sans p-4 md:p-8 overflow-x-hidden">
+    <div class="max-w-[1100px] mx-auto w-full min-w-0 space-y-8">
         <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div>
+            <div class="min-w-0">
                 <a href="{{ route('corporates.dashboard') }}" class="text-xs font-bold text-middo-orange hover:underline">← Dashboard</a>
                 <h1 class="text-3xl font-black tracking-tight mt-1">Meal Packages</h1>
                 <p class="text-sm font-semibold text-[#635347] mt-0.5">Prepaid 30-day plans with a set menu each day. Omit weekdays you don’t need.</p>
             </div>
-            <a href="{{ route('corporates.wallet') }}" class="text-xs font-black uppercase tracking-wider text-[#8A441B] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-3 py-2 rounded-xl">
+            <a href="{{ route('corporates.wallet') }}" class="shrink-0 text-xs font-black uppercase tracking-wider text-[#8A441B] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-3 py-2 rounded-xl">
                 Wallet & top-up
             </a>
         </div>
@@ -46,12 +46,12 @@
             </section>
         @endif
 
-        <section class="space-y-4">
-            <div class="flex flex-wrap items-center gap-2">
+        <section class="space-y-4 min-w-0">
+            <div class="flex flex-wrap items-center gap-2 min-w-0">
                 @foreach(['all' => 'All', 'classic' => 'Classic', 'veg' => 'Veg', 'vegetarian' => 'Vegetarian', 'protein' => 'Protein', 'light' => 'Light'] as $key => $label)
                     <button type="button" wire:click="$set('filter', '{{ $key }}')"
                         @class([
-                            'px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition',
+                            'shrink-0 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition whitespace-nowrap',
                             'bg-[#1E4630] text-white' => $filter === $key,
                             'bg-white border border-[#DDD3BE] text-[#2B1A11] hover:bg-[#EFE9DC]' => $filter !== $key,
                         ])>
@@ -60,9 +60,9 @@
                 @endforeach
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 @forelse($packages as $package)
-                    <div wire:key="pkg-card-{{ $package['id'] }}" class="bg-white border border-[#DDD3BE] rounded-2xl overflow-hidden shadow-sm flex flex-col">
+                    <div wire:key="pkg-card-{{ $package['id'] }}" class="bg-white border border-[#DDD3BE] rounded-2xl overflow-hidden shadow-sm flex flex-col min-w-0">
                         @if($package['thumbnail'])
                             <img src="{{ $package['thumbnail'] }}" alt="" class="w-full h-40 object-cover">
                         @else
