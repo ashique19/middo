@@ -92,6 +92,23 @@ class KitchenDetailStatusTest extends TestCase
         $this->assertSame('inactive', $kitchen->fresh()->status);
     }
 
+    public function test_active_kitchen_detail_hides_activate_button(): void
+    {
+        $admin = $this->user('admin', ['mobile' => '01310666301']);
+        $kitchen = $this->user('kitchen', [
+            'mobile' => '01310666302',
+            'first_name' => 'Live',
+            'last_name' => 'Kitchen',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.kitchens.show', $kitchen))
+            ->assertOk()
+            ->assertDontSee('Activate')
+            ->assertSee('Suspend');
+    }
+
     public function test_operation_cannot_activate_or_suspend_kitchen(): void
     {
         $ops = $this->user('operation', ['mobile' => '01310666201']);

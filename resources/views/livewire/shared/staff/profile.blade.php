@@ -26,28 +26,22 @@
                     {{ $staff->status === 'inactive' ? 'suspended' : $staff->status }}
                 </span>
                 @if($this->canManageKitchenStatus())
-                    <button type="button"
-                            wire:click="activate"
-                            wire:confirm="Activate {{ $staff->name }}? They will be able to log in."
-                            @disabled($staff->status === 'active')
-                            @class([
-                                'inline-flex px-3 py-1.5 rounded-xl text-xs font-bold transition',
-                                'bg-emerald-600 text-white hover:bg-emerald-700' => $staff->status !== 'active',
-                                'bg-emerald-100 text-emerald-400 cursor-not-allowed' => $staff->status === 'active',
-                            ])>
-                        Activate
-                    </button>
-                    <button type="button"
-                            wire:click="suspend"
-                            wire:confirm="Suspend {{ $staff->name }}? They will not be able to log in."
-                            @disabled($staff->status === 'inactive')
-                            @class([
-                                'inline-flex px-3 py-1.5 rounded-xl text-xs font-bold border transition',
-                                'border-red-200 text-red-600 hover:bg-red-50' => $staff->status !== 'inactive',
-                                'border-gray-200 text-gray-400 cursor-not-allowed' => $staff->status === 'inactive',
-                            ])>
-                        Suspend
-                    </button>
+                    @if($staff->status !== 'active')
+                        <button type="button"
+                                wire:click="activate"
+                                wire:confirm="Activate {{ $staff->name }}? They will be able to log in."
+                                class="inline-flex px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition">
+                            Activate
+                        </button>
+                    @endif
+                    @if($staff->status !== 'inactive')
+                        <button type="button"
+                                wire:click="suspend"
+                                wire:confirm="Suspend {{ $staff->name }}? They will not be able to log in."
+                                class="inline-flex px-3 py-1.5 rounded-xl text-xs font-bold border border-red-200 text-red-600 hover:bg-red-50 transition">
+                            Suspend
+                        </button>
+                    @endif
                 @endif
                 @if($this->kitchenOrdersRoute())
                     <a href="{{ $this->kitchenOrdersRoute() }}"
