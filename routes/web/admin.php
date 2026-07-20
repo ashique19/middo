@@ -8,6 +8,7 @@ use App\Livewire\Operation\KitchenAllOrders;
 use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\OrderHistory;
 use App\Livewire\Operation\SearchOrder;
+use App\Livewire\Admin\UserShow;
 use App\Livewire\Shared\CorporateShow;
 use App\Livewire\Shared\CorporateTable;
 use App\Livewire\Shared\MenuShow;
@@ -60,5 +61,6 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     // Legacy corporates URL — same Livewire list (nav may still point here until migrated).
     Route::get('/users/corporate', CorporateTable::class)->name('admin.users.corporate');
     Route::get('/users/delivery', fn () => view('admin.users.page', ['role' => 'delivery']))->name('admin.users.delivery');
+    Route::get('/users/{user}', UserShow::class)->whereNumber('user')->name('admin.users.show');
     Route::get('/users/{role?}', fn ($role = null) => view('admin.users.page', ['role' => $role]))->name('admin.users.index');
 });

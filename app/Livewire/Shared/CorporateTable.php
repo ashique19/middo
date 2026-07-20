@@ -38,6 +38,15 @@ class CorporateTable extends Component
             : route('operation.corporates.show', $corporate);
     }
 
+    public function accountRoute(User $corporate): ?string
+    {
+        if (Auth::user()?->role?->name !== 'admin') {
+            return null;
+        }
+
+        return route('admin.users.show', $corporate);
+    }
+
     public function deleteUser(int $id): void
     {
         abort_unless($this->canManage, 403);

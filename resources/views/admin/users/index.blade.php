@@ -39,7 +39,15 @@
                     <tbody class="divide-y divide-gray-100">
                         @forelse($users as $user)
                             <tr class="hover:bg-gray-50" wire:key="user-{{ $user->id }}">
-                                <td class="p-4 font-medium whitespace-nowrap">{{ $user->first_name }} {{ $user->last_name }}</td>
+                                <td class="p-4 font-medium whitespace-nowrap">
+                                    <a href="{{ route('admin.users.show', $user) }}"
+                                       class="text-middo-dark hover:text-middo-orange transition">
+                                        {{ $user->first_name }} {{ $user->last_name }}
+                                    </a>
+                                    <div class="text-[11px] font-semibold text-middo-orange mt-0.5">
+                                        <a href="{{ route('admin.users.show', $user) }}" class="hover:underline">View details →</a>
+                                    </div>
+                                </td>
                                 <td class="p-4 text-gray-500 whitespace-nowrap">{{ $user->email ?: 'N/A' }}</td>
                                 <td class="p-4 whitespace-nowrap">
                                     <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-xs font-bold uppercase truncate block max-w-[150px]">

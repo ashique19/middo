@@ -65,9 +65,18 @@
                                 </a>
                             </td>
                             <td class="p-4">
-                                <a href="{{ $this->showRoute($corporate) }}" class="font-medium text-gray-800 hover:text-middo-orange transition">
-                                    {{ $corporate->first_name }} {{ $corporate->last_name }}
-                                </a>
+                                @if($this->accountRoute($corporate))
+                                    <a href="{{ $this->accountRoute($corporate) }}" class="font-medium text-gray-800 hover:text-middo-orange transition">
+                                        {{ $corporate->first_name }} {{ $corporate->last_name }}
+                                    </a>
+                                    <div class="text-[11px] font-semibold text-middo-orange mt-0.5">
+                                        <a href="{{ $this->accountRoute($corporate) }}" class="hover:underline">Account &amp; audit →</a>
+                                    </div>
+                                @else
+                                    <a href="{{ $this->showRoute($corporate) }}" class="font-medium text-gray-800 hover:text-middo-orange transition">
+                                        {{ $corporate->first_name }} {{ $corporate->last_name }}
+                                    </a>
+                                @endif
                                 @if($corporate->email)
                                     <div class="text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">{{ $corporate->email }}</div>
                                 @endif
