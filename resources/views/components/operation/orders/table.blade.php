@@ -4,10 +4,6 @@
     'showGroup' => false,
 ])
 
-@php
-    $showUrl = fn ($id) => \App\Support\StaffOrderRoutes::show((int) $id);
-@endphp
-
 <div class="bg-white shadow-md border border-gray-100 rounded-2xl overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse min-w-[960px]">
@@ -27,7 +23,7 @@
                     <th class="p-4">Payment</th>
                     <th class="p-4">Method</th>
                     <th class="p-4 text-right">Total</th>
-                    <th class="p-4 text-right">Action</th>
+                    <th class="p-4 text-right sticky right-0 bg-gray-50">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 text-sm">
@@ -48,7 +44,7 @@
                     <tr wire:key="operation-order-row-{{ $order['id'] }}" class="hover:bg-gray-50/70 transition">
                         <td class="p-4 font-mono font-semibold text-gray-800">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <a href="{{ $showUrl($order['id']) }}" class="hover:text-middo-orange transition">#{{ $order['id'] }}</a>
+                                <x-orders.id-link :order-id="$order['id']" />
                                 @if(!empty($order['is_package']) || !empty($order['package_subscription_id']))
                                     <x-package-badge :title="$order['package_name'] ?? 'Meal package'" />
                                 @endif
@@ -107,11 +103,8 @@
                         <td class="p-4 text-right font-mono font-bold text-gray-900">
                             ৳{{ number_format($order['total_amount'] ?? 0, 0) }}
                         </td>
-                        <td class="p-4 text-right">
-                            <a href="{{ $showUrl($order['id']) }}"
-                               class="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-bold text-middo-dark hover:border-middo-orange hover:text-middo-orange transition">
-                                View
-                            </a>
+                        <td class="p-4 text-right sticky right-0 bg-white">
+                            <x-orders.view-link :order-id="$order['id']" />
                         </td>
                     </tr>
                 @empty

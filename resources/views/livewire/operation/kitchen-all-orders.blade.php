@@ -35,7 +35,7 @@
                             class="flex items-center gap-3 px-4 py-3 hover:bg-white/60 transition">
                             <span class="shrink-0 w-6 text-center text-gray-400 font-mono text-xs select-none">└</span>
                             <div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 text-sm">
-                                <span class="font-mono font-bold text-middo-dark">#{{ $order['id'] }}</span>
+                                <x-orders.id-link :order-id="$order['id']" />
                                 <span class="font-medium truncate">{{ $order['customer_name'] }}</span>
                                 <span class="truncate text-gray-700">{{ $order['menu_name'] }}</span>
                                 <span class="text-gray-500">
@@ -44,11 +44,7 @@
                                     · {{ ucfirst($order['order_status']) }}
                                 </span>
                             </div>
-                            <a
-                                href="{{ \App\Support\StaffOrderRoutes::show($order['id']) }}"
-                                class="shrink-0 inline-flex items-center px-2.5 py-1 rounded-lg border border-gray-200 bg-white text-[11px] font-bold text-middo-dark hover:border-middo-orange hover:text-middo-orange transition">
-                                View
-                            </a>
+                            <x-orders.view-link :order-id="$order['id']" compact />
                         </li>
                     @endforeach
                 </ul>
