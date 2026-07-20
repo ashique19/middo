@@ -92,7 +92,15 @@
                         </div>
                         <div>
                             <dt class="text-[11px] font-bold uppercase text-gray-400">Group menu</dt>
-                            <dd class="font-semibold text-gray-800">{{ $group->menuItem?->name ?: '—' }}</dd>
+                            <dd class="font-semibold text-gray-800">
+                                @if($group->menuItem && $this->menuShowRoute($group->menuItem))
+                                    <a href="{{ $this->menuShowRoute($group->menuItem) }}" class="text-middo-orange hover:underline">
+                                        {{ $group->menuItem->name }} →
+                                    </a>
+                                @else
+                                    {{ $group->menuItem?->name ?: '—' }}
+                                @endif
+                            </dd>
                         </div>
                     @endif
                     <div>
@@ -145,7 +153,15 @@
             <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                     <dt class="text-[11px] font-bold uppercase text-gray-400">Menu</dt>
-                    <dd class="font-semibold text-gray-800 mt-0.5">{{ $order->menuItem?->name ?? 'Custom Selection' }}</dd>
+                    <dd class="mt-0.5">
+                        @if($this->menuShowRoute())
+                            <a href="{{ $this->menuShowRoute() }}" class="font-semibold text-middo-orange hover:underline">
+                                {{ $order->menuItem?->name ?? 'Custom Selection' }} →
+                            </a>
+                        @else
+                            <span class="font-semibold text-gray-800">{{ $order->menuItem?->name ?? 'Custom Selection' }}</span>
+                        @endif
+                    </dd>
                 </div>
                 <div>
                     <dt class="text-[11px] font-bold uppercase text-gray-400">Quantity</dt>

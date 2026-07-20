@@ -121,7 +121,9 @@ class OrderShowTest extends TestCase
             ->assertSee('Status Updated')
             ->assertSee('Profile →')
             ->assertSee(route('operation.kitchens.show', $kitchen), false)
-            ->assertSee(route('operation.deliveries.show', $rider), false);
+            ->assertSee(route('operation.deliveries.show', $rider), false)
+            ->assertSee(route('operation.menu.show', $menu), false)
+            ->assertSee('Chicken Bowl');
 
         $this->actingAs($ops)
             ->get(route('operation.kitchens.show', $kitchen))
@@ -147,7 +149,28 @@ class OrderShowTest extends TestCase
             ->assertSee('Acme Foods')
             ->assertSee('Rider Ali')
             ->assertSee(route('admin.kitchens.show', $kitchen), false)
-            ->assertSee(route('admin.deliveries.show', $rider), false);
+            ->assertSee(route('admin.deliveries.show', $rider), false)
+            ->assertSee(route('admin.menu.show', $menu), false);
+    }
+
+    public function test_menu_show_page_is_reachable_from_order_detail(): void
+    {
+        $ops = $this->user('operation', ['mobile' => '01310888007']);
+        $menu = MenuItem::create([
+            'name' => 'Vegetable Khichdi Thali',
+            'price' => 280,
+            'summary' => 'Comfort bowl',
+            'meals_cost' => 100,
+            'other_cost' => 20,
+            'kitchen_commission' => 40,
+        ]);
+
+        $this->actingAs($ops)
+            ->get(route('operation.menu.show', $menu))
+            ->assertOk()
+            ->assertSee('Vegetable Khichdi Thali')
+            ->assertSee('Comfort bowl')
+            ->assertSee('৳280');
     }
 
     public function test_corporate_cannot_open_staff_order_show(): void

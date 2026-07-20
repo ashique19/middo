@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Shared;
 
+use App\Models\MenuItem;
 use App\Models\Order;
 use App\Support\CorporateApiPresenter;
 use App\Support\OrderPaymentMethod;
@@ -90,6 +91,18 @@ class OrderShow extends Component
         $name = $this->rolePrefix().'.deliveries.show';
 
         return Route::has($name) ? route($name, $rider) : null;
+    }
+
+    public function menuShowRoute(?MenuItem $menuItem = null): ?string
+    {
+        $menuItem ??= $this->order->menuItem;
+        if (! $menuItem) {
+            return null;
+        }
+
+        $name = $this->rolePrefix().'.menu.show';
+
+        return Route::has($name) ? route($name, $menuItem) : null;
     }
 
     public function subscriptionShowRoute(): ?string

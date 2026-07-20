@@ -10,6 +10,7 @@ use App\Livewire\Operation\OrderHistory;
 use App\Livewire\Operation\SearchOrder;
 use App\Livewire\Shared\CorporateShow;
 use App\Livewire\Shared\CorporateTable;
+use App\Livewire\Shared\MenuShow;
 use App\Livewire\Shared\MiddoCashLedgerPage;
 use App\Livewire\Shared\OrderShow;
 use App\Livewire\Shared\PackageBuilder;
@@ -32,6 +33,7 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/menu', function () {
         return view('operation.menu.page');
     })->name('operation.menu.index');
+    Route::get('/menu/{menuItem}', MenuShow::class)->name('operation.menu.show');
 
     Route::get('/meal-items', function () {
         return view('operation.meal-items.page');
