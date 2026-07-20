@@ -84,7 +84,7 @@ class OrderHistory extends Component
         $orders = Order::query()
             ->past()
             ->orderByDesc('delivery_date')
-            ->orderByDesc('delivery_time')
+            ->orderByDesc('id')
             ->forPage($this->getPage(), 20)
             ->get();
 
@@ -132,7 +132,7 @@ class OrderHistory extends Component
                     'total_quantity' => $groupOrders->sum('quantity'),
                     'color' => $colorPalette[$index % count($colorPalette)],
                     'orders' => $groupOrders
-                        ->sortByDesc('delivery_time')
+                        ->sortByDesc('id')
                         ->values()
                         ->map(fn (Order $order) => $this->formatOrderNode($order))
                         ->all(),
@@ -145,7 +145,7 @@ class OrderHistory extends Component
 
         $ungrouped = $dayOrders
             ->reject(fn (Order $order) => $groupedOrderIds->contains($order->id))
-            ->sortByDesc('delivery_time')
+            ->sortByDesc('id')
             ->values()
             ->map(fn (Order $order) => $this->formatOrderNode($order))
             ->all();
@@ -205,7 +205,7 @@ class OrderHistory extends Component
             ->when($this->packageFilter === 'package', fn ($q) => $q->whereNotNull('package_subscription_id'))
             ->when($this->packageFilter === 'alacarte', fn ($q) => $q->whereNull('package_subscription_id'))
             ->orderByDesc('delivery_date')
-            ->orderByDesc('delivery_time')
+            ->orderByDesc('id')
             ->limit(2000)
             ->get();
 
@@ -225,7 +225,7 @@ class OrderHistory extends Component
             ->when($this->packageFilter === 'package', fn ($q) => $q->whereNotNull('package_subscription_id'))
             ->when($this->packageFilter === 'alacarte', fn ($q) => $q->whereNull('package_subscription_id'))
             ->orderByDesc('delivery_date')
-            ->orderByDesc('delivery_time')
+            ->orderByDesc('id')
             ->paginate(20);
 
         $dateSections = $this->buildDateSections(collect($orders->items()));
@@ -249,6 +249,12 @@ class OrderHistory extends Component
 
                 return $rows;
             })
+            // Keep list view strictly newest delivery date, then newest order id.
+            ->sortByDesc(fn (array $order) => sprintf(
+                '%s-%010d',
+                $order['delivery_date'],
+                (int) $order['id']
+            ))
             ->values()
             ->all();
 
