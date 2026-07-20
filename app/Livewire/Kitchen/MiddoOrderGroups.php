@@ -4,6 +4,7 @@ namespace App\Livewire\Kitchen;
 
 use App\Livewire\Kitchen\Concerns\FormatsOrderGroups;
 use App\Models\OrderGroup;
+use App\Support\OrderKitchenAcceptance;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -51,7 +52,7 @@ class MiddoOrderGroups extends Component
                     'updated_by' => $kitchenId,
                 ]);
 
-                \App\Support\OrderKitchenAcceptance::markGroupOrdersProcessing($group, $kitchenId);
+                OrderKitchenAcceptance::markGroupOrdersProcessing($group, $kitchenId);
 
                 return $group->name;
             });
@@ -70,12 +71,13 @@ class MiddoOrderGroups extends Component
         $groups = OrderGroup::with([
             'menuItem',
             'orders' => fn ($query) => $query
-                ->with(['menuItem', 'user'])
+                ->with(['menuItem', 'user', 'packageSubscription.package'])
+                ->where('order_status', '!=', 'cancelled')
                 ->orderBy('delivery_time'),
         ])
             ->whereNull('kitchen_id')
             ->whereDate('delivery_date', '>=', $today)
-            ->whereHas('orders')
+            ->whereHas('orders', fn ($query) => $query->where('order_status', '!=', 'cancelled'))
             ->orderBy('delivery_date')
             ->orderBy('name')
             ->paginate(20);

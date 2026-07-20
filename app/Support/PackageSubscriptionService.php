@@ -6,10 +6,12 @@ use App\Contracts\PaymentGateway;
 use App\Models\Area;
 use App\Models\City;
 use App\Models\MealPackage;
+use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\PackageSubscription;
 use App\Models\User;
 use App\Models\WalletTransaction;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -20,7 +22,7 @@ class PackageSubscriptionService
      *
      * @param  array<int>  $omittedWeekdays
      * @param  array<string>  $extraSkippedDates
-     * @return array{subscription: PackageSubscription, orders: \Illuminate\Support\Collection<int, Order>}
+     * @return array{subscription: PackageSubscription, orders: Collection<int, Order>}
      */
     public function subscribe(
         User $user,
@@ -206,6 +208,263 @@ class PackageSubscriptionService
             throw new RuntimeException('Order not found.');
         }
 
+        return $this->skipDayInternal($user, $order, $user->id);
+    }
+
+    /**
+     * Admin/operation skip of a package day (refunds the corporate wallet).
+     */
+    public function skipDayAsStaff(User $actor, Order $order): Order
+    {
+        $this->assertStaffActor($actor);
+
+        $owner = User::query()->findOrFail($order->user_id);
+
+        return $this->skipDayInternal($owner, $order, $actor->id);
+    }
+
+    /**
+     * Cancel all remaining skippable package days and mark the subscription cancelled.
+     *
+     * @return array{subscription: PackageSubscription, cancelled_orders: int, refunded_amount: int}
+     */
+    public function cancelRemaining(User $actor, PackageSubscription $subscription): array
+    {
+        $this->assertStaffActor($actor);
+
+        return DB::transaction(function () use ($actor, $subscription) {
+            /** @var PackageSubscription $lockedSub */
+            $lockedSub = PackageSubscription::query()->lockForUpdate()->findOrFail($subscription->id);
+
+            if ($lockedSub->status === PackageSubscription::STATUS_CANCELLED) {
+                throw new RuntimeException('Subscription is already cancelled.');
+            }
+
+            $owner = User::query()->lockForUpdate()->findOrFail($lockedSub->user_id);
+            $orders = Order::query()
+                ->where('package_subscription_id', $lockedSub->id)
+                ->where('order_status', 'pending')
+                ->orderBy('delivery_date')
+                ->lockForUpdate()
+                ->get();
+
+            $cancelled = 0;
+            $refunded = 0;
+
+            foreach ($orders as $order) {
+                if (! OrderCutoff::allowsModification($order)) {
+                    continue;
+                }
+
+                $lineRefund = (int) ($order->amount_paid ?: $order->total_amount);
+                $this->cancelPackageOrder($order, $owner, $actor->id, $lineRefund, 'Package subscription cancelled — refund for order #'.$order->id);
+                $cancelled++;
+                $refunded += $lineRefund;
+            }
+
+            $lockedSub->update([
+                'status' => PackageSubscription::STATUS_CANCELLED,
+            ]);
+
+            return [
+                'subscription' => $lockedSub->fresh(['package', 'user', 'orders.menuItem']),
+                'cancelled_orders' => $cancelled,
+                'refunded_amount' => $refunded,
+            ];
+        });
+    }
+
+    /**
+     * Update delivery details on the subscription and all future pending package orders.
+     *
+     * @return array{subscription: PackageSubscription, updated_orders: int}
+     */
+    public function updateDeliveryDetails(
+        User $actor,
+        PackageSubscription $subscription,
+        string $deliveryTime,
+        string $address,
+        string $receiverName,
+        string $receiverMobile,
+        ?int $areaId = null,
+    ): array {
+        $this->assertStaffActor($actor);
+
+        $deliveryTime = trim($deliveryTime);
+        $address = trim($address);
+        $receiverName = trim($receiverName);
+        $receiverMobile = trim($receiverMobile);
+
+        if ($deliveryTime === '' || $address === '' || $receiverName === '' || $receiverMobile === '') {
+            throw new RuntimeException('Delivery time, address, receiver name, and mobile are required.');
+        }
+
+        return DB::transaction(function () use (
+            $actor,
+            $subscription,
+            $deliveryTime,
+            $address,
+            $receiverName,
+            $receiverMobile,
+            $areaId
+        ) {
+            /** @var PackageSubscription $lockedSub */
+            $lockedSub = PackageSubscription::query()->lockForUpdate()->findOrFail($subscription->id);
+
+            $payload = [
+                'delivery_time' => $deliveryTime,
+                'address' => $address,
+                'receiver_name' => $receiverName,
+                'receiver_mobile' => $receiverMobile,
+            ];
+            if ($areaId) {
+                $payload['area_id'] = $areaId;
+            }
+
+            $lockedSub->update($payload);
+
+            $today = now(OrderCutoff::timezone())->toDateString();
+            $orders = Order::query()
+                ->where('package_subscription_id', $lockedSub->id)
+                ->where('order_status', 'pending')
+                ->whereDate('delivery_date', '>=', $today)
+                ->lockForUpdate()
+                ->get();
+
+            $orderPayload = [
+                'delivery_time' => $deliveryTime,
+                'address' => $address,
+                'receiver_name' => $receiverName,
+                'receiver_mobile' => $receiverMobile,
+                'updated_by' => $actor->id,
+            ];
+            if ($areaId) {
+                $orderPayload['area_id'] = $areaId;
+            }
+
+            foreach ($orders as $order) {
+                $order->update($orderPayload);
+            }
+
+            return [
+                'subscription' => $lockedSub->fresh(['package', 'user', 'area', 'orders.menuItem']),
+                'updated_orders' => $orders->count(),
+            ];
+        });
+    }
+
+    /**
+     * Swap the menu for one pending package day and re-group the order.
+     */
+    public function swapDayMenu(User $actor, Order $order, int $newMenuItemId): Order
+    {
+        $this->assertStaffActor($actor);
+
+        if (! $order->package_subscription_id) {
+            throw new RuntimeException('This order is not part of a meal package.');
+        }
+
+        if ($order->order_status !== 'pending') {
+            throw new RuntimeException('Only pending package days can change menu.');
+        }
+
+        if (! OrderCutoff::allowsModification($order)) {
+            throw new RuntimeException(OrderCutoff::modificationDeniedMessage());
+        }
+
+        $menu = MenuItem::query()->findOrFail($newMenuItemId);
+
+        return DB::transaction(function () use ($actor, $order, $menu) {
+            /** @var Order $locked */
+            $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
+
+            if ($locked->order_status !== 'pending' || ! OrderCutoff::allowsModification($locked)) {
+                throw new RuntimeException(OrderCutoff::modificationDeniedMessage());
+            }
+
+            if ((int) $locked->menu_item_id === (int) $menu->id) {
+                return $locked->fresh(['menuItem', 'packageSubscription.package']);
+            }
+
+            app(OrderGroupManager::class)->ungroup($locked->id);
+
+            $locked->update([
+                'menu_item_id' => $menu->id,
+                'updated_by' => $actor->id,
+            ]);
+
+            $fresh = $locked->fresh(['menuItem', 'user', 'packageSubscription.package']);
+            app(MealOrderGrouper::class)->assignOrder($fresh, $actor->id);
+
+            return $fresh->fresh(['menuItem', 'orderGroup', 'packageSubscription.package']);
+        });
+    }
+
+    /**
+     * Skip every pending package order on a delivery date (holiday bulk skip).
+     *
+     * @return array{skipped: int, refunded_amount: int, order_ids: array<int>}
+     */
+    public function bulkSkipDate(User $actor, string $deliveryDate): array
+    {
+        $this->assertStaffActor($actor);
+
+        return DB::transaction(function () use ($actor, $deliveryDate) {
+            $orders = Order::query()
+                ->whereNotNull('package_subscription_id')
+                ->where('order_status', 'pending')
+                ->whereDate('delivery_date', $deliveryDate)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            $skipped = 0;
+            $refunded = 0;
+            $ids = [];
+
+            foreach ($orders as $order) {
+                if (! OrderCutoff::allowsModification($order)) {
+                    continue;
+                }
+
+                $owner = User::query()->findOrFail($order->user_id);
+                $lineRefund = (int) ($order->amount_paid ?: $order->total_amount);
+                $this->cancelPackageOrder(
+                    $order,
+                    $owner,
+                    $actor->id,
+                    $lineRefund,
+                    'Package holiday skip — refund for order #'.$order->id
+                );
+                $skipped++;
+                $refunded += $lineRefund;
+                $ids[] = $order->id;
+            }
+
+            return [
+                'skipped' => $skipped,
+                'refunded_amount' => $refunded,
+                'order_ids' => $ids,
+            ];
+        });
+    }
+
+    /**
+     * Admin-only: force-complete a subscription without further refunds.
+     */
+    public function forceComplete(User $actor, PackageSubscription $subscription): PackageSubscription
+    {
+        if ($actor->role?->name !== 'admin') {
+            throw new RuntimeException('Only admins can force-complete subscriptions.');
+        }
+
+        $subscription->update(['status' => PackageSubscription::STATUS_COMPLETED]);
+
+        return $subscription->fresh(['package', 'user']);
+    }
+
+    protected function skipDayInternal(User $walletOwner, Order $order, int $actorId): Order
+    {
         if (! $order->package_subscription_id) {
             throw new RuntimeException('This order is not part of a meal package.');
         }
@@ -218,7 +477,7 @@ class PackageSubscriptionService
             throw new RuntimeException(OrderCutoff::modificationDeniedMessage());
         }
 
-        return DB::transaction(function () use ($user, $order) {
+        return DB::transaction(function () use ($walletOwner, $order, $actorId) {
             /** @var Order $locked */
             $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
 
@@ -227,22 +486,52 @@ class PackageSubscriptionService
             }
 
             $refund = (int) ($locked->amount_paid ?: $locked->total_amount);
-            if ($refund > 0) {
-                WalletLedger::credit(
-                    $user,
-                    $refund,
-                    WalletTransaction::TYPE_REFUND,
-                    'Package day skipped — refund for order #'.$locked->id,
-                    $locked
-                );
-            }
-
-            $locked->update([
-                'order_status' => 'cancelled',
-                'updated_by' => $user->id,
-            ]);
+            $this->cancelPackageOrder(
+                $locked,
+                $walletOwner,
+                $actorId,
+                $refund,
+                'Package day skipped — refund for order #'.$locked->id
+            );
 
             return $locked->fresh('menuItem');
         });
+    }
+
+    protected function cancelPackageOrder(
+        Order $order,
+        User $walletOwner,
+        int $actorId,
+        int $refund,
+        string $refundDescription
+    ): void {
+        if ($refund > 0) {
+            WalletLedger::credit(
+                $walletOwner,
+                $refund,
+                WalletTransaction::TYPE_REFUND,
+                $refundDescription,
+                $order
+            );
+        }
+
+        $order->update([
+            'order_status' => 'cancelled',
+            'updated_by' => $actorId,
+        ]);
+
+        try {
+            app(OrderGroupManager::class)->ungroup($order->id);
+        } catch (\Throwable) {
+            // Order may already be ungrouped.
+        }
+    }
+
+    protected function assertStaffActor(User $actor): void
+    {
+        $role = $actor->role?->name;
+        if (! in_array($role, ['admin', 'operation'], true)) {
+            throw new RuntimeException('Only admin or operation staff can perform this action.');
+        }
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Livewire\Shared;
 
 use App\Models\MealPackage;
+use App\Models\MealPackageDay;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -16,14 +17,67 @@ class PackageTable extends Component
 
     public bool $canManage = false;
 
+    public bool $canCreate = false;
+
+    public bool $canPublish = false;
+
     public function mount(): void
     {
-        $this->canManage = Auth::user()?->role?->name === 'admin';
+        $role = Auth::user()?->role?->name;
+        $this->canPublish = $role === 'admin';
+        $this->canManage = $role === 'admin';
+        $this->canCreate = in_array($role, ['admin', 'operation'], true);
     }
 
     public function updatingSearch(): void
     {
         $this->resetPage();
+    }
+
+    public function clonePackage(int $id): void
+    {
+        abort_unless($this->canCreate, 403);
+
+        $source = MealPackage::with('days')->findOrFail($id);
+        $start = now('Asia/Dhaka')->addDay()->startOfDay();
+        $end = $start->copy()->addDays(max(1, (int) $source->duration_days) - 1);
+        $offsetDays = $source->start_date
+            ? $source->start_date->copy()->startOfDay()->diffInDays($start, false)
+            : 0;
+
+        $clone = MealPackage::create([
+            'name' => $source->name.' (copy)',
+            'summary' => $source->summary,
+            'price_per_day' => $source->price_per_day,
+            'diet_tag' => $source->diet_tag,
+            'duration_days' => $source->duration_days,
+            'start_date' => $start->toDateString(),
+            'end_date' => $end->toDateString(),
+            'thumbnail' => null,
+            'status' => MealPackage::STATUS_DRAFT,
+            'display_order' => $source->display_order,
+            'created_by' => Auth::id(),
+            'updated_by' => Auth::id(),
+        ]);
+
+        foreach ($source->days as $day) {
+            $newDate = $day->delivery_date->copy()->addDays($offsetDays);
+            if ($newDate->lt($start) || $newDate->gt($end)) {
+                continue;
+            }
+
+            MealPackageDay::create([
+                'meal_package_id' => $clone->id,
+                'delivery_date' => $newDate->toDateString(),
+                'menu_item_id' => $day->menu_item_id,
+            ]);
+        }
+
+        $route = Auth::user()?->role?->name === 'admin'
+            ? route('admin.packages.edit', $clone)
+            : route('operation.packages.edit', $clone);
+
+        $this->redirect($route);
     }
 
     public function deletePackage(int $id): void
@@ -52,7 +106,7 @@ class PackageTable extends Component
 
     public function togglePublish(int $id): void
     {
-        $this->authorizeManage();
+        abort_unless($this->canPublish, 403);
 
         $package = MealPackage::withCount('days')->findOrFail($id);
 
@@ -78,9 +132,7 @@ class PackageTable extends Component
     }
 
     #[On('package-updated')]
-    public function refreshTable(): void
-    {
-    }
+    public function refreshTable(): void {}
 
     protected function authorizeManage(): void
     {

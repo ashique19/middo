@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\User;
 use App\Support\OrdersExcelExport;
+use App\Support\PackageOrderPresenter;
 use Carbon\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -32,7 +33,7 @@ class KitchenAllOrders extends Component
     {
         $party = $order->partyPayload();
 
-        return [
+        return array_merge([
             'id' => $order->id,
             'delivery_time' => $order->delivery_time,
             'delivery_date' => $order->delivery_date->toDateString(),
@@ -49,7 +50,7 @@ class KitchenAllOrders extends Component
             'total_amount' => $order->total_amount,
             'address' => $order->address,
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
-        ];
+        ], PackageOrderPresenter::fields($order));
     }
 
     public function exportExcel(): StreamedResponse
@@ -119,6 +120,10 @@ class KitchenAllOrders extends Component
                     })
                     ->values();
 
+                $orderNodes = $orders
+                    ->map(fn (Order $order) => $this->formatOrderNode($order))
+                    ->all();
+
                 return [
                     'id' => $group->id,
                     'name' => $group->name,
@@ -126,9 +131,8 @@ class KitchenAllOrders extends Component
                     'date_label' => $this->dateLabel($group->delivery_date->toDateString()),
                     'total_quantity' => $orders->sum('quantity'),
                     'color' => $colorPalette[($offset + $index) % count($colorPalette)],
-                    'orders' => $orders
-                        ->map(fn (Order $order) => $this->formatOrderNode($order))
-                        ->all(),
+                    'package_source' => PackageOrderPresenter::groupSource($orderNodes),
+                    'orders' => $orderNodes,
                 ];
             })
             ->all();
@@ -139,7 +143,7 @@ class KitchenAllOrders extends Component
         $groups = OrderGroup::with([
             'menuItem',
             'orders' => fn ($query) => $query
-                ->with(['menuItem', 'user'])
+                ->with(['menuItem', 'user', 'packageSubscription.package'])
                 ->orderByDesc('delivery_date')
                 ->orderBy('delivery_time'),
         ])

@@ -4,6 +4,7 @@ namespace App\Livewire\Kitchen\Concerns;
 
 use App\Models\Order;
 use App\Models\OrderGroup;
+use App\Support\PackageOrderPresenter;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -39,7 +40,7 @@ trait FormatsOrderGroups
     {
         $party = $order->partyPayload();
 
-        return [
+        return array_merge([
             'id' => $order->id,
             'delivery_time' => $order->delivery_time,
             'delivery_date' => $order->delivery_date->toDateString(),
@@ -59,7 +60,7 @@ trait FormatsOrderGroups
             'total_amount' => $order->total_amount,
             'address' => $order->address,
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
-        ];
+        ], PackageOrderPresenter::fields($order));
     }
 
     /**
@@ -83,6 +84,7 @@ trait FormatsOrderGroups
             ->values()
             ->map(function (OrderGroup $group, int $index) use ($colorPalette, $colorOffset) {
                 $orders = $group->orders
+                    ->filter(fn (Order $order) => $order->order_status !== 'cancelled')
                     ->sort(function (Order $a, Order $b) {
                         $dateCompare = $b->delivery_date <=> $a->delivery_date;
 
@@ -94,6 +96,10 @@ trait FormatsOrderGroups
                     })
                     ->values();
 
+                $orderNodes = $orders
+                    ->map(fn (Order $order) => $this->formatOrderNode($order))
+                    ->all();
+
                 return [
                     'id' => $group->id,
                     'name' => $group->name,
@@ -103,11 +109,13 @@ trait FormatsOrderGroups
                     'delivery_date' => $group->delivery_date->toDateString(),
                     'total_quantity' => $orders->sum('quantity'),
                     'color' => $colorPalette[($colorOffset + $index) % count($colorPalette)],
-                    'orders' => $orders
-                        ->map(fn (Order $order) => $this->formatOrderNode($order))
-                        ->all(),
+                    'package_source' => PackageOrderPresenter::groupSource($orderNodes),
+                    'has_package_orders' => PackageOrderPresenter::collectionHasPackage($orderNodes),
+                    'orders' => $orderNodes,
                 ];
             })
+            ->filter(fn (array $node) => count($node['orders']) > 0)
+            ->values()
             ->all();
     }
 }
