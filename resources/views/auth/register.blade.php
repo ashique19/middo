@@ -5,13 +5,26 @@
             errors: {},
             loading: false,
             otpSent: false,
+            otpModalOpen: false,
             debugOtp: null,
             cityName: 'Select City', areaName: 'Select Area', cityOpen: false, areaOpen: false, areas: [],
             get isMobileValid() { return this.form.mobile.length === 0 || /^01[3-9][0-9]{8}$/.test(this.form.mobile); },
-            async sendOtp() {
+            focusOtpInput() {
+                this.$nextTick(() => {
+                    this.$refs.otpInput?.focus();
+                });
+            },
+            openOtpModal() {
+                this.otpModalOpen = true;
+                this.focusOtpInput();
+            },
+            closeOtpModal() {
+                this.otpModalOpen = false;
+            },
+            async sendOtp({ openModal = true } = {}) {
                 if (!this.isMobileValid || this.form.mobile.length !== 11) {
                     this.errors = { mobile: ['Provide a valid 11-digit mobile number (e.g. 01710123456).'] };
-                    return;
+                    return false;
                 }
                 this.loading = true; this.errors = {};
                 try {
@@ -25,18 +38,26 @@
                         this.otpSent = true;
                         this.debugOtp = result.debug_otp || null;
                         this.form.otp = '';
-                    } else {
-                        this.errors = result.errors || { general: [result.message || 'Failed to send OTP.'] };
+                        if (openModal) this.openOtpModal();
+                        this.loading = false;
+                        return true;
                     }
+                    this.errors = result.errors || { general: [result.message || 'Failed to send OTP.'] };
                 } catch (e) {
                     this.errors = { general: ['Failed to send OTP. Please try again.'] };
                 }
                 this.loading = false;
+                return false;
             },
             async submit() {
                 if (!this.isMobileValid) return;
                 if (!this.otpSent) {
-                    await this.sendOtp();
+                    await this.sendOtp({ openModal: true });
+                    this.loading = false;
+                    return;
+                }
+                if (!this.otpModalOpen) {
+                    this.openOtpModal();
                     return;
                 }
                 this.loading = true; this.errors = {};
@@ -47,12 +68,25 @@
                         body: JSON.stringify(this.form)
                     });
                     let result = await response.json();
-                    if (response.ok) { window.location.href = result.redirect; }
-                    else { this.errors = result.errors; }
-                } catch (e) { this.errors = { general: ['Registration failed. Please try again.'] }; }
+                    if (response.ok) {
+                        window.location.href = result.redirect;
+                        return;
+                    }
+                    this.errors = result.errors || {};
+                    // Keep the modal open only when the OTP itself failed; otherwise show field errors on the form.
+                    if (!this.errors.otp) {
+                        this.closeOtpModal();
+                    } else {
+                        this.focusOtpInput();
+                    }
+                } catch (e) {
+                    this.errors = { general: ['Registration failed. Please try again.'] };
+                    this.closeOtpModal();
+                }
                 this.loading = false;
             }
-         }">
+         }"
+         @keydown.escape.window="if (otpModalOpen && !loading) closeOtpModal()">
         
         <div class="w-full max-w-4xl bg-middo-cream md:bg-white md:shadow-xl md:rounded-[32px] mb-12">
             
@@ -96,24 +130,17 @@
                                 :class="!isMobileValid ? 'ring-2 ring-red-500' : ''"
                                 :disabled="loading || otpSent"
                                 maxlength="11">
-                            <button type="button" @click="sendOtp" :disabled="loading || !isMobileValid || form.mobile.length !== 11"
+                            <button type="button" @click="sendOtp({ openModal: true })" :disabled="loading || !isMobileValid || form.mobile.length !== 11"
                                 class="shrink-0 px-4 rounded-xl border border-middo-orange text-middo-orange font-bold text-sm hover:bg-middo-orange hover:text-white transition disabled:opacity-50">
                                 <span x-text="otpSent ? 'Resend OTP' : 'Send OTP'"></span>
                             </button>
                         </div>
                         <template x-if="!isMobileValid"><p class="text-red-500 text-xs mt-1">Invalid format (01xxxxxxxxx)</p></template>
                         <template x-if="errors.mobile"><p class="text-red-500 text-xs mt-1" x-text="errors.mobile[0]"></p></template>
-                    </div>
-
-                    <div class="mb-4" x-show="otpSent" x-cloak>
-                        <template x-if="debugOtp">
-                            <p class="text-middo-orange text-xs font-bold mb-2" x-text="'Debug OTP: ' + debugOtp"></p>
-                        </template>
-                        <input x-model="form.otp" type="text" inputmode="numeric" maxlength="4" placeholder="4-digit SMS OTP"
-                            class="w-full p-4 rounded-xl border border-gray-300 tracking-[0.4em] text-center text-xl font-bold"
-                            :disabled="loading">
-                        <template x-if="errors.otp"><p class="text-red-500 text-xs mt-1" x-text="errors.otp[0]"></p></template>
-                        <p class="text-gray-500 text-xs mt-1">Enter the code sent to your mobile. Valid for 5 minutes.</p>
+                        <p x-show="otpSent" x-cloak class="text-gray-500 text-xs mt-2">
+                            Code sent.
+                            <button type="button" @click="openOtpModal" class="text-middo-orange font-bold hover:underline">Enter OTP</button>
+                        </p>
                     </div>
 
                     <div class="mb-4">
@@ -157,10 +184,65 @@
                     </div>
 
                     <button type="submit" :disabled="loading" class="w-full bg-middo-orange text-white p-4 rounded-xl font-bold hover:opacity-90 transition">
-                        <span x-show="!loading" x-text="otpSent ? 'Verify & Sign Up' : 'Send OTP & Continue'"></span>
+                        <span x-show="!loading" x-text="otpSent ? 'Enter OTP & Sign Up' : 'Send OTP & Continue'"></span>
                         <span x-show="loading">Processing...</span>
                     </button>
                 </form>
+            </div>
+        </div>
+
+        {{-- OTP verification modal: keeps the long signup form intact on large screens --}}
+        <div x-show="otpModalOpen" x-cloak
+             class="fixed inset-0 z-50 flex items-center justify-center p-4"
+             role="dialog" aria-modal="true" aria-labelledby="signup-otp-title">
+            <div class="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" @click="!loading && closeOtpModal()"></div>
+            <div class="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6 md:p-8"
+                 @click.stop
+                 x-show="otpModalOpen"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-2 scale-95">
+                <div class="flex items-start justify-between gap-4 mb-4">
+                    <div>
+                        <h2 id="signup-otp-title" class="text-xl font-extrabold text-middo-dark">Verify your mobile</h2>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Enter the 4-digit code sent to
+                            <span class="font-bold text-middo-dark" x-text="form.mobile"></span>.
+                        </p>
+                    </div>
+                    <button type="button" @click="closeOtpModal" :disabled="loading"
+                            class="text-gray-400 hover:text-middo-dark text-2xl leading-none disabled:opacity-50" aria-label="Close">
+                        &times;
+                    </button>
+                </div>
+
+                <template x-if="debugOtp">
+                    <p class="text-middo-orange text-xs font-bold mb-3" x-text="'Debug OTP: ' + debugOtp"></p>
+                </template>
+
+                <label for="signup-otp-input" class="sr-only">SMS OTP</label>
+                <input x-ref="otpInput" id="signup-otp-input" x-model="form.otp" type="text" inputmode="numeric" maxlength="4"
+                       placeholder="4-digit SMS OTP"
+                       class="w-full p-4 rounded-xl border border-gray-300 tracking-[0.4em] text-center text-xl font-bold"
+                       :disabled="loading"
+                       @keydown.enter.prevent="submit()">
+                <template x-if="errors.otp"><p class="text-red-500 text-xs mt-2" x-text="errors.otp[0]"></p></template>
+                <p class="text-gray-500 text-xs mt-2">Valid for 5 minutes.</p>
+
+                <div class="mt-6 space-y-3">
+                    <button type="button" @click="submit" :disabled="loading || form.otp.length !== 4"
+                            class="w-full bg-middo-orange text-white p-4 rounded-xl font-bold hover:opacity-90 transition disabled:opacity-50">
+                        <span x-show="!loading">Verify & Sign Up</span>
+                        <span x-show="loading">Processing...</span>
+                    </button>
+                    <button type="button" @click="sendOtp({ openModal: true })" :disabled="loading"
+                            class="w-full rounded-xl border border-middo-orange text-middo-orange font-bold text-sm py-3 hover:bg-middo-orange hover:text-white transition disabled:opacity-50">
+                        Resend OTP
+                    </button>
+                </div>
             </div>
         </div>
     </div>
