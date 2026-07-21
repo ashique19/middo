@@ -13,11 +13,12 @@
                 <x-package-badge />
                 <span @class([
                     'px-2.5 py-1 rounded-full text-[11px] font-bold uppercase',
-                    'bg-emerald-100 text-emerald-800 border border-emerald-200' => $subscription->status === 'active',
+                    'bg-amber-100 text-amber-800 border border-amber-200' => $subscription->isAwaitingSchedule(),
+                    'bg-emerald-100 text-emerald-800 border border-emerald-200' => $subscription->status === 'active' && $subscription->isScheduled(),
                     'bg-gray-100 text-gray-600 border border-gray-200' => $subscription->status === 'completed',
                     'bg-red-50 text-red-700 border border-red-200' => $subscription->status === 'cancelled',
                 ])>
-                    {{ $subscription->status }}
+                    {{ $subscription->isAwaitingSchedule() ? 'awaiting schedule' : $subscription->status }}
                 </span>
             </div>
         </div>
@@ -38,8 +39,21 @@
         </div>
         <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Window</p>
-            <p class="text-lg font-bold text-gray-800">{{ $subscription->start_date?->format('M d, Y') }} – {{ $subscription->end_date?->format('M d, Y') }}</p>
-            <p class="text-xs text-gray-500 mt-1">Omitted weekdays: {{ empty($subscription->omitted_weekdays) ? 'none' : implode(', ', $subscription->omitted_weekdays) }}</p>
+            <p class="text-lg font-bold text-gray-800">
+                @if($subscription->target_month)
+                    {{ \Carbon\Carbon::createFromFormat('Y-m', $subscription->target_month)->format('F Y') }}
+                @else
+                    {{ $subscription->start_date?->format('M d, Y') }} – {{ $subscription->end_date?->format('M d, Y') }}
+                @endif
+            </p>
+            <p class="text-xs text-gray-500 mt-1">
+                Omitted weekdays:
+                @if(empty($subscription->omitted_weekdays))
+                    none
+                @else
+                    {{ collect($subscription->omitted_weekdays)->map(fn ($d) => \App\Support\PackageBilling::WEEKDAY_LABELS[(int) $d] ?? $d)->implode(', ') }}
+                @endif
+            </p>
         </div>
         <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Receiver</p>
@@ -47,6 +61,72 @@
             <p class="text-xs text-gray-500 mt-1">{{ $subscription->receiver_mobile }} · {{ $subscription->area?->name }}</p>
         </div>
     </div>
+
+    @if($subscription->selections->isNotEmpty())
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-gray-800 mb-3">Corporate menu selection</h2>
+            <div class="flex flex-wrap gap-2">
+                @foreach($selectionRemaining as $sel)
+                    <div class="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm">
+                        <span class="font-bold text-gray-800">{{ $sel['name'] }}</span>
+                        <span class="text-gray-500 ml-2">{{ $sel['assigned'] }}/{{ $sel['day_count'] }}</span>
+                        @if($subscription->isAwaitingSchedule())
+                            <span class="text-xs font-semibold text-amber-700 ml-1">({{ $sel['remaining'] }} left)</span>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    @if($canManage && $subscription->isAwaitingSchedule())
+        <div class="bg-white border border-amber-200 rounded-2xl p-5 shadow-sm space-y-4">
+            <div class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-bold text-gray-800">Assign delivery schedule</h2>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Map corporate menu selections onto eligible dates this month.
+                        Assigned {{ $assignedCount }} / {{ $subscription->billable_days }}.
+                    </p>
+                </div>
+                <button type="button" wire:click="saveSchedule" class="px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold">
+                    Save schedule & create orders
+                </button>
+            </div>
+
+            <div class="overflow-x-auto border border-gray-100 rounded-xl">
+                <table class="w-full text-left min-w-[700px]">
+                    <thead>
+                        <tr class="bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                            <th class="p-3">Date</th>
+                            <th class="p-3">Weekday</th>
+                            <th class="p-3">Menu from selection</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 text-sm">
+                        @foreach($scheduleAssignments as $date => $menuId)
+                            <tr wire:key="sched-{{ $date }}">
+                                <td class="p-3 font-semibold">{{ \Carbon\Carbon::parse($date)->format('M d, Y') }}</td>
+                                <td class="p-3 text-gray-500">{{ \Carbon\Carbon::parse($date)->format('D') }}</td>
+                                <td class="p-3">
+                                    <select
+                                        wire:change="assignDateMenu('{{ $date }}', $event.target.value)"
+                                        class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                                        <option value="" @selected($menuId === null)>— leave empty —</option>
+                                        @foreach($selectionMenus as $menu)
+                                            <option value="{{ $menu->id }}" @selected((int) $menuId === (int) $menu->id)>
+                                                {{ $menu->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
 
     @if($canManage)
         <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
@@ -75,16 +155,18 @@
             </div>
         </div>
 
-        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
-            <h2 class="text-lg font-bold text-gray-800">Swap menu for a pending day</h2>
-            <select wire:model="swapMenuItemId" class="w-full md:w-96 rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                <option value="">Select menu item…</option>
-                @foreach($menuItems as $menu)
-                    <option value="{{ $menu->id }}">{{ $menu->name }} (৳{{ number_format($menu->price) }})</option>
-                @endforeach
-            </select>
-            <p class="text-xs text-gray-500">Choose a menu above, then click Swap on a pending order row below.</p>
-        </div>
+        @if($subscription->isScheduled())
+            <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
+                <h2 class="text-lg font-bold text-gray-800">Swap menu for a pending day</h2>
+                <select wire:model="swapMenuItemId" class="w-full md:w-96 rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <option value="">Select menu item…</option>
+                    @foreach($menuItems as $menu)
+                        <option value="{{ $menu->id }}">{{ $menu->name }} (৳{{ number_format($menu->price) }})</option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-gray-500">Choose a menu above, then click Swap on a pending order row below.</p>
+            </div>
+        @endif
     @endif
 
     <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
@@ -105,7 +187,7 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 text-sm">
-                    @foreach($subscription->orders as $order)
+                    @forelse($subscription->orders as $order)
                         <tr wire:key="sub-order-{{ $order->id }}">
                             <td class="p-4 font-mono font-semibold">
                                 <div class="flex items-center gap-2">
@@ -125,7 +207,17 @@
                                 @endif
                             </td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="7" class="p-8 text-center text-sm text-gray-500">
+                                @if($subscription->isAwaitingSchedule())
+                                    No delivery days yet — assign the schedule above.
+                                @else
+                                    No delivery days on this subscription.
+                                @endif
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

@@ -6,7 +6,7 @@
             <h1 class="text-3xl font-bold text-gray-800 mt-1">
                 {{ $packageId ? ($canManage ? 'Edit Package' : 'View Package') : 'Create Package' }}
             </h1>
-            <p class="text-sm text-gray-500 mt-1">Define price tier and assign a menu item for each calendar day.</p>
+            <p class="text-sm text-gray-500 mt-1">Define a prepaid rate plan (৳/day). Corporates pick menus and day counts; operations assigns exact dates per subscription.</p>
         </div>
         @if($canManage)
             <button type="button" wire:click="save" wire:loading.attr="disabled"

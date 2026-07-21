@@ -604,6 +604,9 @@ class PackageQuote {
     required this.quantity,
     required this.totalAmount,
     required this.days,
+    this.targetMonth = '',
+    this.availableDays = 0,
+    this.selections = const [],
   });
 
   final int billableDays;
@@ -611,6 +614,9 @@ class PackageQuote {
   final int quantity;
   final int totalAmount;
   final List<Map<String, dynamic>> days;
+  final String targetMonth;
+  final int availableDays;
+  final List<Map<String, dynamic>> selections;
 
   factory PackageQuote.fromJson(Map<String, dynamic> json) {
     return PackageQuote(
@@ -621,6 +627,39 @@ class PackageQuote {
       days: (json['days'] as List? ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList(),
+      targetMonth: (json['target_month'] ?? '').toString(),
+      availableDays: _asInt(json['available_days']),
+      selections: (json['selections'] as List? ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
+    );
+  }
+}
+
+class PackageMenuSelection {
+  const PackageMenuSelection({
+    required this.menuItemId,
+    required this.dayCount,
+    this.name,
+  });
+
+  final int menuItemId;
+  final int dayCount;
+  final String? name;
+
+  Map<String, dynamic> toJson() => {
+        'menu_item_id': menuItemId,
+        'day_count': dayCount,
+      };
+
+  factory PackageMenuSelection.fromJson(Map<String, dynamic> json) {
+    final menu = json['menu_item'];
+    return PackageMenuSelection(
+      menuItemId: _asInt(json['menu_item_id']),
+      dayCount: _asInt(json['day_count']),
+      name: menu is Map
+          ? (menu['name'] ?? '').toString()
+          : json['menu_item_name']?.toString(),
     );
   }
 }
@@ -639,6 +678,9 @@ class PackageSubscription {
     this.package,
     this.orders = const [],
     this.omittedWeekdays = const [],
+    this.scheduleStatus = 'scheduled',
+    this.targetMonth,
+    this.selections = const [],
   });
 
   final String id;
@@ -653,8 +695,13 @@ class PackageSubscription {
   final String endDate;
   final List<CorporateOrder> orders;
   final List<int> omittedWeekdays;
+  final String scheduleStatus;
+  final String? targetMonth;
+  final List<PackageMenuSelection> selections;
 
   String get name => package?.name ?? 'Package';
+
+  bool get isAwaitingSchedule => scheduleStatus == 'awaiting_schedule';
 
   factory PackageSubscription.fromJson(Map<String, dynamic> json) {
     final pkg = json['package'];
@@ -673,6 +720,15 @@ class PackageSubscription {
       endDate: (json['end_date'] ?? '').toString(),
       omittedWeekdays: (json['omitted_weekdays'] as List? ?? [])
           .map((e) => _asInt(e))
+          .toList(),
+      scheduleStatus: (json['schedule_status'] ?? 'scheduled').toString(),
+      targetMonth: json['target_month']?.toString(),
+      selections: (json['selections'] as List? ?? [])
+          .map(
+            (e) => PackageMenuSelection.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
           .toList(),
       orders: (json['orders'] as List? ?? [])
           .map((e) => CorporateOrder.fromJson(Map<String, dynamic>.from(e as Map)))

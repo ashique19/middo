@@ -312,12 +312,8 @@ class PackageBuilder extends Component
             }
         }
 
-        $assigned = collect($this->dayAssignments)->filter()->count();
-        if ($this->status === MealPackage::STATUS_PUBLISHED && $assigned < 1) {
-            $this->errorMessage = 'Assign at least one menu day before publishing.';
-
-            return;
-        }
+        // Rate plans may publish without a pre-built calendar; corporates pick menus at checkout
+        // and operations assigns exact dates afterward.
 
         DB::transaction(function () {
             $payload = [

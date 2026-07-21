@@ -4,14 +4,19 @@ namespace App\Support;
 
 use App\Models\MealPackage;
 use App\Models\MealPackageDay;
+use App\Models\MenuItem;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use RuntimeException;
 
 /**
- * Helpers for 30-day meal package day selection and totals.
+ * Helpers for monthly meal package day selection and totals.
  *
  * Weekday indices match Carbon::dayOfWeek: 0=Sunday … 6=Saturday.
+ *
+ * Corporate flow: pick menus + day counts for a target month, omit weekdays,
+ * prepay on selection totals. Operations later assigns exact dates.
  */
 class PackageBilling
 {
@@ -26,6 +31,155 @@ class PackageBilling
     ];
 
     /**
+     * Normalize target month to Y-m.
+     */
+    public static function normalizeTargetMonth(?string $month, ?CarbonInterface $now = null): string
+    {
+        $now = ($now ?? now(OrderCutoff::timezone()))->copy()->timezone(OrderCutoff::timezone());
+
+        if (! filled($month)) {
+            return $now->format('Y-m');
+        }
+
+        return Carbon::createFromFormat('Y-m', $month, OrderCutoff::timezone())
+            ->startOfMonth()
+            ->format('Y-m');
+    }
+
+    /**
+     * Calendar bounds for a Y-m target month.
+     *
+     * @return array{start: Carbon, end: Carbon}
+     */
+    public static function monthBounds(string $targetMonth): array
+    {
+        $start = Carbon::createFromFormat('Y-m', self::normalizeTargetMonth($targetMonth), OrderCutoff::timezone())
+            ->startOfMonth()
+            ->startOfDay();
+
+        return [
+            'start' => $start->copy(),
+            'end' => $start->copy()->endOfMonth()->startOfDay(),
+        ];
+    }
+
+    /**
+     * Eligible delivery dates in a month after omitting weekdays and past cutoffs.
+     *
+     * @param  array<int>  $omittedWeekdays
+     * @return Collection<int, string> Y-m-d dates
+     */
+    public static function availableDatesInMonth(
+        string $targetMonth,
+        array $omittedWeekdays = [],
+        ?CarbonInterface $now = null
+    ): Collection {
+        $omitted = self::normalizeOmittedWeekdays($omittedWeekdays);
+        $now = ($now ?? now(OrderCutoff::timezone()))->copy()->timezone(OrderCutoff::timezone());
+        $bounds = self::monthBounds($targetMonth);
+        $dates = collect();
+
+        $cursor = $bounds['start']->copy();
+        while ($cursor->lte($bounds['end'])) {
+            $dateKey = $cursor->toDateString();
+            $dow = (int) $cursor->dayOfWeek;
+
+            if (! in_array($dow, $omitted, true) && ! OrderCutoff::isPastForDeliveryDate($cursor, $now)) {
+                $dates->push($dateKey);
+            }
+
+            $cursor->addDay();
+        }
+
+        return $dates->values();
+    }
+
+    /**
+     * @param  array<int, array{menu_item_id:int, day_count:int}>  $selections
+     * @return array<int, array{menu_item_id:int, day_count:int, menu_item_name:?string}>
+     */
+    public static function normalizeSelections(array $selections): array
+    {
+        $normalized = [];
+
+        foreach ($selections as $row) {
+            $menuItemId = (int) ($row['menu_item_id'] ?? 0);
+            $dayCount = (int) ($row['day_count'] ?? 0);
+
+            if ($menuItemId < 1 || $dayCount < 1) {
+                continue;
+            }
+
+            if (! isset($normalized[$menuItemId])) {
+                $normalized[$menuItemId] = [
+                    'menu_item_id' => $menuItemId,
+                    'day_count' => 0,
+                ];
+            }
+
+            $normalized[$menuItemId]['day_count'] += $dayCount;
+        }
+
+        if ($normalized === []) {
+            return [];
+        }
+
+        $names = MenuItem::query()
+            ->whereIn('id', array_keys($normalized))
+            ->pluck('name', 'id');
+
+        foreach ($normalized as $menuItemId => $row) {
+            if (! $names->has($menuItemId)) {
+                throw new RuntimeException('One or more selected menu items are invalid.');
+            }
+            $normalized[$menuItemId]['menu_item_name'] = $names[$menuItemId];
+        }
+
+        return array_values($normalized);
+    }
+
+    /**
+     * Quote a corporate-built monthly package from menu day-count selections.
+     *
+     * @param  array<int, array{menu_item_id:int, day_count:int}>  $selections
+     * @param  array<int>  $omittedWeekdays
+     */
+    public static function quoteFromSelections(
+        MealPackage $package,
+        int $quantity,
+        array $selections,
+        array $omittedWeekdays,
+        string $targetMonth,
+        ?CarbonInterface $now = null
+    ): array {
+        $quantity = max(1, $quantity);
+        $omittedWeekdays = self::normalizeOmittedWeekdays($omittedWeekdays);
+        $targetMonth = self::normalizeTargetMonth($targetMonth, $now);
+        $normalized = self::normalizeSelections($selections);
+        $billableDays = collect($normalized)->sum('day_count');
+        $available = self::availableDatesInMonth($targetMonth, $omittedWeekdays, $now);
+        $pricePerDay = (int) $package->price_per_day;
+        $total = $billableDays * $pricePerDay * $quantity;
+        $bounds = self::monthBounds($targetMonth);
+
+        return [
+            'billable_days' => (int) $billableDays,
+            'price_per_day' => $pricePerDay,
+            'quantity' => $quantity,
+            'total_amount' => $total,
+            'target_month' => $targetMonth,
+            'start_date' => $bounds['start']->toDateString(),
+            'end_date' => $bounds['end']->toDateString(),
+            'available_days' => $available->count(),
+            'omitted_weekdays' => $omittedWeekdays,
+            'selections' => $normalized,
+            'days' => [], // exact dates assigned later by operations
+        ];
+    }
+
+    /**
+     * Legacy calendar-based billable days (published package templates with fixed days).
+     *
      * @param  array<int>  $omittedWeekdays
      * @param  array<string>  $extraSkippedDates  Y-m-d dates to skip individually
      * @return Collection<int, MealPackageDay>

@@ -1,21 +1,30 @@
 <div>
     @if($showModal && !empty($package))
         <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div class="bg-[#FDFBF7] rounded-[28px] shadow-2xl border border-amber-900/5 w-full max-w-3xl my-auto max-h-[92vh] overflow-y-auto">
+            <div class="bg-[#FDFBF7] rounded-[28px] shadow-2xl border border-amber-900/5 w-full max-w-4xl my-auto max-h-[92vh] overflow-y-auto">
                 <div class="p-5 md:p-6 border-b border-amber-900/5 flex items-start justify-between gap-3">
                     <div>
-                        <p class="text-[11px] font-black uppercase tracking-wider text-middo-orange">Prepaid package</p>
+                        <p class="text-[11px] font-black uppercase tracking-wider text-middo-orange">Build monthly package</p>
                         <h2 class="text-xl font-black text-gray-800 mt-0.5">{{ $package['name'] }}</h2>
-                        <p class="text-sm font-semibold text-gray-500 mt-1">৳{{ number_format($package['price_per_day']) }}/day · full prepaid</p>
+                        <p class="text-sm font-semibold text-gray-500 mt-1">৳{{ number_format($package['price_per_day']) }}/day · prepaid · ops schedules dates</p>
                     </div>
                     <button type="button" wire:click="closeModal" class="text-gray-400 hover:text-gray-700 font-bold text-lg leading-none">✕</button>
                 </div>
 
-                <div class="p-5 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="p-5 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="space-y-5">
                         <div>
-                            <h3 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-2">Omit weekdays</h3>
-                            <p class="text-[11px] text-gray-500 mb-2">Checked days are skipped and not billed.</p>
+                            <label class="block text-xs font-black uppercase tracking-wider text-gray-400 mb-2">Target month</label>
+                            <select wire:model.live="targetMonth" class="w-full border-gray-200 rounded-xl text-sm p-2.5 bg-white" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                @foreach($monthOptions as $option)
+                                    <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <h3 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-2">Omit weekdays / off-days</h3>
+                            <p class="text-[11px] text-gray-500 mb-2">Checked days are skipped and never scheduled.</p>
                             <div class="flex flex-wrap gap-2">
                                 @foreach(\App\Support\PackageBilling::WEEKDAY_LABELS as $dow => $label)
                                     @php $omitted = in_array($dow, $omittedWeekdays, true); @endphp
@@ -30,6 +39,9 @@
                                     </button>
                                 @endforeach
                             </div>
+                            <p class="text-[11px] text-gray-500 mt-2">
+                                Available days this month: <span class="font-bold text-gray-700">{{ $quote['available_days'] ?? 0 }}</span>
+                            </p>
                         </div>
 
                         <div>
@@ -42,18 +54,28 @@
                         </div>
 
                         <div>
-                            <h3 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-2">Billable days</h3>
-                            <div class="bg-white border border-gray-200 rounded-xl max-h-48 overflow-y-auto divide-y divide-gray-100">
-                                @forelse(($quote['days'] ?? []) as $day)
-                                    <div class="px-3 py-2 flex items-center justify-between text-xs">
-                                        <span class="font-semibold text-gray-700">
-                                            {{ \Carbon\Carbon::parse($day['date'])->format('D, M d') }}
-                                            <span class="text-gray-400 font-medium">· {{ $day['menu_item_name'] }}</span>
-                                        </span>
-                                        <span class="font-bold">৳{{ number_format($day['line_total']) }}</span>
+                            <h3 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-2">Menus & day counts</h3>
+                            <p class="text-[11px] text-gray-500 mb-2">Choose which menus you want and how many days each this month.</p>
+                            <div class="bg-white border border-gray-200 rounded-xl max-h-72 overflow-y-auto divide-y divide-gray-100">
+                                @forelse($menuCatalog as $menu)
+                                    @php $count = (int) ($menuDayCounts[$menu['id']] ?? 0); @endphp
+                                    <div class="px-3 py-2.5 flex items-center gap-3" wire:key="menu-sel-{{ $menu['id'] }}">
+                                        <div class="w-10 h-10 rounded-lg bg-[#F7F4EB] overflow-hidden shrink-0">
+                                            @if($menu['thumbnail'])
+                                                <img src="{{ $menu['thumbnail'] }}" alt="" class="w-full h-full object-cover">
+                                            @endif
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="text-sm font-bold text-gray-800 truncate">{{ $menu['name'] }}</div>
+                                        </div>
+                                        <div class="inline-flex items-center gap-2 shrink-0">
+                                            <button type="button" wire:click="changeMenuDays({{ $menu['id'] }}, -1)" class="w-7 h-7 rounded-lg border border-gray-200 font-black" {{ $isConfirmingOtp ? 'disabled' : '' }}>−</button>
+                                            <span class="font-black w-6 text-center text-sm">{{ $count }}</span>
+                                            <button type="button" wire:click="changeMenuDays({{ $menu['id'] }}, 1)" class="w-7 h-7 rounded-lg border border-gray-200 font-black" {{ $isConfirmingOtp ? 'disabled' : '' }}>+</button>
+                                        </div>
                                     </div>
                                 @empty
-                                    <div class="px-3 py-4 text-xs text-gray-400">No billable days with current omit settings.</div>
+                                    <div class="px-3 py-4 text-xs text-gray-400">No menu items available.</div>
                                 @endforelse
                             </div>
                         </div>
@@ -68,6 +90,18 @@
                             </div>
                             <div class="text-[11px] mt-2 text-emerald-100/70">Wallet: ৳{{ number_format($walletBalance) }}</div>
                         </div>
+
+                        @if(!empty($quote['selections']))
+                            <div class="bg-white border border-gray-200 rounded-xl p-3 space-y-1.5">
+                                <p class="text-[11px] font-black uppercase tracking-wider text-gray-400">Your selection</p>
+                                @foreach($quote['selections'] as $sel)
+                                    <div class="flex justify-between text-xs font-semibold text-gray-700">
+                                        <span>{{ $sel['menu_item_name'] }}</span>
+                                        <span>{{ $sel['day_count'] }} days</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
 
                         <div>
                             <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">Receiver name</label>
@@ -99,7 +133,8 @@
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">Address</label>
-                            <input wire:model="addressLine1" type="text" class="w-full border-gray-200 rounded-xl text-sm p-2.5" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                            <textarea wire:model="addressLine1" rows="2" class="w-full border-gray-200 rounded-xl text-sm p-2.5" {{ $isConfirmingOtp ? 'disabled' : '' }}></textarea>
+                            @error('addressLine1') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">Delivery window</label>
@@ -109,44 +144,36 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">Pay with</label>
-                            <select wire:model="paymentMethod" class="w-full border-gray-200 rounded-xl text-sm p-2.5" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                <option value="balance">Middo Balance</option>
-                                <option value="gateway">Online payment</option>
-                            </select>
-                        </div>
 
                         @if($errorMessage)
-                            <div class="rounded-xl border border-red-200 bg-red-50 text-red-800 text-xs font-semibold px-3 py-2">{{ $errorMessage }}</div>
+                            <div class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{{ $errorMessage }}</div>
                         @endif
 
-                        @if(!$isConfirmingOtp)
-                            <button type="button" wire:click="initiateConfirmation" wire:loading.attr="disabled"
-                                    class="w-full bg-middo-orange hover:bg-[#733614] text-white font-black text-sm py-3.5 rounded-xl shadow-md">
-                                Confirm & send OTP · ৳{{ number_format($quote['total_amount'] ?? 0) }}
-                            </button>
-                        @else
-                            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
-                                <p class="text-[11px] font-bold text-amber-950">Enter the 4-digit OTP sent to your mobile.</p>
-                                @if($paymentMethod === 'gateway')
-                                    <button type="button" wire:click="startGatewayPayment" class="text-[11px] font-bold text-middo-orange underline">
-                                        {{ $gatewayPaymentUrl ? 'Open / refresh payment page' : 'Start online payment' }}
-                                    </button>
-                                    @if($gatewayPaymentUrl)
-                                        <a href="{{ $gatewayPaymentUrl }}" target="_blank" rel="noopener" class="block text-[11px] font-bold text-middo-orange break-all">{{ $gatewayPaymentUrl }}</a>
-                                    @endif
+                        @if(! $isConfirmingOtp)
+                            <div class="flex flex-col gap-2">
+                                <button type="button" wire:click="initiateConfirmation"
+                                        class="w-full bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl transition">
+                                    Confirm & pay with wallet
+                                </button>
+                                <button type="button" wire:click="startGatewayPayment"
+                                        class="w-full border border-gray-200 bg-white text-gray-700 font-black text-xs uppercase tracking-wider py-3 rounded-xl">
+                                    Pay online instead
+                                </button>
+                                @if($gatewayPaymentUrl)
+                                    <a href="{{ $gatewayPaymentUrl }}" target="_blank" class="text-center text-xs font-bold text-middo-orange underline">
+                                        Open payment page
+                                    </a>
                                 @endif
-                                <div class="flex gap-2">
-                                    <input wire:model="otpInput" type="text" maxlength="4" placeholder="••••"
-                                           class="w-24 border-gray-200 rounded-xl text-center font-bold tracking-widest p-2">
-                                    <button type="button" wire:click="finalizeSubscribe" wire:loading.attr="disabled"
-                                            class="flex-1 bg-emerald-800 hover:bg-emerald-950 text-white text-xs font-bold rounded-xl">
-                                        Pay & activate package
-                                    </button>
-                                </div>
+                            </div>
+                        @else
+                            <div class="space-y-3">
+                                <p class="text-xs font-semibold text-gray-600">Enter the 4-digit OTP sent to {{ $mobile }}</p>
+                                <input wire:model="otpInput" type="text" maxlength="4" class="w-full border-gray-200 rounded-xl text-sm p-2.5 tracking-[0.4em] text-center font-black" placeholder="••••">
                                 @error('otpInput') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                                <button type="button" wire:click="$set('isConfirmingOtp', false)" class="text-[10px] text-gray-400 underline">Change details</button>
+                                <button type="button" wire:click="finalizeSubscribe"
+                                        class="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl">
+                                    Prepaid & create package
+                                </button>
                             </div>
                         @endif
                     </div>

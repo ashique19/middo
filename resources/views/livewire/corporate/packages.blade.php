@@ -4,7 +4,7 @@
             <div class="min-w-0">
                 <a href="{{ route('corporates.dashboard') }}" class="text-xs font-bold text-middo-orange hover:underline">← Dashboard</a>
                 <h1 class="text-3xl font-black tracking-tight mt-1">Meal Packages</h1>
-                <p class="text-sm font-semibold text-[#635347] mt-0.5">Prepaid 30-day plans with a set menu each day. Omit weekdays you don’t need.</p>
+                <p class="text-sm font-semibold text-[#635347] mt-0.5">Pick a rate plan, choose menus and day counts for the month, set off-days, and prepay. Operations schedules the exact dates.</p>
             </div>
             <a href="{{ route('corporates.wallet') }}" class="shrink-0 text-xs font-black uppercase tracking-wider text-[#8A441B] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-3 py-2 rounded-xl">
                 Wallet & top-up
@@ -33,7 +33,7 @@
                                     </div>
                                 </div>
                                 <span class="text-[10px] font-black uppercase px-2 py-1 rounded-full {{ $sub['status'] === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500' }}">
-                                    {{ $sub['status'] }}
+                                    {{ ($sub['schedule_status'] ?? '') === 'awaiting_schedule' ? 'awaiting schedule' : $sub['status'] }}
                                 </span>
                             </div>
                             <div class="mt-3 flex items-center justify-between text-xs font-bold">
@@ -72,7 +72,7 @@
                             <div class="flex items-start justify-between gap-3">
                                 <div>
                                     <h3 class="text-xl font-black tracking-tight">{{ $package['name'] }}</h3>
-                                    <p class="text-xs font-semibold text-[#635347] mt-1 capitalize">{{ $package['diet_tag'] }} · {{ $package['duration_days'] }} days</p>
+                                    <p class="text-xs font-semibold text-[#635347] mt-1 capitalize">{{ $package['diet_tag'] }} · monthly rate</p>
                                 </div>
                                 <div class="text-right shrink-0">
                                     <div class="text-2xl font-black text-middo-orange leading-none">৳{{ number_format($package['price_per_day']) }}</div>
@@ -83,8 +83,7 @@
                                 <p class="text-sm text-[#635347] mt-3">{{ $package['summary'] }}</p>
                             @endif
                             <p class="text-[11px] font-semibold text-gray-400 mt-2">
-                                {{ \Carbon\Carbon::parse($package['start_date'])->format('M d') }} – {{ \Carbon\Carbon::parse($package['end_date'])->format('M d, Y') }}
-                                · {{ $package['days_count'] }} menu days
+                                Build your month — select menus & day counts at checkout
                             </p>
                             @if(count($package['sample_days']))
                                 <div class="mt-3 flex gap-1.5 overflow-x-auto pb-1">
@@ -99,7 +98,7 @@
                             @endif
                             <button type="button" wire:click="openSubscribe({{ $package['id'] }})"
                                     class="mt-4 w-full bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl transition">
-                                Choose plan
+                                Build monthly package
                             </button>
                         </div>
                     </div>

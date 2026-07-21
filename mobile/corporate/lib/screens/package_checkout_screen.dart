@@ -17,6 +17,7 @@ class PackageCheckoutScreen extends StatefulWidget {
 
 class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
   MealPackage? _package;
+  List<MenuItem> _menus = const [];
   PackageQuote? _quote;
   CorporateUser? _profile;
   bool _loading = true;
@@ -25,6 +26,9 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
   String? _debugOtp;
 
   final _omitted = <int>{5, 6};
+  final _menuDays = <int, int>{};
+  late String _targetMonth;
+  late List<({String value, String label})> _monthOptions;
   int _quantity = 1;
   final _nameCtrl = TextEditingController();
   final _mobileCtrl = TextEditingController();
@@ -45,6 +49,33 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _monthOptions = List.generate(4, (i) {
+      final d = DateTime(now.year, now.month + i, 1);
+      final value =
+          '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}';
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return (value: value, label: '${months[d.month - 1]} ${d.year}');
+    });
+    _targetMonth = _monthOptions.first.value;
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_package == null) {
@@ -61,16 +92,26 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
     super.dispose();
   }
 
+  List<PackageMenuSelection> get _selections => _menuDays.entries
+      .where((e) => e.value > 0)
+      .map(
+        (e) => PackageMenuSelection(menuItemId: e.key, dayCount: e.value),
+      )
+      .toList();
+
   Future<void> _bootstrap() async {
     final repo = AppScope.of(context);
     try {
       final results = await Future.wait([
         repo.packageShow(widget.packageId),
+        repo.packageMenus(widget.packageId),
         repo.me(),
       ]);
       final pkg = results[0] as MealPackage;
-      final user = results[1] as CorporateUser;
+      final menus = results[1] as List<MenuItem>;
+      final user = results[2] as CorporateUser;
       _package = pkg;
+      _menus = menus;
       _profile = user;
       _nameCtrl.text = user.receiverName;
       _mobileCtrl.text = user.mobile;
@@ -88,10 +129,16 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
   }
 
   Future<void> _refreshQuote() async {
+    if (_selections.isEmpty) {
+      setState(() => _quote = null);
+      return;
+    }
     final quote = await AppScope.of(context).packageQuote(
       packageId: widget.packageId,
       quantity: _quantity,
       omittedWeekdays: _omitted.toList()..sort(),
+      targetMonth: _targetMonth,
+      menuSelections: _selections,
     );
     if (!mounted) return;
     setState(() => _quote = quote);
@@ -105,6 +152,9 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
     try {
       if (_cityId == null || _areaId == null) {
         throw Exception('Select city and area on your profile first.');
+      }
+      if (_selections.isEmpty) {
+        throw Exception('Pick at least one menu and day count.');
       }
       final otp = await AppScope.of(context).sendPackageOtp(
         mobile: _mobileCtrl.text.trim(),
@@ -132,6 +182,8 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
         packageId: widget.packageId,
         quantity: _quantity,
         omittedWeekdays: _omitted.toList()..sort(),
+        targetMonth: _targetMonth,
+        menuSelections: _selections,
         receiver: ReceiverDetails(
           receiverName: _nameCtrl.text.trim(),
           mobile: _mobileCtrl.text.trim(),
@@ -150,6 +202,8 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
       });
     }
   }
+
+  int _menuIdAsInt(MenuItem menu) => int.tryParse(menu.id) ?? 0;
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +229,33 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 120),
         children: [
           Text(
-            'Omit weekdays (checked = skipped)',
+            'Build monthly package',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _targetMonth,
+            decoration: const InputDecoration(labelText: 'Target month'),
+            items: [
+              for (final option in _monthOptions)
+                DropdownMenuItem(
+                  value: option.value,
+                  child: Text(option.label),
+                ),
+            ],
+            onChanged: _otpStep
+                ? null
+                : (value) async {
+                    if (value == null) return;
+                    setState(() => _targetMonth = value);
+                    await _refreshQuote();
+                  },
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Omit weekdays / off-days',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -204,6 +284,17 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
                 ),
             ],
           ),
+          if (quote != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Available days this month: ${quote.availableDays}',
+              style: const TextStyle(
+                color: MiddoColors.muted,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [
@@ -230,6 +321,63 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Text(
+            'Menus & day counts',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 8),
+          for (final menu in _menus)
+            Builder(
+              builder: (context) {
+                final id = _menuIdAsInt(menu);
+                final count = _menuDays[id] ?? 0;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(
+                      menu.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          onPressed: _otpStep || count <= 0
+                              ? null
+                              : () async {
+                                  setState(() {
+                                    if (count <= 1) {
+                                      _menuDays.remove(id);
+                                    } else {
+                                      _menuDays[id] = count - 1;
+                                    }
+                                  });
+                                  await _refreshQuote();
+                                },
+                          icon: const Icon(Icons.remove_circle_outline),
+                        ),
+                        Text(
+                          '$count',
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        IconButton(
+                          onPressed: _otpStep
+                              ? null
+                              : () async {
+                                  setState(() => _menuDays[id] = count + 1);
+                                  await _refreshQuote();
+                                },
+                          icon: const Icon(Icons.add_circle_outline),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           if (quote != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -318,7 +466,7 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
             ),
             child: Text(
               _otpStep
-                  ? 'Pay & activate · ৳${quote?.totalAmount ?? 0}'
+                  ? 'Prepaid & create · ৳${quote?.totalAmount ?? 0}'
                   : 'Confirm & send OTP',
             ),
           ),

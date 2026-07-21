@@ -1219,15 +1219,26 @@ class CorporateMobileController extends Controller
         $items = MealPackage::query()
             ->published()
             ->withCount('days')
-            ->where('end_date', '>=', now('Asia/Dhaka')->toDateString())
+            ->where(function ($q) {
+                $q->whereNull('end_date')
+                    ->orWhere('end_date', '>=', now('Asia/Dhaka')->toDateString());
+            })
             ->orderBy('display_order')
             ->orderBy('price_per_day')
             ->get()
             ->map(fn (MealPackage $package) => CorporateApiPresenter::mealPackage($package))
             ->values();
 
+        $menus = MenuItem::query()
+            ->orderBy('display_order')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (MenuItem $item) => CorporateApiPresenter::menuItem($item))
+            ->values();
+
         return response()->json([
             'packages' => $items,
+            'menus' => $menus,
             'weekday_labels' => PackageBilling::WEEKDAY_LABELS,
         ]);
     }
@@ -1263,8 +1274,16 @@ class CorporateMobileController extends Controller
             ->withCount('days')
             ->findOrFail($package);
 
+        $menus = MenuItem::query()
+            ->orderBy('display_order')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (MenuItem $item) => CorporateApiPresenter::menuItem($item))
+            ->values();
+
         return response()->json([
-            'package' => CorporateApiPresenter::mealPackage($model, withDays: true),
+            'package' => CorporateApiPresenter::mealPackage($model, withDays: false),
+            'menus' => $menus,
             'weekday_labels' => PackageBilling::WEEKDAY_LABELS,
         ]);
     }
@@ -1274,18 +1293,27 @@ class CorporateMobileController extends Controller
         $model = MealPackage::query()->published()->findOrFail($package);
         $data = $request->validate([
             'quantity' => ['required', 'integer', 'min:1', 'max:'.CorporateOrderLimit::maxAllowed()],
+            'target_month' => ['required', 'date_format:Y-m'],
             'omitted_weekdays' => ['nullable', 'array'],
             'omitted_weekdays.*' => ['integer', 'min:0', 'max:6'],
-            'extra_skipped_dates' => ['nullable', 'array'],
-            'extra_skipped_dates.*' => ['date'],
+            'menu_selections' => ['required', 'array', 'min:1'],
+            'menu_selections.*.menu_item_id' => ['required', 'integer', 'exists:menu_items,id'],
+            'menu_selections.*.day_count' => ['required', 'integer', 'min:1', 'max:31'],
         ]);
 
-        $quote = PackageBilling::quote(
-            $model,
-            (int) $data['quantity'],
-            PackageBilling::normalizeOmittedWeekdays($data['omitted_weekdays'] ?? []),
-            $data['extra_skipped_dates'] ?? []
-        );
+        try {
+            $quote = PackageBilling::quoteFromSelections(
+                $model,
+                (int) $data['quantity'],
+                $data['menu_selections'],
+                PackageBilling::normalizeOmittedWeekdays($data['omitted_weekdays'] ?? []),
+                $data['target_month']
+            );
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'menu_selections' => [$e->getMessage()],
+            ]);
+        }
 
         return response()->json([
             'package' => CorporateApiPresenter::mealPackage($model),
@@ -1299,10 +1327,12 @@ class CorporateMobileController extends Controller
         $model = MealPackage::query()->published()->findOrFail($package);
         $data = $request->validate([
             'quantity' => ['required', 'integer', 'min:1', 'max:'.CorporateOrderLimit::maxAllowed()],
+            'target_month' => ['required', 'date_format:Y-m'],
             'omitted_weekdays' => ['nullable', 'array'],
             'omitted_weekdays.*' => ['integer', 'min:0', 'max:6'],
-            'extra_skipped_dates' => ['nullable', 'array'],
-            'extra_skipped_dates.*' => ['date'],
+            'menu_selections' => ['required', 'array', 'min:1'],
+            'menu_selections.*.menu_item_id' => ['required', 'integer', 'exists:menu_items,id'],
+            'menu_selections.*.day_count' => ['required', 'integer', 'min:1', 'max:31'],
             'receiver_name' => ['required', 'string', 'min:2', 'max:120'],
             'receiver_mobile' => ['required', 'string', 'min:11', 'max:20'],
             'address' => ['required', 'string', 'min:5', 'max:500'],
@@ -1321,23 +1351,27 @@ class CorporateMobileController extends Controller
         }
 
         $omitted = PackageBilling::normalizeOmittedWeekdays($data['omitted_weekdays'] ?? []);
-        $quote = PackageBilling::quote(
-            $model,
-            (int) $data['quantity'],
-            $omitted,
-            $data['extra_skipped_dates'] ?? []
-        );
 
-        foreach ($quote['days'] as $day) {
-            if (CorporateOrderLimit::exceedsDailyLimit(
-                (int) $request->user()->id,
-                $day['date'],
-                (int) $data['quantity']
-            )) {
-                throw ValidationException::withMessages([
-                    'quantity' => ["Daily quantity limit exceeded for {$day['date']}."],
-                ]);
-            }
+        try {
+            $quote = PackageBilling::quoteFromSelections(
+                $model,
+                (int) $data['quantity'],
+                $data['menu_selections'],
+                $omitted,
+                $data['target_month']
+            );
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'menu_selections' => [$e->getMessage()],
+            ]);
+        }
+
+        if ($quote['billable_days'] > $quote['available_days']) {
+            throw ValidationException::withMessages([
+                'menu_selections' => [
+                    'Selected days exceed available days in '.$quote['target_month'].' after omitted weekdays.',
+                ],
+            ]);
         }
 
         try {
@@ -1346,7 +1380,8 @@ class CorporateMobileController extends Controller
                 $model,
                 (int) $data['quantity'],
                 $omitted,
-                $data['extra_skipped_dates'] ?? [],
+                $data['menu_selections'],
+                $data['target_month'],
                 $data['receiver_name'],
                 $data['receiver_mobile'],
                 $data['address'],
@@ -1363,7 +1398,7 @@ class CorporateMobileController extends Controller
         }
 
         return response()->json([
-            'message' => 'Package prepaid and scheduled.',
+            'message' => 'Package prepaid. Operations will assign exact delivery dates next.',
             'subscription' => CorporateApiPresenter::packageSubscription($result['subscription']),
             'balance' => (float) $request->user()->fresh()->balance,
         ], 201);
@@ -1373,7 +1408,7 @@ class CorporateMobileController extends Controller
     {
         $subs = PackageSubscription::query()
             ->forUser($request->user()->id)
-            ->with(['package', 'orders.menuItem'])
+            ->with(['package', 'orders.menuItem', 'selections.menuItem'])
             ->latest()
             ->get()
             ->map(fn (PackageSubscription $sub) => CorporateApiPresenter::packageSubscription($sub))
@@ -1386,7 +1421,7 @@ class CorporateMobileController extends Controller
     {
         $sub = PackageSubscription::query()
             ->forUser($request->user()->id)
-            ->with(['package', 'orders.menuItem'])
+            ->with(['package', 'orders.menuItem', 'selections.menuItem'])
             ->findOrFail($subscription);
 
         return response()->json([

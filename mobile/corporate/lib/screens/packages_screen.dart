@@ -52,7 +52,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
             padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
             children: [
               Text(
-                'Prepaid 30-day plans. Omit weekdays you don’t need — skip days later for wallet credit.',
+                'Pick a rate plan, choose menus and day counts for the month, set off-days, and prepay. Operations schedules exact dates.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: MiddoColors.muted,
                       fontWeight: FontWeight.w600,

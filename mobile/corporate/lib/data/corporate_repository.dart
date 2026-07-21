@@ -126,10 +126,14 @@ abstract class CorporateRepository {
 
   Future<MealPackage> packageShow(String packageId);
 
+  Future<List<MenuItem>> packageMenus(String packageId);
+
   Future<PackageQuote> packageQuote({
     required String packageId,
     required int quantity,
     required List<int> omittedWeekdays,
+    required String targetMonth,
+    required List<PackageMenuSelection> menuSelections,
   });
 
   Future<String?> sendPackageOtp({required String mobile});
@@ -138,6 +142,8 @@ abstract class CorporateRepository {
     required String packageId,
     required int quantity,
     required List<int> omittedWeekdays,
+    required String targetMonth,
+    required List<PackageMenuSelection> menuSelections,
     required ReceiverDetails receiver,
     required String otp,
     String deliveryTime = '12:00 PM',
@@ -637,16 +643,32 @@ class ApiCorporateRepository implements CorporateRepository {
   }
 
   @override
+  Future<List<MenuItem>> packageMenus(String packageId) async {
+    final json = await _client.get('/packages/$packageId');
+    final menus = (json['menus'] as List? ?? [])
+        .map((e) => MenuItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    for (final menu in menus) {
+      _menuCache[menu.id] = menu;
+    }
+    return menus;
+  }
+
+  @override
   Future<PackageQuote> packageQuote({
     required String packageId,
     required int quantity,
     required List<int> omittedWeekdays,
+    required String targetMonth,
+    required List<PackageMenuSelection> menuSelections,
   }) async {
     final json = await _client.post(
       '/packages/$packageId/quote',
       body: {
         'quantity': quantity,
         'omitted_weekdays': omittedWeekdays,
+        'target_month': targetMonth,
+        'menu_selections': menuSelections.map((e) => e.toJson()).toList(),
       },
     );
     return PackageQuote.fromJson(
@@ -668,6 +690,8 @@ class ApiCorporateRepository implements CorporateRepository {
     required String packageId,
     required int quantity,
     required List<int> omittedWeekdays,
+    required String targetMonth,
+    required List<PackageMenuSelection> menuSelections,
     required ReceiverDetails receiver,
     required String otp,
     String deliveryTime = '12:00 PM',
@@ -679,6 +703,8 @@ class ApiCorporateRepository implements CorporateRepository {
       body: {
         'quantity': quantity,
         'omitted_weekdays': omittedWeekdays,
+        'target_month': targetMonth,
+        'menu_selections': menuSelections.map((e) => e.toJson()).toList(),
         'receiver_name': receiver.receiverName,
         'receiver_mobile': receiver.mobile,
         'address': receiver.address,
@@ -1077,18 +1103,27 @@ class MockCorporateRepository implements CorporateRepository {
       (await packages()).first;
 
   @override
+  Future<List<MenuItem>> packageMenus(String packageId) async =>
+      _mock.menu.take(5).toList();
+
+  @override
   Future<PackageQuote> packageQuote({
     required String packageId,
     required int quantity,
     required List<int> omittedWeekdays,
+    required String targetMonth,
+    required List<PackageMenuSelection> menuSelections,
   }) async {
-    const billable = 22;
+    final billable = menuSelections.fold<int>(0, (sum, s) => sum + s.dayCount);
     return PackageQuote(
       billableDays: billable,
       pricePerDay: 79,
       quantity: quantity,
       totalAmount: billable * 79 * quantity,
       days: const [],
+      targetMonth: targetMonth,
+      availableDays: 22,
+      selections: menuSelections.map((e) => e.toJson()).toList(),
     );
   }
 
@@ -1100,6 +1135,8 @@ class MockCorporateRepository implements CorporateRepository {
     required String packageId,
     required int quantity,
     required List<int> omittedWeekdays,
+    required String targetMonth,
+    required List<PackageMenuSelection> menuSelections,
     required ReceiverDetails receiver,
     required String otp,
     String deliveryTime = '12:00 PM',
@@ -1107,18 +1144,22 @@ class MockCorporateRepository implements CorporateRepository {
     String? paymentToken,
   }) async {
     final pkg = await packageShow(packageId);
+    final billable = menuSelections.fold<int>(0, (sum, s) => sum + s.dayCount);
     return PackageSubscription(
       id: 'sub1',
       package: pkg,
       quantity: quantity,
-      billableDays: 22,
+      billableDays: billable,
       pricePerDay: 79,
-      totalAmount: 22 * 79 * quantity,
-      amountPaid: 22 * 79 * quantity,
+      totalAmount: billable * 79 * quantity,
+      amountPaid: billable * 79 * quantity,
       status: 'active',
+      scheduleStatus: 'awaiting_schedule',
+      targetMonth: targetMonth,
       startDate: pkg.startDate,
       endDate: pkg.endDate,
       omittedWeekdays: omittedWeekdays,
+      selections: menuSelections,
     );
   }
 

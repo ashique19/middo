@@ -103,7 +103,9 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                '${sub.startDate} – ${sub.endDate} · ${sub.status}',
+                sub.isAwaitingSchedule
+                    ? '${sub.targetMonth ?? sub.startDate} · awaiting schedule'
+                    : '${sub.startDate} – ${sub.endDate} · ${sub.status}',
                 style: TextStyle(
                   color: MiddoColors.muted,
                   fontWeight: FontWeight.w600,
@@ -124,9 +126,29 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                   ),
                 ),
               ),
+              if (sub.selections.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                const Text(
+                  'Menu selection',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                for (final sel in sub.selections)
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(sel.name ?? 'Menu #${sel.menuItemId}'),
+                    trailing: Text(
+                      '${sel.dayCount} days',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+              ],
               const SizedBox(height: 10),
               Text(
-                'Skip pending days before cutoff to get wallet credit.',
+                sub.isAwaitingSchedule
+                    ? 'Prepaid. Middo operations will assign exact delivery dates next.'
+                    : 'Skip pending days before cutoff to get wallet credit.',
                 style: TextStyle(
                   color: MiddoColors.muted,
                   fontSize: 12,
@@ -134,6 +156,15 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+              if (sub.orders.isEmpty && sub.isAwaitingSchedule)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'Dates not scheduled yet.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
               ...sub.orders.map((order) {
                 final canSkip = order.status == OrderStatus.pending;
                 return Card(

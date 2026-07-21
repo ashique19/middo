@@ -9,8 +9,10 @@ use App\Models\MealPackage;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\PackageSubscription;
+use App\Models\PackageSubscriptionSelection;
 use App\Models\User;
 use App\Models\WalletTransaction;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -18,10 +20,11 @@ use RuntimeException;
 class PackageSubscriptionService
 {
     /**
-     * Fully prepaid package purchase: debit wallet (or consume gateway), create subscription + orders.
+     * Fully prepaid monthly package: corporate selects menus + day counts, omits weekdays,
+     * pays upfront. Operations assigns exact dates afterward.
      *
      * @param  array<int>  $omittedWeekdays
-     * @param  array<string>  $extraSkippedDates
+     * @param  array<int, array{menu_item_id:int, day_count:int}>  $menuSelections
      * @return array{subscription: PackageSubscription, orders: Collection<int, Order>}
      */
     public function subscribe(
@@ -29,7 +32,8 @@ class PackageSubscriptionService
         MealPackage $package,
         int $quantity,
         array $omittedWeekdays,
-        array $extraSkippedDates,
+        array $menuSelections,
+        string $targetMonth,
         string $receiverName,
         string $receiverMobile,
         string $addressLine,
@@ -44,10 +48,23 @@ class PackageSubscriptionService
         }
 
         $omittedWeekdays = PackageBilling::normalizeOmittedWeekdays($omittedWeekdays);
-        $quote = PackageBilling::quote($package, $quantity, $omittedWeekdays, $extraSkippedDates);
+        $quote = PackageBilling::quoteFromSelections(
+            $package,
+            $quantity,
+            $menuSelections,
+            $omittedWeekdays,
+            $targetMonth
+        );
 
         if ($quote['billable_days'] < 1) {
-            throw new RuntimeException('No billable delivery days remain for this package. Adjust omitted weekdays or choose another package.');
+            throw new RuntimeException('Select at least one menu day for your monthly package.');
+        }
+
+        if ($quote['billable_days'] > $quote['available_days']) {
+            throw new RuntimeException(
+                'Selected days ('.$quote['billable_days'].') exceed available days in '
+                .$quote['target_month'].' after omitted weekdays ('.$quote['available_days'].').'
+            );
         }
 
         $city = City::findOrFail($cityId);
@@ -92,6 +109,15 @@ class PackageSubscriptionService
                     'meal_package_id' => (int) $package->id,
                     'quantity' => $quantity,
                     'omitted_weekdays' => $omittedWeekdays,
+                    'target_month' => $quote['target_month'],
+                    'selections' => collect($quote['selections'])
+                        ->map(fn ($row) => [
+                            'menu_item_id' => (int) $row['menu_item_id'],
+                            'day_count' => (int) $row['day_count'],
+                        ])
+                        ->sortBy('menu_item_id')
+                        ->values()
+                        ->all(),
                     'amount' => $total,
                 ];
 
@@ -109,16 +135,13 @@ class PackageSubscriptionService
                 throw new RuntimeException('Invalid payment method.');
             }
 
-            $dates = collect($quote['days'])->pluck('date')->all();
-            $startDate = $dates[0] ?? $package->start_date->toDateString();
-            $endDate = $dates[array_key_last($dates)] ?? $package->end_date->toDateString();
-
             $subscription = PackageSubscription::create([
                 'user_id' => $locked->id,
                 'meal_package_id' => $package->id,
                 'quantity' => $quantity,
-                'start_date' => $startDate,
-                'end_date' => $endDate,
+                'start_date' => $quote['start_date'],
+                'end_date' => $quote['end_date'],
+                'target_month' => $quote['target_month'],
                 'omitted_weekdays' => $omittedWeekdays,
                 'billable_days' => $quote['billable_days'],
                 'price_per_day' => $quote['price_per_day'],
@@ -126,6 +149,7 @@ class PackageSubscriptionService
                 'amount_paid' => $total,
                 'payment_status' => 'paid',
                 'status' => PackageSubscription::STATUS_ACTIVE,
+                'schedule_status' => PackageSubscription::SCHEDULE_AWAITING,
                 'delivery_time' => $deliveryTime,
                 'address' => $fullAddress,
                 'receiver_name' => $receiverName,
@@ -134,6 +158,14 @@ class PackageSubscriptionService
                 'created_by' => $locked->id,
             ]);
 
+            foreach ($quote['selections'] as $selection) {
+                PackageSubscriptionSelection::create([
+                    'package_subscription_id' => $subscription->id,
+                    'menu_item_id' => $selection['menu_item_id'],
+                    'day_count' => $selection['day_count'],
+                ]);
+            }
+
             if ($paymentMethod === 'balance') {
                 WalletLedger::debit(
                     $locked,
@@ -141,39 +173,6 @@ class PackageSubscriptionService
                     'Package prepayment: '.$package->name,
                     $subscription
                 );
-            }
-
-            $createdOrderIds = [];
-            foreach ($quote['days'] as $day) {
-                $lineTotal = (int) $day['line_total'];
-                $order = Order::create([
-                    'user_id' => $locked->id,
-                    'menu_item_id' => $day['menu_item_id'],
-                    'package_subscription_id' => $subscription->id,
-                    'quantity' => $quantity,
-                    'delivery_date' => $day['date'],
-                    'delivery_time' => $deliveryTime,
-                    'total_amount' => $lineTotal,
-                    'amount_paid' => $lineTotal,
-                    'prepaid_amount' => $lineTotal,
-                    'cash_collected' => 0,
-                    'address' => $fullAddress,
-                    'receiver_name' => $receiverName,
-                    'receiver_mobile' => $receiverMobile,
-                    'area_id' => $areaId,
-                    'order_status' => 'pending',
-                    'payment_status' => 'paid',
-                    'payment_method' => $paymentMethod,
-                    'created_by' => $locked->id,
-                    'updated_by' => $locked->id,
-                ]);
-                $createdOrderIds[] = $order->id;
-            }
-
-            $grouper = app(MealOrderGrouper::class);
-            $orders = Order::query()->whereIn('id', $createdOrderIds)->get();
-            foreach ($orders as $order) {
-                $grouper->assignOrder($order->load('user'), $locked->id);
             }
 
             $profileMatches = CorporateOrderPrepayment::profileMatchesReceiver(
@@ -193,7 +192,140 @@ class PackageSubscriptionService
             $locked->update($profileUpdate);
 
             return [
-                'subscription' => $subscription->fresh(['package', 'orders.menuItem']),
+                'subscription' => $subscription->fresh(['package', 'selections.menuItem', 'orders.menuItem']),
+                'orders' => collect(),
+            ];
+        });
+    }
+
+    /**
+     * Operations assigns exact delivery dates + menus from the corporate selection.
+     *
+     * @param  array<int, array{date:string, menu_item_id:int}>  $assignments
+     * @return array{subscription: PackageSubscription, orders: Collection<int, Order>}
+     */
+    public function assignSchedule(
+        User $actor,
+        PackageSubscription $subscription,
+        array $assignments,
+    ): array {
+        $this->assertStaffActor($actor);
+
+        return DB::transaction(function () use ($actor, $subscription, $assignments) {
+            /** @var PackageSubscription $lockedSub */
+            $lockedSub = PackageSubscription::query()
+                ->with('selections')
+                ->lockForUpdate()
+                ->findOrFail($subscription->id);
+
+            if ($lockedSub->status !== PackageSubscription::STATUS_ACTIVE) {
+                throw new RuntimeException('Only active subscriptions can be scheduled.');
+            }
+
+            if ($lockedSub->isScheduled() && $lockedSub->orders()->exists()) {
+                throw new RuntimeException('This subscription already has a delivery schedule. Use swap/skip on individual days.');
+            }
+
+            $normalized = collect($assignments)
+                ->map(fn ($row) => [
+                    'date' => Carbon::parse($row['date'] ?? null)->toDateString(),
+                    'menu_item_id' => (int) ($row['menu_item_id'] ?? 0),
+                ])
+                ->filter(fn ($row) => $row['menu_item_id'] > 0)
+                ->values();
+
+            if ($normalized->isEmpty()) {
+                throw new RuntimeException('Assign at least one delivery date.');
+            }
+
+            if ($normalized->pluck('date')->unique()->count() !== $normalized->count()) {
+                throw new RuntimeException('Each delivery date can only be assigned once.');
+            }
+
+            $expectedDays = (int) $lockedSub->billable_days;
+            if ($normalized->count() !== $expectedDays) {
+                throw new RuntimeException(
+                    'Assign exactly '.$expectedDays.' delivery day(s) to match the prepaid package.'
+                );
+            }
+
+            $omitted = PackageBilling::normalizeOmittedWeekdays($lockedSub->omitted_weekdays ?? []);
+            $available = PackageBilling::availableDatesInMonth(
+                (string) ($lockedSub->target_month ?: $lockedSub->start_date->format('Y-m')),
+                $omitted
+            )->flip();
+
+            $selectionCounts = $lockedSub->selections
+                ->mapWithKeys(fn ($sel) => [(int) $sel->menu_item_id => (int) $sel->day_count]);
+            $assignedCounts = [];
+
+            foreach ($normalized as $row) {
+                if (! $available->has($row['date'])) {
+                    throw new RuntimeException(
+                        $row['date'].' is not an eligible delivery date (outside month, omitted weekday, or past cutoff).'
+                    );
+                }
+
+                $menuId = $row['menu_item_id'];
+                if (! $selectionCounts->has($menuId)) {
+                    throw new RuntimeException('Menu item #'.$menuId.' was not part of the corporate selection.');
+                }
+
+                $assignedCounts[$menuId] = ($assignedCounts[$menuId] ?? 0) + 1;
+            }
+
+            foreach ($selectionCounts as $menuId => $dayCount) {
+                if ((int) ($assignedCounts[$menuId] ?? 0) !== (int) $dayCount) {
+                    $name = MenuItem::query()->whereKey($menuId)->value('name') ?? ('#'.$menuId);
+                    throw new RuntimeException(
+                        'Menu "'.$name.'" must be assigned exactly '.$dayCount.' day(s).'
+                    );
+                }
+            }
+
+            $lineTotal = (int) $lockedSub->price_per_day * (int) $lockedSub->quantity;
+            $createdOrderIds = [];
+
+            foreach ($normalized->sortBy('date')->values() as $row) {
+                $order = Order::create([
+                    'user_id' => $lockedSub->user_id,
+                    'menu_item_id' => $row['menu_item_id'],
+                    'package_subscription_id' => $lockedSub->id,
+                    'quantity' => $lockedSub->quantity,
+                    'delivery_date' => $row['date'],
+                    'delivery_time' => $lockedSub->delivery_time,
+                    'total_amount' => $lineTotal,
+                    'amount_paid' => $lineTotal,
+                    'prepaid_amount' => $lineTotal,
+                    'cash_collected' => 0,
+                    'address' => $lockedSub->address,
+                    'receiver_name' => $lockedSub->receiver_name,
+                    'receiver_mobile' => $lockedSub->receiver_mobile,
+                    'area_id' => $lockedSub->area_id,
+                    'order_status' => 'pending',
+                    'payment_status' => 'paid',
+                    'payment_method' => 'balance',
+                    'created_by' => $actor->id,
+                    'updated_by' => $actor->id,
+                ]);
+                $createdOrderIds[] = $order->id;
+            }
+
+            $grouper = app(MealOrderGrouper::class);
+            $orders = Order::query()->whereIn('id', $createdOrderIds)->orderBy('delivery_date')->get();
+            foreach ($orders as $order) {
+                $grouper->assignOrder($order->load('user'), $actor->id);
+            }
+
+            $dates = $orders->pluck('delivery_date')->map(fn ($d) => $d->toDateString())->all();
+            $lockedSub->update([
+                'schedule_status' => PackageSubscription::SCHEDULE_SCHEDULED,
+                'start_date' => $dates[0] ?? $lockedSub->start_date,
+                'end_date' => $dates[array_key_last($dates)] ?? $lockedSub->end_date,
+            ]);
+
+            return [
+                'subscription' => $lockedSub->fresh(['package', 'user', 'selections.menuItem', 'orders.menuItem']),
                 'orders' => $orders->load('menuItem'),
             ];
         });
@@ -251,6 +383,31 @@ class PackageSubscriptionService
             $cancelled = 0;
             $refunded = 0;
 
+            // Unscheduled prepaid packages: refund the full prepaid amount.
+            if ($lockedSub->isAwaitingSchedule() && $orders->isEmpty()) {
+                $refund = (int) ($lockedSub->amount_paid ?: $lockedSub->total_amount);
+                if ($refund > 0) {
+                    WalletLedger::credit(
+                        $owner,
+                        $refund,
+                        WalletTransaction::TYPE_REFUND,
+                        'Package subscription cancelled before schedule — refund for subscription #'.$lockedSub->id,
+                        $lockedSub
+                    );
+                    $refunded = $refund;
+                }
+
+                $lockedSub->update([
+                    'status' => PackageSubscription::STATUS_CANCELLED,
+                ]);
+
+                return [
+                    'subscription' => $lockedSub->fresh(['package', 'user', 'orders.menuItem', 'selections.menuItem']),
+                    'cancelled_orders' => 0,
+                    'refunded_amount' => $refunded,
+                ];
+            }
+
             foreach ($orders as $order) {
                 if (! OrderCutoff::allowsModification($order)) {
                     continue;
@@ -267,7 +424,7 @@ class PackageSubscriptionService
             ]);
 
             return [
-                'subscription' => $lockedSub->fresh(['package', 'user', 'orders.menuItem']),
+                'subscription' => $lockedSub->fresh(['package', 'user', 'orders.menuItem', 'selections.menuItem']),
                 'cancelled_orders' => $cancelled,
                 'refunded_amount' => $refunded,
             ];
