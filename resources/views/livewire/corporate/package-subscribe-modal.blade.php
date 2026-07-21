@@ -217,11 +217,22 @@
                         @else
                             <div class="space-y-3">
                                 <p class="text-xs font-semibold text-gray-600">Enter the 4-digit OTP sent to {{ $mobile }}</p>
-                                <input wire:model="otpInput" type="text" maxlength="4" class="w-full border-gray-200 rounded-xl text-sm p-2.5 tracking-[0.4em] text-center font-black" placeholder="••••">
+                                @if($debugOtp)
+                                    <p class="text-xs font-black text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                                        Debug OTP: {{ $debugOtp }}
+                                    </p>
+                                @endif
+                                <input wire:model.live="otpInput" type="text" inputmode="numeric" maxlength="4" class="w-full border-gray-200 rounded-xl text-sm p-2.5 tracking-[0.4em] text-center font-black" placeholder="••••">
+                                @error('otpInput')
+                                    <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
+                                @enderror
                                 <button type="button" wire:click="finalizeSubscribe" wire:loading.attr="disabled"
                                         class="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl disabled:opacity-60">
                                     <span wire:loading.remove wire:target="finalizeSubscribe">Prepaid & create package</span>
                                     <span wire:loading wire:target="finalizeSubscribe">Creating…</span>
+                                </button>
+                                <button type="button" wire:click="initiateConfirmation" class="w-full text-xs font-bold text-middo-orange underline">
+                                    Resend OTP
                                 </button>
                             </div>
                         @endif

@@ -68,6 +68,8 @@ class PackageSubscribeModal extends Component
 
     public string $statusMessage = '';
 
+    public ?string $debugOtp = null;
+
     public int $walletBalance = 0;
 
     public int $selectedDays = 0;
@@ -140,6 +142,7 @@ class PackageSubscribeModal extends Component
         $this->gatewayPaymentUrl = null;
         $this->errorMessage = '';
         $this->statusMessage = '';
+        $this->debugOtp = null;
         $this->walletBalance = (int) $user->balance;
 
         if ($this->city_id) {
@@ -176,6 +179,7 @@ class PackageSubscribeModal extends Component
         $this->isConfirmingOtp = false;
         $this->errorMessage = '';
         $this->statusMessage = '';
+        $this->debugOtp = null;
         $this->selectedDays = 0;
         $this->workingDays = 0;
         $this->fillsMonth = false;
@@ -344,7 +348,9 @@ class PackageSubscribeModal extends Component
             ]);
         } catch (ValidationException $e) {
             $this->errorMessage = collect($e->validator->errors()->all())->implode(' ');
-            throw $e;
+            $this->setErrorBag($e->validator->errors());
+
+            return;
         }
 
         try {
@@ -371,7 +377,10 @@ class PackageSubscribeModal extends Component
 
         $this->isConfirmingOtp = true;
         $this->otpInput = '';
-        $this->statusMessage = 'OTP sent. Enter the code to confirm prepaid package creation.';
+        $this->debugOtp = isset($otpResult['debug_otp']) ? (string) $otpResult['debug_otp'] : null;
+        $this->statusMessage = $this->debugOtp
+            ? 'OTP sent. Debug code: '.$this->debugOtp
+            : 'OTP sent to '.$this->mobile.'. Enter the 4-digit code to confirm.';
     }
 
     public function startGatewayPayment(): void
@@ -423,21 +432,29 @@ class PackageSubscribeModal extends Component
         $this->errorMessage = '';
         $this->statusMessage = '';
         $this->resetErrorBag();
+        $this->otpInput = trim((string) $this->otpInput);
 
         try {
             $this->validate([
                 'otpInput' => 'required|string|size:4',
                 'customerName' => 'required|string|min:2|max:120',
                 'paymentMethod' => 'required|in:balance,gateway',
+                'city_id' => 'required|exists:cities,id',
+                'area_id' => 'required|exists:areas,id',
+                'addressLine1' => 'required|string|min:5|max:500',
+                'targetMonth' => 'required|date_format:Y-m',
             ]);
         } catch (ValidationException $e) {
             $this->errorMessage = collect($e->validator->errors()->all())->implode(' ');
-            throw $e;
+            $this->setErrorBag($e->validator->errors());
+
+            return;
         }
 
         if (! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
-            $this->errorMessage = 'Invalid or expired confirmation code.';
+            $this->errorMessage = 'Invalid or expired confirmation code. Request a new OTP and try again.';
             $this->addError('otpInput', 'Invalid or expired confirmation code.');
+            $this->isConfirmingOtp = true;
 
             return;
         }
@@ -445,6 +462,8 @@ class PackageSubscribeModal extends Component
         $this->refreshQuote();
 
         try {
+            PackageBilling::assertSelectionsFillMonth($this->quote);
+
             $result = app(PackageSubscriptionService::class)->subscribe(
                 Auth::user(),
                 MealPackage::findOrFail($this->packageId),
@@ -462,24 +481,24 @@ class PackageSubscribeModal extends Component
                 $this->gatewayPaymentToken
             );
         } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage();
+            report($e);
+            $this->errorMessage = $e->getMessage() ?: 'Could not create the package. Please try again.';
+            $this->isConfirmingOtp = true;
 
             return;
         }
 
         $subscriptionId = $result['subscription']->id;
-        $days = $result['subscription']->billable_days;
-
-        $this->closeModal();
-        $this->dispatch('package-subscribed');
-        $this->dispatch('corporate-orders-changed');
+        $days = (int) $result['subscription']->billable_days;
 
         session()->flash(
             'message',
             'Package prepaid for '.$days.' days. Middo operations will assign exact delivery dates next.'
         );
 
-        $this->redirect(route('corporates.packages.show', $subscriptionId), navigate: true);
+        // Full-page redirect. Closing the nested modal / dispatching parent refresh
+        // before redirect was aborting confirmation so the UI looked stuck.
+        $this->redirect(route('corporates.packages.show', $subscriptionId));
     }
 
     public function render()
