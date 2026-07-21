@@ -116,6 +116,7 @@ class CorporateApiPresenter
             'end_date' => optional($package->end_date)->toDateString(),
             'thumbnail' => $image,
             'days_count' => $package->days_count ?? $package->days()->count(),
+            'is_rate_plan' => true,
         ];
 
         if ($withDays) {
@@ -132,7 +133,7 @@ class CorporateApiPresenter
 
     public static function packageSubscription(PackageSubscription $subscription): array
     {
-        $subscription->loadMissing(['package', 'orders.menuItem']);
+        $subscription->loadMissing(['package', 'orders.menuItem', 'selections.menuItem']);
 
         return [
             'id' => (string) $subscription->id,
@@ -142,6 +143,7 @@ class CorporateApiPresenter
             'quantity' => (int) $subscription->quantity,
             'start_date' => optional($subscription->start_date)->toDateString(),
             'end_date' => optional($subscription->end_date)->toDateString(),
+            'target_month' => $subscription->target_month,
             'omitted_weekdays' => $subscription->omitted_weekdays ?? [],
             'billable_days' => (int) $subscription->billable_days,
             'price_per_day' => (int) $subscription->price_per_day,
@@ -149,10 +151,16 @@ class CorporateApiPresenter
             'amount_paid' => (int) $subscription->amount_paid,
             'payment_status' => $subscription->payment_status,
             'status' => $subscription->status,
+            'schedule_status' => $subscription->schedule_status,
             'delivery_time' => $subscription->delivery_time,
             'address' => $subscription->address,
             'receiver_name' => $subscription->receiver_name,
             'receiver_mobile' => $subscription->receiver_mobile,
+            'selections' => $subscription->selections->map(fn ($sel) => [
+                'menu_item_id' => (int) $sel->menu_item_id,
+                'day_count' => (int) $sel->day_count,
+                'menu_item' => $sel->menuItem ? self::menuItem($sel->menuItem) : null,
+            ])->values()->all(),
             'orders' => $subscription->orders
                 ->sortBy('delivery_date')
                 ->values()

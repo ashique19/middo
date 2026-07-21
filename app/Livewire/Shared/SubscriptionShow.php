@@ -5,6 +5,7 @@ namespace App\Livewire\Shared;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\PackageSubscription;
+use App\Support\PackageBilling;
 use App\Support\PackageSubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -31,6 +32,9 @@ class SubscriptionShow extends Component
 
     public ?string $errorMessage = null;
 
+    /** @var array<string, int|null> date => menu_item_id */
+    public array $scheduleAssignments = [];
+
     public function mount(int $subscription): void
     {
         $role = Auth::user()?->role?->name;
@@ -43,6 +47,7 @@ class SubscriptionShow extends Component
         $this->address = (string) $model->address;
         $this->receiver_name = (string) $model->receiver_name;
         $this->receiver_mobile = (string) $model->receiver_mobile;
+        $this->resetScheduleAssignments($model);
     }
 
     protected function subscription(): PackageSubscription
@@ -51,8 +56,65 @@ class SubscriptionShow extends Component
             'user',
             'package',
             'area.city',
+            'selections.menuItem',
             'orders' => fn ($q) => $q->with(['menuItem', 'orderGroup'])->orderBy('delivery_date'),
         ])->findOrFail($this->subscriptionId);
+    }
+
+    protected function resetScheduleAssignments(?PackageSubscription $model = null): void
+    {
+        $model ??= $this->subscription();
+        $this->scheduleAssignments = [];
+
+        if (! $model->isAwaitingSchedule()) {
+            return;
+        }
+
+        $month = (string) ($model->target_month ?: $model->start_date->format('Y-m'));
+        $dates = PackageBilling::availableDatesInMonth($month, $model->omitted_weekdays ?? []);
+        foreach ($dates as $date) {
+            $this->scheduleAssignments[$date] = null;
+        }
+    }
+
+    public function assignDateMenu(string $date, $menuItemId): void
+    {
+        abort_unless($this->canManage, 403);
+
+        if (! array_key_exists($date, $this->scheduleAssignments)) {
+            return;
+        }
+
+        $menuItemId = $menuItemId === '' || $menuItemId === null ? null : (int) $menuItemId;
+        $this->scheduleAssignments[$date] = $menuItemId;
+    }
+
+    public function saveSchedule(): void
+    {
+        abort_unless($this->canManage, 403);
+        $this->errorMessage = null;
+        $this->statusMessage = null;
+
+        $assignments = collect($this->scheduleAssignments)
+            ->filter(fn ($menuItemId) => filled($menuItemId))
+            ->map(fn ($menuItemId, $date) => [
+                'date' => $date,
+                'menu_item_id' => (int) $menuItemId,
+            ])
+            ->values()
+            ->all();
+
+        try {
+            $result = app(PackageSubscriptionService::class)->assignSchedule(
+                Auth::user(),
+                $this->subscription(),
+                $assignments
+            );
+            $this->statusMessage = 'Scheduled '.$result['orders']->count().' delivery day(s) from the corporate selection.';
+            $this->resetScheduleAssignments($result['subscription']);
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
+        }
     }
 
     public function skipOrder(int $orderId): void
@@ -162,14 +224,38 @@ class SubscriptionShow extends Component
             : route('operation.orders.active');
     }
 
+    public function selectionRemaining(PackageSubscription $subscription): array
+    {
+        $assigned = collect($this->scheduleAssignments)
+            ->filter()
+            ->countBy(fn ($id) => (int) $id);
+
+        return $subscription->selections->map(function ($sel) use ($assigned) {
+            $needed = (int) $sel->day_count;
+            $used = (int) ($assigned[(int) $sel->menu_item_id] ?? 0);
+
+            return [
+                'menu_item_id' => (int) $sel->menu_item_id,
+                'name' => $sel->menuItem?->name ?? 'Menu',
+                'day_count' => $needed,
+                'assigned' => $used,
+                'remaining' => max(0, $needed - $used),
+            ];
+        })->values()->all();
+    }
+
     public function render()
     {
         $subscription = $this->subscription();
         $menuItems = MenuItem::query()->orderBy('name')->get(['id', 'name', 'price']);
+        $selectionMenus = $subscription->selections->pluck('menuItem')->filter()->values();
 
         return view('livewire.shared.subscriptions.show', [
             'subscription' => $subscription,
             'menuItems' => $menuItems,
+            'selectionMenus' => $selectionMenus,
+            'selectionRemaining' => $this->selectionRemaining($subscription),
+            'assignedCount' => collect($this->scheduleAssignments)->filter()->count(),
         ])->layout('layouts.private.app', [
             'title' => 'Subscription #'.$subscription->id,
         ]);

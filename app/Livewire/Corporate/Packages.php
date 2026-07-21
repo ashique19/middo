@@ -39,9 +39,11 @@ class Packages extends Component
     {
         $query = MealPackage::query()
             ->published()
-            ->with(['days' => fn ($q) => $q->with('menuItem')->orderBy('delivery_date')->limit(7)])
             ->withCount('days')
-            ->where('end_date', '>=', now('Asia/Dhaka')->toDateString())
+            ->where(function ($q) {
+                $q->whereNull('end_date')
+                    ->orWhere('end_date', '>=', now('Asia/Dhaka')->toDateString());
+            })
             ->orderBy('display_order')
             ->orderBy('price_per_day');
 
@@ -57,15 +59,11 @@ class Packages extends Component
                 'price_per_day' => (int) $package->price_per_day,
                 'diet_tag' => $package->diet_tag,
                 'duration_days' => (int) $package->duration_days,
-                'start_date' => $package->start_date->toDateString(),
-                'end_date' => $package->end_date->toDateString(),
+                'start_date' => optional($package->start_date)?->toDateString(),
+                'end_date' => optional($package->end_date)?->toDateString(),
                 'thumbnail' => $package->thumbnail ? asset($package->thumbnail) : null,
                 'days_count' => (int) $package->days_count,
-                'sample_days' => $package->days->map(fn ($d) => [
-                    'date' => $d->delivery_date->toDateString(),
-                    'name' => $d->menuItem?->name,
-                    'thumbnail' => $d->menuItem?->thumbnail ? asset($d->menuItem->thumbnail) : null,
-                ])->values()->all(),
+                'sample_days' => [],
             ];
         })->values()->all();
     }
@@ -74,7 +72,7 @@ class Packages extends Component
     {
         $this->subscriptions = PackageSubscription::query()
             ->forUser(Auth::id())
-            ->with(['package', 'orders' => fn ($q) => $q->orderBy('delivery_date')])
+            ->with(['package', 'orders' => fn ($q) => $q->orderBy('delivery_date'), 'selections'])
             ->latest()
             ->take(10)
             ->get()
@@ -87,12 +85,14 @@ class Packages extends Component
                     'id' => $sub->id,
                     'name' => $sub->package?->name ?? 'Package',
                     'status' => $sub->status,
+                    'schedule_status' => $sub->schedule_status,
                     'price_per_day' => (int) $sub->price_per_day,
                     'billable_days' => (int) $sub->billable_days,
                     'total_amount' => (int) $sub->total_amount,
                     'quantity' => (int) $sub->quantity,
                     'start_date' => $sub->start_date->toDateString(),
                     'end_date' => $sub->end_date->toDateString(),
+                    'target_month' => $sub->target_month,
                     'pending_days' => $pending,
                     'active_days' => $total,
                     'completed_days' => $deliveredish,

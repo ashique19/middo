@@ -5,12 +5,12 @@ namespace App\Livewire\Corporate;
 use App\Contracts\PaymentGateway;
 use App\Models\City;
 use App\Models\MealPackage;
+use App\Models\MenuItem;
 use App\Models\User;
-use App\Support\CorporateOrderLimit;
 use App\Support\OrderConfirmationOtp;
-use App\Support\OrderCutoff;
 use App\Support\PackageBilling;
 use App\Support\PackageSubscriptionService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -23,9 +23,14 @@ class PackageSubscribeModal extends Component
 
     public array $package = [];
 
+    public array $menuCatalog = [];
+
+    /** @var array<int, int> menu_item_id => day_count */
+    public array $menuDayCounts = [];
+
     public array $omittedWeekdays = [5, 6]; // Fri, Sat
 
-    public array $extraSkippedDates = [];
+    public string $targetMonth = '';
 
     public int $quantity = 1;
 
@@ -63,6 +68,8 @@ class PackageSubscribeModal extends Component
 
     public int $walletBalance = 0;
 
+    public array $monthOptions = [];
+
     #[On('open-package-subscribe')]
     public function open($packageId = null): void
     {
@@ -77,7 +84,7 @@ class PackageSubscribeModal extends Component
             return;
         }
 
-        $model = MealPackage::query()->published()->with('days.menuItem')->findOrFail($id);
+        $model = MealPackage::query()->published()->findOrFail($id);
         /** @var User $user */
         $user = Auth::user();
 
@@ -87,13 +94,28 @@ class PackageSubscribeModal extends Component
             'name' => $model->name,
             'price_per_day' => (int) $model->price_per_day,
             'diet_tag' => $model->diet_tag,
-            'start_date' => $model->start_date->toDateString(),
-            'end_date' => $model->end_date->toDateString(),
+            'duration_days' => (int) $model->duration_days,
             'thumbnail' => $model->thumbnail ? asset($model->thumbnail) : null,
         ];
 
+        $this->menuCatalog = MenuItem::query()
+            ->orderBy('display_order')
+            ->orderBy('name')
+            ->get(['id', 'name', 'summary', 'price', 'thumbnail'])
+            ->map(fn (MenuItem $item) => [
+                'id' => $item->id,
+                'name' => $item->name,
+                'summary' => $item->summary,
+                'price' => (int) $item->price,
+                'thumbnail' => $item->thumbnail ? asset($item->thumbnail) : null,
+            ])
+            ->values()
+            ->all();
+
+        $this->menuDayCounts = [];
         $this->omittedWeekdays = [5, 6];
-        $this->extraSkippedDates = [];
+        $this->targetMonth = now('Asia/Dhaka')->format('Y-m');
+        $this->monthOptions = $this->buildMonthOptions();
         $this->quantity = 1;
         $this->customerName = $user->name ?? '';
         $this->mobile = $user->mobile ?? '';
@@ -118,11 +140,28 @@ class PackageSubscribeModal extends Component
         $this->showModal = true;
     }
 
+    protected function buildMonthOptions(): array
+    {
+        $options = [];
+        $cursor = now('Asia/Dhaka')->startOfMonth();
+        for ($i = 0; $i < 4; $i++) {
+            $options[] = [
+                'value' => $cursor->format('Y-m'),
+                'label' => $cursor->format('F Y'),
+            ];
+            $cursor->addMonth();
+        }
+
+        return $options;
+    }
+
     public function closeModal(): void
     {
         $this->showModal = false;
         $this->packageId = null;
         $this->package = [];
+        $this->menuCatalog = [];
+        $this->menuDayCounts = [];
         $this->isConfirmingOtp = false;
         $this->errorMessage = '';
     }
@@ -135,6 +174,11 @@ class PackageSubscribeModal extends Component
     public function updatedOmittedWeekdays(): void
     {
         $this->omittedWeekdays = PackageBilling::normalizeOmittedWeekdays($this->omittedWeekdays);
+        $this->refreshQuote();
+    }
+
+    public function updatedTargetMonth(): void
+    {
         $this->refreshQuote();
     }
 
@@ -151,6 +195,23 @@ class PackageSubscribeModal extends Component
             min((int) config('middo.max_order_qty_allowed', 5), $this->quantity + $delta)
         );
         $this->refreshQuote();
+    }
+
+    public function setMenuDays(int $menuItemId, int $days): void
+    {
+        $days = max(0, min(31, $days));
+        if ($days < 1) {
+            unset($this->menuDayCounts[$menuItemId]);
+        } else {
+            $this->menuDayCounts[$menuItemId] = $days;
+        }
+        $this->refreshQuote();
+    }
+
+    public function changeMenuDays(int $menuItemId, int $delta): void
+    {
+        $current = (int) ($this->menuDayCounts[$menuItemId] ?? 0);
+        $this->setMenuDays($menuItemId, $current + $delta);
     }
 
     public function toggleWeekday(int $day): void
@@ -173,20 +234,6 @@ class PackageSubscribeModal extends Component
         $this->refreshQuote();
     }
 
-    public function toggleExtraSkip(string $date): void
-    {
-        if (in_array($date, $this->extraSkippedDates, true)) {
-            $this->extraSkippedDates = array_values(array_filter(
-                $this->extraSkippedDates,
-                fn ($d) => $d !== $date
-            ));
-        } else {
-            $this->extraSkippedDates[] = $date;
-        }
-
-        $this->refreshQuote();
-    }
-
     protected function loadAreasForSelectedCity($cityId): void
     {
         $selectedCity = City::find($cityId);
@@ -200,6 +247,21 @@ class PackageSubscribeModal extends Component
         } else {
             $this->area_id = null;
         }
+    }
+
+    protected function selectionPayload(): array
+    {
+        $payload = [];
+        foreach ($this->menuDayCounts as $menuItemId => $dayCount) {
+            if ((int) $dayCount > 0) {
+                $payload[] = [
+                    'menu_item_id' => (int) $menuItemId,
+                    'day_count' => (int) $dayCount,
+                ];
+            }
+        }
+
+        return $payload;
     }
 
     protected function refreshQuote(): void
@@ -217,12 +279,19 @@ class PackageSubscribeModal extends Component
             return;
         }
 
-        $this->quote = PackageBilling::quote(
-            $model,
-            $this->quantity,
-            $this->omittedWeekdays,
-            $this->extraSkippedDates
-        );
+        try {
+            $this->quote = PackageBilling::quoteFromSelections(
+                $model,
+                $this->quantity,
+                $this->selectionPayload(),
+                $this->omittedWeekdays,
+                $this->targetMonth ?: now('Asia/Dhaka')->format('Y-m')
+            );
+        } catch (\Throwable $e) {
+            $this->quote = [];
+            $this->errorMessage = $e->getMessage();
+        }
+
         $this->walletBalance = (int) (Auth::user()?->balance ?? 0);
     }
 
@@ -237,30 +306,23 @@ class PackageSubscribeModal extends Component
             'area_id' => 'required|exists:areas,id',
             'deliveryWindow' => 'required|in:12:00 PM,11:30 AM',
             'quantity' => 'required|integer|min:1|max:'.(int) config('middo.max_order_qty_allowed', 5),
+            'targetMonth' => 'required|date_format:Y-m',
         ]);
 
         $this->refreshQuote();
 
         if (($this->quote['billable_days'] ?? 0) < 1) {
-            $this->errorMessage = 'No billable days left. Un-omit some weekdays or pick another package.';
+            $this->errorMessage = 'Pick at least one menu and set how many days you want it this month.';
 
             return;
         }
 
-        $dates = collect($this->quote['days'] ?? [])->pluck('date')->all();
-        foreach ($dates as $date) {
-            if (OrderCutoff::isPastForDeliveryDate((string) $date)) {
-                $this->errorMessage = OrderCutoff::placementDeniedMessage((string) $date);
+        if (($this->quote['billable_days'] ?? 0) > ($this->quote['available_days'] ?? 0)) {
+            $this->errorMessage = 'Selected days exceed available days in '
+                .Carbon::createFromFormat('Y-m', $this->targetMonth)->format('F Y')
+                .' after omitted weekdays. Reduce day counts or un-omit weekdays.';
 
-                return;
-            }
-
-            if (CorporateOrderLimit::exceedsDailyLimit((int) Auth::id(), (string) $date, $this->quantity)) {
-                $max = CorporateOrderLimit::maxAllowed();
-                $this->errorMessage = "Daily quantity limit ({$max}) exceeded for {$date}.";
-
-                return;
-            }
+            return;
         }
 
         $total = (int) ($this->quote['total_amount'] ?? 0);
@@ -295,6 +357,11 @@ class PackageSubscribeModal extends Component
             'meal_package_id' => (int) $this->packageId,
             'quantity' => $this->quantity,
             'omitted_weekdays' => PackageBilling::normalizeOmittedWeekdays($this->omittedWeekdays),
+            'target_month' => PackageBilling::normalizeTargetMonth($this->targetMonth),
+            'selections' => collect($this->selectionPayload())
+                ->sortBy('menu_item_id')
+                ->values()
+                ->all(),
             'amount' => $total,
         ];
 
@@ -332,7 +399,8 @@ class PackageSubscribeModal extends Component
                 MealPackage::findOrFail($this->packageId),
                 $this->quantity,
                 $this->omittedWeekdays,
-                $this->extraSkippedDates,
+                $this->selectionPayload(),
+                $this->targetMonth,
                 $this->customerName,
                 $this->mobile,
                 $this->addressLine1,
@@ -352,7 +420,11 @@ class PackageSubscribeModal extends Component
         $this->dispatch('package-subscribed');
         $this->dispatch('corporate-orders-changed');
 
-        session()->flash('message', 'Package prepaid and scheduled — '.$result['subscription']->billable_days.' delivery days.');
+        session()->flash(
+            'message',
+            'Package prepaid for '.$result['subscription']->billable_days
+            .' days. Middo operations will assign exact delivery dates next.'
+        );
 
         $this->redirect(route('corporates.packages.show', $result['subscription']->id), navigate: true);
     }

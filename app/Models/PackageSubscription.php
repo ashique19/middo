@@ -14,12 +14,17 @@ class PackageSubscription extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    public const SCHEDULE_AWAITING = 'awaiting_schedule';
+
+    public const SCHEDULE_SCHEDULED = 'scheduled';
+
     protected $fillable = [
         'user_id',
         'meal_package_id',
         'quantity',
         'start_date',
         'end_date',
+        'target_month',
         'omitted_weekdays',
         'billable_days',
         'price_per_day',
@@ -27,6 +32,7 @@ class PackageSubscription extends Model
         'amount_paid',
         'payment_status',
         'status',
+        'schedule_status',
         'delivery_time',
         'address',
         'receiver_name',
@@ -61,6 +67,11 @@ class PackageSubscription extends Model
         return $this->belongsTo(Area::class);
     }
 
+    public function selections(): HasMany
+    {
+        return $this->hasMany(PackageSubscriptionSelection::class);
+    }
+
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
@@ -79,5 +90,15 @@ class PackageSubscription extends Model
     public function scopeActive($query)
     {
         return $query->where('status', self::STATUS_ACTIVE);
+    }
+
+    public function isAwaitingSchedule(): bool
+    {
+        return $this->schedule_status === self::SCHEDULE_AWAITING;
+    }
+
+    public function isScheduled(): bool
+    {
+        return $this->schedule_status === self::SCHEDULE_SCHEDULED;
     }
 }

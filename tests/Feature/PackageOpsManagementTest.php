@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Area;
 use App\Models\City;
 use App\Models\MealPackage;
-use App\Models\MealPackageDay;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderGroupOrder;
@@ -79,38 +78,37 @@ class PackageOpsManagementTest extends TestCase
 
     private function makePublishedPackage(MenuItem $menuItem, int $pricePerDay = 79, int $days = 10): MealPackage
     {
-        $start = now(OrderCutoff::timezone())->addDay()->startOfDay();
-        $package = MealPackage::create([
+        $start = now(OrderCutoff::timezone())->startOfMonth();
+
+        return MealPackage::create([
             'name' => '৳'.$pricePerDay.'/day Classic',
             'summary' => 'Month plan',
             'price_per_day' => $pricePerDay,
             'diet_tag' => 'classic',
             'duration_days' => $days,
             'start_date' => $start->toDateString(),
-            'end_date' => $start->copy()->addDays($days - 1)->toDateString(),
+            'end_date' => $start->copy()->addYear()->toDateString(),
             'status' => MealPackage::STATUS_PUBLISHED,
             'display_order' => 1,
         ]);
-
-        for ($i = 0; $i < $days; $i++) {
-            MealPackageDay::create([
-                'meal_package_id' => $package->id,
-                'delivery_date' => $start->copy()->addDays($i)->toDateString(),
-                'menu_item_id' => $menuItem->id,
-            ]);
-        }
-
-        return $package->fresh('days');
     }
 
-    private function subscribeCorporate(User $user, MealPackage $package, City $city, Area $area): array
-    {
+    private function subscribeCorporate(
+        User $user,
+        MealPackage $package,
+        City $city,
+        Area $area,
+        MenuItem $menu,
+        int $dayCount = 5,
+        string $month = '2026-08'
+    ): array {
         return app(PackageSubscriptionService::class)->subscribe(
             $user,
             $package,
             1,
             [5, 6],
-            [],
+            [['menu_item_id' => $menu->id, 'day_count' => $dayCount]],
+            $month,
             'Corporate User',
             $user->mobile,
             'House 12, Road 5',
@@ -119,6 +117,21 @@ class PackageOpsManagementTest extends TestCase
             '12:00 PM',
             'balance'
         );
+    }
+
+    private function scheduleSubscription(User $ops, PackageSubscription $subscription, MenuItem $menu): array
+    {
+        $available = PackageBilling::availableDatesInMonth(
+            (string) $subscription->target_month,
+            $subscription->omitted_weekdays ?? []
+        )->take((int) $subscription->billable_days);
+
+        $assignments = $available->map(fn ($date) => [
+            'date' => $date,
+            'menu_item_id' => $menu->id,
+        ])->values()->all();
+
+        return app(PackageSubscriptionService::class)->assignSchedule($ops, $subscription, $assignments);
     }
 
     public function test_package_order_presenter_and_auto_group_visibility(): void
@@ -131,11 +144,13 @@ class PackageOpsManagementTest extends TestCase
             'area_id' => $area->id,
             'mobile' => '01310123999',
         ]);
+        $ops = $this->makeUser($this->operationRole, ['mobile' => '01310123899']);
         $menu = $this->makeMenuItem();
         $package = $this->makePublishedPackage($menu, 79, 8);
 
-        $result = $this->subscribeCorporate($user, $package, $city, $area);
-        $order = $result['orders']->first();
+        $result = $this->subscribeCorporate($user, $package, $city, $area, $menu, 5);
+        $scheduled = $this->scheduleSubscription($ops, $result['subscription'], $menu);
+        $order = $scheduled['orders']->first();
 
         $fields = PackageOrderPresenter::fields($order->fresh('packageSubscription.package'));
         $this->assertTrue($fields['is_package']);
@@ -160,10 +175,17 @@ class PackageOpsManagementTest extends TestCase
         $ops = $this->makeUser($this->operationRole, ['mobile' => '01310123997', 'balance' => 0]);
         $menu = $this->makeMenuItem();
         $package = $this->makePublishedPackage($menu, 100, 8);
-        $quote = PackageBilling::quote($package, 1, [5, 6]);
+        $quote = PackageBilling::quoteFromSelections(
+            $package,
+            1,
+            [['menu_item_id' => $menu->id, 'day_count' => 5]],
+            [5, 6],
+            '2026-08'
+        );
 
-        $result = $this->subscribeCorporate($user, $package, $city, $area);
-        $order = Order::query()->where('package_subscription_id', $result['subscription']->id)->orderBy('delivery_date')->first();
+        $result = $this->subscribeCorporate($user, $package, $city, $area, $menu, 5);
+        $scheduled = $this->scheduleSubscription($ops, $result['subscription'], $menu);
+        $order = $scheduled['orders']->first();
         $this->assertTrue(OrderGroupOrder::query()->where('order_id', $order->id)->exists());
 
         $refund = (int) $order->amount_paid;
@@ -190,13 +212,15 @@ class PackageOpsManagementTest extends TestCase
             'balance' => 50000,
         ]);
         $admin = $this->makeUser($this->adminRole, ['mobile' => '01310123995']);
+        $ops = $this->makeUser($this->operationRole, ['mobile' => '01310123895']);
         $menuA = $this->makeMenuItem('Menu A');
         $menuB = $this->makeMenuItem('Menu B', 180);
         $package = $this->makePublishedPackage($menuA, 79, 8);
 
-        $result = $this->subscribeCorporate($user, $package, $city, $area);
-        $subscription = $result['subscription'];
-        $order = Order::query()->where('package_subscription_id', $subscription->id)->orderBy('delivery_date')->first();
+        $result = $this->subscribeCorporate($user, $package, $city, $area, $menuA, 5);
+        $scheduled = $this->scheduleSubscription($ops, $result['subscription'], $menuA);
+        $subscription = $scheduled['subscription'];
+        $order = $scheduled['orders']->first();
 
         $swapped = app(PackageSubscriptionService::class)->swapDayMenu($admin, $order, $menuB->id);
         $this->assertSame($menuB->id, (int) $swapped->menu_item_id);
@@ -242,7 +266,7 @@ class PackageOpsManagementTest extends TestCase
         $admin = $this->makeUser($this->adminRole, ['mobile' => '01310123989']);
         $menu = $this->makeMenuItem();
         $package = $this->makePublishedPackage($menu, 79, 6);
-        $subscription = $this->subscribeCorporate($user, $package, $city, $area)['subscription'];
+        $subscription = $this->subscribeCorporate($user, $package, $city, $area, $menu)['subscription'];
 
         $this->expectException(\RuntimeException::class);
         app(PackageSubscriptionService::class)->forceComplete($ops, $subscription);
@@ -263,7 +287,7 @@ class PackageOpsManagementTest extends TestCase
         $admin = $this->makeUser($this->adminRole, ['mobile' => '01310123987']);
         $menu = $this->makeMenuItem();
         $package = $this->makePublishedPackage($menu, 79, 6);
-        $subscription = $this->subscribeCorporate($user, $package, $city, $area)['subscription'];
+        $subscription = $this->subscribeCorporate($user, $package, $city, $area, $menu)['subscription'];
 
         $completed = app(PackageSubscriptionService::class)->forceComplete($admin, $subscription);
         $this->assertSame(PackageSubscription::STATUS_COMPLETED, $completed->status);
@@ -284,7 +308,9 @@ class PackageOpsManagementTest extends TestCase
         $ops = $this->makeUser($this->operationRole, ['mobile' => '01310123985']);
         $menu = $this->makeMenuItem();
         $package = $this->makePublishedPackage($menu, 79, 8);
-        $subscription = $this->subscribeCorporate($user, $package, $city, $area)['subscription'];
+        $subscribed = $this->subscribeCorporate($user, $package, $city, $area, $menu);
+        $scheduled = $this->scheduleSubscription($ops, $subscribed['subscription'], $menu);
+        $subscription = $scheduled['subscription'];
         $firstDate = Order::query()
             ->where('package_subscription_id', $subscription->id)
             ->orderBy('delivery_date')
@@ -314,7 +340,8 @@ class PackageOpsManagementTest extends TestCase
         $ops = $this->makeUser($this->operationRole, ['mobile' => '01310123983']);
         $menu = $this->makeMenuItem();
         $package = $this->makePublishedPackage($menu, 79, 6);
-        $this->subscribeCorporate($user, $package, $city, $area);
+        $subscribed = $this->subscribeCorporate($user, $package, $city, $area, $menu);
+        $this->scheduleSubscription($ops, $subscribed['subscription'], $menu);
 
         $this->actingAs($ops)
             ->get(route('operation.orders.active'))
