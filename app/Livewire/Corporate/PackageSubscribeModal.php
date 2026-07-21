@@ -10,7 +10,6 @@ use App\Models\User;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PackageBilling;
 use App\Support\PackageSubscriptionService;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -311,16 +310,10 @@ class PackageSubscribeModal extends Component
 
         $this->refreshQuote();
 
-        if (($this->quote['billable_days'] ?? 0) < 1) {
-            $this->errorMessage = 'Pick at least one menu and set how many days you want it this month.';
-
-            return;
-        }
-
-        if (($this->quote['billable_days'] ?? 0) > ($this->quote['available_days'] ?? 0)) {
-            $this->errorMessage = 'Selected days exceed available days in '
-                .Carbon::createFromFormat('Y-m', $this->targetMonth)->format('F Y')
-                .' after omitted weekdays. Reduce day counts or un-omit weekdays.';
+        try {
+            PackageBilling::assertSelectionsFillMonth($this->quote);
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
 
             return;
         }

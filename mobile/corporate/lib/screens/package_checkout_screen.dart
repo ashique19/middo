@@ -154,7 +154,14 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
         throw Exception('Select city and area on your profile first.');
       }
       if (_selections.isEmpty) {
-        throw Exception('Pick at least one menu and day count.');
+        throw Exception('Pick menus for every working day this month.');
+      }
+      if (_quote == null ||
+          _quote!.billableDays != _quote!.availableDays ||
+          _quote!.availableDays < 1) {
+        throw Exception(
+          'Select menus for all ${_quote?.availableDays ?? 0} working days this month.',
+        );
       }
       final otp = await AppScope.of(context).sendPackageOtp(
         mobile: _mobileCtrl.text.trim(),
@@ -329,6 +336,15 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
                 ),
           ),
           const SizedBox(height: 8),
+          Text(
+            'Choose menus so the total equals all working days this month.',
+            style: TextStyle(
+              color: MiddoColors.muted,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 8),
           for (final menu in _menus)
             Builder(
               builder: (context) {
@@ -378,6 +394,22 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
                 );
               },
             ),
+          if (quote != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              quote.billableDays == quote.availableDays && quote.availableDays > 0
+                  ? 'Selected ${quote.billableDays} / ${quote.availableDays} working days · month filled'
+                  : 'Selected ${quote.billableDays} / ${quote.availableDays} working days · fill every working day to continue',
+              style: TextStyle(
+                color: quote.billableDays == quote.availableDays &&
+                        quote.availableDays > 0
+                    ? Colors.green.shade800
+                    : Colors.orange.shade800,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ],
           if (quote != null) ...[
             const SizedBox(height: 12),
             Container(

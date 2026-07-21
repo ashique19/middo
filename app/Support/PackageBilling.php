@@ -156,25 +156,51 @@ class PackageBilling
         $omittedWeekdays = self::normalizeOmittedWeekdays($omittedWeekdays);
         $targetMonth = self::normalizeTargetMonth($targetMonth, $now);
         $normalized = self::normalizeSelections($selections);
-        $billableDays = collect($normalized)->sum('day_count');
+        $billableDays = (int) collect($normalized)->sum('day_count');
         $available = self::availableDatesInMonth($targetMonth, $omittedWeekdays, $now);
+        $availableDays = $available->count();
         $pricePerDay = (int) $package->price_per_day;
         $total = $billableDays * $pricePerDay * $quantity;
         $bounds = self::monthBounds($targetMonth);
 
         return [
-            'billable_days' => (int) $billableDays,
+            'billable_days' => $billableDays,
             'price_per_day' => $pricePerDay,
             'quantity' => $quantity,
             'total_amount' => $total,
             'target_month' => $targetMonth,
             'start_date' => $bounds['start']->toDateString(),
             'end_date' => $bounds['end']->toDateString(),
-            'available_days' => $available->count(),
+            'available_days' => $availableDays,
+            'fills_month' => $billableDays === $availableDays && $availableDays > 0,
             'omitted_weekdays' => $omittedWeekdays,
             'selections' => $normalized,
             'days' => [], // exact dates assigned later by operations
         ];
+    }
+
+    /**
+     * Corporate monthly packages must cover every working day in the month
+     * (after omitted weekdays / off-days).
+     */
+    public static function assertSelectionsFillMonth(array $quote): void
+    {
+        $available = (int) ($quote['available_days'] ?? 0);
+        $selected = (int) ($quote['billable_days'] ?? 0);
+
+        if ($available < 1) {
+            throw new RuntimeException(
+                'No working days remain in '.$quote['target_month']
+                .' with the current off-days. Un-omit weekdays or pick another month.'
+            );
+        }
+
+        if ($selected !== $available) {
+            throw new RuntimeException(
+                'Select menus for all '.$available.' working days this month'
+                .' (currently '.$selected.'). Every working day must be filled.'
+            );
+        }
     }
 
     /**

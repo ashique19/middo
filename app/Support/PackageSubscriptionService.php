@@ -56,16 +56,7 @@ class PackageSubscriptionService
             $targetMonth
         );
 
-        if ($quote['billable_days'] < 1) {
-            throw new RuntimeException('Select at least one menu day for your monthly package.');
-        }
-
-        if ($quote['billable_days'] > $quote['available_days']) {
-            throw new RuntimeException(
-                'Selected days ('.$quote['billable_days'].') exceed available days in '
-                .$quote['target_month'].' after omitted weekdays ('.$quote['available_days'].').'
-            );
-        }
+        PackageBilling::assertSelectionsFillMonth($quote);
 
         $city = City::findOrFail($cityId);
         $area = Area::findOrFail($areaId);

@@ -102,16 +102,23 @@ class MealPackageTest extends TestCase
         ]);
     }
 
+    private function workingDays(string $month = '2026-08', array $omitted = [5, 6]): int
+    {
+        return PackageBilling::availableDatesInMonth($month, $omitted)->count();
+    }
+
     private function subscribeWithSelection(
         User $user,
         MealPackage $package,
         MenuItem $menu,
         City $city,
         Area $area,
-        int $dayCount = 5,
+        ?int $dayCount = null,
         string $month = '2026-08',
         array $omitted = [5, 6]
     ): array {
+        $dayCount ??= $this->workingDays($month, $omitted);
+
         return app(PackageSubscriptionService::class)->subscribe(
             $user,
             $package,
@@ -134,7 +141,7 @@ class MealPackageTest extends TestCase
         $available = PackageBilling::availableDatesInMonth(
             (string) $subscription->target_month,
             $subscription->omitted_weekdays ?? []
-        )->take((int) $subscription->billable_days);
+        );
 
         $assignments = $available->map(fn ($date) => [
             'date' => $date,
@@ -144,25 +151,42 @@ class MealPackageTest extends TestCase
         return app(PackageSubscriptionService::class)->assignSchedule($ops, $subscription, $assignments);
     }
 
-    public function test_selection_quote_respects_available_month_days(): void
+    public function test_selection_quote_must_fill_all_working_days(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
 
         $menu = $this->makeMenuItem();
         $package = $this->makeRatePlan(100);
+        $workingDays = $this->workingDays('2026-08');
 
-        $quote = PackageBilling::quoteFromSelections(
+        $partial = PackageBilling::quoteFromSelections(
             $package,
             1,
             [['menu_item_id' => $menu->id, 'day_count' => 10]],
             [5, 6],
             '2026-08'
         );
+        $this->assertFalse($partial['fills_month']);
+        $this->assertSame(10, $partial['billable_days']);
 
-        $this->assertSame(10, $quote['billable_days']);
-        $this->assertSame(1000, $quote['total_amount']);
-        $this->assertGreaterThanOrEqual(10, $quote['available_days']);
-        $this->assertSame('2026-08', $quote['target_month']);
+        $full = PackageBilling::quoteFromSelections(
+            $package,
+            1,
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]],
+            [5, 6],
+            '2026-08'
+        );
+        $this->assertTrue($full['fills_month']);
+        $this->assertSame($workingDays, $full['billable_days']);
+        $this->assertSame($workingDays * 100, $full['total_amount']);
+        $this->assertSame('2026-08', $full['target_month']);
+
+        try {
+            PackageBilling::assertSelectionsFillMonth($partial);
+            $this->fail('Expected partial month selection to be rejected.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('all '.$workingDays.' working days', $e->getMessage());
+        }
 
         Carbon::setTestNow();
     }
@@ -180,22 +204,24 @@ class MealPackageTest extends TestCase
         $ops = $this->makeOps();
         $menu = $this->makeMenuItem();
         $package = $this->makeRatePlan(79);
+        $workingDays = $this->workingDays('2026-08');
 
         $quote = PackageBilling::quoteFromSelections(
             $package,
             1,
-            [['menu_item_id' => $menu->id, 'day_count' => 5]],
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]],
             [5, 6],
             '2026-08'
         );
 
-        $result = $this->subscribeWithSelection($user, $package, $menu, $city, $area, 5, '2026-08');
+        $result = $this->subscribeWithSelection($user, $package, $menu, $city, $area, null, '2026-08');
         $subscription = $result['subscription'];
 
         $this->assertInstanceOf(PackageSubscription::class, $subscription);
         $this->assertSame('paid', $subscription->payment_status);
         $this->assertSame(PackageSubscription::SCHEDULE_AWAITING, $subscription->schedule_status);
         $this->assertSame($quote['total_amount'], (int) $subscription->total_amount);
+        $this->assertSame($workingDays, (int) $subscription->billable_days);
         $this->assertSame(0, Order::where('package_subscription_id', $subscription->id)->count());
         $this->assertSame(1, $subscription->selections()->count());
 
@@ -204,7 +230,7 @@ class MealPackageTest extends TestCase
 
         $scheduled = $this->assignAllDates($ops, $subscription, $menu);
         $this->assertSame(PackageSubscription::SCHEDULE_SCHEDULED, $scheduled['subscription']->schedule_status);
-        $this->assertSame(5, Order::where('package_subscription_id', $subscription->id)->count());
+        $this->assertSame($workingDays, Order::where('package_subscription_id', $subscription->id)->count());
 
         foreach ($scheduled['orders'] as $order) {
             $dow = Carbon::parse($order->delivery_date)->dayOfWeek;
@@ -243,6 +269,7 @@ class MealPackageTest extends TestCase
         ]);
         $menu = $this->makeMenuItem();
         $package = $this->makeRatePlan(79);
+        $workingDays = $this->workingDays('2026-08');
 
         Sanctum::actingAs($user);
 
@@ -262,7 +289,7 @@ class MealPackageTest extends TestCase
             'target_month' => '2026-08',
             'omitted_weekdays' => [5, 6],
             'menu_selections' => [
-                ['menu_item_id' => $menu->id, 'day_count' => 4],
+                ['menu_item_id' => $menu->id, 'day_count' => $workingDays],
             ],
             'receiver_name' => 'Corporate User',
             'receiver_mobile' => '01710123456',
@@ -276,14 +303,15 @@ class MealPackageTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('subscription.package.id', (string) $package->id)
-            ->assertJsonPath('subscription.schedule_status', PackageSubscription::SCHEDULE_AWAITING);
+            ->assertJsonPath('subscription.schedule_status', PackageSubscription::SCHEDULE_AWAITING)
+            ->assertJsonPath('subscription.billable_days', $workingDays);
 
         $subscriptionId = $response->json('subscription.id');
 
         $this->getJson('/api/corporate/subscriptions/'.$subscriptionId)
             ->assertOk()
             ->assertJsonPath('subscription.id', (string) $subscriptionId)
-            ->assertJsonPath('subscription.selections.0.day_count', 4);
+            ->assertJsonPath('subscription.selections.0.day_count', $workingDays);
 
         Carbon::setTestNow();
     }

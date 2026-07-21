@@ -55,7 +55,7 @@
 
                         <div>
                             <h3 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-2">Menus & day counts</h3>
-                            <p class="text-[11px] text-gray-500 mb-2">Choose which menus you want and how many days each this month.</p>
+                            <p class="text-[11px] text-gray-500 mb-2">Choose menus and day counts. Total must equal all working days this month.</p>
                             <div class="bg-white border border-gray-200 rounded-xl max-h-72 overflow-y-auto divide-y divide-gray-100">
                                 @forelse($menuCatalog as $menu)
                                     @php $count = (int) ($menuDayCounts[$menu['id']] ?? 0); @endphp
@@ -78,6 +78,23 @@
                                     <div class="px-3 py-4 text-xs text-gray-400">No menu items available.</div>
                                 @endforelse
                             </div>
+                            @php
+                                $selectedDays = (int) ($quote['billable_days'] ?? 0);
+                                $workingDays = (int) ($quote['available_days'] ?? 0);
+                                $fillsMonth = $workingDays > 0 && $selectedDays === $workingDays;
+                            @endphp
+                            <p @class([
+                                'text-[11px] font-semibold mt-2',
+                                'text-emerald-700' => $fillsMonth,
+                                'text-amber-700' => ! $fillsMonth,
+                            ])>
+                                Selected {{ $selectedDays }} / {{ $workingDays }} working days
+                                @if($fillsMonth)
+                                    · month filled
+                                @else
+                                    · fill every working day to continue
+                                @endif
+                            </p>
                         </div>
                     </div>
 
