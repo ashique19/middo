@@ -14,6 +14,19 @@
             </p>
         </div>
 
+        @if (session('message'))
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-900 text-sm font-semibold px-4 py-3">
+                {{ session('message') }}
+            </div>
+        @endif
+
+        @if($errorMessage)
+            <div class="rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm font-semibold px-4 py-3">{{ $errorMessage }}</div>
+        @endif
+        @if($successMessage)
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 text-sm font-semibold px-4 py-3">{{ $successMessage }}</div>
+        @endif
+
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div class="bg-[#1E4630] text-white rounded-2xl p-4">
                 <div class="text-[11px] font-bold uppercase text-emerald-200/70">Paid</div>
@@ -64,13 +77,6 @@
                     @endforeach
                 </div>
             </div>
-        @endif
-
-        @if($errorMessage)
-            <div class="rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm font-semibold px-4 py-3">{{ $errorMessage }}</div>
-        @endif
-        @if($successMessage)
-            <div class="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 text-sm font-semibold px-4 py-3">{{ $successMessage }}</div>
         @endif
 
         <div class="bg-white border border-[#DDD3BE] rounded-2xl overflow-hidden">
