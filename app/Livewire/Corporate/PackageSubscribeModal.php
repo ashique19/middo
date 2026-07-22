@@ -8,6 +8,7 @@ use App\Models\MealPackage;
 use App\Models\MenuItem;
 use App\Models\PackageSubscription;
 use App\Models\User;
+use App\Support\CouponService;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PackageBilling;
 use App\Support\PackageGatewayCheckout;
@@ -82,6 +83,14 @@ class PackageSubscribeModal extends Component
 
     public array $monthOptions = [];
 
+    public string $couponCode = '';
+
+    public string $appliedCouponCode = '';
+
+    public int $couponDiscount = 0;
+
+    public string $couponMessage = '';
+
     #[On('open-package-subscribe')]
     public function open($packageId = null): void
     {
@@ -146,6 +155,10 @@ class PackageSubscribeModal extends Component
         $this->statusMessage = '';
         $this->debugOtp = null;
         $this->walletBalance = (int) $user->balance;
+        $this->couponCode = '';
+        $this->appliedCouponCode = '';
+        $this->couponDiscount = 0;
+        $this->couponMessage = '';
 
         if ($this->city_id) {
             $this->loadAreasForSelectedCity($this->city_id);
@@ -458,6 +471,85 @@ class PackageSubscribeModal extends Component
         }
 
         $this->walletBalance = (int) (Auth::user()?->balance ?? 0);
+        $this->revalidateAppliedCoupon();
+    }
+
+    public function payableTotal(): int
+    {
+        $subtotal = (int) ($this->quote['total_amount'] ?? 0);
+
+        return max(0, $subtotal - $this->couponDiscount);
+    }
+
+    public function applyCoupon(): void
+    {
+        $this->couponMessage = '';
+        $this->errorMessage = '';
+        $this->refreshQuote();
+        $subtotal = (int) ($this->quote['total_amount'] ?? 0);
+
+        try {
+            $quoted = app(CouponService::class)->quote(
+                $this->couponCode,
+                Auth::user(),
+                \App\Models\CouponRedemption::CONTEXT_PACKAGE,
+                $subtotal
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->appliedCouponCode = '';
+            $this->couponDiscount = 0;
+            $this->couponMessage = collect($e->validator->errors()->all())->implode(' ');
+            $this->addError('couponCode', $this->couponMessage);
+
+            return;
+        }
+
+        $this->appliedCouponCode = $quoted['coupon']->code;
+        $this->couponCode = $quoted['coupon']->code;
+        $this->couponDiscount = (int) $quoted['discount_amount'];
+        $this->couponMessage = 'Coupon '.$quoted['coupon']->code.' applied (−৳'.number_format($this->couponDiscount).').';
+        $this->resetErrorBag('couponCode');
+    }
+
+    public function removeCoupon(): void
+    {
+        $this->couponCode = '';
+        $this->appliedCouponCode = '';
+        $this->couponDiscount = 0;
+        $this->couponMessage = '';
+        $this->resetErrorBag('couponCode');
+    }
+
+    protected function revalidateAppliedCoupon(): void
+    {
+        if ($this->appliedCouponCode === '') {
+            $this->couponDiscount = 0;
+
+            return;
+        }
+
+        $subtotal = (int) ($this->quote['total_amount'] ?? 0);
+        if ($subtotal < 1) {
+            $this->removeCoupon();
+
+            return;
+        }
+
+        try {
+            $quoted = app(CouponService::class)->quote(
+                $this->appliedCouponCode,
+                Auth::user(),
+                \App\Models\CouponRedemption::CONTEXT_PACKAGE,
+                $subtotal
+            );
+            $this->couponDiscount = (int) $quoted['discount_amount'];
+            $this->appliedCouponCode = $quoted['coupon']->code;
+        } catch (\Throwable $e) {
+            $this->removeCoupon();
+            $this->couponMessage = $e instanceof \Illuminate\Validation\ValidationException
+                ? collect($e->validator->errors()->all())->implode(' ')
+                : 'Coupon removed because it no longer applies.';
+        }
     }
 
     public function updatedErrorMessage(string $value): void
@@ -478,7 +570,7 @@ class PackageSubscribeModal extends Component
 
     public function canPayWithWallet(): bool
     {
-        $total = (int) ($this->quote['total_amount'] ?? 0);
+        $total = $this->payableTotal();
 
         return $this->walletBalance > 0 && $total > 0 && $this->walletBalance >= $total;
     }
@@ -534,7 +626,7 @@ class PackageSubscribeModal extends Component
             return;
         }
 
-        if ($this->paymentMethod === 'balance' && ! $this->canPayWithWallet()) {
+        if ($this->paymentMethod === 'balance' && $this->payableTotal() > 0 && ! $this->canPayWithWallet()) {
             $this->errorMessage = 'Insufficient Middo Balance. Top up your wallet or pay online.';
 
             return;
@@ -594,9 +686,17 @@ class PackageSubscribeModal extends Component
             return;
         }
 
-        $total = (int) ($this->quote['total_amount'] ?? 0);
-        if ($total < 1) {
+        $total = $this->payableTotal();
+        if ($total < 1 && $this->couponDiscount < 1) {
             $this->errorMessage = 'Nothing to pay.';
+
+            return;
+        }
+
+        // Fully discounted packages skip gateway and confirm via wallet/OTP path.
+        if ($total < 1) {
+            $this->paymentMethod = 'balance';
+            $this->initiateConfirmation();
 
             return;
         }
@@ -631,6 +731,7 @@ class PackageSubscribeModal extends Component
             'city_id' => (int) $this->city_id,
             'area_id' => (int) $this->area_id,
             'delivery_window' => $this->deliveryWindow,
+            'coupon_code' => $this->appliedCouponCode !== '' ? $this->appliedCouponCode : null,
         ]);
 
         // Leave the build modal — payment first, OTP after success on the confirm screen.
@@ -688,7 +789,8 @@ class PackageSubscribeModal extends Component
                 (int) $this->area_id,
                 $this->deliveryWindow,
                 'balance',
-                null
+                null,
+                $this->appliedCouponCode !== '' ? $this->appliedCouponCode : null
             );
         } catch (\Throwable $e) {
             report($e);

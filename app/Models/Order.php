@@ -31,6 +31,8 @@ class Order extends Model
         'order_status',
         'payment_status',
         'payment_method',
+        'coupon_id',
+        'discount_amount',
         'dispatched_at',
         'delivery_rider_id',
         'created_by',
@@ -45,11 +47,17 @@ class Order extends Model
         'amount_paid' => 'integer',
         'prepaid_amount' => 'integer',
         'cash_collected' => 'integer',
+        'discount_amount' => 'integer',
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(Coupon::class);
     }
 
     public function area(): BelongsTo

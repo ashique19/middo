@@ -32,6 +32,8 @@ class PackageSubscription extends Model
         'total_amount',
         'amount_paid',
         'payment_status',
+        'coupon_id',
+        'discount_amount',
         'status',
         'schedule_status',
         'delivery_time',
@@ -48,6 +50,7 @@ class PackageSubscription extends Model
         'price_per_day' => 'integer',
         'total_amount' => 'integer',
         'amount_paid' => 'integer',
+        'discount_amount' => 'integer',
         'start_date' => 'date',
         'end_date' => 'date',
         'omitted_weekdays' => 'array',
@@ -61,6 +64,11 @@ class PackageSubscription extends Model
     public function package(): BelongsTo
     {
         return $this->belongsTo(MealPackage::class, 'meal_package_id');
+    }
+
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(Coupon::class);
     }
 
     public function area(): BelongsTo
