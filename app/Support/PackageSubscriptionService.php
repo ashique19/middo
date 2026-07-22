@@ -77,6 +77,19 @@ class PackageSubscriptionService
         }
 
         $fullAddress = trim($addressLine).', '.$area->name.', '.$city->name;
+        $chargesQuote = app(ChargeService::class)->quotePackage(
+            $areaId,
+            $quantity,
+            collect($quote['selections'])
+                ->map(fn ($row) => [
+                    'menu_item_id' => (int) $row['menu_item_id'],
+                    'day_count' => (int) $row['day_count'],
+                ])
+                ->values()
+                ->all()
+        );
+        $chargesTotal = (int) ($chargesQuote['total'] ?? 0);
+
         $originalTotal = (int) $quote['total_amount'];
         $discountAmount = 0;
         $coupon = null;
@@ -92,7 +105,7 @@ class PackageSubscriptionService
             $discountAmount = (int) $quoted['discount_amount'];
         }
 
-        $total = max(0, $originalTotal - $discountAmount);
+        $total = max(0, $originalTotal - $discountAmount) + $chargesTotal;
 
         return DB::transaction(function () use (
             $user,
@@ -112,7 +125,9 @@ class PackageSubscriptionService
             $total,
             $originalTotal,
             $discountAmount,
-            $coupon
+            $coupon,
+            $chargesTotal,
+            $chargesQuote
         ) {
             /** @var User $locked */
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
@@ -149,7 +164,8 @@ class PackageSubscriptionService
                             ])
                             ->values()
                             ->all(),
-                        $total
+                        $total,
+                        $areaId
                     );
 
                     $consumed = app(PaymentGateway::class)->consumePaid(
@@ -178,6 +194,7 @@ class PackageSubscriptionService
                 'billable_days' => $quote['billable_days'],
                 'price_per_day' => $quote['price_per_day'],
                 'total_amount' => $originalTotal,
+                'charges_amount' => $chargesTotal,
                 'amount_paid' => $total,
                 'payment_status' => 'paid',
                 'coupon_id' => $coupon?->id,
@@ -199,6 +216,8 @@ class PackageSubscriptionService
                     'day_count' => $selection['day_count'],
                 ]);
             }
+
+            app(ChargeService::class)->attachToPackage($subscription, $chargesQuote['lines'] ?? []);
 
             if ($paymentMethod === 'balance' && $total > 0) {
                 WalletLedger::debit(

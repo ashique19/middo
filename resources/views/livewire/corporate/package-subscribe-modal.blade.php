@@ -146,7 +146,18 @@
                                 <div class="text-3xl font-black mt-1">৳{{ number_format($this->payableTotal()) }}</div>
                                 <div class="text-xs font-semibold text-emerald-100/80 mt-1">
                                     {{ $selectedDays }} days × ৳{{ number_format($quote['price_per_day'] ?? ($package['price_per_day'] ?? 0)) }} × qty {{ $quantity }}
+                                    = ৳{{ number_format($quote['total_amount'] ?? 0) }}
                                 </div>
+                                @if($chargesTotal > 0)
+                                    <div class="mt-2 space-y-0.5 border-t border-emerald-800/60 pt-2">
+                                        @foreach($chargeLines as $chargeLine)
+                                            <div class="flex justify-between text-[11px] text-emerald-100/85">
+                                                <span>{{ $chargeLine['name'] }}</span>
+                                                <span>৳{{ number_format($chargeLine['amount']) }}</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
                                 @if($couponDiscount > 0)
                                     <div class="text-[11px] mt-2 text-emerald-100">
                                         Subtotal ৳{{ number_format($quote['total_amount'] ?? 0) }}
@@ -214,7 +225,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">Area</label>
-                                    <select wire:model="area_id" class="w-full border-gray-200 rounded-xl text-sm p-2.5" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                    <select wire:model.live="area_id" class="w-full border-gray-200 rounded-xl text-sm p-2.5" {{ $isConfirmingOtp ? 'disabled' : '' }}>
                                         <option value="">Select area</option>
                                         @foreach($areasList as $areaOption)
                                             <option value="{{ $areaOption['id'] }}">{{ $areaOption['name'] }}</option>

@@ -17,6 +17,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\UserLog;
 use App\Models\WalletTransaction;
+use App\Support\ChargeService;
 use App\Support\CorporateApiPresenter;
 use App\Support\CorporateGatewayPrepay;
 use App\Support\CorporateOrderLimit;
@@ -635,6 +636,7 @@ class CorporateMobileController extends Controller
         foreach ($data['dates'] as $line) {
             $cartTotal += (int) round($menuItem->price * (int) $line['quantity']);
         }
+        $cartTotal += (int) ($this->orderChargesQuote($data, $menuItem)['total'] ?? 0);
 
         $chargeAmount = $prepayment['required']
             ? (int) $prepayment['amount']
@@ -728,9 +730,13 @@ class CorporateMobileController extends Controller
             $paymentMethod = OrderPaymentMethod::CASH_ON_DELIVERY;
         }
 
+        $chargeQuote = $this->orderChargesQuote($data, $menuItem);
+        $perOrderCharges = $chargeQuote['per_order'] ?? [];
         $lineTotals = [];
         foreach ($data['dates'] as $line) {
-            $lineTotals[] = (int) round($menuItem->price * (int) $line['quantity']);
+            $food = (int) round($menuItem->price * (int) $line['quantity']);
+            $fees = (int) collect($perOrderCharges[(string) $line['date']] ?? [])->sum('amount');
+            $lineTotals[] = $food + $fees;
         }
         $cartTotal = (int) array_sum($lineTotals);
         $chargeAmount = $paymentMethod === OrderPaymentMethod::CASH_ON_DELIVERY
@@ -791,6 +797,7 @@ class CorporateMobileController extends Controller
             $prepaidAllocations,
             $profileMatches,
             $chargeAmount,
+            $perOrderCharges,
             &$created
         ) {
             if ($chargeAmount > 0 && $paymentMethod === OrderPaymentMethod::BALANCE) {
@@ -808,10 +815,15 @@ class CorporateMobileController extends Controller
                 }
             }
 
+            $chargeService = app(ChargeService::class);
+
             foreach ($data['dates'] as $index => $line) {
                 $date = $line['date'];
                 $qty = (int) $line['quantity'];
-                $lineTotal = (int) round($menuItem->price * $qty);
+                $foodTotal = (int) round($menuItem->price * $qty);
+                $feeLines = $perOrderCharges[(string) $date] ?? [];
+                $feesTotal = (int) collect($feeLines)->sum('amount');
+                $lineTotal = $foodTotal + $feesTotal;
                 $amountPaid = (int) ($prepaidAllocations[$index] ?? 0);
 
                 $order = Order::create([
@@ -821,6 +833,7 @@ class CorporateMobileController extends Controller
                     'delivery_date' => $date,
                     'delivery_time' => $deliveryTime,
                     'total_amount' => $lineTotal,
+                    'charges_amount' => $feesTotal,
                     'amount_paid' => $amountPaid,
                     'prepaid_amount' => $amountPaid,
                     'cash_collected' => 0,
@@ -834,6 +847,7 @@ class CorporateMobileController extends Controller
                     'created_by' => $user->id,
                     'updated_by' => $user->id,
                 ]);
+                $chargeService->attachToOrder($order, $feeLines);
 
                 app(MealOrderGrouper::class)->assignOrder($order->fresh(['user']), $user->id);
 
@@ -876,6 +890,7 @@ class CorporateMobileController extends Controller
         foreach ($data['dates'] as $line) {
             $cartTotal += (int) round($menuItem->price * (int) $line['quantity']);
         }
+        $cartTotal += (int) ($this->orderChargesQuote($data, $menuItem)['total'] ?? 0);
 
         return CorporateOrderPrepayment::evaluate(
             $user,
@@ -883,6 +898,24 @@ class CorporateMobileController extends Controller
             $data['mobile'],
             count($data['dates']),
             $cartTotal
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{total:int,lines:list<array<string,mixed>>,per_order:array<string,list<array<string,mixed>>>}
+     */
+    private function orderChargesQuote(array $data, MenuItem $menuItem): array
+    {
+        $quantities = [];
+        foreach ($data['dates'] as $line) {
+            $quantities[(string) $line['date']] = (int) $line['quantity'];
+        }
+
+        return app(ChargeService::class)->quoteOrderCart(
+            isset($data['area_id']) ? (int) $data['area_id'] : null,
+            (int) $menuItem->id,
+            $quantities
         );
     }
 

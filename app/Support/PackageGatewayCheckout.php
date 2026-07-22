@@ -25,7 +25,8 @@ class PackageGatewayCheckout
         array $omittedWeekdays,
         string $targetMonth,
         array $selections,
-        int $amount
+        int $amount,
+        ?int $areaId = null
     ): array {
         return [
             'purpose' => self::PURPOSE,
@@ -42,6 +43,7 @@ class PackageGatewayCheckout
                 ->values()
                 ->all(),
             'amount' => $amount,
+            'area_id' => $areaId,
         ];
     }
 

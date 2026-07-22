@@ -21,6 +21,7 @@ class Order extends Model
         'delivery_date',
         'delivery_time',
         'total_amount',
+        'charges_amount',
         'amount_paid',
         'prepaid_amount',
         'cash_collected',
@@ -44,6 +45,7 @@ class Order extends Model
         'dispatched_at' => 'datetime',
         'quantity' => 'integer',
         'total_amount' => 'integer',
+        'charges_amount' => 'integer',
         'amount_paid' => 'integer',
         'prepaid_amount' => 'integer',
         'cash_collected' => 'integer',
@@ -68,6 +70,11 @@ class Order extends Model
     public function menuItem(): BelongsTo
     {
         return $this->belongsTo(MenuItem::class);
+    }
+
+    public function appliedCharges(): HasMany
+    {
+        return $this->hasMany(OrderCharge::class);
     }
 
     public function packageSubscription(): BelongsTo

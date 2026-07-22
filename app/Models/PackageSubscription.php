@@ -30,6 +30,7 @@ class PackageSubscription extends Model
         'billable_days',
         'price_per_day',
         'total_amount',
+        'charges_amount',
         'amount_paid',
         'payment_status',
         'coupon_id',
@@ -49,6 +50,7 @@ class PackageSubscription extends Model
         'billable_days' => 'integer',
         'price_per_day' => 'integer',
         'total_amount' => 'integer',
+        'charges_amount' => 'integer',
         'amount_paid' => 'integer',
         'discount_amount' => 'integer',
         'start_date' => 'date',
@@ -79,6 +81,11 @@ class PackageSubscription extends Model
     public function selections(): HasMany
     {
         return $this->hasMany(PackageSubscriptionSelection::class);
+    }
+
+    public function appliedCharges(): HasMany
+    {
+        return $this->hasMany(PackageSubscriptionCharge::class);
     }
 
     public function orders(): HasMany
