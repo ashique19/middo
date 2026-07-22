@@ -5,11 +5,13 @@ namespace App\Livewire\Public;
 use App\Contracts\PaymentGateway;
 use App\Models\Area;
 use App\Models\City;
+use App\Models\CouponRedemption;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
+use App\Support\CouponService;
 use App\Support\MealOrderGrouper;
 use App\Support\OrderConfirmationOtp;
 use App\Support\OrderCutoff;
@@ -80,6 +82,14 @@ class OrderCheckoutModal extends Component
     public float $taxesAndFees = 0.00;
 
     public float $total = 0.0;
+
+    public string $couponCode = '';
+
+    public string $appliedCouponCode = '';
+
+    public int $couponDiscount = 0;
+
+    public string $couponMessage = '';
 
     /**
      * Component boot initialization.
@@ -153,6 +163,10 @@ class OrderCheckoutModal extends Component
         $this->prepayment = [];
         $this->gatewayPaymentToken = null;
         $this->gatewayPaymentUrl = null;
+        $this->couponCode = '';
+        $this->appliedCouponCode = '';
+        $this->couponDiscount = 0;
+        $this->couponMessage = '';
 
         if ($this->city_id) {
             $this->loadAreasForSelectedCity($this->city_id);
@@ -203,8 +217,86 @@ class OrderCheckoutModal extends Component
 
         $totalItemsCount = array_sum($this->quantities);
         $this->subtotal = (float) ($this->dish['price'] ?? 0) * $totalItemsCount;
-        $this->total = $this->subtotal + $this->taxesAndFees;
+        $this->revalidateAppliedCoupon();
+        $this->total = max(0, $this->subtotal + $this->taxesAndFees - $this->couponDiscount);
         $this->refreshPrepaymentQuote();
+    }
+
+    public function applyCoupon(): void
+    {
+        $this->couponMessage = '';
+        $subtotal = (int) round($this->subtotal);
+
+        try {
+            $quoted = app(CouponService::class)->quote(
+                $this->couponCode,
+                Auth::user(),
+                CouponRedemption::CONTEXT_ORDER,
+                $subtotal
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->appliedCouponCode = '';
+            $this->couponDiscount = 0;
+            $this->couponMessage = collect($e->validator->errors()->all())->implode(' ');
+            $this->addError('couponCode', $this->couponMessage);
+            $this->total = max(0, $this->subtotal + $this->taxesAndFees);
+            $this->refreshPrepaymentQuote();
+
+            return;
+        }
+
+        $this->appliedCouponCode = $quoted['coupon']->code;
+        $this->couponCode = $quoted['coupon']->code;
+        $this->couponDiscount = (int) $quoted['discount_amount'];
+        $this->couponMessage = 'Coupon '.$quoted['coupon']->code.' applied (−৳'.number_format($this->couponDiscount).').';
+        $this->resetErrorBag('couponCode');
+        $this->total = max(0, $this->subtotal + $this->taxesAndFees - $this->couponDiscount);
+        $this->refreshPrepaymentQuote();
+    }
+
+    public function removeCoupon(): void
+    {
+        $this->couponCode = '';
+        $this->appliedCouponCode = '';
+        $this->couponDiscount = 0;
+        $this->couponMessage = '';
+        $this->resetErrorBag('couponCode');
+        $this->total = max(0, $this->subtotal + $this->taxesAndFees);
+        $this->refreshPrepaymentQuote();
+    }
+
+    protected function revalidateAppliedCoupon(): void
+    {
+        if ($this->appliedCouponCode === '') {
+            $this->couponDiscount = 0;
+
+            return;
+        }
+
+        $subtotal = (int) round($this->subtotal);
+        if ($subtotal < 1) {
+            $this->appliedCouponCode = '';
+            $this->couponDiscount = 0;
+
+            return;
+        }
+
+        try {
+            $quoted = app(CouponService::class)->quote(
+                $this->appliedCouponCode,
+                Auth::user(),
+                CouponRedemption::CONTEXT_ORDER,
+                $subtotal
+            );
+            $this->couponDiscount = (int) $quoted['discount_amount'];
+            $this->appliedCouponCode = $quoted['coupon']->code;
+        } catch (\Throwable $e) {
+            $this->appliedCouponCode = '';
+            $this->couponDiscount = 0;
+            $this->couponMessage = $e instanceof \Illuminate\Validation\ValidationException
+                ? collect($e->validator->errors()->all())->implode(' ')
+                : 'Coupon removed because it no longer applies.';
+        }
     }
 
     public function updatedCustomerName(): void
@@ -231,6 +323,7 @@ class OrderCheckoutModal extends Component
         foreach ($activeDates as $qty) {
             $cartTotal += (int) round(($this->dish['price'] ?? 0) * (int) $qty);
         }
+        $cartTotal = max(0, $cartTotal - $this->couponDiscount);
 
         $this->prepayment = CorporateOrderPrepayment::evaluate(
             $user,
@@ -415,6 +508,8 @@ class OrderCheckoutModal extends Component
         foreach ($activeOrders as $qty) {
             $cartTotal += (int) round(($this->dish['price'] ?? 0) * (int) $qty);
         }
+        $this->revalidateAppliedCoupon();
+        $cartTotal = max(0, $cartTotal - $this->couponDiscount);
         $chargeAmount = $this->checkoutChargeAmount($this->prepayment, $cartTotal);
 
         if ($chargeAmount > 0
@@ -558,8 +653,26 @@ class OrderCheckoutModal extends Component
             $lineTotals[] = (int) round(($this->dish['price'] ?? 0) * (int) $qty);
         }
         $cartTotal = (int) array_sum($lineTotals);
-        $chargeAmount = $this->checkoutChargeAmount($prepayment, $cartTotal);
+        $this->revalidateAppliedCoupon();
+        $discountAmount = min($this->couponDiscount, $cartTotal);
+        $payableCart = max(0, $cartTotal - $discountAmount);
+        $chargeAmount = $this->checkoutChargeAmount($prepayment, $payableCart);
         $allocations = CorporateOrderPrepayment::allocate($chargeAmount, $lineTotals);
+        $discountShares = app(CouponService::class)->allocateDiscount($lineTotals, $discountAmount);
+        $couponId = null;
+        if ($this->appliedCouponCode !== '' && $discountAmount > 0) {
+            try {
+                $couponId = app(CouponService::class)
+                    ->findApplicable($this->appliedCouponCode, $currentUser, CouponRedemption::CONTEXT_ORDER, $cartTotal)
+                    ->id;
+            } catch (\Throwable $e) {
+                $this->addError('couponCode', $e instanceof \Illuminate\Validation\ValidationException
+                    ? collect($e->validator->errors()->all())->implode(' ')
+                    : 'Coupon could not be applied.');
+
+                return;
+            }
+        }
         $profileMatches = CorporateOrderPrepayment::profileMatchesReceiver(
             $currentUser,
             $this->customerName,
@@ -611,7 +724,19 @@ class OrderCheckoutModal extends Component
 
         $paymentMethod = $this->paymentMethod;
 
-        DB::transaction(function () use ($activeOrders, $currentUser, $prepayment, $allocations, $profileMatches, $chargeAmount, $paymentMethod) {
+        DB::transaction(function () use (
+            $activeOrders,
+            $currentUser,
+            $prepayment,
+            $allocations,
+            $discountShares,
+            $profileMatches,
+            $chargeAmount,
+            $paymentMethod,
+            $couponId,
+            $cartTotal,
+            $discountAmount
+        ) {
             $currentUserId = $currentUser->id;
             $cityModel = City::find($this->city_id);
             $areaModel = Area::find($this->area_id);
@@ -631,10 +756,12 @@ class OrderCheckoutModal extends Component
             $fullAddress = trim($this->addressLine1).', '.($areaModel?->name ?? '').', '.($cityModel?->name ?? '');
             $createdOrderIds = [];
             $index = 0;
+            $firstOrder = null;
 
             foreach ($activeOrders as $date => $qty) {
                 $lineTotal = (int) round(($this->dish['price'] ?? 0) * $qty);
                 $amountPaid = (int) ($allocations[$index] ?? 0);
+                $lineDiscount = (int) ($discountShares[$index] ?? 0);
                 $index++;
 
                 $order = Order::create([
@@ -647,17 +774,33 @@ class OrderCheckoutModal extends Component
                     'amount_paid' => $amountPaid,
                     'prepaid_amount' => $amountPaid,
                     'cash_collected' => 0,
+                    'discount_amount' => $lineDiscount,
+                    'coupon_id' => $couponId,
                     'address' => $fullAddress,
                     'receiver_name' => $this->customerName,
                     'receiver_mobile' => $this->mobile,
                     'area_id' => $this->area_id,
                     'order_status' => 'pending',
-                    'payment_status' => $amountPaid >= $lineTotal && $lineTotal > 0 ? 'paid' : 'pending',
+                    'payment_status' => $amountPaid >= max(0, $lineTotal - $lineDiscount) && $lineTotal > 0 ? 'paid' : 'pending',
                     'payment_method' => $paymentMethod,
                     'created_by' => $currentUserId,
                     'updated_by' => $currentUserId,
                 ]);
                 $createdOrderIds[] = $order->id;
+                $firstOrder ??= $order;
+            }
+
+            if ($couponId && $discountAmount > 0 && $firstOrder) {
+                app(CouponService::class)->redeem(
+                    \App\Models\Coupon::query()->findOrFail($couponId),
+                    $currentUser,
+                    CouponRedemption::CONTEXT_ORDER,
+                    $cartTotal,
+                    $discountAmount,
+                    $firstOrder,
+                    null,
+                    ['order_ids' => $createdOrderIds]
+                );
             }
 
             $grouper = app(MealOrderGrouper::class);

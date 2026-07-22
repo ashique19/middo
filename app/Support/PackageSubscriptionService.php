@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Contracts\PaymentGateway;
 use App\Models\Area;
 use App\Models\City;
+use App\Models\CouponRedemption;
 use App\Models\MealPackage;
 use App\Models\MenuItem;
 use App\Models\Order;
@@ -42,6 +43,7 @@ class PackageSubscriptionService
         string $deliveryTime,
         string $paymentMethod = 'balance',
         ?string $gatewayPaymentToken = null,
+        ?string $couponCode = null,
     ): array {
         if (! $package->isPublished()) {
             throw new RuntimeException('This package is not available for purchase.');
@@ -75,7 +77,22 @@ class PackageSubscriptionService
         }
 
         $fullAddress = trim($addressLine).', '.$area->name.', '.$city->name;
-        $total = (int) $quote['total_amount'];
+        $originalTotal = (int) $quote['total_amount'];
+        $discountAmount = 0;
+        $coupon = null;
+
+        if (filled($couponCode)) {
+            $quoted = app(CouponService::class)->quote(
+                (string) $couponCode,
+                $user,
+                CouponRedemption::CONTEXT_PACKAGE,
+                $originalTotal
+            );
+            $coupon = $quoted['coupon'];
+            $discountAmount = (int) $quoted['discount_amount'];
+        }
+
+        $total = max(0, $originalTotal - $discountAmount);
 
         return DB::transaction(function () use (
             $user,
@@ -92,7 +109,10 @@ class PackageSubscriptionService
             $deliveryTime,
             $paymentMethod,
             $gatewayPaymentToken,
-            $total
+            $total,
+            $originalTotal,
+            $discountAmount,
+            $coupon
         ) {
             /** @var User $locked */
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
@@ -108,38 +128,40 @@ class PackageSubscriptionService
             }
 
             if ($paymentMethod === 'balance') {
-                if ((int) $locked->balance < $total) {
+                if ($total > 0 && (int) $locked->balance < $total) {
                     throw new RuntimeException('Insufficient Middo Balance. Top up your wallet to purchase this package.');
                 }
             } elseif ($paymentMethod === 'gateway') {
-                if (! filled($gatewayPaymentToken)) {
-                    throw new RuntimeException('Start online payment before confirming the package.');
-                }
+                if ($total > 0) {
+                    if (! filled($gatewayPaymentToken)) {
+                        throw new RuntimeException('Start online payment before confirming the package.');
+                    }
 
-                $fingerprint = PackageGatewayCheckout::cartMetadata(
-                    (int) $package->id,
-                    $quantity,
-                    $omittedWeekdays,
-                    (string) $quote['target_month'],
-                    collect($quote['selections'])
-                        ->map(fn ($row) => [
-                            'menu_item_id' => (int) $row['menu_item_id'],
-                            'day_count' => (int) $row['day_count'],
-                        ])
-                        ->values()
-                        ->all(),
-                    $total
-                );
+                    $fingerprint = PackageGatewayCheckout::cartMetadata(
+                        (int) $package->id,
+                        $quantity,
+                        $omittedWeekdays,
+                        (string) $quote['target_month'],
+                        collect($quote['selections'])
+                            ->map(fn ($row) => [
+                                'menu_item_id' => (int) $row['menu_item_id'],
+                                'day_count' => (int) $row['day_count'],
+                            ])
+                            ->values()
+                            ->all(),
+                        $total
+                    );
 
-                $consumed = app(PaymentGateway::class)->consumePaid(
-                    $gatewayPaymentToken,
-                    (int) $locked->id,
-                    $total,
-                    $fingerprint
-                );
+                    $consumed = app(PaymentGateway::class)->consumePaid(
+                        $gatewayPaymentToken,
+                        (int) $locked->id,
+                        $total,
+                        $fingerprint
+                    );
 
-                if (! ($consumed['ok'] ?? false)) {
-                    throw new RuntimeException($consumed['message'] ?? 'Complete online payment first.');
+                    if (! ($consumed['ok'] ?? false)) {
+                        throw new RuntimeException($consumed['message'] ?? 'Complete online payment first.');
+                    }
                 }
             } else {
                 throw new RuntimeException('Invalid payment method.');
@@ -155,9 +177,11 @@ class PackageSubscriptionService
                 'omitted_weekdays' => $omittedWeekdays,
                 'billable_days' => $quote['billable_days'],
                 'price_per_day' => $quote['price_per_day'],
-                'total_amount' => $total,
+                'total_amount' => $originalTotal,
                 'amount_paid' => $total,
                 'payment_status' => 'paid',
+                'coupon_id' => $coupon?->id,
+                'discount_amount' => $discountAmount,
                 'status' => PackageSubscription::STATUS_ACTIVE,
                 'schedule_status' => PackageSubscription::SCHEDULE_AWAITING,
                 'delivery_time' => $deliveryTime,
@@ -176,12 +200,28 @@ class PackageSubscriptionService
                 ]);
             }
 
-            if ($paymentMethod === 'balance') {
+            if ($paymentMethod === 'balance' && $total > 0) {
                 WalletLedger::debit(
                     $locked,
                     $total,
                     'Package prepayment: '.$package->name,
                     $subscription
+                );
+            }
+
+            if ($coupon && $discountAmount > 0) {
+                app(CouponService::class)->redeem(
+                    $coupon,
+                    $locked,
+                    CouponRedemption::CONTEXT_PACKAGE,
+                    $originalTotal,
+                    $discountAmount,
+                    null,
+                    $subscription,
+                    [
+                        'meal_package_id' => $package->id,
+                        'target_month' => $quote['target_month'],
+                    ]
                 );
             }
 

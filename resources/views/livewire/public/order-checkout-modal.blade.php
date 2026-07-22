@@ -218,6 +218,12 @@
                                     <span>Cumulative Subtotal:</span>
                                     <span class="font-bold text-gray-900">৳{{ number_format($subtotal, 2) }}</span>
                                 </div>
+                                @if($couponDiscount > 0)
+                                    <div class="flex justify-between text-emerald-700">
+                                        <span>Coupon ({{ $appliedCouponCode }}):</span>
+                                        <span class="font-bold">−৳{{ number_format($couponDiscount) }}</span>
+                                    </div>
+                                @endif
                                 <div class="flex justify-between text-gray-400">
                                     <span>Taxes & Fees:</span>
                                     <span class="font-bold text-gray-600">৳{{ number_format($taxesAndFees, 2) }}</span>
@@ -225,6 +231,21 @@
                                 <div class="flex justify-between text-sm font-black text-gray-900 pt-1">
                                     <span>TOTAL:</span>
                                     <span class="text-base text-gray-900">৳{{ number_format($total, 2) }}</span>
+                                </div>
+                                <div class="pt-2">
+                                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Coupon code</label>
+                                    <div class="flex gap-2">
+                                        <input wire:model="couponCode" type="text" class="flex-1 border-gray-200 rounded-xl text-sm p-2 uppercase tracking-wider font-bold" placeholder="SAVE50" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                        @if($appliedCouponCode !== '')
+                                            <button type="button" wire:click="removeCoupon" class="px-3 py-2 rounded-xl border border-gray-200 text-[11px] font-black" {{ $isConfirmingOtp ? 'disabled' : '' }}>Remove</button>
+                                        @else
+                                            <button type="button" wire:click="applyCoupon" class="px-3 py-2 rounded-xl bg-[#1E4630] text-white text-[11px] font-black" {{ $isConfirmingOtp ? 'disabled' : '' }}>Apply</button>
+                                        @endif
+                                    </div>
+                                    @error('couponCode') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
+                                    @if($couponMessage)
+                                        <p class="text-[11px] font-semibold text-emerald-800 mt-1">{{ $couponMessage }}</p>
+                                    @endif
                                 </div>
                                 @if(!empty($prepayment['required']))
                                     <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-950 space-y-1">

@@ -1343,6 +1343,7 @@ class CorporateMobileController extends Controller
             'otp' => ['required', 'string', 'size:4'],
             'payment_method' => ['required', 'in:balance,gateway'],
             'payment_token' => ['nullable', 'string'],
+            'coupon_code' => ['nullable', 'string', 'max:40'],
         ]);
 
         if (! OrderConfirmationOtp::verify($data['receiver_mobile'], $data['otp'])) {
@@ -1392,7 +1393,8 @@ class CorporateMobileController extends Controller
                 (int) $data['area_id'],
                 $data['delivery_time'],
                 $data['payment_method'],
-                $data['payment_token'] ?? null
+                $data['payment_token'] ?? null,
+                $data['coupon_code'] ?? null
             );
         } catch (\Throwable $e) {
             $field = str_contains(strtolower($e->getMessage()), 'already ordered a package')

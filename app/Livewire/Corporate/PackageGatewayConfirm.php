@@ -130,7 +130,8 @@ class PackageGatewayConfirm extends Component
                 (int) ($draft['area_id'] ?? 0),
                 (string) ($draft['delivery_window'] ?? '12:00 PM'),
                 'gateway',
-                $this->token
+                $this->token,
+                filled($draft['coupon_code'] ?? null) ? (string) $draft['coupon_code'] : null
             );
         } catch (\Throwable $e) {
             report($e);

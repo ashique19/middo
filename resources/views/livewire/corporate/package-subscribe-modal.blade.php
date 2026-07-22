@@ -143,10 +143,16 @@
                         <div class="space-y-4">
                             <div class="bg-[#1E4630] text-white rounded-2xl p-4">
                                 <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-200/80">Total due now</div>
-                                <div class="text-3xl font-black mt-1">৳{{ number_format($quote['total_amount'] ?? 0) }}</div>
+                                <div class="text-3xl font-black mt-1">৳{{ number_format($this->payableTotal()) }}</div>
                                 <div class="text-xs font-semibold text-emerald-100/80 mt-1">
                                     {{ $selectedDays }} days × ৳{{ number_format($quote['price_per_day'] ?? ($package['price_per_day'] ?? 0)) }} × qty {{ $quantity }}
                                 </div>
+                                @if($couponDiscount > 0)
+                                    <div class="text-[11px] mt-2 text-emerald-100">
+                                        Subtotal ৳{{ number_format($quote['total_amount'] ?? 0) }}
+                                        · coupon −৳{{ number_format($couponDiscount) }}
+                                    </div>
+                                @endif
                                 <div class="text-[11px] mt-2 text-emerald-100/70">Wallet: ৳{{ number_format($walletBalance) }}</div>
                                 <div class="text-[11px] mt-1 {{ $fillsMonth ? 'text-emerald-200' : 'text-amber-200' }}">
                                     {{ $selectedDays }} / {{ $workingDays }} working days
@@ -158,6 +164,22 @@
                                         · incomplete
                                     @endif
                                 </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">Coupon code</label>
+                                <div class="flex gap-2">
+                                    <input wire:model="couponCode" type="text" class="flex-1 border-gray-200 rounded-xl text-sm p-2.5 uppercase tracking-wider font-bold" placeholder="SAVE100" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                    @if($appliedCouponCode !== '')
+                                        <button type="button" wire:click="removeCoupon" class="px-3 py-2 rounded-xl border border-gray-200 text-xs font-black text-gray-600" {{ $isConfirmingOtp ? 'disabled' : '' }}>Remove</button>
+                                    @else
+                                        <button type="button" wire:click="applyCoupon" class="px-3 py-2 rounded-xl bg-[#1E4630] text-white text-xs font-black" {{ $isConfirmingOtp ? 'disabled' : '' }}>Apply</button>
+                                    @endif
+                                </div>
+                                @error('couponCode') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                                @if($couponMessage)
+                                    <p class="text-xs font-semibold text-emerald-800 mt-1">{{ $couponMessage }}</p>
+                                @endif
                             </div>
 
                             @if(!empty($quote['selections']))
@@ -217,8 +239,8 @@
 
                             @if(! $isConfirmingOtp)
                                 @php
-                                    $totalDue = (int) ($quote['total_amount'] ?? 0);
-                                    $canPayWithWallet = $walletBalance > 0 && $walletBalance >= $totalDue && $totalDue > 0;
+                                    $totalDue = $this->payableTotal();
+                                    $canPayWithWallet = $walletBalance > 0 && $walletBalance >= $totalDue && ($totalDue > 0 || $couponDiscount > 0);
                                     $monthLocked = $this->isTargetMonthLocked();
                                 @endphp
                                 <div class="flex flex-col gap-2">
