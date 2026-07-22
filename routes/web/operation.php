@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\Operation\MiddoBoxPrintController;
+use App\Livewire\Shared\StaffDashboard;
 use App\Livewire\Operation\ActiveOrders;
-use App\Livewire\Operation\Dashboard;
 use App\Livewire\Operation\KitchenAllOrders;
 use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\MiddoBoxes;
@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Route;
 
 // routes/web/operation.php
 Route::middleware(['auth', 'role:operation'])->group(function () {
-    Route::get('/dashboard', Dashboard::class)->name('operation.dashboard');
+    Route::get('/dashboard', StaffDashboard::class)->name('operation.dashboard');
     Route::get('/corporates', CorporateTable::class)->name('operation.corporates.index');
     Route::get('/corporates/{corporate}', CorporateShow::class)->name('operation.corporates.show');
     Route::get('/kitchens', Kitchens::class)->name('operation.kitchens.index');
