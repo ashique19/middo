@@ -350,6 +350,11 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
               builder: (context) {
                 final id = _menuIdAsInt(menu);
                 final count = _menuDays[id] ?? 0;
+                final selectedTotal =
+                    _menuDays.values.fold<int>(0, (sum, days) => sum + days);
+                final workingDays = quote?.availableDays ?? selectedTotal;
+                final canIncrease =
+                    !_otpStep && (workingDays == 0 || selectedTotal < workingDays);
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
@@ -380,7 +385,7 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w900),
                         ),
                         IconButton(
-                          onPressed: _otpStep
+                          onPressed: !canIncrease
                               ? null
                               : () async {
                                   setState(() => _menuDays[id] = count + 1);
