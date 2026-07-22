@@ -191,6 +191,45 @@ class MealPackageTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_subscribe_modal_cannot_select_more_than_working_days(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'balance' => 50000,
+        ]);
+        $menuA = $this->makeMenuItem('Menu A');
+        $menuB = $this->makeMenuItem('Menu B', 160);
+        $package = $this->makeRatePlan(79);
+        $workingDays = $this->workingDays('2026-07');
+
+        $this->assertSame(7, $workingDays);
+
+        $component = \Livewire\Livewire::actingAs($user)
+            ->test(\App\Livewire\Corporate\PackageSubscribeModal::class)
+            ->call('open', $package->id)
+            ->assertSet('workingDays', $workingDays)
+            ->assertSet('selectedDays', 0);
+
+        for ($i = 0; $i < $workingDays; $i++) {
+            $component->call('changeMenuDays', $menuA->id, 1);
+        }
+
+        $component
+            ->assertSet('selectedDays', $workingDays)
+            ->assertSet('fillsMonth', true)
+            ->call('changeMenuDays', $menuB->id, 1)
+            ->assertSet('selectedDays', $workingDays)
+            ->assertSet('menuDayCounts.'.((string) $menuB->id), null);
+
+        $this->assertStringContainsString('all '.$workingDays.' working days', $component->get('errorMessage'));
+
+        Carbon::setTestNow();
+    }
+
     public function test_corporate_can_subscribe_prepaid_then_ops_schedules_and_skip_refunds(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));

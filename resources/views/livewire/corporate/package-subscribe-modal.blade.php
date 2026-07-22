@@ -107,7 +107,11 @@
                             <p class="text-[11px] text-gray-500 mb-2">Total must equal all {{ $workingDays }} working days this month.</p>
                             <div class="bg-white border border-gray-200 rounded-xl max-h-72 overflow-y-auto divide-y divide-gray-100">
                                 @forelse($menuCatalog as $menu)
-                                    @php $count = (int) ($menuDayCounts[(string) $menu['id']] ?? 0); @endphp
+                                    @php
+                                        $count = (int) ($menuDayCounts[(string) $menu['id']] ?? 0);
+                                        $atCapacity = $workingDays > 0 && $selectedDays >= $workingDays;
+                                        $canIncrease = ! $isConfirmingOtp && ! $atCapacity;
+                                    @endphp
                                     <div class="px-3 py-2.5 flex items-center gap-3" wire:key="menu-sel-{{ $menu['id'] }}">
                                         <div class="w-10 h-10 rounded-lg bg-[#F7F4EB] overflow-hidden shrink-0">
                                             @if($menu['thumbnail'])
@@ -118,9 +122,9 @@
                                             <div class="text-sm font-bold text-gray-800 truncate">{{ $menu['name'] }}</div>
                                         </div>
                                         <div class="inline-flex items-center gap-2 shrink-0">
-                                            <button type="button" wire:click="changeMenuDays({{ $menu['id'] }}, -1)" wire:loading.attr="disabled" class="w-7 h-7 rounded-lg border border-gray-200 font-black" {{ $isConfirmingOtp ? 'disabled' : '' }}>−</button>
+                                            <button type="button" wire:click="changeMenuDays({{ $menu['id'] }}, -1)" wire:loading.attr="disabled" class="w-7 h-7 rounded-lg border border-gray-200 font-black disabled:opacity-40" {{ $isConfirmingOtp || $count < 1 ? 'disabled' : '' }}>−</button>
                                             <span class="font-black w-6 text-center text-sm">{{ $count }}</span>
-                                            <button type="button" wire:click="changeMenuDays({{ $menu['id'] }}, 1)" wire:loading.attr="disabled" class="w-7 h-7 rounded-lg border border-gray-200 font-black" {{ $isConfirmingOtp ? 'disabled' : '' }}>+</button>
+                                            <button type="button" wire:click="changeMenuDays({{ $menu['id'] }}, 1)" wire:loading.attr="disabled" class="w-7 h-7 rounded-lg border border-gray-200 font-black disabled:opacity-40" {{ $canIncrease ? '' : 'disabled' }}>+</button>
                                         </div>
                                     </div>
                                 @empty
@@ -140,7 +144,13 @@
                             <div class="text-[11px] mt-2 text-emerald-100/70">Wallet: ৳{{ number_format($walletBalance) }}</div>
                             <div class="text-[11px] mt-1 {{ $fillsMonth ? 'text-emerald-200' : 'text-amber-200' }}">
                                 {{ $selectedDays }} / {{ $workingDays }} working days
-                                {{ $fillsMonth ? '· ready' : '· incomplete' }}
+                                @if($fillsMonth)
+                                    · ready
+                                @elseif($selectedDays > $workingDays)
+                                    · too many days
+                                @else
+                                    · incomplete
+                                @endif
                             </div>
                         </div>
 

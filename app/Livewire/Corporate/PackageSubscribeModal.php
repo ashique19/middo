@@ -194,6 +194,7 @@ class PackageSubscribeModal extends Component
     public function updatedTargetMonth(): void
     {
         $this->errorMessage = '';
+        $this->clampSelectionsToWorkingDays();
         $this->refreshQuote();
     }
 
@@ -215,9 +216,21 @@ class PackageSubscribeModal extends Component
 
     public function changeMenuDays(int $menuItemId, int $delta): void
     {
+        $this->ensureWorkingDays();
+
         $key = (string) $menuItemId;
         $current = (int) ($this->menuDayCounts[$key] ?? 0);
-        $next = max(0, min(31, $current + $delta));
+        $total = (int) collect($this->menuDayCounts)->sum(fn ($days) => (int) $days);
+        $otherTotal = $total - $current;
+        $maxForItem = max(0, $this->workingDays - $otherTotal);
+        $next = max(0, min($maxForItem, $current + $delta));
+
+        if ($delta > 0 && $current >= $maxForItem) {
+            $this->errorMessage = 'You already selected all '.$this->workingDays.' working days this month.';
+            $this->statusMessage = '';
+
+            return;
+        }
 
         $counts = $this->menuDayCounts;
         if ($next < 1) {
@@ -251,6 +264,7 @@ class PackageSubscribeModal extends Component
 
         $this->omittedWeekdays = PackageBilling::normalizeOmittedWeekdays($this->omittedWeekdays);
         $this->errorMessage = '';
+        $this->clampSelectionsToWorkingDays();
         $this->refreshQuote();
     }
 
@@ -284,9 +298,65 @@ class PackageSubscribeModal extends Component
         return $payload;
     }
 
+    protected function ensureWorkingDays(): void
+    {
+        if ($this->workingDays > 0) {
+            return;
+        }
+
+        $this->workingDays = PackageBilling::availableDatesInMonth(
+            $this->targetMonth ?: now('Asia/Dhaka')->format('Y-m'),
+            $this->omittedWeekdays
+        )->count();
+    }
+
+    /**
+     * Keep selected menu days from exceeding available working days
+     * after month / off-day changes.
+     */
+    protected function clampSelectionsToWorkingDays(): void
+    {
+        $this->ensureWorkingDays();
+
+        // Recalculate against the latest month/off-days before clamping.
+        $this->workingDays = PackageBilling::availableDatesInMonth(
+            $this->targetMonth ?: now('Asia/Dhaka')->format('Y-m'),
+            $this->omittedWeekdays
+        )->count();
+
+        $total = (int) collect($this->menuDayCounts)->sum(fn ($days) => (int) $days);
+        if ($total <= $this->workingDays) {
+            return;
+        }
+
+        $remaining = $this->workingDays;
+        $counts = [];
+        foreach ($this->menuDayCounts as $menuItemId => $dayCount) {
+            $dayCount = (int) $dayCount;
+            if ($dayCount < 1 || $remaining < 1) {
+                continue;
+            }
+
+            $keep = min($dayCount, $remaining);
+            $counts[(string) $menuItemId] = $keep;
+            $remaining -= $keep;
+        }
+
+        $this->menuDayCounts = $counts;
+        if ($total > $this->workingDays) {
+            $this->statusMessage = 'Selection trimmed to '.$this->workingDays.' working days for this month.';
+        }
+    }
+
     protected function refreshQuote(): void
     {
+        $this->ensureWorkingDays();
         $this->selectedDays = (int) collect($this->menuDayCounts)->sum(fn ($days) => (int) $days);
+
+        if ($this->selectedDays > $this->workingDays && $this->workingDays > 0) {
+            $this->clampSelectionsToWorkingDays();
+            $this->selectedDays = (int) collect($this->menuDayCounts)->sum(fn ($days) => (int) $days);
+        }
 
         if (! $this->packageId) {
             $this->quote = [];
