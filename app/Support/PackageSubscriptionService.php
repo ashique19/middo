@@ -96,21 +96,20 @@ class PackageSubscriptionService
                     throw new RuntimeException('Start online payment before confirming the package.');
                 }
 
-                $fingerprint = [
-                    'meal_package_id' => (int) $package->id,
-                    'quantity' => $quantity,
-                    'omitted_weekdays' => $omittedWeekdays,
-                    'target_month' => $quote['target_month'],
-                    'selections' => collect($quote['selections'])
+                $fingerprint = PackageGatewayCheckout::cartMetadata(
+                    (int) $package->id,
+                    $quantity,
+                    $omittedWeekdays,
+                    (string) $quote['target_month'],
+                    collect($quote['selections'])
                         ->map(fn ($row) => [
                             'menu_item_id' => (int) $row['menu_item_id'],
                             'day_count' => (int) $row['day_count'],
                         ])
-                        ->sortBy('menu_item_id')
                         ->values()
                         ->all(),
-                    'amount' => $total,
-                ];
+                    $total
+                );
 
                 $consumed = app(PaymentGateway::class)->consumePaid(
                     $gatewayPaymentToken,

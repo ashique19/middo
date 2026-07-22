@@ -221,29 +221,20 @@
                                     </button>
                                     <button type="button" wire:click="startGatewayPayment" wire:loading.attr="disabled"
                                             class="w-full border border-gray-200 bg-white text-gray-700 font-black text-xs uppercase tracking-wider py-3 rounded-xl disabled:opacity-60">
-                                        Pay online
+                                        <span wire:loading.remove wire:target="startGatewayPayment">Pay online</span>
+                                        <span wire:loading wire:target="startGatewayPayment">Redirecting…</span>
                                     </button>
                                 @else
                                     <button type="button" wire:click="startGatewayPayment" wire:loading.attr="disabled"
                                             class="w-full bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl transition disabled:opacity-60">
                                         <span wire:loading.remove wire:target="startGatewayPayment">Pay online</span>
-                                        <span wire:loading wire:target="startGatewayPayment">Starting…</span>
+                                        <span wire:loading wire:target="startGatewayPayment">Redirecting…</span>
                                     </button>
-                                @endif
-                                @if($gatewayPaymentUrl)
-                                    <a href="{{ $gatewayPaymentUrl }}" target="_blank" class="text-center text-xs font-bold text-middo-orange underline">
-                                        Open payment page
-                                    </a>
                                 @endif
                             </div>
                         @else
                             <div class="space-y-3">
                                 <p class="text-xs font-semibold text-gray-600">Enter the 4-digit OTP sent to {{ $mobile }}</p>
-                                @if($gatewayPaymentUrl)
-                                    <a href="{{ $gatewayPaymentUrl }}" target="_blank" class="block text-center text-xs font-bold text-middo-orange underline">
-                                        Open payment page
-                                    </a>
-                                @endif
                                 @if($debugOtp)
                                     <p class="text-xs font-black text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
                                         Debug OTP: {{ $debugOtp }}
