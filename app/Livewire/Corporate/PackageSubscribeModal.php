@@ -729,6 +729,15 @@ class PackageSubscribeModal extends Component
             return;
         }
 
+        // Paid-but-unconfirmed online checkout must be finished before starting another.
+        $pendingPaid = PackageGatewayCheckout::latestPaidAwaitingOtp((int) Auth::id());
+        if ($pendingPaid) {
+            PackageGatewayCheckout::pokeOtp($pendingPaid, cooldownSeconds: 0);
+            $this->redirect($pendingPaid->confirmUrl());
+
+            return;
+        }
+
         $total = $this->payableTotal();
         if ($total < 1 && $this->couponDiscount < 1) {
             $this->errorMessage = 'Nothing to pay.';
@@ -768,7 +777,7 @@ class PackageSubscribeModal extends Component
             return;
         }
 
-        PackageGatewayCheckout::storeDraft($token, [
+        $draft = [
             'customer_name' => $this->customerName,
             'mobile' => $this->mobile,
             'address_line1' => $this->addressLine1,
@@ -776,7 +785,9 @@ class PackageSubscribeModal extends Component
             'area_id' => (int) $this->area_id,
             'delivery_window' => $this->deliveryWindow,
             'coupon_code' => $this->appliedCouponCode !== '' ? $this->appliedCouponCode : null,
-        ]);
+        ];
+
+        PackageGatewayCheckout::rememberIntent((int) Auth::id(), $token, $metadata, $draft);
 
         // Leave the build modal — payment first, OTP after success on the confirm screen.
         $this->redirect($paymentUrl);

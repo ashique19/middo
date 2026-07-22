@@ -121,6 +121,12 @@ class EpsPaymentCallbackController extends Controller
             return;
         }
 
+        if ($purpose === PackageGatewayCheckout::PURPOSE) {
+            PackageGatewayCheckout::markIntentPaid($token);
+
+            return;
+        }
+
         if ($purpose === EpsPaymentGateway::PURPOSE_ORDER_RESIDUAL) {
             $orderId = (int) ($payload['metadata']['order_id'] ?? 0);
             if ($orderId < 1) {

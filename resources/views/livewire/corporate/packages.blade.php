@@ -17,6 +17,8 @@
             </div>
         @endif
 
+        <x-corporate.pending-package-otp-banner :intent="$pendingIntent" />
+
         @if(count($subscriptions))
             <section class="space-y-3">
                 <h2 class="text-xs font-black uppercase tracking-wider text-[#635347]">My packages</h2>

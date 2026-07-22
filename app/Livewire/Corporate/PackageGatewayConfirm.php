@@ -4,6 +4,7 @@ namespace App\Livewire\Corporate;
 
 use App\Contracts\PaymentGateway;
 use App\Models\MealPackage;
+use App\Models\PackageCheckoutIntent;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PackageGatewayCheckout;
 use App\Support\PackageSubscriptionService;
@@ -53,7 +54,11 @@ class PackageGatewayConfirm extends Component
             return;
         }
 
-        $otpResult = OrderConfirmationOtp::send($this->mobile);
+        $intent = PackageGatewayCheckout::findIntent($this->token);
+        $otpResult = $intent
+            ? PackageGatewayCheckout::pokeOtp($intent, cooldownSeconds: 0)
+            : OrderConfirmationOtp::send($this->mobile);
+
         if (! ($otpResult['ok'] ?? false)) {
             $this->errorMessage = $otpResult['message'] ?? 'Could not send OTP. Try again.';
             $this->scrollFeedbackIntoView();
@@ -75,7 +80,18 @@ class PackageGatewayConfirm extends Component
         $this->resetErrorBag();
         $this->otpInput = preg_replace('/\D+/', '', trim((string) $this->otpInput)) ?? '';
 
-        $this->bootFromSession(sendOtpIfPaid: false);
+        $resolved = PackageGatewayCheckout::resolve($this->token, (int) Auth::id());
+        if ($resolved === null) {
+            $this->errorMessage = 'Payment session expired. Start package checkout again.';
+            $this->scrollFeedbackIntoView();
+
+            return;
+        }
+
+        $this->paid = (bool) $resolved['paid'];
+        $this->amount = (int) $resolved['amount'];
+        $this->mobile = (string) ($resolved['draft']['mobile'] ?? '');
+        $this->customerName = (string) ($resolved['draft']['customer_name'] ?? '');
 
         if (! $this->paid) {
             $this->errorMessage = 'Complete online payment before confirming.';
@@ -104,16 +120,8 @@ class PackageGatewayConfirm extends Component
             return;
         }
 
-        $draft = PackageGatewayCheckout::findDraft($this->token);
-        $payload = app(PaymentGateway::class)->find($this->token);
-        if (! is_array($draft) || ! is_array($payload)) {
-            $this->errorMessage = 'Payment session expired. Start package checkout again.';
-            $this->scrollFeedbackIntoView();
-
-            return;
-        }
-
-        $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+        $draft = $resolved['draft'];
+        $metadata = $resolved['metadata'];
 
         try {
             $result = app(PackageSubscriptionService::class)->subscribe(
@@ -141,7 +149,7 @@ class PackageGatewayConfirm extends Component
             return;
         }
 
-        PackageGatewayCheckout::forgetDraft($this->token);
+        PackageGatewayCheckout::markCompleted($this->token, $result['subscription']);
 
         $subscriptionId = $result['subscription']->id;
         $days = (int) $result['subscription']->billable_days;
@@ -165,40 +173,44 @@ class PackageGatewayConfirm extends Component
 
     protected function bootFromSession(bool $sendOtpIfPaid): void
     {
-        $gateway = app(PaymentGateway::class);
-        $payload = $gateway->find($this->token);
-        $draft = PackageGatewayCheckout::findDraft($this->token);
+        $resolved = PackageGatewayCheckout::resolve($this->token, (int) Auth::id());
 
-        if (! is_array($payload) || ! is_array($draft)) {
+        if ($resolved === null) {
             $this->errorMessage = 'Payment session expired or invalid. Start package checkout again.';
             $this->paid = false;
 
             return;
         }
 
-        if ((int) ($payload['user_id'] ?? 0) !== (int) Auth::id()) {
-            abort(403);
-        }
-
-        $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
-        if (($metadata['purpose'] ?? null) !== PackageGatewayCheckout::PURPOSE) {
+        if (($resolved['metadata']['purpose'] ?? null) !== PackageGatewayCheckout::PURPOSE) {
             $this->errorMessage = 'This payment session is not a package checkout.';
             $this->paid = false;
 
             return;
         }
 
-        $this->paid = (bool) ($payload['paid'] ?? false);
-        $this->amount = (int) ($payload['amount'] ?? 0);
-        $this->mobile = (string) ($draft['mobile'] ?? '');
-        $this->customerName = (string) ($draft['customer_name'] ?? '');
-        $this->paymentUrl = $gateway->paymentUrl($this->token);
+        /** @var PackageCheckoutIntent|null $intent */
+        $intent = $resolved['intent'];
+        if ($intent && $intent->status === PackageCheckoutIntent::STATUS_COMPLETED && $intent->package_subscription_id) {
+            $this->redirect(route('corporates.packages.show', ['subscriptionId' => $intent->package_subscription_id]));
 
-        $package = MealPackage::query()->find((int) ($metadata['meal_package_id'] ?? 0));
+            return;
+        }
+
+        $this->paid = (bool) $resolved['paid'];
+        $this->amount = (int) $resolved['amount'];
+        $this->mobile = (string) ($resolved['draft']['mobile'] ?? '');
+        $this->customerName = (string) ($resolved['draft']['customer_name'] ?? '');
+        $this->paymentUrl = app(PaymentGateway::class)->paymentUrl($this->token);
+
+        $package = MealPackage::query()->find((int) ($resolved['metadata']['meal_package_id'] ?? 0));
         $this->packageName = $package?->name ?? 'Monthly package';
 
         if ($this->paid && $sendOtpIfPaid && $this->mobile !== '') {
-            $otpResult = OrderConfirmationOtp::send($this->mobile);
+            $otpResult = $intent
+                ? PackageGatewayCheckout::pokeOtp($intent, cooldownSeconds: 60)
+                : OrderConfirmationOtp::send($this->mobile);
+
             if (! ($otpResult['ok'] ?? false)) {
                 $this->errorMessage = $otpResult['message'] ?? 'Could not send OTP. Try again.';
 
@@ -206,9 +218,13 @@ class PackageGatewayConfirm extends Component
             }
 
             $this->debugOtp = isset($otpResult['debug_otp']) ? (string) $otpResult['debug_otp'] : null;
-            $this->statusMessage = $this->debugOtp
-                ? 'Payment received. Enter OTP to create your package. Debug code: '.$this->debugOtp
-                : 'Payment received. Enter the OTP sent to '.$this->mobile.' to create your package.';
+            if (($otpResult['sent'] ?? true) === false) {
+                $this->statusMessage = 'Payment is locked in. Enter the OTP we already sent to '.$this->mobile.', or resend if needed.';
+            } else {
+                $this->statusMessage = $this->debugOtp
+                    ? 'Payment received. Enter OTP to create your package. Debug code: '.$this->debugOtp
+                    : 'Payment received. Enter the OTP sent to '.$this->mobile.' to create your package.';
+            }
         } elseif (! $this->paid) {
             $this->statusMessage = 'Finish payment first, then we will ask for OTP to create your package.';
         }

@@ -3,7 +3,9 @@
 namespace App\Livewire\Corporate;
 
 use App\Models\MealPackage;
+use App\Models\PackageCheckoutIntent;
 use App\Models\PackageSubscription;
+use App\Support\PackageGatewayCheckout;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -16,8 +18,11 @@ class Packages extends Component
 
     public array $subscriptions = [];
 
+    public ?array $pendingPaidCheckout = null;
+
     public function mount(): void
     {
+        $this->loadPendingPaidCheckout(pokeOtp: true);
         $this->loadPackages();
         $this->loadSubscriptions();
     }
@@ -31,8 +36,32 @@ class Packages extends Component
     #[On('corporate-orders-changed')]
     public function refresh(): void
     {
+        $this->loadPendingPaidCheckout(pokeOtp: false);
         $this->loadPackages();
         $this->loadSubscriptions();
+    }
+
+    protected function loadPendingPaidCheckout(bool $pokeOtp): void
+    {
+        $intent = PackageGatewayCheckout::latestPaidAwaitingOtp((int) Auth::id());
+        if (! $intent) {
+            $this->pendingPaidCheckout = null;
+
+            return;
+        }
+
+        if ($pokeOtp) {
+            PackageGatewayCheckout::pokeOtp($intent);
+            $intent->refresh();
+        }
+
+        $this->pendingPaidCheckout = [
+            'token' => $intent->payment_token,
+            'package_name' => $intent->package?->name ?? 'Package',
+            'amount' => (int) $intent->amount,
+            'mobile' => $intent->mobile,
+            'confirm_url' => $intent->confirmUrl(),
+        ];
     }
 
     protected function loadPackages(): void
@@ -102,12 +131,29 @@ class Packages extends Component
 
     public function openSubscribe(int $packageId): void
     {
+        $pending = PackageGatewayCheckout::latestPaidAwaitingOtp((int) Auth::id());
+        if ($pending) {
+            PackageGatewayCheckout::pokeOtp($pending);
+            $this->redirect($pending->confirmUrl());
+
+            return;
+        }
+
         $this->dispatch('open-package-subscribe', packageId: $packageId);
     }
 
     public function render()
     {
-        return view('livewire.corporate.packages')
-            ->layout('layouts.public.app');
+        $pendingIntent = null;
+        if (is_array($this->pendingPaidCheckout) && filled($this->pendingPaidCheckout['token'] ?? null)) {
+            $pendingIntent = PackageCheckoutIntent::query()
+                ->with('package:id,name')
+                ->where('payment_token', $this->pendingPaidCheckout['token'])
+                ->first();
+        }
+
+        return view('livewire.corporate.packages', [
+            'pendingIntent' => $pendingIntent,
+        ])->layout('layouts.public.app');
     }
 }
