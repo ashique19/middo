@@ -635,7 +635,7 @@ class PackageSubscribeModal extends Component
 
         // Full-page redirect. Closing the nested modal / dispatching parent refresh
         // before redirect was aborting confirmation so the UI looked stuck.
-        $this->redirect(route('corporates.packages.show', $subscriptionId));
+        $this->redirect(route('corporates.packages.show', ['subscriptionId' => $subscriptionId]));
     }
 
     public function render()

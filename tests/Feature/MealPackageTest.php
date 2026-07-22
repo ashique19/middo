@@ -424,6 +424,40 @@ class MealPackageTest extends TestCase
         $this->assertSame(PackageSubscription::SCHEDULE_AWAITING, $subscription->schedule_status);
         $this->assertSame(0, (int) $user->fresh()->balance);
 
+        \Livewire\Livewire::actingAs($user)
+            ->test(\App\Livewire\Corporate\PackageShow::class, ['subscriptionId' => $subscription->id])
+            ->assertSet('subscriptionId', $subscription->id)
+            ->assertSet('subscription.id', $subscription->id)
+            ->assertSee($subscription->package?->name ?? 'Package');
+
+        $this->actingAs($user)
+            ->get(route('corporates.packages.show', ['subscriptionId' => $subscription->id]))
+            ->assertOk()
+            ->assertSee('awaiting schedule');
+
+        Carbon::setTestNow();
+    }
+
+    public function test_corporate_package_show_accepts_subscription_id_route_param(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'balance' => 50000,
+        ]);
+        $menu = $this->makeMenuItem();
+        $package = $this->makeRatePlan(79);
+        $result = $this->subscribeWithSelection($user, $package, $menu, $city, $area, null, '2026-08');
+        $subscription = $result['subscription'];
+
+        $this->actingAs($user)
+            ->get(route('corporates.packages.show', ['subscriptionId' => $subscription->id]))
+            ->assertOk()
+            ->assertSee($package->name);
+
         Carbon::setTestNow();
     }
 

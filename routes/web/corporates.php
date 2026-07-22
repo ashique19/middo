@@ -15,7 +15,7 @@ Route::middleware(['auth', 'role:corporate'])->group(function () {
     Route::get('/dashboard', CorporateDashboard::class)->name('corporates.dashboard');
     Route::get('/packages', CorporatePackages::class)->name('corporates.packages.index');
     Route::get('/packages/confirm/{token}', PackageGatewayConfirm::class)->name('corporates.packages.confirm');
-    Route::get('/packages/{subscription}', CorporatePackageShow::class)->name('corporates.packages.show');
+    Route::get('/packages/{subscriptionId}', CorporatePackageShow::class)->name('corporates.packages.show');
     Route::get('/orders/scheduled', ScheduledOrders::class)->name('corporates.orders.scheduled');
     Route::get('/orders/history', OrderHistory::class)->name('corporates.orders.history');
     Route::get('/wallet', CorporateWallet::class)->name('corporates.wallet');
