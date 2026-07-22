@@ -9,6 +9,7 @@ use App\Models\MenuItem;
 use App\Models\User;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PackageBilling;
+use App\Support\PackageGatewayCheckout;
 use App\Support\PackageSubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -413,25 +414,7 @@ class PackageSubscribeModal extends Component
 
     public function resendOtp(): void
     {
-        if ($this->paymentMethod === 'gateway' && $this->gatewayPaymentToken) {
-            $this->errorMessage = '';
-            $otpResult = OrderConfirmationOtp::send($this->mobile);
-            if (! ($otpResult['ok'] ?? false)) {
-                $this->errorMessage = $otpResult['message'] ?? 'Could not send OTP. Try again.';
-
-                return;
-            }
-
-            $this->isConfirmingOtp = true;
-            $this->otpInput = '';
-            $this->debugOtp = isset($otpResult['debug_otp']) ? (string) $otpResult['debug_otp'] : null;
-            $this->statusMessage = $this->debugOtp
-                ? 'OTP resent. Debug code: '.$this->debugOtp
-                : 'OTP resent to '.$this->mobile.'.';
-
-            return;
-        }
-
+        $this->errorMessage = '';
         $this->payWithWallet();
     }
 
@@ -529,41 +512,40 @@ class PackageSubscribeModal extends Component
             return;
         }
 
-        $fingerprint = [
-            'meal_package_id' => (int) $this->packageId,
-            'quantity' => $this->quantity,
-            'omitted_weekdays' => PackageBilling::normalizeOmittedWeekdays($this->omittedWeekdays),
-            'target_month' => PackageBilling::normalizeTargetMonth($this->targetMonth),
-            'selections' => collect($this->selectionPayload())
-                ->sortBy('menu_item_id')
-                ->values()
-                ->all(),
-            'amount' => $total,
-        ];
+        $metadata = PackageGatewayCheckout::cartMetadata(
+            (int) $this->packageId,
+            $this->quantity,
+            $this->omittedWeekdays,
+            $this->targetMonth,
+            $this->selectionPayload(),
+            $total
+        );
 
         $checkout = app(PaymentGateway::class)->createCheckout(
             (int) Auth::id(),
             $total,
-            $fingerprint
+            $metadata
         );
 
-        $this->gatewayPaymentToken = $checkout['token'] ?? null;
-        $this->gatewayPaymentUrl = $checkout['payment_url'] ?? null;
-        $this->paymentMethod = 'gateway';
-
-        $otpResult = OrderConfirmationOtp::send($this->mobile);
-        if (! ($otpResult['ok'] ?? false)) {
-            $this->errorMessage = $otpResult['message'] ?? 'Could not send OTP. Try again.';
+        $token = (string) ($checkout['token'] ?? '');
+        $paymentUrl = (string) ($checkout['payment_url'] ?? '');
+        if ($token === '' || $paymentUrl === '') {
+            $this->errorMessage = 'Could not start online payment. Try again.';
 
             return;
         }
 
-        $this->isConfirmingOtp = true;
-        $this->otpInput = '';
-        $this->debugOtp = isset($otpResult['debug_otp']) ? (string) $otpResult['debug_otp'] : null;
-        $this->statusMessage = $this->debugOtp
-            ? 'Complete online payment, then enter OTP. Debug code: '.$this->debugOtp
-            : 'Complete online payment, then enter the OTP sent to '.$this->mobile.'.';
+        PackageGatewayCheckout::storeDraft($token, [
+            'customer_name' => $this->customerName,
+            'mobile' => $this->mobile,
+            'address_line1' => $this->addressLine1,
+            'city_id' => (int) $this->city_id,
+            'area_id' => (int) $this->area_id,
+            'delivery_window' => $this->deliveryWindow,
+        ]);
+
+        // Leave the build modal — payment first, OTP after success on the confirm screen.
+        $this->redirect($paymentUrl);
     }
 
     public function finalizeSubscribe(): void
@@ -577,7 +559,7 @@ class PackageSubscribeModal extends Component
             $this->validate([
                 'otpInput' => 'required|string|size:4',
                 'customerName' => 'required|string|min:2|max:120',
-                'paymentMethod' => 'required|in:balance,gateway',
+                'paymentMethod' => 'required|in:balance',
                 'city_id' => 'required|exists:cities,id',
                 'area_id' => 'required|exists:areas,id',
                 'addressLine1' => 'required|string|min:5|max:500',
@@ -616,8 +598,8 @@ class PackageSubscribeModal extends Component
                 (int) $this->city_id,
                 (int) $this->area_id,
                 $this->deliveryWindow,
-                $this->paymentMethod,
-                $this->gatewayPaymentToken
+                'balance',
+                null
             );
         } catch (\Throwable $e) {
             report($e);

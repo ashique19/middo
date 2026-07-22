@@ -228,6 +228,7 @@ class EpsPaymentGateway implements PaymentGateway
         return match ($metadata['purpose'] ?? null) {
             'wallet_top_up' => 'Middo Balance Top-up',
             self::PURPOSE_ORDER_RESIDUAL => 'Middo Order Payment',
+            'package_subscribe' => 'Middo Meal Package',
             default => 'Middo Meal Order',
         };
     }

@@ -9,10 +9,10 @@
 <body class="bg-gray-50 text-middo-dark font-sans min-h-screen flex items-center justify-center p-6">
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm max-w-md w-full p-6 space-y-4">
         <h1 class="text-2xl font-black text-middo-dark">
-            {{ $is_wallet ? 'Add Middo Balance' : 'Middo Prepayment' }}
+            {{ $is_wallet ? 'Add Middo Balance' : ($is_package ?? false ? 'Pay for meal package' : 'Middo Prepayment') }}
         </h1>
         <p class="text-sm text-gray-500">
-            {{ $is_wallet ? 'Wallet top-up' : 'Corporate order checkout' }}
+            {{ $is_wallet ? 'Wallet top-up' : (($is_package ?? false) ? 'Monthly package checkout' : 'Corporate order checkout') }}
             · {{ $driver === 'eps' ? 'EPS' : $driver }} gateway
         </p>
 
@@ -54,7 +54,11 @@
                 </p>
             @else
                 <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                    Payment recorded. Return to Middo and confirm your order with the SMS OTP.
+                    @if($is_package ?? false)
+                        Payment recorded. Return to Middo and enter the SMS OTP to create your package.
+                    @else
+                        Payment recorded. Return to Middo and confirm your order with the SMS OTP.
+                    @endif
                 </p>
                 <p class="text-xs text-gray-400 break-all">Payment token: {{ $token }}</p>
             @endif
@@ -63,8 +67,12 @@
                 @if($is_wallet)
                     Complete this checkout to add funds to your Middo Balance for future office lunch orders.
                 @else
-                    Complete this prepayment to schedule meals when the receiver differs from the account holder,
-                    or when you would exceed 3 active orders.
+                    @if($is_package ?? false)
+                        Complete this checkout to prepay your monthly meal package. After payment you will confirm with OTP.
+                    @else
+                        Complete this prepayment to schedule meals when the receiver differs from the account holder,
+                        or when you would exceed 3 active orders.
+                    @endif
                 @endif
             </p>
             @if($driver === 'eps' && !empty($redirect_url))
