@@ -295,6 +295,40 @@ class MealPackageTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_subscribe_modal_shows_validation_errors_in_sticky_feedback(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'balance' => 0,
+        ]);
+        $menu = $this->makeMenuItem('Menu A');
+        $package = $this->makeRatePlan(79);
+        $workingDays = $this->workingDays('2026-07');
+
+        $component = \Livewire\Livewire::actingAs($user)
+            ->test(\App\Livewire\Corporate\PackageSubscribeModal::class)
+            ->call('open', $package->id)
+            ->set('customerName', '')
+            ->set('mobile', '')
+            ->set('addressLine1', '');
+
+        for ($i = 0; $i < $workingDays; $i++) {
+            $component->call('changeMenuDays', $menu->id, 1);
+        }
+
+        $component
+            ->call('startGatewayPayment')
+            ->assertSet('errorMessage', fn ($message) => filled($message))
+            ->assertSeeHtml('id="pkg-modal-feedback"')
+            ->assertSee($component->get('errorMessage'));
+
+        Carbon::setTestNow();
+    }
+
     public function test_pay_online_redirects_to_payment_then_otp_confirm_creates_package(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
