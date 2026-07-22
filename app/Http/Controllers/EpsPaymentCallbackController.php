@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Contracts\PaymentGateway;
 use App\Models\Order;
 use App\Support\CorporateWalletTopUp;
+use App\Support\PackageGatewayCheckout;
 use App\Support\Payments\EpsPaymentGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 
@@ -78,6 +80,15 @@ class EpsPaymentCallbackController extends Controller
                     )
                 );
             }
+        }
+
+        if ($purpose === PackageGatewayCheckout::PURPOSE && ($result['ok'] ?? false)) {
+            if (Auth::check()) {
+                return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
+            }
+
+            return redirect()->guest(route('login'))
+                ->with('url.intended', PackageGatewayCheckout::confirmUrl($token));
         }
 
         return redirect()->to(

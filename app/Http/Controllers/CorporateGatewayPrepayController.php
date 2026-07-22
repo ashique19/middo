@@ -5,14 +5,16 @@ namespace App\Http\Controllers;
 use App\Contracts\PaymentGateway;
 use App\Models\User;
 use App\Support\CorporateWalletTopUp;
+use App\Support\PackageGatewayCheckout;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\URL;
 use Illuminate\View\View;
 
 class CorporateGatewayPrepayController extends Controller
 {
-    public function show(Request $request, string $token, PaymentGateway $gateway): View
+    public function show(Request $request, string $token, PaymentGateway $gateway): View|RedirectResponse
     {
         abort_unless($request->hasValidSignature(), 403);
 
@@ -22,6 +24,10 @@ class CorporateGatewayPrepayController extends Controller
         $purpose = $payload['metadata']['purpose'] ?? 'order_prepay';
         $isWallet = $purpose === CorporateWalletTopUp::PURPOSE;
 
+        if ($purpose === PackageGatewayCheckout::PURPOSE && ($payload['paid'] ?? false) && Auth::check()) {
+            return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
+        }
+
         return view('public.corporate-gateway-prepay', [
             'token' => $token,
             'amount' => (int) ($payload['amount'] ?? 0),
@@ -30,6 +36,7 @@ class CorporateGatewayPrepayController extends Controller
             'driver' => $gateway->driver(),
             'purpose' => $purpose,
             'is_wallet' => $isWallet,
+            'is_package' => $purpose === PackageGatewayCheckout::PURPOSE,
             'redirect_url' => $payload['redirect_url'] ?? null,
             'eps_message' => $request->query('eps_message'),
             'balance' => $isWallet && ($payload['credited'] ?? false)
@@ -57,8 +64,14 @@ class CorporateGatewayPrepayController extends Controller
         }
 
         $fresh = $gateway->find($token);
-        if (is_array($fresh) && (($fresh['metadata']['purpose'] ?? null) === CorporateWalletTopUp::PURPOSE)) {
+        $purpose = is_array($fresh) ? ($fresh['metadata']['purpose'] ?? null) : null;
+
+        if ($purpose === CorporateWalletTopUp::PURPOSE) {
             CorporateWalletTopUp::creditIfPaid($token);
+        }
+
+        if ($purpose === PackageGatewayCheckout::PURPOSE && Auth::check()) {
+            return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
         }
 
         return redirect()->to(

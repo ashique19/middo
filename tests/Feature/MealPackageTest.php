@@ -295,6 +295,104 @@ class MealPackageTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_pay_online_redirects_to_payment_then_otp_confirm_creates_package(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'balance' => 0,
+            'mobile' => '01710123123',
+        ]);
+        $menu = $this->makeMenuItem('Menu A');
+        $package = $this->makeRatePlan(79);
+        $workingDays = $this->workingDays('2026-07');
+
+        $component = \Livewire\Livewire::actingAs($user)
+            ->test(\App\Livewire\Corporate\PackageSubscribeModal::class)
+            ->call('open', $package->id)
+            ->set('customerName', 'Dev Signature')
+            ->set('mobile', '01710123123')
+            ->set('addressLine1', 'Mirpur dhaka')
+            ->set('city_id', $city->id)
+            ->set('area_id', $area->id);
+
+        for ($i = 0; $i < $workingDays; $i++) {
+            $component->call('changeMenuDays', $menu->id, 1);
+        }
+
+        $component->call('startGatewayPayment')->assertRedirect();
+
+        $redirectUrl = $component->effects['redirect'] ?? null;
+        $this->assertIsString($redirectUrl);
+        $this->assertNotEmpty($redirectUrl);
+
+        $token = null;
+        if (preg_match('#/pay/[^/]+/([^/?]+)#', $redirectUrl, $matches)) {
+            $token = $matches[1];
+        }
+        // Pseudo gateway uses signed corporate.gateway-prepay.show?token=...
+        if (! $token && preg_match('#[?&]token=([^&]+)#', $redirectUrl, $matches)) {
+            $token = urldecode($matches[1]);
+        }
+        // Path style /gateway-prepay/{token}
+        if (! $token && preg_match('#/([^/?]+)\?#', parse_url($redirectUrl, PHP_URL_PATH) ?? '', $matches)) {
+            $maybe = $matches[1];
+            if (strlen($maybe) >= 20) {
+                $token = $maybe;
+            }
+        }
+
+        $this->assertNotEmpty($token, 'Expected payment token in redirect URL: '.$redirectUrl);
+
+        $gateway = app(\App\Contracts\PaymentGateway::class);
+        $payload = $gateway->find($token);
+        $this->assertIsArray($payload);
+        $this->assertSame(\App\Support\PackageGatewayCheckout::PURPOSE, $payload['metadata']['purpose'] ?? null);
+        $this->assertFalse((bool) ($payload['paid'] ?? false));
+
+        // Pay on pseudo gateway page.
+        $this->actingAs($user)
+            ->get($redirectUrl)
+            ->assertOk();
+
+        $confirmUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+            'corporate.gateway-prepay.confirm',
+            now()->addMinutes(45),
+            ['token' => $token]
+        );
+        $this->actingAs($user)
+            ->post($confirmUrl)
+            ->assertRedirect(route('corporates.packages.confirm', ['token' => $token]));
+
+        $payload = $gateway->find($token);
+        $this->assertTrue((bool) ($payload['paid'] ?? false));
+
+        $confirm = \Livewire\Livewire::actingAs($user)
+            ->test(\App\Livewire\Corporate\PackageGatewayConfirm::class, ['token' => $token])
+            ->assertSet('paid', true)
+            ->assertSee('Enter the 4-digit OTP')
+            ->assertDontSee('Open payment page');
+
+        $debugOtp = $confirm->get('debugOtp');
+        $this->assertNotEmpty($debugOtp);
+
+        $confirm
+            ->set('otpInput', $debugOtp)
+            ->call('confirm')
+            ->assertRedirect();
+
+        $subscription = PackageSubscription::query()->where('user_id', $user->id)->latest('id')->first();
+        $this->assertNotNull($subscription);
+        $this->assertSame('paid', $subscription->payment_status);
+        $this->assertSame(PackageSubscription::SCHEDULE_AWAITING, $subscription->schedule_status);
+        $this->assertSame(0, (int) $user->fresh()->balance);
+
+        Carbon::setTestNow();
+    }
+
     public function test_corporate_can_subscribe_prepaid_then_ops_schedules_and_skip_refunds(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
