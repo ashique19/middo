@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\NavRoleController;
 use App\Livewire\Admin\KitchenOnboarding;
 use App\Livewire\Operation\ActiveOrders;
@@ -25,7 +24,7 @@ use Illuminate\Support\Facades\Route;
 
 // routes/web/admin.php
 Route::middleware(['auth', 'role:admin'])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
+    Route::get('/dashboard', \App\Livewire\Shared\StaffDashboard::class)->name('admin.dashboard');
 
     Route::get('/kitchens/active', Kitchens::class)->name('admin.kitchens.active');
     Route::get('/kitchens/onboarding', KitchenOnboarding::class)->name('admin.kitchens.onboarding');
