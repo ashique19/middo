@@ -30,6 +30,8 @@
                 </a>
             </div>
 
+            <x-corporate.pending-package-otp-banner :intent="$pendingIntent ?? null" />
+
             {{-- Dashboard Greeting Segment --}}
             <div>
                 <h1 class="text-3xl font-black tracking-tight text-[#2B1A11]">Corporate Dashboard - {{ $customerName }}</h1>

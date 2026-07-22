@@ -131,7 +131,7 @@ class PackageSubscriptionService
                     $total
                 );
 
-                $consumed = app(PaymentGateway::class)->consumePaid(
+                $consumed = PackageGatewayCheckout::consumePayment(
                     $gatewayPaymentToken,
                     (int) $locked->id,
                     $total,

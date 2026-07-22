@@ -4,6 +4,8 @@ namespace App\Livewire\Corporate;
 
 use App\Models\MiddoBox;
 use App\Models\Order;
+use App\Models\PackageCheckoutIntent;
+use App\Support\PackageGatewayCheckout;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
@@ -19,14 +21,38 @@ class Dashboard extends Component
 
     public array $upcomingEvents = [];
 
+    public ?array $pendingPaidCheckout = null;
+
     public function mount(): void
     {
         $user = Auth::user();
         $this->customerName = $user->name ?? 'Corporate Partner';
 
+        $this->loadPendingPaidCheckout();
         $this->loadMetrics();
         $this->loadRecentLunches();
         $this->loadUpcomingEvents();
+    }
+
+    protected function loadPendingPaidCheckout(): void
+    {
+        $intent = PackageGatewayCheckout::latestPaidAwaitingOtp((int) Auth::id());
+        if (! $intent) {
+            $this->pendingPaidCheckout = null;
+
+            return;
+        }
+
+        PackageGatewayCheckout::pokeOtp($intent);
+        $intent->refresh();
+
+        $this->pendingPaidCheckout = [
+            'token' => $intent->payment_token,
+            'package_name' => $intent->package?->name ?? 'Package',
+            'amount' => (int) $intent->amount,
+            'mobile' => $intent->mobile,
+            'confirm_url' => $intent->confirmUrl(),
+        ];
     }
 
     /**
@@ -112,6 +138,7 @@ class Dashboard extends Component
     #[On('corporate-orders-changed')]
     public function refreshOrders(): void
     {
+        $this->loadPendingPaidCheckout();
         $this->loadMetrics();
         $this->loadRecentLunches();
         $this->loadUpcomingEvents();
@@ -119,7 +146,16 @@ class Dashboard extends Component
 
     public function render()
     {
-        return view('livewire.corporate.dashboard')
-            ->layout('layouts.public.app'); // Pairs with your main container application framework
+        $pendingIntent = null;
+        if (is_array($this->pendingPaidCheckout) && filled($this->pendingPaidCheckout['token'] ?? null)) {
+            $pendingIntent = PackageCheckoutIntent::query()
+                ->with('package:id,name')
+                ->where('payment_token', $this->pendingPaidCheckout['token'])
+                ->first();
+        }
+
+        return view('livewire.corporate.dashboard', [
+            'pendingIntent' => $pendingIntent,
+        ])->layout('layouts.public.app');
     }
 }

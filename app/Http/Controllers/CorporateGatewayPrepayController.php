@@ -70,8 +70,11 @@ class CorporateGatewayPrepayController extends Controller
             CorporateWalletTopUp::creditIfPaid($token);
         }
 
-        if ($purpose === PackageGatewayCheckout::PURPOSE && Auth::check()) {
-            return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
+        if ($purpose === PackageGatewayCheckout::PURPOSE) {
+            PackageGatewayCheckout::markIntentPaid($token);
+            if (Auth::check()) {
+                return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
+            }
         }
 
         return redirect()->to(
