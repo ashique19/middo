@@ -5,6 +5,7 @@ namespace App\Livewire\Corporate;
 use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Models\PackageCheckoutIntent;
+use App\Models\PackageSubscription;
 use App\Support\PackageGatewayCheckout;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +17,8 @@ class Dashboard extends Component
     public string $customerName = '';
 
     public array $metrics = [];
+
+    public array $activePackages = [];
 
     public array $recentLunches = [];
 
@@ -29,6 +32,7 @@ class Dashboard extends Component
         $this->customerName = $user->name ?? 'Corporate Partner';
 
         $this->loadPendingPaidCheckout();
+        $this->loadActivePackages();
         $this->loadMetrics();
         $this->loadRecentLunches();
         $this->loadUpcomingEvents();
@@ -91,10 +95,52 @@ class Dashboard extends Component
 
         $this->metrics = [
             'active_orders' => $activeOrdersCount,
+            'active_packages' => count($this->activePackages),
             'next_meal_time' => $nextMeal ? Carbon::parse($nextMeal->delivery_date)->format('M d').' - '.$nextMeal->delivery_time : 'None Scheduled',
             'boxes_in_custody' => $boxesInCustody,
             'monthly_spend' => (float) $monthlySpend,
         ];
+    }
+
+    protected function loadActivePackages(): void
+    {
+        $this->activePackages = PackageSubscription::query()
+            ->forUser((int) Auth::id())
+            ->active()
+            ->with(['package:id,name', 'orders' => fn ($q) => $q->orderBy('delivery_date')])
+            ->latest('id')
+            ->take(6)
+            ->get()
+            ->map(function (PackageSubscription $sub) {
+                $orders = $sub->orders;
+                $pending = $orders->whereIn('order_status', Order::ACTIVE_STATUSES)->count();
+                $completed = $orders->whereIn('order_status', ['delivered', 'delivered_and_paid'])->count();
+                $monthLabel = filled($sub->target_month)
+                    ? Carbon::createFromFormat('Y-m', (string) $sub->target_month)->format('F Y')
+                    : Carbon::parse($sub->start_date)->format('M Y');
+
+                return [
+                    'id' => $sub->id,
+                    'name' => $sub->package?->name ?? 'Package',
+                    'status' => $sub->status,
+                    'schedule_status' => $sub->schedule_status,
+                    'schedule_label' => $sub->schedule_status === PackageSubscription::SCHEDULE_AWAITING
+                        ? 'Awaiting schedule'
+                        : 'Scheduled',
+                    'quantity' => (int) $sub->quantity,
+                    'billable_days' => (int) $sub->billable_days,
+                    'total_amount' => (int) $sub->total_amount + (int) $sub->charges_amount,
+                    'target_month' => (string) ($sub->target_month ?? ''),
+                    'month_label' => $monthLabel,
+                    'start_date' => $sub->start_date?->toDateString(),
+                    'end_date' => $sub->end_date?->toDateString(),
+                    'pending_days' => $pending,
+                    'completed_days' => $completed,
+                    'show_url' => route('corporates.packages.show', ['subscriptionId' => $sub->id]),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     public function loadRecentLunches(): void
@@ -136,9 +182,11 @@ class Dashboard extends Component
     }
 
     #[On('corporate-orders-changed')]
+    #[On('package-subscribed')]
     public function refreshOrders(): void
     {
         $this->loadPendingPaidCheckout();
+        $this->loadActivePackages();
         $this->loadMetrics();
         $this->loadRecentLunches();
         $this->loadUpcomingEvents();

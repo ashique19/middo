@@ -23,7 +23,13 @@
                     <div class="flex items-center justify-between gap-4">
                         <div>
                             <h2 class="text-lg font-black tracking-tight leading-none">Meal Packages</h2>
-                            <p class="text-[11px] font-semibold text-[#635347] mt-1">30-day prepaid plans · omit Fri/Sat</p>
+                            <p class="text-[11px] font-semibold text-[#635347] mt-1">
+                                @if(($metrics['active_packages'] ?? 0) > 0)
+                                    {{ $metrics['active_packages'] }} active · manage prepaid plans
+                                @else
+                                    30-day prepaid plans · omit Fri/Sat
+                                @endif
+                            </p>
                         </div>
                         <span class="shrink-0 bg-middo-orange text-white font-black text-xs uppercase tracking-wider px-3 py-2 rounded-xl">Plans ➔</span>
                     </div>
@@ -38,8 +44,8 @@
                 <p class="text-sm font-semibold text-[#635347] mt-0.5">Welcome back! Manage your office lunches seamlessly.</p>
             </div>
 
-            {{-- 3-CARD TOP KPI GRID ROW --}}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {{-- TOP KPI GRID ROW --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 {{-- Active Orders Card --}}
                 <div class="bg-[#1E4630] text-white p-4 rounded-2xl shadow-sm flex items-center gap-4 border border-[#143021]">
                     <div class="p-1 text-emerald-300">
@@ -53,6 +59,20 @@
                         <div class="text-2xl font-black font-sans leading-none mt-1">{{ $metrics['active_orders'] }}</div>
                     </div>
                 </div>
+
+                {{-- Active Packages Card --}}
+                <a href="{{ route('corporates.packages.index') }}"
+                   class="bg-[#EFE9DC] border border-[#DDD3BE] text-[#2B1A11] p-4 rounded-2xl shadow-sm flex items-center gap-4 hover:border-middo-orange/50 transition">
+                    <div class="p-1 text-[#635347]">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="text-[11px] font-bold uppercase tracking-wider text-[#635347]">Active Packages:</div>
+                        <div class="text-2xl font-black leading-none mt-1">{{ $metrics['active_packages'] ?? 0 }}</div>
+                    </div>
+                </a>
 
                 {{-- Next Meal Card --}}
                 <div class="bg-[#EFE9DC] border border-[#DDD3BE] text-[#2B1A11] p-4 rounded-2xl shadow-sm flex items-center gap-4">
@@ -77,6 +97,64 @@
                         <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-200/70">Monthly Spend:</div>
                         <div class="text-2xl font-black font-sans tracking-tight mt-1">{{ number_format($metrics['monthly_spend'], 0) }}</div>
                     </div>
+                </div>
+            </div>
+
+            {{-- ACTIVE PACKAGES SEGMENT --}}
+            <div class="space-y-4">
+                <div class="border-b border-[#EBE3D3] pb-3 flex justify-between items-center gap-3">
+                    <div>
+                        <h3 class="text-xl font-black tracking-tight text-[#2B1A11]">Active Packages</h3>
+                        <p class="text-xs font-semibold text-[#635347] mt-0.5">Prepaid monthly plans currently running for your office.</p>
+                    </div>
+                    <a href="{{ route('corporates.packages.index') }}" class="shrink-0 text-xs font-black text-[#8A441B] hover:text-[#733614] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm group">
+                        <span>{{ count($activePackages) ? 'All packages' : 'Browse plans' }}</span>
+                        <span class="transform group-hover:translate-x-0.5 transition-transform text-[10px]">➔</span>
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    @forelse($activePackages as $pkg)
+                        <a href="{{ $pkg['show_url'] }}"
+                           wire:key="dash-active-pkg-{{ $pkg['id'] }}"
+                           class="block bg-white border border-[#DDD3BE] rounded-2xl p-4 shadow-sm hover:border-middo-orange/40 hover:shadow-md transition">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <div class="font-black text-lg leading-tight truncate">{{ $pkg['name'] }}</div>
+                                    <div class="text-xs font-semibold text-[#635347] mt-1">
+                                        {{ $pkg['month_label'] }}
+                                        · qty {{ $pkg['quantity'] }}
+                                        · {{ $pkg['billable_days'] }} days
+                                    </div>
+                                </div>
+                                <span @class([
+                                    'shrink-0 text-[10px] font-black uppercase px-2 py-1 rounded-full',
+                                    'bg-amber-100 text-amber-900' => ($pkg['schedule_status'] ?? '') === 'awaiting_schedule',
+                                    'bg-emerald-100 text-emerald-800' => ($pkg['schedule_status'] ?? '') !== 'awaiting_schedule',
+                                ])>
+                                    {{ $pkg['schedule_label'] }}
+                                </span>
+                            </div>
+                            <div class="mt-3 flex items-center justify-between text-xs font-bold">
+                                <span class="text-[#635347]">
+                                    @if(($pkg['schedule_status'] ?? '') === 'awaiting_schedule')
+                                        Ops will assign delivery dates
+                                    @else
+                                        {{ $pkg['pending_days'] }} upcoming · {{ $pkg['completed_days'] }} done
+                                    @endif
+                                </span>
+                                <span class="text-middo-orange">৳{{ number_format($pkg['total_amount']) }}</span>
+                            </div>
+                        </a>
+                    @empty
+                        <div class="col-span-full bg-white border border-[#EBE3D3] rounded-2xl p-8 text-center shadow-sm">
+                            <p class="text-sm font-bold text-gray-500">No active packages yet.</p>
+                            <p class="text-xs text-gray-400 mt-1">
+                                Prepaid monthly plans show up here once purchased.
+                                <a href="{{ route('corporates.packages.index') }}" class="text-middo-orange font-bold hover:underline">Browse meal packages</a>.
+                            </p>
+                        </div>
+                    @endforelse
                 </div>
             </div>
 
@@ -214,6 +292,10 @@
             <div class="bg-white border border-[#EBE3D3] rounded-2xl p-3 shadow-sm space-y-2">
                 <a href="{{ route('menu') }}" class="flex items-center justify-between p-2 rounded-xl hover:bg-[#F7F4EB] text-xs font-bold text-[#2B1A11]">
                     <span>🍱 Place an Order</span> <span class="text-gray-400">➔</span>
+                </a>
+                <a href="{{ route('corporates.packages.index') }}" class="flex items-center justify-between p-2 rounded-xl hover:bg-[#F7F4EB] text-xs font-bold text-[#2B1A11]">
+                    <span>🗓️ Active Packages</span>
+                    <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-black font-mono">{{ $metrics['active_packages'] ?? 0 }}</span>
                 </a>
                 <button type="button" @click="$dispatch('open-middo-boxes-custody-modal')" class="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#F7F4EB] text-xs font-bold text-[#2B1A11] text-left">
                     <span>📦 Middo Boxes with You</span>
