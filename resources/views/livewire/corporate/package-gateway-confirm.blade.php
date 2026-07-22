@@ -1,5 +1,12 @@
 <div class="min-h-screen bg-[#F7F4EB] text-[#2B1A11] antialiased font-sans p-4 md:p-8">
-    <div class="max-w-md mx-auto w-full space-y-6">
+    <div class="max-w-md mx-auto w-full space-y-6"
+         x-data
+         x-effect="
+            if (! $wire.errorMessage) return;
+            $nextTick(() => {
+                document.getElementById('pkg-confirm-feedback')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+         ">
         <div>
             <a href="{{ route('corporates.packages.index') }}" class="text-xs font-bold text-middo-orange hover:underline">← Meal packages</a>
             <p class="text-[11px] font-black uppercase tracking-wider text-middo-orange mt-3">Confirm package</p>
@@ -34,19 +41,26 @@
             </div>
         </div>
 
-        @if($errorMessage)
-            <div class="rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm font-semibold px-4 py-3">
-                {{ $errorMessage }}
-            </div>
-        @endif
-
-        @if($statusMessage)
-            <div class="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 text-sm font-semibold px-4 py-3">
+        @if($statusMessage && ! $errorMessage)
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 text-sm font-semibold px-4 py-3" role="status">
                 {{ $statusMessage }}
             </div>
         @endif
 
         @if(! $paid)
+            @if($errorMessage || $errors->any())
+                <div id="pkg-confirm-feedback" class="rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm font-semibold px-4 py-3" role="alert">
+                    @if($errorMessage)
+                        {{ $errorMessage }}
+                    @else
+                        <ul class="list-disc pl-4 space-y-1">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            @endif
             @if($paymentUrl)
                 <a href="{{ $paymentUrl }}"
                    class="block w-full text-center bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider py-3.5 rounded-xl transition">
@@ -55,6 +69,19 @@
             @endif
         @else
             <div class="bg-white border border-[#DDD3BE] rounded-2xl p-5 space-y-3 shadow-sm">
+                @if($errorMessage || $errors->any())
+                    <div id="pkg-confirm-feedback" class="rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm font-semibold px-3 py-2" role="alert">
+                        @if($errorMessage)
+                            {{ $errorMessage }}
+                        @else
+                            <ul class="list-disc pl-4 space-y-1">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+                @endif
                 <p class="text-xs font-semibold text-gray-600">Enter the 4-digit OTP sent to {{ $mobile }}</p>
                 @if($debugOtp)
                     <p class="text-xs font-black text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
