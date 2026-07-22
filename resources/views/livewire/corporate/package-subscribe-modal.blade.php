@@ -4,17 +4,7 @@
             $hasFeedback = filled($errorMessage) || filled($statusMessage) || $errors->any();
         @endphp
         <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-            <div
-                class="bg-[#FDFBF7] rounded-t-[28px] sm:rounded-[28px] shadow-2xl border border-amber-900/5 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden"
-                x-data
-                x-effect="
-                    const message = $wire.errorMessage || $wire.statusMessage;
-                    if (! message) return;
-                    $nextTick(() => {
-                        document.getElementById('pkg-modal-feedback')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    });
-                "
-            >
+            <div class="bg-[#FDFBF7] rounded-t-[28px] sm:rounded-[28px] shadow-2xl border border-amber-900/5 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
                 <div class="p-5 md:p-6 border-b border-amber-900/5 flex items-start justify-between gap-3 shrink-0 bg-[#FDFBF7]">
                     <div>
                         <p class="text-[11px] font-black uppercase tracking-wider text-middo-orange">Build monthly package</p>

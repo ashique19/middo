@@ -399,6 +399,22 @@ class PackageSubscribeModal extends Component
         $this->walletBalance = (int) (Auth::user()?->balance ?? 0);
     }
 
+    public function updatedErrorMessage(string $value): void
+    {
+        if ($value !== '') {
+            $this->scrollFeedbackIntoView();
+        }
+    }
+
+    protected function scrollFeedbackIntoView(): void
+    {
+        $this->js(<<<'JS'
+            queueMicrotask(() => {
+                document.getElementById('pkg-modal-feedback')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+        JS);
+    }
+
     public function canPayWithWallet(): bool
     {
         $total = (int) ($this->quote['total_amount'] ?? 0);

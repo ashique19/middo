@@ -1,12 +1,5 @@
 <div class="min-h-screen bg-[#F7F4EB] text-[#2B1A11] antialiased font-sans p-4 md:p-8">
-    <div class="max-w-md mx-auto w-full space-y-6"
-         x-data
-         x-effect="
-            if (! $wire.errorMessage) return;
-            $nextTick(() => {
-                document.getElementById('pkg-confirm-feedback')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            });
-         ">
+    <div class="max-w-md mx-auto w-full space-y-6">
         <div>
             <a href="{{ route('corporates.packages.index') }}" class="text-xs font-bold text-middo-orange hover:underline">← Meal packages</a>
             <p class="text-[11px] font-black uppercase tracking-wider text-middo-orange mt-3">Confirm package</p>
@@ -90,17 +83,19 @@
                 @endif
                 <input wire:model.live="otpInput" type="text" inputmode="numeric" maxlength="4"
                        class="w-full border-gray-200 rounded-xl text-sm p-2.5 tracking-[0.4em] text-center font-black"
-                       placeholder="••••">
+                       placeholder="••••" autocomplete="one-time-code">
                 @error('otpInput')
                     <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
                 @enderror
-                <button type="button" wire:click="confirm" wire:loading.attr="disabled"
+                <button type="button" wire:click="createPackage" wire:loading.attr="disabled"
                         class="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl disabled:opacity-60">
-                    <span wire:loading.remove wire:target="confirm">Create package</span>
-                    <span wire:loading wire:target="confirm">Creating…</span>
+                    <span wire:loading.remove wire:target="createPackage">Create package</span>
+                    <span wire:loading wire:target="createPackage">Creating…</span>
                 </button>
-                <button type="button" wire:click="resendOtp" class="w-full text-xs font-bold text-middo-orange underline">
-                    Resend OTP
+                <button type="button" wire:click="resendOtp" wire:loading.attr="disabled"
+                        class="w-full text-xs font-bold text-middo-orange underline disabled:opacity-60">
+                    <span wire:loading.remove wire:target="resendOtp">Resend OTP</span>
+                    <span wire:loading wire:target="resendOtp">Sending…</span>
                 </button>
             </div>
         @endif

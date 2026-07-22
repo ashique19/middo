@@ -415,7 +415,7 @@ class MealPackageTest extends TestCase
 
         $confirm
             ->set('otpInput', $debugOtp)
-            ->call('confirm')
+            ->call('createPackage')
             ->assertRedirect();
 
         $subscription = PackageSubscription::query()->where('user_id', $user->id)->latest('id')->first();
