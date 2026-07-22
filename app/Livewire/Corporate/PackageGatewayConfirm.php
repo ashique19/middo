@@ -150,7 +150,7 @@ class PackageGatewayConfirm extends Component
             'Package prepaid for '.$days.' days. Middo operations will assign exact delivery dates next.'
         );
 
-        $this->redirect(route('corporates.packages.show', $subscriptionId));
+        $this->redirect(route('corporates.packages.show', ['subscriptionId' => $subscriptionId]));
     }
 
     protected function scrollFeedbackIntoView(): void

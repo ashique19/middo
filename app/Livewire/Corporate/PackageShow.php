@@ -24,9 +24,9 @@ class PackageShow extends Component
 
     public string $successMessage = '';
 
-    public function mount(int $subscription): void
+    public function mount(int $subscriptionId): void
     {
-        $this->subscriptionId = $subscription;
+        $this->subscriptionId = $subscriptionId;
         $this->loadSubscription();
     }
 

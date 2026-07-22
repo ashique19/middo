@@ -22,7 +22,7 @@
                 <h2 class="text-xs font-black uppercase tracking-wider text-[#635347]">My packages</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     @foreach($subscriptions as $sub)
-                        <a href="{{ route('corporates.packages.show', $sub['id']) }}"
+                        <a href="{{ route('corporates.packages.show', ['subscriptionId' => $sub['id']]) }}"
                            class="block bg-white border border-[#DDD3BE] rounded-2xl p-4 hover:border-middo-orange/40 transition shadow-sm">
                             <div class="flex items-start justify-between gap-3">
                                 <div>
