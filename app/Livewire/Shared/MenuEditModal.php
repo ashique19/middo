@@ -26,6 +26,8 @@ class MenuEditModal extends Component
 
     public int $kitchen_commission = 0;
 
+    public int $delivery_commission = 0;
+
     public int $other_cost = 0;
 
     public int $meals_cost = 0;
@@ -48,6 +50,7 @@ class MenuEditModal extends Component
             'name' => 'required|string|max:255',
             'summary' => 'nullable|string',
             'price' => 'required|integer|min:0',
+            'delivery_commission' => 'integer|min:0',
             'other_cost' => 'integer|min:0',
             'note' => 'nullable|string',
             'display_order' => 'integer',
@@ -69,6 +72,7 @@ class MenuEditModal extends Component
         $this->summary = $item->summary;
         $this->price = (int) $item->price;
         $this->kitchen_commission = (int) $item->kitchen_commission;
+        $this->delivery_commission = (int) ($item->delivery_commission ?? 0);
         $this->other_cost = (int) $item->other_cost;
         $this->meals_cost = (int) $item->meals_cost;
         $this->note = $item->note;
@@ -114,6 +118,7 @@ class MenuEditModal extends Component
             'summary' => $this->summary,
             'price' => $this->price,
             'kitchen_commission' => $this->kitchen_commission,
+            'delivery_commission' => $this->delivery_commission,
             'other_cost' => $this->other_cost,
             'note' => $this->note,
             'is_featured' => $this->is_featured,

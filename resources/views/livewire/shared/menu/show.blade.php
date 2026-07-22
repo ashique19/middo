@@ -51,7 +51,12 @@
         <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Kitchen commission</p>
             <p class="text-2xl font-black text-middo-dark font-mono">৳{{ number_format((int) $item->kitchen_commission) }}</p>
-            <p class="text-[11px] font-semibold text-gray-400 mt-1">{{ $kitchenCommissionPct }}%</p>
+            <p class="text-[11px] font-semibold text-gray-400 mt-1">{{ $kitchenCommissionPct }}% · kitchen share / item</p>
+        </div>
+        <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Delivery commission</p>
+            <p class="text-2xl font-black text-middo-dark font-mono">৳{{ number_format((int) ($item->delivery_commission ?? 0)) }}</p>
+            <p class="text-xs text-gray-500 mt-1">Delivery share per item</p>
         </div>
     </div>
 

@@ -23,6 +23,8 @@ class MenuCreateModal extends Component
 
     public int $kitchen_commission = 0;
 
+    public int $delivery_commission = 0;
+
     public int $other_cost = 0;
 
     public ?string $note = null;
@@ -42,6 +44,7 @@ class MenuCreateModal extends Component
             'summary' => 'nullable|string',
             'price' => 'required|integer|min:0',
             'kitchen_commission_percentage' => 'required|numeric|min:0|max:100',
+            'delivery_commission' => 'integer|min:0',
             'other_cost' => 'integer|min:0',
             'note' => 'nullable|string',
             'display_order' => 'integer',
@@ -86,6 +89,7 @@ class MenuCreateModal extends Component
             'summary' => $this->summary,
             'price' => $this->price,
             'kitchen_commission' => $this->kitchen_commission,
+            'delivery_commission' => $this->delivery_commission,
             'other_cost' => $this->other_cost,
             'note' => $this->note,
             'is_featured' => $this->is_featured,
