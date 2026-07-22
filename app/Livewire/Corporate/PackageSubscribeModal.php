@@ -6,6 +6,7 @@ use App\Contracts\PaymentGateway;
 use App\Models\City;
 use App\Models\MealPackage;
 use App\Models\MenuItem;
+use App\Models\PackageSubscription;
 use App\Models\User;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PackageBilling;
@@ -126,8 +127,8 @@ class PackageSubscribeModal extends Component
 
         $this->menuDayCounts = [];
         $this->omittedWeekdays = [5, 6];
-        $this->targetMonth = now('Asia/Dhaka')->format('Y-m');
         $this->monthOptions = $this->buildMonthOptions();
+        $this->targetMonth = $this->firstAvailableMonth() ?? ($this->monthOptions[0]['value'] ?? now('Asia/Dhaka')->format('Y-m'));
         $this->quantity = 1;
         $this->customerName = $user->name ?? '';
         $this->mobile = $user->mobile ?? '';
@@ -156,17 +157,70 @@ class PackageSubscribeModal extends Component
 
     protected function buildMonthOptions(): array
     {
+        $orderedMonths = PackageSubscription::orderedMonthsForUser((int) Auth::id());
+        $orderedLookup = array_fill_keys($orderedMonths, true);
         $options = [];
         $cursor = now('Asia/Dhaka')->startOfMonth();
+
         for ($i = 0; $i < 4; $i++) {
+            $value = $cursor->format('Y-m');
             $options[] = [
-                'value' => $cursor->format('Y-m'),
+                'value' => $value,
                 'label' => $cursor->format('F Y'),
+                'locked' => isset($orderedLookup[$value]),
             ];
             $cursor->addMonth();
         }
 
         return $options;
+    }
+
+    protected function firstAvailableMonth(): ?string
+    {
+        foreach ($this->monthOptions as $option) {
+            if (! ($option['locked'] ?? false)) {
+                return (string) $option['value'];
+            }
+        }
+
+        return null;
+    }
+
+    public function isTargetMonthLocked(): bool
+    {
+        foreach ($this->monthOptions as $option) {
+            if (($option['value'] ?? null) === $this->targetMonth) {
+                return (bool) ($option['locked'] ?? false);
+            }
+        }
+
+        return PackageSubscription::userHasPackageForMonth((int) Auth::id(), $this->targetMonth);
+    }
+
+    public function selectMonth(string $month): void
+    {
+        if ($this->isConfirmingOtp) {
+            return;
+        }
+
+        foreach ($this->monthOptions as $option) {
+            if (($option['value'] ?? null) !== $month) {
+                continue;
+            }
+
+            if ($option['locked'] ?? false) {
+                $this->errorMessage = 'You already ordered a package for '.$option['label'].'. That month is locked.';
+
+                return;
+            }
+
+            $this->targetMonth = $month;
+            $this->errorMessage = '';
+            $this->clampSelectionsToWorkingDays();
+            $this->refreshQuote();
+
+            return;
+        }
     }
 
     public function closeModal(): void
@@ -195,6 +249,13 @@ class PackageSubscribeModal extends Component
     public function updatedTargetMonth(): void
     {
         $this->errorMessage = '';
+
+        if ($this->isTargetMonthLocked()) {
+            $available = $this->firstAvailableMonth();
+            $this->targetMonth = $available ?? $this->targetMonth;
+            $this->errorMessage = 'That month already has a package. Choose another month.';
+        }
+
         $this->clampSelectionsToWorkingDays();
         $this->refreshQuote();
     }
@@ -467,6 +528,12 @@ class PackageSubscribeModal extends Component
             return;
         }
 
+        if ($this->isTargetMonthLocked()) {
+            $this->errorMessage = 'You already ordered a package for this month. Choose another month.';
+
+            return;
+        }
+
         if ($this->paymentMethod === 'balance' && ! $this->canPayWithWallet()) {
             $this->errorMessage = 'Insufficient Middo Balance. Top up your wallet or pay online.';
 
@@ -517,6 +584,12 @@ class PackageSubscribeModal extends Component
             PackageBilling::assertSelectionsFillMonth($this->quote);
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage();
+
+            return;
+        }
+
+        if ($this->isTargetMonthLocked()) {
+            $this->errorMessage = 'You already ordered a package for this month. Choose another month.';
 
             return;
         }

@@ -1214,7 +1214,7 @@ class CorporateMobileController extends Controller
         ]);
     }
 
-    public function packages(): JsonResponse
+    public function packages(Request $request): JsonResponse
     {
         $items = MealPackage::query()
             ->published()
@@ -1240,6 +1240,7 @@ class CorporateMobileController extends Controller
             'packages' => $items,
             'menus' => $menus,
             'weekday_labels' => PackageBilling::WEEKDAY_LABELS,
+            'ordered_months' => PackageSubscription::orderedMonthsForUser((int) $request->user()->id),
         ]);
     }
 
@@ -1394,8 +1395,12 @@ class CorporateMobileController extends Controller
                 $data['payment_token'] ?? null
             );
         } catch (\Throwable $e) {
+            $field = str_contains(strtolower($e->getMessage()), 'already ordered a package')
+                ? 'target_month'
+                : 'payment_method';
+
             throw ValidationException::withMessages([
-                'payment_method' => [$e->getMessage()],
+                $field => [$e->getMessage()],
             ]);
         }
 

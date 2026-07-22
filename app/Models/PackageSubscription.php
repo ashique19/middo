@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PackageBilling;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -90,6 +91,42 @@ class PackageSubscription extends Model
     public function scopeActive($query)
     {
         return $query->where('status', self::STATUS_ACTIVE);
+    }
+
+    public function scopeOccupyingMonth($query)
+    {
+        return $query
+            ->where('status', '!=', self::STATUS_CANCELLED)
+            ->whereNotNull('target_month')
+            ->where('target_month', '!=', '');
+    }
+
+    /**
+     * Target months (Y-m) the corporate already prepaid and cannot buy again.
+     *
+     * @return list<string>
+     */
+    public static function orderedMonthsForUser(int $userId): array
+    {
+        return static::query()
+            ->forUser($userId)
+            ->occupyingMonth()
+            ->pluck('target_month')
+            ->filter(fn ($month) => is_string($month) && $month !== '')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public static function userHasPackageForMonth(int $userId, string $targetMonth): bool
+    {
+        $month = PackageBilling::normalizeTargetMonth($targetMonth);
+
+        return static::query()
+            ->forUser($userId)
+            ->occupyingMonth()
+            ->where('target_month', $month)
+            ->exists();
     }
 
     public function isAwaitingSchedule(): bool
