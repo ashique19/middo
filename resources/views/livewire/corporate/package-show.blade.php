@@ -98,7 +98,12 @@
                                 · x{{ $day['quantity'] }} · ৳{{ number_format($day['total_amount']) }}
                             </div>
                         </div>
-                        <div class="shrink-0 text-right">
+                        <div class="shrink-0 text-right space-y-1">
+                            <button type="button"
+                                    @click="$dispatch('open-track-order-modal', { orderId: {{ $day['id'] }} })"
+                                    class="block w-full text-[11px] font-black uppercase tracking-wider text-[#1E4630] hover:underline">
+                                Track
+                            </button>
                             @if($day['order_status'] === 'cancelled')
                                 <span class="text-[10px] font-black uppercase text-gray-400">Skipped</span>
                             @elseif($day['can_skip'])

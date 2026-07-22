@@ -69,14 +69,32 @@ class AssignKitchenModal extends Component
             ]);
         }
 
-        $group = OrderGroup::findOrFail($this->orderGroupId);
+        $group = OrderGroup::with(['kitchen', 'orders'])->findOrFail($this->orderGroupId);
 
         $previousKitchenId = $group->kitchen_id;
+        $fromKitchen = $group->kitchen?->name ?? 'Unassigned';
 
         $group->update([
             'kitchen_id' => $this->selectedKitchenId ?: null,
             'updated_by' => Auth::id(),
         ]);
+
+        $group->refresh()->load('kitchen');
+        $toKitchen = $group->kitchen?->name ?? 'Unassigned';
+
+        if ((int) ($previousKitchenId ?? 0) !== (int) ($group->kitchen_id ?? 0)) {
+            foreach ($group->orders as $order) {
+                \App\Support\OrderAudit::record($order, 'forwarded_to_kitchen', [
+                    'group_id' => $group->id,
+                    'group_name' => $group->name,
+                    'from_kitchen_id' => $previousKitchenId,
+                    'to_kitchen_id' => $group->kitchen_id,
+                    'from_kitchen' => $fromKitchen,
+                    'to_kitchen' => $toKitchen,
+                    'source' => $order->package_subscription_id ? 'package' : 'menu',
+                ], Auth::id());
+            }
+        }
 
         // First-time kitchen assignment advances pending orders to processing (push + UI).
         if ($this->selectedKitchenId && ! $previousKitchenId) {

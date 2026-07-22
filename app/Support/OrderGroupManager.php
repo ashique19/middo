@@ -14,7 +14,7 @@ class OrderGroupManager
     public function ungroup(int $orderId): void
     {
         $order = Order::with('orderGroup')->findOrFail($orderId);
-        $this->detachOrder($order);
+        $this->detachOrder($order, audit: true);
     }
 
     public function handleDrop(int $sourceOrderId, string $targetType, ?int $targetId, ?int $userId = null): void
@@ -66,7 +66,7 @@ class OrderGroupManager
     public function addOrderToGroup(Order $order, OrderGroup $group, int $userId): void
     {
         DB::transaction(function () use ($order, $group, $userId) {
-            $this->detachOrder($order);
+            $this->detachOrder($order, audit: true);
 
             OrderGroupOrder::create([
                 'order_group_id' => $group->id,
@@ -74,14 +74,21 @@ class OrderGroupManager
             ]);
 
             $group->update(['updated_by' => $userId]);
+
+            OrderAudit::record($order, 'grouped', [
+                'group_id' => $group->id,
+                'group_name' => $group->name,
+                'kitchen_id' => $group->kitchen_id,
+                'source' => $order->package_subscription_id ? 'package' : 'menu',
+            ], $userId);
         });
     }
 
     public function createManualGroupFromOrders(Order $source, Order $target, int $userId): OrderGroup
     {
         return DB::transaction(function () use ($source, $target, $userId) {
-            $this->detachOrder($source);
-            $this->detachOrder($target);
+            $this->detachOrder($source, audit: true);
+            $this->detachOrder($target, audit: true);
 
             $deliveryDate = $source->delivery_date;
             $menuId = $source->menu_item_id;
@@ -98,11 +105,20 @@ class OrderGroupManager
 
             $group->orders()->attach([$source->id, $target->id]);
 
+            foreach ([$source, $target] as $order) {
+                OrderAudit::record($order, 'grouped', [
+                    'group_id' => $group->id,
+                    'group_name' => $group->name,
+                    'kitchen_id' => null,
+                    'source' => $order->package_subscription_id ? 'package' : 'menu',
+                ], $userId);
+            }
+
             return $group;
         });
     }
 
-    protected function detachOrder(Order $order): void
+    protected function detachOrder(Order $order, bool $audit = false): void
     {
         $pivot = OrderGroupOrder::where('order_id', $order->id)->first();
 
@@ -111,7 +127,16 @@ class OrderGroupManager
         }
 
         $groupId = $pivot->order_group_id;
+        $groupName = OrderGroup::query()->whereKey($groupId)->value('name');
         $pivot->delete();
+
+        if ($audit) {
+            OrderAudit::record($order, 'ungrouped', [
+                'group_id' => $groupId,
+                'group_name' => $groupName,
+                'source' => $order->package_subscription_id ? 'package' : 'menu',
+            ]);
+        }
 
         $remaining = OrderGroupOrder::where('order_group_id', $groupId)->count();
 
