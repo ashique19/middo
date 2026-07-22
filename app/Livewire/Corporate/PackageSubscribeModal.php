@@ -398,6 +398,43 @@ class PackageSubscribeModal extends Component
         $this->walletBalance = (int) (Auth::user()?->balance ?? 0);
     }
 
+    public function canPayWithWallet(): bool
+    {
+        $total = (int) ($this->quote['total_amount'] ?? 0);
+
+        return $this->walletBalance > 0 && $total > 0 && $this->walletBalance >= $total;
+    }
+
+    public function payWithWallet(): void
+    {
+        $this->paymentMethod = 'balance';
+        $this->initiateConfirmation();
+    }
+
+    public function resendOtp(): void
+    {
+        if ($this->paymentMethod === 'gateway' && $this->gatewayPaymentToken) {
+            $this->errorMessage = '';
+            $otpResult = OrderConfirmationOtp::send($this->mobile);
+            if (! ($otpResult['ok'] ?? false)) {
+                $this->errorMessage = $otpResult['message'] ?? 'Could not send OTP. Try again.';
+
+                return;
+            }
+
+            $this->isConfirmingOtp = true;
+            $this->otpInput = '';
+            $this->debugOtp = isset($otpResult['debug_otp']) ? (string) $otpResult['debug_otp'] : null;
+            $this->statusMessage = $this->debugOtp
+                ? 'OTP resent. Debug code: '.$this->debugOtp
+                : 'OTP resent to '.$this->mobile.'.';
+
+            return;
+        }
+
+        $this->payWithWallet();
+    }
+
     public function initiateConfirmation(): void
     {
         $this->errorMessage = '';
@@ -431,8 +468,7 @@ class PackageSubscribeModal extends Component
             return;
         }
 
-        $total = (int) ($this->quote['total_amount'] ?? 0);
-        if ($this->paymentMethod === 'balance' && $this->walletBalance < $total) {
+        if ($this->paymentMethod === 'balance' && ! $this->canPayWithWallet()) {
             $this->errorMessage = 'Insufficient Middo Balance. Top up your wallet or pay online.';
 
             return;
@@ -456,7 +492,27 @@ class PackageSubscribeModal extends Component
     public function startGatewayPayment(): void
     {
         $this->errorMessage = '';
+        $this->statusMessage = '';
+        $this->resetErrorBag();
         $this->refreshQuote();
+
+        try {
+            $this->validate([
+                'customerName' => 'required|string|min:2|max:120',
+                'mobile' => 'required|string|min:11|max:20',
+                'addressLine1' => 'required|string|min:5|max:500',
+                'city_id' => 'required|exists:cities,id',
+                'area_id' => 'required|exists:areas,id',
+                'deliveryWindow' => 'required|in:12:00 PM,11:30 AM',
+                'quantity' => 'required|integer|min:1|max:'.(int) config('middo.max_order_qty_allowed', 5),
+                'targetMonth' => 'required|date_format:Y-m',
+            ]);
+        } catch (ValidationException $e) {
+            $this->errorMessage = collect($e->validator->errors()->all())->implode(' ');
+            $this->setErrorBag($e->validator->errors());
+
+            return;
+        }
 
         try {
             PackageBilling::assertSelectionsFillMonth($this->quote);
@@ -494,7 +550,20 @@ class PackageSubscribeModal extends Component
         $this->gatewayPaymentToken = $checkout['token'] ?? null;
         $this->gatewayPaymentUrl = $checkout['payment_url'] ?? null;
         $this->paymentMethod = 'gateway';
-        $this->statusMessage = 'Online checkout started. Complete payment, then confirm with OTP.';
+
+        $otpResult = OrderConfirmationOtp::send($this->mobile);
+        if (! ($otpResult['ok'] ?? false)) {
+            $this->errorMessage = $otpResult['message'] ?? 'Could not send OTP. Try again.';
+
+            return;
+        }
+
+        $this->isConfirmingOtp = true;
+        $this->otpInput = '';
+        $this->debugOtp = isset($otpResult['debug_otp']) ? (string) $otpResult['debug_otp'] : null;
+        $this->statusMessage = $this->debugOtp
+            ? 'Complete online payment, then enter OTP. Debug code: '.$this->debugOtp
+            : 'Complete online payment, then enter the OTP sent to '.$this->mobile.'.';
     }
 
     public function finalizeSubscribe(): void

@@ -230,6 +230,71 @@ class MealPackageTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_subscribe_modal_hides_wallet_pay_when_balance_is_zero(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'balance' => 0,
+        ]);
+        $menu = $this->makeMenuItem('Menu A');
+        $package = $this->makeRatePlan(79);
+        $workingDays = $this->workingDays('2026-07');
+
+        $component = \Livewire\Livewire::actingAs($user)
+            ->test(\App\Livewire\Corporate\PackageSubscribeModal::class)
+            ->call('open', $package->id);
+
+        for ($i = 0; $i < $workingDays; $i++) {
+            $component->call('changeMenuDays', $menu->id, 1);
+        }
+
+        $component
+            ->assertSet('fillsMonth', true)
+            ->assertSet('walletBalance', 0)
+            ->assertDontSee('Pay with Middo wallet')
+            ->assertSee('Pay online')
+            ->assertDontSee('Pay online instead')
+            ->assertDontSee('Confirm & pay with wallet');
+
+        Carbon::setTestNow();
+    }
+
+    public function test_subscribe_modal_shows_wallet_pay_when_balance_covers_total(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'balance' => 50000,
+        ]);
+        $menu = $this->makeMenuItem('Menu A');
+        $package = $this->makeRatePlan(79);
+        $workingDays = $this->workingDays('2026-07');
+
+        $component = \Livewire\Livewire::actingAs($user)
+            ->test(\App\Livewire\Corporate\PackageSubscribeModal::class)
+            ->call('open', $package->id);
+
+        for ($i = 0; $i < $workingDays; $i++) {
+            $component->call('changeMenuDays', $menu->id, 1);
+        }
+
+        $component
+            ->assertSet('fillsMonth', true)
+            ->assertSee('Pay with Middo wallet')
+            ->assertSee('Pay online')
+            ->assertDontSee('Pay online instead')
+            ->assertDontSee('Confirm & pay with wallet');
+
+        Carbon::setTestNow();
+    }
+
     public function test_corporate_can_subscribe_prepaid_then_ops_schedules_and_skip_refunds(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
