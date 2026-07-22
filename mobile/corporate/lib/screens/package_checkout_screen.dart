@@ -28,7 +28,8 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
   final _omitted = <int>{5, 6};
   final _menuDays = <int, int>{};
   late String _targetMonth;
-  late List<({String value, String label})> _monthOptions;
+  late List<({String value, String label, bool locked})> _monthOptions;
+  final _orderedMonths = <String>{};
   int _quantity = 1;
   final _nameCtrl = TextEditingController();
   final _mobileCtrl = TextEditingController();
@@ -51,6 +52,10 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    _rebuildMonthOptions();
+  }
+
+  void _rebuildMonthOptions() {
     final now = DateTime.now();
     _monthOptions = List.generate(4, (i) {
       final d = DateTime(now.year, now.month + i, 1);
@@ -70,9 +75,16 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
         'Nov',
         'Dec',
       ];
-      return (value: value, label: '${months[d.month - 1]} ${d.year}');
+      return (
+        value: value,
+        label: '${months[d.month - 1]} ${d.year}',
+        locked: _orderedMonths.contains(value),
+      );
     });
-    _targetMonth = _monthOptions.first.value;
+    final available = _monthOptions.where((o) => !o.locked);
+    _targetMonth = available.isNotEmpty
+        ? available.first.value
+        : _monthOptions.first.value;
   }
 
   @override
@@ -106,10 +118,12 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
         repo.packageShow(widget.packageId),
         repo.packageMenus(widget.packageId),
         repo.me(),
+        repo.myPackages(),
       ]);
       final pkg = results[0] as MealPackage;
       final menus = results[1] as List<MenuItem>;
       final user = results[2] as CorporateUser;
+      final subs = results[3] as List<PackageSubscription>;
       _package = pkg;
       _menus = menus;
       _profile = user;
@@ -118,6 +132,18 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
       _addressCtrl.text = user.address ?? '';
       _cityId = user.cityId;
       _areaId = user.areaId;
+      _orderedMonths
+        ..clear()
+        ..addAll(
+          subs
+              .where(
+                (s) =>
+                    s.status != 'cancelled' &&
+                    (s.targetMonth?.isNotEmpty ?? false),
+              )
+              .map((s) => s.targetMonth!),
+        );
+      _rebuildMonthOptions();
       await _refreshQuote();
       setState(() => _loading = false);
     } catch (e) {
@@ -155,6 +181,11 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
       }
       if (_selections.isEmpty) {
         throw Exception('Pick menus for every working day this month.');
+      }
+      if (_orderedMonths.contains(_targetMonth)) {
+        throw Exception(
+          'You already ordered a package for this month. Choose another month.',
+        );
       }
       if (_quote == null ||
           _quote!.billableDays != _quote!.availableDays ||
@@ -242,24 +273,50 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
                 ),
           ),
           const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _targetMonth,
-            decoration: const InputDecoration(labelText: 'Target month'),
-            items: [
+          Text(
+            'One package per month. Ordered months are locked.',
+            style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
               for (final option in _monthOptions)
-                DropdownMenuItem(
-                  value: option.value,
-                  child: Text(option.label),
+                ChoiceChip(
+                  label: Text(
+                    option.locked
+                        ? '${option.label} · ordered'
+                        : option.label,
+                  ),
+                  selected: _targetMonth == option.value && !option.locked,
+                  onSelected: (_otpStep || option.locked)
+                      ? null
+                      : (selected) async {
+                          if (!selected) return;
+                          setState(() => _targetMonth = option.value);
+                          await _refreshQuote();
+                        },
+                  disabledColor: Colors.grey.shade300,
+                  labelStyle: TextStyle(
+                    color: option.locked ? Colors.grey.shade600 : null,
+                    decoration:
+                        option.locked ? TextDecoration.lineThrough : null,
+                  ),
                 ),
             ],
-            onChanged: _otpStep
-                ? null
-                : (value) async {
-                    if (value == null) return;
-                    setState(() => _targetMonth = value);
-                    await _refreshQuote();
-                  },
           ),
+          if (_monthOptions.every((o) => o.locked)) ...[
+            const SizedBox(height: 8),
+            Text(
+              'All upcoming months already have a package.',
+              style: TextStyle(
+                color: Colors.orange.shade800,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Text(
             'Omit weekdays / off-days',

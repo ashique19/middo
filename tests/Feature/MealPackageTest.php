@@ -546,7 +546,8 @@ class MealPackageTest extends TestCase
         $this->getJson('/api/corporate/packages')
             ->assertOk()
             ->assertJsonPath('packages.0.id', (string) $package->id)
-            ->assertJsonStructure(['menus']);
+            ->assertJsonPath('ordered_months', [])
+            ->assertJsonStructure(['menus', 'ordered_months']);
 
         $otpResponse = $this->postJson('/api/corporate/packages/send-otp', [
             'mobile' => '01710123456',
@@ -582,6 +583,72 @@ class MealPackageTest extends TestCase
             ->assertOk()
             ->assertJsonPath('subscription.id', (string) $subscriptionId)
             ->assertJsonPath('subscription.selections.0.day_count', $workingDays);
+
+        $this->getJson('/api/corporate/packages')
+            ->assertOk()
+            ->assertJsonPath('ordered_months.0', '2026-08');
+
+        Carbon::setTestNow();
+    }
+
+    public function test_corporate_cannot_order_second_package_for_same_month(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'balance' => 100000,
+        ]);
+        $menu = $this->makeMenuItem();
+        $packageA = $this->makeRatePlan(79);
+        $packageB = $this->makeRatePlan(99);
+
+        $this->subscribeWithSelection($user, $packageA, $menu, $city, $area, null, '2026-08');
+
+        try {
+            $this->subscribeWithSelection($user, $packageB, $menu, $city, $area, null, '2026-08');
+            $this->fail('Expected duplicate-month subscribe to throw.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('already ordered a package for August 2026', $e->getMessage());
+        }
+
+        Carbon::setTestNow();
+    }
+
+    public function test_subscribe_modal_marks_ordered_months_as_locked(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'balance' => 50000,
+        ]);
+        $menu = $this->makeMenuItem();
+        $package = $this->makeRatePlan(79);
+
+        $this->subscribeWithSelection($user, $package, $menu, $city, $area, null, '2026-07');
+
+        $component = \Livewire\Livewire::actingAs($user)
+            ->test(\App\Livewire\Corporate\PackageSubscribeModal::class)
+            ->call('open', $package->id)
+            ->assertSee('Package ordered');
+
+        $options = collect($component->get('monthOptions'));
+        $july = $options->firstWhere('value', '2026-07');
+        $this->assertNotNull($july);
+        $this->assertTrue((bool) ($july['locked'] ?? false));
+        $this->assertNotSame('2026-07', $component->get('targetMonth'));
+
+        $before = $component->get('targetMonth');
+        $component
+            ->call('selectMonth', '2026-07')
+            ->assertSet('targetMonth', $before);
+
+        $this->assertStringContainsString('already ordered a package', $component->get('errorMessage'));
 
         Carbon::setTestNow();
     }

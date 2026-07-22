@@ -58,6 +58,16 @@ class PackageSubscriptionService
 
         PackageBilling::assertSelectionsFillMonth($quote);
 
+        if (PackageSubscription::userHasPackageForMonth((int) $user->id, (string) $quote['target_month'])) {
+            $label = Carbon::createFromFormat('Y-m', (string) $quote['target_month'])
+                ->timezone(OrderCutoff::timezone())
+                ->format('F Y');
+
+            throw new RuntimeException(
+                'You already ordered a package for '.$label.'. That month is locked — choose another month.'
+            );
+        }
+
         $city = City::findOrFail($cityId);
         $area = Area::findOrFail($areaId);
         if ((int) $area->city_id !== (int) $city->id) {
@@ -86,6 +96,16 @@ class PackageSubscriptionService
         ) {
             /** @var User $locked */
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
+
+            if (PackageSubscription::userHasPackageForMonth((int) $locked->id, (string) $quote['target_month'])) {
+                $label = Carbon::createFromFormat('Y-m', (string) $quote['target_month'])
+                    ->timezone(OrderCutoff::timezone())
+                    ->format('F Y');
+
+                throw new RuntimeException(
+                    'You already ordered a package for '.$label.'. That month is locked — choose another month.'
+                );
+            }
 
             if ($paymentMethod === 'balance') {
                 if ((int) $locked->balance < $total) {

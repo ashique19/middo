@@ -49,11 +49,35 @@
                         <div class="space-y-5">
                             <div>
                                 <label class="block text-xs font-black uppercase tracking-wider text-gray-400 mb-2">Target month</label>
-                                <select wire:model.live="targetMonth" class="w-full border-gray-200 rounded-xl text-sm p-2.5 bg-white" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                <p class="text-[11px] text-gray-500 mb-2">One package per month. Ordered months are locked.</p>
+                                <div class="grid grid-cols-2 gap-2">
                                     @foreach($monthOptions as $option)
-                                        <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                                        @php
+                                            $locked = (bool) ($option['locked'] ?? false);
+                                            $selected = $targetMonth === $option['value'];
+                                        @endphp
+                                        <button type="button"
+                                            wire:click="selectMonth('{{ $option['value'] }}')"
+                                            wire:key="month-{{ $option['value'] }}"
+                                            @disabled($locked || $isConfirmingOtp)
+                                            @class([
+                                                'rounded-xl border px-3 py-3 text-left transition',
+                                                'opacity-45 grayscale blur-[0.4px] cursor-not-allowed bg-gray-100 border-gray-200 text-gray-400' => $locked,
+                                                'border-middo-orange bg-[#FFF7F0] ring-2 ring-middo-orange/30' => $selected && ! $locked,
+                                                'border-gray-200 bg-white hover:border-middo-orange/40' => ! $selected && ! $locked,
+                                            ])>
+                                            <div class="text-sm font-black {{ $locked ? 'text-gray-400' : 'text-gray-800' }}">{{ $option['label'] }}</div>
+                                            <div class="text-[10px] font-black uppercase tracking-wider mt-1 {{ $locked ? 'text-gray-400' : 'text-middo-orange' }}">
+                                                {{ $locked ? 'Package ordered' : ($selected ? 'Selected' : 'Available') }}
+                                            </div>
+                                        </button>
                                     @endforeach
-                                </select>
+                                </div>
+                                @if($this->firstAvailableMonth() === null)
+                                    <p class="mt-2 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                                        All upcoming months already have a package. You cannot order another until a new month opens.
+                                    </p>
+                                @endif
                             </div>
 
                             <div>
@@ -195,22 +219,31 @@
                                 @php
                                     $totalDue = (int) ($quote['total_amount'] ?? 0);
                                     $canPayWithWallet = $walletBalance > 0 && $walletBalance >= $totalDue && $totalDue > 0;
+                                    $monthLocked = $this->isTargetMonthLocked();
                                 @endphp
                                 <div class="flex flex-col gap-2">
+                                    @if($monthLocked)
+                                        <p class="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                                            Select an available month before paying.
+                                        </p>
+                                    @endif
                                     @if($canPayWithWallet)
                                         <button type="button" wire:click="payWithWallet" wire:loading.attr="disabled"
-                                                class="w-full bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl transition disabled:opacity-60">
+                                                class="w-full bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl transition disabled:opacity-60"
+                                                {{ $monthLocked ? 'disabled' : '' }}>
                                             <span wire:loading.remove wire:target="payWithWallet">Pay with Middo wallet</span>
                                             <span wire:loading wire:target="payWithWallet">Checking…</span>
                                         </button>
                                         <button type="button" wire:click="startGatewayPayment" wire:loading.attr="disabled"
-                                                class="w-full border border-gray-200 bg-white text-gray-700 font-black text-xs uppercase tracking-wider py-3 rounded-xl disabled:opacity-60">
+                                                class="w-full border border-gray-200 bg-white text-gray-700 font-black text-xs uppercase tracking-wider py-3 rounded-xl disabled:opacity-60"
+                                                {{ $monthLocked ? 'disabled' : '' }}>
                                             <span wire:loading.remove wire:target="startGatewayPayment">Pay online</span>
                                             <span wire:loading wire:target="startGatewayPayment">Redirecting…</span>
                                         </button>
                                     @else
                                         <button type="button" wire:click="startGatewayPayment" wire:loading.attr="disabled"
-                                                class="w-full bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl transition disabled:opacity-60">
+                                                class="w-full bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl transition disabled:opacity-60"
+                                                {{ $monthLocked ? 'disabled' : '' }}>
                                             <span wire:loading.remove wire:target="startGatewayPayment">Pay online</span>
                                             <span wire:loading wire:target="startGatewayPayment">Redirecting…</span>
                                         </button>
