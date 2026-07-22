@@ -54,6 +54,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 
     Route::get('/navs-roles', [NavRoleController::class, 'index'])->name('admin.navrole.index');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('admin.middo-cash');
+    Route::get('/accounts', \App\Livewire\Shared\AccountsHub::class)->name('admin.accounts.index');
 
     Route::get('/corporates', CorporateTable::class)->name('admin.corporates.index');
     Route::get('/corporates/{corporate}', CorporateShow::class)->name('admin.corporates.show');

@@ -21,6 +21,13 @@ class Order extends Model
         'delivery_date',
         'delivery_time',
         'total_amount',
+        'food_amount',
+        'charges_amount',
+        'discount_amount',
+        'kitchen_share_amount',
+        'delivery_share_amount',
+        'direct_cost_amount',
+        'middo_rest_amount',
         'amount_paid',
         'prepaid_amount',
         'cash_collected',
@@ -42,6 +49,13 @@ class Order extends Model
         'dispatched_at' => 'datetime',
         'quantity' => 'integer',
         'total_amount' => 'integer',
+        'food_amount' => 'integer',
+        'charges_amount' => 'integer',
+        'discount_amount' => 'integer',
+        'kitchen_share_amount' => 'integer',
+        'delivery_share_amount' => 'integer',
+        'direct_cost_amount' => 'integer',
+        'middo_rest_amount' => 'integer',
         'amount_paid' => 'integer',
         'prepaid_amount' => 'integer',
         'cash_collected' => 'integer',
@@ -60,6 +74,16 @@ class Order extends Model
     public function menuItem(): BelongsTo
     {
         return $this->belongsTo(MenuItem::class);
+    }
+
+    public function moneyEvents(): HasMany
+    {
+        return $this->hasMany(OrderMoneyEvent::class);
+    }
+
+    public function partnerPayables(): HasMany
+    {
+        return $this->hasMany(PartnerPayable::class);
     }
 
     public function packageSubscription(): BelongsTo

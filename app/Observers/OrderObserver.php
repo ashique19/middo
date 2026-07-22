@@ -14,6 +14,15 @@ class OrderObserver
         $this->writeLog($order, 'created', [
             'snapshot' => $this->snapshot($order),
         ]);
+
+        try {
+            \App\Support\OrderMoneyFlow::onOrderCreated($order);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Order money flow create failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function updated(Order $order): void
@@ -38,6 +47,15 @@ class OrderObserver
         $event = $this->resolveEvent($diff);
 
         $this->writeLog($order, $event, ['changes' => $diff]);
+
+        try {
+            \App\Support\OrderMoneyFlow::onOrderUpdated($order);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Order money flow update failed', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         if (array_key_exists('order_status', $changes)) {
             try {

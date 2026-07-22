@@ -5,6 +5,7 @@ namespace App\Livewire\Shared;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Support\CorporateApiPresenter;
+use App\Support\OrderMoneyFlow;
 use App\Support\OrderPaymentMethod;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +33,8 @@ class OrderShow extends Component
             'logs.performedBy',
             'createdBy',
             'updatedBy',
+            'moneyEvents',
+            'partnerPayables.beneficiary',
         ]);
 
         $this->order = $order;
@@ -139,6 +142,7 @@ class OrderShow extends Component
             'kitchen' => $this->order->orderGroup?->kitchen,
             'group' => $this->order->orderGroup,
             'rider' => $this->order->deliveryRider,
+            'moneyTree' => OrderMoneyFlow::treeForOrder($this->order),
         ])->layout('layouts.private.app', [
             'title' => 'Order #'.$this->order->id,
         ]);

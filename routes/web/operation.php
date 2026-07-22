@@ -59,4 +59,5 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/middo-boxes', MiddoBoxes::class)->name('operation.middo-boxes.index');
     Route::get('/middo-boxes/{middoBox}/print', MiddoBoxPrintController::class)->name('operation.middo-boxes.print');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('operation.middo-cash');
+    Route::get('/accounts', \App\Livewire\Shared\AccountsHub::class)->name('operation.accounts.index');
 });

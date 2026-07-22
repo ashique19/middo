@@ -28,6 +28,10 @@
                         <input value="৳{{ number_format($kitchen_commission) }}" type="text" readonly class="w-full bg-gray-100 border border-gray-200 rounded-lg p-3">
                     </div>
                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Delivery share (৳ / item)</label>
+                        <input wire:model="delivery_commission" type="number" min="0" step="1" class="w-full border-gray-300 rounded-lg p-3">
+                    </div>
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Other Cost (৳)</label>
                         <input wire:model="other_cost" type="number" min="0" step="1" class="w-full border-gray-300 rounded-lg p-3">
                     </div>

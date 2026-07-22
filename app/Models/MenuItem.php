@@ -13,6 +13,7 @@ class MenuItem extends Model
         'summary',
         'price',
         'kitchen_commission',
+        'delivery_commission',
         'thumbnail',
         'is_featured',
         'is_homepage',
@@ -25,6 +26,7 @@ class MenuItem extends Model
     protected $casts = [
         'price' => 'integer',
         'kitchen_commission' => 'integer',
+        'delivery_commission' => 'integer',
         'meals_cost' => 'integer',
         'other_cost' => 'integer',
         'is_featured' => 'boolean',

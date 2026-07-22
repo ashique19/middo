@@ -1,0 +1,273 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Area;
+use App\Models\CashHandover;
+use App\Models\CashHandoverOrder;
+use App\Models\City;
+use App\Models\MenuItem;
+use App\Models\Order;
+use App\Models\OrderGroup;
+use App\Models\OrderGroupOrder;
+use App\Models\OrderMoneyEvent;
+use App\Models\PartnerPayable;
+use App\Models\Role;
+use App\Models\User;
+use App\Support\MiddoCashLedger;
+use App\Support\OrderMoneyFlow;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+class OrderAccountsTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function role(string $name): Role
+    {
+        return Role::firstOrCreate(['name' => $name]);
+    }
+
+    private function user(string $roleName, array $overrides = []): User
+    {
+        return User::create(array_merge([
+            'first_name' => ucfirst($roleName),
+            'last_name' => 'User',
+            'mobile' => '01310'.str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT),
+            'password' => '12345678',
+            'role_id' => $this->role($roleName)->id,
+            'status' => 'active',
+            'is_mobile_verified' => true,
+            'balance' => 0,
+        ], $overrides));
+    }
+
+    public function test_order_create_writes_billing_and_payment_events(): void
+    {
+        $corporate = $this->user('corporate', ['balance' => 5000]);
+        $menu = MenuItem::create([
+            'name' => 'Thali',
+            'price' => 200,
+            'kitchen_commission' => 40,
+            'delivery_commission' => 20,
+            'meals_cost' => 80,
+            'other_cost' => 10,
+        ]);
+
+        $order = Order::create([
+            'user_id' => $corporate->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 2,
+            'delivery_date' => now('Asia/Dhaka')->addDay()->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 400,
+            'amount_paid' => 400,
+            'prepaid_amount' => 400,
+            'address' => 'Test',
+            'receiver_name' => 'R',
+            'receiver_mobile' => '01710123456',
+            'order_status' => 'pending',
+            'payment_status' => 'paid',
+            'payment_method' => 'balance',
+            'created_by' => $corporate->id,
+            'updated_by' => $corporate->id,
+        ]);
+
+        $order->refresh();
+        $this->assertSame(400, (int) $order->food_amount);
+        $this->assertSame(80, (int) $order->kitchen_share_amount); // snapshotted at create via breakdown
+        $this->assertTrue(OrderMoneyEvent::query()->where('order_id', $order->id)->where('event_type', 'placed')->exists());
+        $this->assertTrue(OrderMoneyEvent::query()->where('order_id', $order->id)->where('event_type', 'payment')->exists());
+
+        $tree = OrderMoneyFlow::treeForOrder($order->fresh(['moneyEvents', 'partnerPayables', 'menuItem']));
+        $this->assertSame(400, $tree['summary']['food']);
+        $this->assertNotEmpty($tree['billing']);
+        $this->assertNotEmpty($tree['movements']);
+    }
+
+    public function test_delivered_and_paid_accrues_partner_payables(): void
+    {
+        $corporate = $this->user('corporate');
+        $kitchen = $this->user('kitchen');
+        $rider = $this->user('delivery');
+        $menu = MenuItem::create([
+            'name' => 'Thali',
+            'price' => 200,
+            'kitchen_commission' => 50,
+            'delivery_commission' => 25,
+            'meals_cost' => 70,
+            'other_cost' => 5,
+        ]);
+
+        $order = Order::create([
+            'user_id' => $corporate->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 2,
+            'delivery_date' => now('Asia/Dhaka')->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 400,
+            'amount_paid' => 0,
+            'address' => 'Test',
+            'receiver_name' => 'R',
+            'receiver_mobile' => '01710123456',
+            'order_status' => 'on_the_way_to_delivery',
+            'payment_status' => 'pending',
+            'payment_method' => 'cash_on_delivery',
+            'delivery_rider_id' => $rider->id,
+            'created_by' => $corporate->id,
+            'updated_by' => $corporate->id,
+        ]);
+
+        $group = OrderGroup::create([
+            'name' => 'Group',
+            'delivery_date' => $order->delivery_date,
+            'menu_id' => $menu->id,
+            'kitchen_id' => $kitchen->id,
+            'created_by' => $kitchen->id,
+        ]);
+        OrderGroupOrder::create([
+            'order_group_id' => $group->id,
+            'order_id' => $order->id,
+        ]);
+
+        $order->update([
+            'order_status' => 'delivered_and_paid',
+            'payment_status' => 'paid',
+            'amount_paid' => 400,
+            'cash_collected' => 400,
+        ]);
+
+        $this->assertDatabaseHas('partner_payables', [
+            'order_id' => $order->id,
+            'beneficiary_role' => 'kitchen',
+            'amount' => 100,
+            'status' => 'open',
+        ]);
+        $this->assertDatabaseHas('partner_payables', [
+            'order_id' => $order->id,
+            'beneficiary_role' => 'delivery',
+            'amount' => 50,
+            'status' => 'open',
+        ]);
+
+        $order->refresh();
+        $this->assertSame(250, (int) $order->middo_rest_amount); // 400 - 100 - 50
+        $this->assertTrue(OrderMoneyEvent::query()->where('order_id', $order->id)->where('event_type', 'cash_collected')->exists());
+        $this->assertTrue(OrderMoneyEvent::query()->where('order_id', $order->id)->where('event_type', 'middo_rest')->exists());
+    }
+
+    public function test_settle_payable_debits_middo_cash_and_records_event(): void
+    {
+        $admin = $this->user('admin');
+        $corporate = $this->user('corporate');
+        $kitchen = $this->user('kitchen');
+        $menu = MenuItem::create([
+            'name' => 'Thali',
+            'price' => 200,
+            'kitchen_commission' => 40,
+            'delivery_commission' => 0,
+        ]);
+
+        $order = Order::create([
+            'user_id' => $corporate->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => now('Asia/Dhaka')->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 200,
+            'amount_paid' => 200,
+            'address' => 'Test',
+            'receiver_name' => 'R',
+            'receiver_mobile' => '01710123456',
+            'order_status' => 'delivered_and_paid',
+            'payment_status' => 'paid',
+            'payment_method' => 'balance',
+            'created_by' => $corporate->id,
+            'updated_by' => $corporate->id,
+        ]);
+
+        // Seed Middo cash so settlement can debit.
+        MiddoCashLedger::credit(500, 'seed', null, null, 'Seed', $admin->id);
+
+        $payable = PartnerPayable::create([
+            'order_id' => $order->id,
+            'beneficiary_user_id' => $kitchen->id,
+            'beneficiary_role' => PartnerPayable::ROLE_KITCHEN,
+            'amount' => 40,
+            'status' => PartnerPayable::STATUS_OPEN,
+        ]);
+
+        OrderMoneyFlow::settlePayable($payable, $admin->id);
+
+        $this->assertSame(460, MiddoCashLedger::balance());
+        $this->assertSame(PartnerPayable::STATUS_SETTLED, $payable->fresh()->status);
+        $this->assertTrue(OrderMoneyEvent::query()
+            ->where('order_id', $order->id)
+            ->where('event_type', 'payable_settled')
+            ->exists());
+    }
+
+    public function test_cash_handover_records_cash_to_middo_with_balance(): void
+    {
+        $kitchen = $this->user('kitchen');
+        $rider = $this->user('delivery', ['balance' => 300]);
+        $corporate = $this->user('corporate');
+        $menu = MenuItem::create(['name' => 'Thali', 'price' => 200]);
+
+        $order = Order::create([
+            'user_id' => $corporate->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => now('Asia/Dhaka')->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 200,
+            'amount_paid' => 200,
+            'cash_collected' => 200,
+            'address' => 'Test',
+            'receiver_name' => 'R',
+            'receiver_mobile' => '01710123456',
+            'order_status' => 'delivered_and_paid',
+            'payment_status' => 'paid',
+            'payment_method' => 'cash_on_delivery',
+            'delivery_rider_id' => $rider->id,
+            'created_by' => $corporate->id,
+            'updated_by' => $corporate->id,
+        ]);
+
+        $handover = CashHandover::create([
+            'rider_id' => $rider->id,
+            'amount' => 200,
+            'status' => 'pending',
+        ]);
+        CashHandoverOrder::create([
+            'cash_handover_id' => $handover->id,
+            'order_id' => $order->id,
+            'amount' => 200,
+        ]);
+
+        Livewire::actingAs($kitchen)
+            ->test(\App\Livewire\Kitchen\CashHandovers::class)
+            ->call('accept', $handover->id)
+            ->assertSet('errorMessage', null);
+
+        $this->assertSame(200, MiddoCashLedger::balance());
+        $event = OrderMoneyEvent::query()
+            ->where('order_id', $order->id)
+            ->where('event_type', 'cash_to_middo')
+            ->first();
+        $this->assertNotNull($event);
+        $this->assertSame(200, (int) $event->middo_cash_balance_after);
+    }
+
+    public function test_admin_accounts_hub_loads(): void
+    {
+        $admin = $this->user('admin');
+
+        Livewire::actingAs($admin)
+            ->test(\App\Livewire\Shared\AccountsHub::class)
+            ->assertStatus(200)
+            ->assertSee('Accounts')
+            ->assertSee('Middo cash on hand');
+    }
+}

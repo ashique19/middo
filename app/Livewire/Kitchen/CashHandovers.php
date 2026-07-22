@@ -57,6 +57,8 @@ class CashHandovers extends Component
                     'accepted_by' => $kitchenId,
                     'accepted_at' => now(),
                 ]);
+
+                \App\Support\OrderMoneyFlow::recordCashHandover($handover->fresh(['items.order']));
             });
 
             $this->statusMessage = "Cash handover #{$handoverId} accepted. Middo cash ledger updated.";
