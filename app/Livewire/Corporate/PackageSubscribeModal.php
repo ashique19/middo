@@ -10,8 +10,8 @@ use App\Models\User;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PackageBilling;
 use App\Support\PackageSubscriptionService;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -25,7 +25,7 @@ class PackageSubscribeModal extends Component
 
     public array $menuCatalog = [];
 
-    /** @var array<int, int> menu_item_id => day_count */
+    /** @var array<string, int> menu_item_id => day_count (string keys for Livewire) */
     public array $menuDayCounts = [];
 
     public array $omittedWeekdays = [5, 6]; // Fri, Sat
@@ -66,7 +66,17 @@ class PackageSubscribeModal extends Component
 
     public string $errorMessage = '';
 
+    public string $statusMessage = '';
+
+    public ?string $debugOtp = null;
+
     public int $walletBalance = 0;
+
+    public int $selectedDays = 0;
+
+    public int $workingDays = 0;
+
+    public bool $fillsMonth = false;
 
     public array $monthOptions = [];
 
@@ -88,7 +98,8 @@ class PackageSubscribeModal extends Component
         /** @var User $user */
         $user = Auth::user();
 
-        $this->packageId = $model->id;
+        $this->resetErrorBag();
+        $this->packageId = (int) $model->id;
         $this->package = [
             'id' => $model->id,
             'name' => $model->name,
@@ -130,6 +141,8 @@ class PackageSubscribeModal extends Component
         $this->gatewayPaymentToken = null;
         $this->gatewayPaymentUrl = null;
         $this->errorMessage = '';
+        $this->statusMessage = '';
+        $this->debugOtp = null;
         $this->walletBalance = (int) $user->balance;
 
         if ($this->city_id) {
@@ -162,8 +175,15 @@ class PackageSubscribeModal extends Component
         $this->package = [];
         $this->menuCatalog = [];
         $this->menuDayCounts = [];
+        $this->quote = [];
         $this->isConfirmingOtp = false;
         $this->errorMessage = '';
+        $this->statusMessage = '';
+        $this->debugOtp = null;
+        $this->selectedDays = 0;
+        $this->workingDays = 0;
+        $this->fillsMonth = false;
+        $this->resetErrorBag();
     }
 
     public function updatedCityId($value): void
@@ -171,14 +191,9 @@ class PackageSubscribeModal extends Component
         $this->loadAreasForSelectedCity($value);
     }
 
-    public function updatedOmittedWeekdays(): void
-    {
-        $this->omittedWeekdays = PackageBilling::normalizeOmittedWeekdays($this->omittedWeekdays);
-        $this->refreshQuote();
-    }
-
     public function updatedTargetMonth(): void
     {
+        $this->errorMessage = '';
         $this->refreshQuote();
     }
 
@@ -194,24 +209,28 @@ class PackageSubscribeModal extends Component
             1,
             min((int) config('middo.max_order_qty_allowed', 5), $this->quantity + $delta)
         );
-        $this->refreshQuote();
-    }
-
-    public function setMenuDays(int $menuItemId, int $days): void
-    {
-        $days = max(0, min(31, $days));
-        if ($days < 1) {
-            unset($this->menuDayCounts[$menuItemId]);
-        } else {
-            $this->menuDayCounts[$menuItemId] = $days;
-        }
+        $this->errorMessage = '';
         $this->refreshQuote();
     }
 
     public function changeMenuDays(int $menuItemId, int $delta): void
     {
-        $current = (int) ($this->menuDayCounts[$menuItemId] ?? 0);
-        $this->setMenuDays($menuItemId, $current + $delta);
+        $key = (string) $menuItemId;
+        $current = (int) ($this->menuDayCounts[$key] ?? 0);
+        $next = max(0, min(31, $current + $delta));
+
+        $counts = $this->menuDayCounts;
+        if ($next < 1) {
+            unset($counts[$key]);
+        } else {
+            $counts[$key] = $next;
+        }
+
+        // Reassign so Livewire reliably detects the nested change.
+        $this->menuDayCounts = $counts;
+        $this->errorMessage = '';
+        $this->statusMessage = '';
+        $this->refreshQuote();
     }
 
     public function toggleWeekday(int $day): void
@@ -231,6 +250,7 @@ class PackageSubscribeModal extends Component
         }
 
         $this->omittedWeekdays = PackageBilling::normalizeOmittedWeekdays($this->omittedWeekdays);
+        $this->errorMessage = '';
         $this->refreshQuote();
     }
 
@@ -266,8 +286,12 @@ class PackageSubscribeModal extends Component
 
     protected function refreshQuote(): void
     {
+        $this->selectedDays = (int) collect($this->menuDayCounts)->sum(fn ($days) => (int) $days);
+
         if (! $this->packageId) {
             $this->quote = [];
+            $this->workingDays = 0;
+            $this->fillsMonth = false;
 
             return;
         }
@@ -275,6 +299,8 @@ class PackageSubscribeModal extends Component
         $model = MealPackage::find($this->packageId);
         if (! $model) {
             $this->quote = [];
+            $this->workingDays = 0;
+            $this->fillsMonth = false;
 
             return;
         }
@@ -287,8 +313,15 @@ class PackageSubscribeModal extends Component
                 $this->omittedWeekdays,
                 $this->targetMonth ?: now('Asia/Dhaka')->format('Y-m')
             );
+            $this->workingDays = (int) ($this->quote['available_days'] ?? 0);
+            $this->selectedDays = (int) ($this->quote['billable_days'] ?? $this->selectedDays);
+            $this->fillsMonth = (bool) ($this->quote['fills_month'] ?? false);
         } catch (\Throwable $e) {
-            $this->quote = [];
+            $this->workingDays = PackageBilling::availableDatesInMonth(
+                $this->targetMonth ?: now('Asia/Dhaka')->format('Y-m'),
+                $this->omittedWeekdays
+            )->count();
+            $this->fillsMonth = false;
             $this->errorMessage = $e->getMessage();
         }
 
@@ -298,29 +331,32 @@ class PackageSubscribeModal extends Component
     public function initiateConfirmation(): void
     {
         $this->errorMessage = '';
-        $this->validate([
-            'customerName' => 'required|string|min:2|max:120',
-            'mobile' => 'required|string|min:11|max:20',
-            'addressLine1' => 'required|string|min:5|max:500',
-            'city_id' => 'required|exists:cities,id',
-            'area_id' => 'required|exists:areas,id',
-            'deliveryWindow' => 'required|in:12:00 PM,11:30 AM',
-            'quantity' => 'required|integer|min:1|max:'.(int) config('middo.max_order_qty_allowed', 5),
-            'targetMonth' => 'required|date_format:Y-m',
-        ]);
-
+        $this->statusMessage = '';
+        $this->resetErrorBag();
         $this->refreshQuote();
 
-        if (($this->quote['billable_days'] ?? 0) < 1) {
-            $this->errorMessage = 'Pick at least one menu and set how many days you want it this month.';
+        try {
+            $this->validate([
+                'customerName' => 'required|string|min:2|max:120',
+                'mobile' => 'required|string|min:11|max:20',
+                'addressLine1' => 'required|string|min:5|max:500',
+                'city_id' => 'required|exists:cities,id',
+                'area_id' => 'required|exists:areas,id',
+                'deliveryWindow' => 'required|in:12:00 PM,11:30 AM',
+                'quantity' => 'required|integer|min:1|max:'.(int) config('middo.max_order_qty_allowed', 5),
+                'targetMonth' => 'required|date_format:Y-m',
+            ]);
+        } catch (ValidationException $e) {
+            $this->errorMessage = collect($e->validator->errors()->all())->implode(' ');
+            $this->setErrorBag($e->validator->errors());
 
             return;
         }
 
-        if (($this->quote['billable_days'] ?? 0) > ($this->quote['available_days'] ?? 0)) {
-            $this->errorMessage = 'Selected days exceed available days in '
-                .Carbon::createFromFormat('Y-m', $this->targetMonth)->format('F Y')
-                .' after omitted weekdays. Reduce day counts or un-omit weekdays.';
+        try {
+            PackageBilling::assertSelectionsFillMonth($this->quote);
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
 
             return;
         }
@@ -341,11 +377,25 @@ class PackageSubscribeModal extends Component
 
         $this->isConfirmingOtp = true;
         $this->otpInput = '';
+        $this->debugOtp = isset($otpResult['debug_otp']) ? (string) $otpResult['debug_otp'] : null;
+        $this->statusMessage = $this->debugOtp
+            ? 'OTP sent. Debug code: '.$this->debugOtp
+            : 'OTP sent to '.$this->mobile.'. Enter the 4-digit code to confirm.';
     }
 
     public function startGatewayPayment(): void
     {
+        $this->errorMessage = '';
         $this->refreshQuote();
+
+        try {
+            PackageBilling::assertSelectionsFillMonth($this->quote);
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
+
+            return;
+        }
+
         $total = (int) ($this->quote['total_amount'] ?? 0);
         if ($total < 1) {
             $this->errorMessage = 'Nothing to pay.';
@@ -374,19 +424,37 @@ class PackageSubscribeModal extends Component
         $this->gatewayPaymentToken = $checkout['token'] ?? null;
         $this->gatewayPaymentUrl = $checkout['payment_url'] ?? null;
         $this->paymentMethod = 'gateway';
+        $this->statusMessage = 'Online checkout started. Complete payment, then confirm with OTP.';
     }
 
     public function finalizeSubscribe(): void
     {
         $this->errorMessage = '';
-        $this->validate([
-            'otpInput' => 'required|string|size:4',
-            'customerName' => 'required|string|min:2|max:120',
-            'paymentMethod' => 'required|in:balance,gateway',
-        ]);
+        $this->statusMessage = '';
+        $this->resetErrorBag();
+        $this->otpInput = trim((string) $this->otpInput);
+
+        try {
+            $this->validate([
+                'otpInput' => 'required|string|size:4',
+                'customerName' => 'required|string|min:2|max:120',
+                'paymentMethod' => 'required|in:balance,gateway',
+                'city_id' => 'required|exists:cities,id',
+                'area_id' => 'required|exists:areas,id',
+                'addressLine1' => 'required|string|min:5|max:500',
+                'targetMonth' => 'required|date_format:Y-m',
+            ]);
+        } catch (ValidationException $e) {
+            $this->errorMessage = collect($e->validator->errors()->all())->implode(' ');
+            $this->setErrorBag($e->validator->errors());
+
+            return;
+        }
 
         if (! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
+            $this->errorMessage = 'Invalid or expired confirmation code. Request a new OTP and try again.';
             $this->addError('otpInput', 'Invalid or expired confirmation code.');
+            $this->isConfirmingOtp = true;
 
             return;
         }
@@ -394,6 +462,8 @@ class PackageSubscribeModal extends Component
         $this->refreshQuote();
 
         try {
+            PackageBilling::assertSelectionsFillMonth($this->quote);
+
             $result = app(PackageSubscriptionService::class)->subscribe(
                 Auth::user(),
                 MealPackage::findOrFail($this->packageId),
@@ -411,22 +481,24 @@ class PackageSubscribeModal extends Component
                 $this->gatewayPaymentToken
             );
         } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage();
+            report($e);
+            $this->errorMessage = $e->getMessage() ?: 'Could not create the package. Please try again.';
+            $this->isConfirmingOtp = true;
 
             return;
         }
 
-        $this->closeModal();
-        $this->dispatch('package-subscribed');
-        $this->dispatch('corporate-orders-changed');
+        $subscriptionId = $result['subscription']->id;
+        $days = (int) $result['subscription']->billable_days;
 
         session()->flash(
             'message',
-            'Package prepaid for '.$result['subscription']->billable_days
-            .' days. Middo operations will assign exact delivery dates next.'
+            'Package prepaid for '.$days.' days. Middo operations will assign exact delivery dates next.'
         );
 
-        $this->redirect(route('corporates.packages.show', $result['subscription']->id), navigate: true);
+        // Full-page redirect. Closing the nested modal / dispatching parent refresh
+        // before redirect was aborting confirmation so the UI looked stuck.
+        $this->redirect(route('corporates.packages.show', $subscriptionId));
     }
 
     public function render()

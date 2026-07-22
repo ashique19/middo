@@ -4,7 +4,7 @@
             <div class="min-w-0">
                 <a href="{{ route('corporates.dashboard') }}" class="text-xs font-bold text-middo-orange hover:underline">← Dashboard</a>
                 <h1 class="text-3xl font-black tracking-tight mt-1">Meal Packages</h1>
-                <p class="text-sm font-semibold text-[#635347] mt-0.5">Pick a rate plan, choose menus and day counts for the month, set off-days, and prepay. Operations schedules the exact dates.</p>
+                <p class="text-sm font-semibold text-[#635347] mt-0.5">Pick a rate plan, choose menus for every working day of the month, set off-days, and prepay. Operations schedules the exact dates.</p>
             </div>
             <a href="{{ route('corporates.wallet') }}" class="shrink-0 text-xs font-black uppercase tracking-wider text-[#8A441B] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-3 py-2 rounded-xl">
                 Wallet & top-up
@@ -83,7 +83,7 @@
                                 <p class="text-sm text-[#635347] mt-3">{{ $package['summary'] }}</p>
                             @endif
                             <p class="text-[11px] font-semibold text-gray-400 mt-2">
-                                Build your month — select menus & day counts at checkout
+                                Fill every working day — select menus & day counts at checkout
                             </p>
                             @if(count($package['sample_days']))
                                 <div class="mt-3 flex gap-1.5 overflow-x-auto pb-1">

@@ -1366,12 +1366,14 @@ class CorporateMobileController extends Controller
             ]);
         }
 
-        if ($quote['billable_days'] > $quote['available_days']) {
-            throw ValidationException::withMessages([
-                'menu_selections' => [
-                    'Selected days exceed available days in '.$quote['target_month'].' after omitted weekdays.',
-                ],
-            ]);
+        if ($quote['billable_days'] !== $quote['available_days'] || $quote['available_days'] < 1) {
+            try {
+                PackageBilling::assertSelectionsFillMonth($quote);
+            } catch (\Throwable $e) {
+                throw ValidationException::withMessages([
+                    'menu_selections' => [$e->getMessage()],
+                ]);
+            }
         }
 
         try {

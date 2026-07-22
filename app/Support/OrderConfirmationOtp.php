@@ -45,7 +45,7 @@ class OrderConfirmationOtp
         $sent = MimSms::send($mobile, $message);
 
         // Local/debug and automated tests should not block checkout when SMS is unavailable.
-        if (! $sent && (config('app.debug') || app()->environment('testing'))) {
+        if (! $sent && (config('app.debug') || app()->environment(['local', 'testing']))) {
             $sent = true;
         }
 
@@ -61,7 +61,7 @@ class OrderConfirmationOtp
             'message' => 'Confirmation code sent successfully.',
         ];
 
-        if (config('app.debug') || app()->environment('testing')) {
+        if (config('app.debug') || app()->environment(['local', 'testing'])) {
             $payload['debug_otp'] = $otp;
         }
 
