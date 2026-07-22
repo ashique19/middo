@@ -232,8 +232,11 @@ class ChargeTest extends TestCase
         $food = 150 * $workingDays;
         $fees = 100 + (30 * $workingDays);
 
-        $this->assertSame($food + $fees, (int) $subscription->total_amount);
+        // total_amount stores pre-discount merchandise only; charges_amount stores charges separately.
+        $this->assertSame($food, (int) $subscription->total_amount);
         $this->assertSame($fees, (int) $subscription->charges_amount);
+        // amount_paid = max(0, food - discount) + charges = food + fees (no coupon in this test)
+        $this->assertSame($food + $fees, (int) $subscription->amount_paid);
         $this->assertSame(2, PackageSubscriptionCharge::query()->where('package_subscription_id', $subscription->id)->count());
     }
 
