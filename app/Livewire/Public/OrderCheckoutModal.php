@@ -8,6 +8,7 @@ use App\Models\City;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\ChargeService;
 use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
 use App\Support\MealOrderGrouper;
@@ -80,6 +81,9 @@ class OrderCheckoutModal extends Component
     public float $taxesAndFees = 0.00;
 
     public float $total = 0.0;
+
+    /** @var list<array{name:string,amount:int,category:string}> */
+    public array $chargeLines = [];
 
     /**
      * Component boot initialization.
@@ -171,6 +175,12 @@ class OrderCheckoutModal extends Component
     public function updatedCityId($value): void
     {
         $this->loadAreasForSelectedCity($value);
+        $this->recalculateTotals();
+    }
+
+    public function updatedAreaId(): void
+    {
+        $this->recalculateTotals();
     }
 
     /**
@@ -203,6 +213,22 @@ class OrderCheckoutModal extends Component
 
         $totalItemsCount = array_sum($this->quantities);
         $this->subtotal = (float) ($this->dish['price'] ?? 0) * $totalItemsCount;
+
+        $quote = app(ChargeService::class)->quoteOrderCart(
+            $this->area_id ? (int) $this->area_id : null,
+            (int) ($this->dish['id'] ?? 0),
+            $this->quantities
+        );
+        $this->taxesAndFees = (float) ($quote['total'] ?? 0);
+        $this->chargeLines = collect($quote['lines'] ?? [])
+            ->map(fn ($line) => [
+                'name' => (string) ($line['name'] ?? 'Charge'),
+                'amount' => (int) ($line['amount'] ?? 0),
+                'category' => (string) ($line['category'] ?? 'other'),
+            ])
+            ->values()
+            ->all();
+
         $this->total = $this->subtotal + $this->taxesAndFees;
         $this->refreshPrepaymentQuote();
     }
@@ -231,6 +257,7 @@ class OrderCheckoutModal extends Component
         foreach ($activeDates as $qty) {
             $cartTotal += (int) round(($this->dish['price'] ?? 0) * (int) $qty);
         }
+        $cartTotal += (int) round($this->taxesAndFees);
 
         $this->prepayment = CorporateOrderPrepayment::evaluate(
             $user,
@@ -415,6 +442,7 @@ class OrderCheckoutModal extends Component
         foreach ($activeOrders as $qty) {
             $cartTotal += (int) round(($this->dish['price'] ?? 0) * (int) $qty);
         }
+        $cartTotal += (int) round($this->taxesAndFees);
         $chargeAmount = $this->checkoutChargeAmount($this->prepayment, $cartTotal);
 
         if ($chargeAmount > 0
@@ -554,8 +582,17 @@ class OrderCheckoutModal extends Component
         }
 
         $lineTotals = [];
-        foreach ($activeOrders as $qty) {
-            $lineTotals[] = (int) round(($this->dish['price'] ?? 0) * (int) $qty);
+        $chargeQuote = app(ChargeService::class)->quoteOrderCart(
+            $this->area_id ? (int) $this->area_id : null,
+            (int) ($this->dish['id'] ?? 0),
+            $activeOrders
+        );
+        $perOrderCharges = $chargeQuote['per_order'] ?? [];
+
+        foreach ($activeOrders as $date => $qty) {
+            $food = (int) round(($this->dish['price'] ?? 0) * (int) $qty);
+            $fees = (int) collect($perOrderCharges[(string) $date] ?? [])->sum('amount');
+            $lineTotals[] = $food + $fees;
         }
         $cartTotal = (int) array_sum($lineTotals);
         $chargeAmount = $this->checkoutChargeAmount($prepayment, $cartTotal);
@@ -611,7 +648,7 @@ class OrderCheckoutModal extends Component
 
         $paymentMethod = $this->paymentMethod;
 
-        DB::transaction(function () use ($activeOrders, $currentUser, $prepayment, $allocations, $profileMatches, $chargeAmount, $paymentMethod) {
+        DB::transaction(function () use ($activeOrders, $currentUser, $prepayment, $allocations, $profileMatches, $chargeAmount, $paymentMethod, $perOrderCharges) {
             $currentUserId = $currentUser->id;
             $cityModel = City::find($this->city_id);
             $areaModel = Area::find($this->area_id);
@@ -631,9 +668,13 @@ class OrderCheckoutModal extends Component
             $fullAddress = trim($this->addressLine1).', '.($areaModel?->name ?? '').', '.($cityModel?->name ?? '');
             $createdOrderIds = [];
             $index = 0;
+            $chargeService = app(ChargeService::class);
 
             foreach ($activeOrders as $date => $qty) {
-                $lineTotal = (int) round(($this->dish['price'] ?? 0) * $qty);
+                $foodTotal = (int) round(($this->dish['price'] ?? 0) * $qty);
+                $feeLines = $perOrderCharges[(string) $date] ?? [];
+                $feesTotal = (int) collect($feeLines)->sum('amount');
+                $lineTotal = $foodTotal + $feesTotal;
                 $amountPaid = (int) ($allocations[$index] ?? 0);
                 $index++;
 
@@ -644,6 +685,7 @@ class OrderCheckoutModal extends Component
                     'delivery_date' => $date,
                     'delivery_time' => $this->deliveryWindow,
                     'total_amount' => $lineTotal,
+                    'charges_amount' => $feesTotal,
                     'amount_paid' => $amountPaid,
                     'prepaid_amount' => $amountPaid,
                     'cash_collected' => 0,
@@ -657,6 +699,7 @@ class OrderCheckoutModal extends Component
                     'created_by' => $currentUserId,
                     'updated_by' => $currentUserId,
                 ]);
+                $chargeService->attachToOrder($order, $feeLines);
                 $createdOrderIds[] = $order->id;
             }
 

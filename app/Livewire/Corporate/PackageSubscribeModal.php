@@ -8,6 +8,7 @@ use App\Models\MealPackage;
 use App\Models\MenuItem;
 use App\Models\PackageSubscription;
 use App\Models\User;
+use App\Support\ChargeService;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PackageBilling;
 use App\Support\PackageGatewayCheckout;
@@ -65,6 +66,11 @@ class PackageSubscribeModal extends Component
     public ?string $gatewayPaymentUrl = null;
 
     public array $quote = [];
+
+    public int $chargesTotal = 0;
+
+    /** @var list<array{name:string,amount:int,category:string}> */
+    public array $chargeLines = [];
 
     public string $errorMessage = '';
 
@@ -244,6 +250,12 @@ class PackageSubscribeModal extends Component
     public function updatedCityId($value): void
     {
         $this->loadAreasForSelectedCity($value);
+        $this->refreshChargesQuote();
+    }
+
+    public function updatedAreaId(): void
+    {
+        $this->refreshChargesQuote();
     }
 
     public function updatedTargetMonth(): void
@@ -424,6 +436,8 @@ class PackageSubscribeModal extends Component
             $this->quote = [];
             $this->workingDays = 0;
             $this->fillsMonth = false;
+            $this->chargesTotal = 0;
+            $this->chargeLines = [];
 
             return;
         }
@@ -433,6 +447,8 @@ class PackageSubscribeModal extends Component
             $this->quote = [];
             $this->workingDays = 0;
             $this->fillsMonth = false;
+            $this->chargesTotal = 0;
+            $this->chargeLines = [];
 
             return;
         }
@@ -457,7 +473,39 @@ class PackageSubscribeModal extends Component
             $this->errorMessage = $e->getMessage();
         }
 
+        $this->refreshChargesQuote();
         $this->walletBalance = (int) (Auth::user()?->balance ?? 0);
+    }
+
+    protected function refreshChargesQuote(): void
+    {
+        if (! $this->area_id || empty($this->quote['selections'])) {
+            $this->chargesTotal = 0;
+            $this->chargeLines = [];
+
+            return;
+        }
+
+        $quote = app(ChargeService::class)->quotePackage(
+            (int) $this->area_id,
+            (int) $this->quantity,
+            $this->selectionPayload()
+        );
+
+        $this->chargesTotal = (int) ($quote['total'] ?? 0);
+        $this->chargeLines = collect($quote['lines'] ?? [])
+            ->map(fn ($line) => [
+                'name' => (string) ($line['name'] ?? 'Charge'),
+                'amount' => (int) ($line['amount'] ?? 0),
+                'category' => (string) ($line['category'] ?? 'other'),
+            ])
+            ->values()
+            ->all();
+    }
+
+    public function payableTotal(): int
+    {
+        return max(0, (int) ($this->quote['total_amount'] ?? 0) + $this->chargesTotal);
     }
 
     public function updatedErrorMessage(string $value): void
@@ -478,7 +526,7 @@ class PackageSubscribeModal extends Component
 
     public function canPayWithWallet(): bool
     {
-        $total = (int) ($this->quote['total_amount'] ?? 0);
+        $total = $this->payableTotal();
 
         return $this->walletBalance > 0 && $total > 0 && $this->walletBalance >= $total;
     }
@@ -594,7 +642,7 @@ class PackageSubscribeModal extends Component
             return;
         }
 
-        $total = (int) ($this->quote['total_amount'] ?? 0);
+        $total = $this->payableTotal();
         if ($total < 1) {
             $this->errorMessage = 'Nothing to pay.';
 
@@ -607,7 +655,8 @@ class PackageSubscribeModal extends Component
             $this->omittedWeekdays,
             $this->targetMonth,
             $this->selectionPayload(),
-            $total
+            $total,
+            (int) $this->area_id
         );
 
         $checkout = app(PaymentGateway::class)->createCheckout(

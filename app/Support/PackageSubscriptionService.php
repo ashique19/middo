@@ -75,7 +75,19 @@ class PackageSubscriptionService
         }
 
         $fullAddress = trim($addressLine).', '.$area->name.', '.$city->name;
-        $total = (int) $quote['total_amount'];
+        $chargesQuote = app(ChargeService::class)->quotePackage(
+            $areaId,
+            $quantity,
+            collect($quote['selections'])
+                ->map(fn ($row) => [
+                    'menu_item_id' => (int) $row['menu_item_id'],
+                    'day_count' => (int) $row['day_count'],
+                ])
+                ->values()
+                ->all()
+        );
+        $chargesTotal = (int) ($chargesQuote['total'] ?? 0);
+        $total = (int) $quote['total_amount'] + $chargesTotal;
 
         return DB::transaction(function () use (
             $user,
@@ -92,7 +104,9 @@ class PackageSubscriptionService
             $deliveryTime,
             $paymentMethod,
             $gatewayPaymentToken,
-            $total
+            $total,
+            $chargesTotal,
+            $chargesQuote
         ) {
             /** @var User $locked */
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
@@ -128,7 +142,8 @@ class PackageSubscriptionService
                         ])
                         ->values()
                         ->all(),
-                    $total
+                    $total,
+                    $areaId
                 );
 
                 $consumed = app(PaymentGateway::class)->consumePaid(
@@ -156,6 +171,7 @@ class PackageSubscriptionService
                 'billable_days' => $quote['billable_days'],
                 'price_per_day' => $quote['price_per_day'],
                 'total_amount' => $total,
+                'charges_amount' => $chargesTotal,
                 'amount_paid' => $total,
                 'payment_status' => 'paid',
                 'status' => PackageSubscription::STATUS_ACTIVE,
@@ -175,6 +191,8 @@ class PackageSubscriptionService
                     'day_count' => $selection['day_count'],
                 ]);
             }
+
+            app(ChargeService::class)->attachToPackage($subscription, $chargesQuote['lines'] ?? []);
 
             if ($paymentMethod === 'balance') {
                 WalletLedger::debit(

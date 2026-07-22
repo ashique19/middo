@@ -213,15 +213,22 @@
                                 @endif
                             @endforeach
                             
-                            <div class="pt-2 border-t border-dashed border-gray-200 space-y-1">
+                                <div class="pt-2 border-t border-dashed border-gray-200 space-y-1">
                                 <div class="flex justify-between text-gray-500">
                                     <span>Cumulative Subtotal:</span>
                                     <span class="font-bold text-gray-900">৳{{ number_format($subtotal, 2) }}</span>
                                 </div>
-                                <div class="flex justify-between text-gray-400">
-                                    <span>Taxes & Fees:</span>
-                                    <span class="font-bold text-gray-600">৳{{ number_format($taxesAndFees, 2) }}</span>
-                                </div>
+                                @forelse($chargeLines as $chargeLine)
+                                    <div class="flex justify-between text-gray-500" wire:key="fee-{{ $loop->index }}">
+                                        <span>{{ $chargeLine['name'] }}:</span>
+                                        <span class="font-bold text-gray-700">৳{{ number_format($chargeLine['amount'], 2) }}</span>
+                                    </div>
+                                @empty
+                                    <div class="flex justify-between text-gray-400">
+                                        <span>Charges:</span>
+                                        <span class="font-bold text-gray-600">৳{{ number_format($taxesAndFees, 2) }}</span>
+                                    </div>
+                                @endforelse
                                 <div class="flex justify-between text-sm font-black text-gray-900 pt-1">
                                     <span>TOTAL:</span>
                                     <span class="text-base text-gray-900">৳{{ number_format($total, 2) }}</span>
@@ -289,7 +296,7 @@
 
                                 <div>
                                     <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Area</label>
-                                    <select wire:model="area_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                    <select wire:model.live="area_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
                                         @if(count($areasList) === 0)
                                             <option value="">No areas available</option>
                                         @endif

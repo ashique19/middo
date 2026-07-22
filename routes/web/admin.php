@@ -42,6 +42,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/packages', fn () => view('admin.packages.page'))->name('admin.packages.index');
     Route::get('/packages/create', PackageBuilder::class)->name('admin.packages.create');
     Route::get('/packages/{package}/edit', PackageBuilder::class)->name('admin.packages.edit');
+    Route::get('/charges', fn () => view('admin.charges.page'))->name('admin.charges.index');
     Route::get('/subscriptions', fn () => view('admin.subscriptions.page'))->name('admin.subscriptions.index');
     Route::get('/subscriptions/{subscription}', SubscriptionShow::class)->name('admin.subscriptions.show');
     Route::get('/package-demand', PackageDemand::class)->name('admin.packages.demand');
