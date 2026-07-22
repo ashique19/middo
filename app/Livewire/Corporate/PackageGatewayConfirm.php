@@ -48,6 +48,7 @@ class PackageGatewayConfirm extends Component
 
         if (! $this->paid) {
             $this->errorMessage = 'Complete online payment before requesting an OTP.';
+            $this->scrollFeedbackIntoView();
 
             return;
         }
@@ -55,6 +56,7 @@ class PackageGatewayConfirm extends Component
         $otpResult = OrderConfirmationOtp::send($this->mobile);
         if (! ($otpResult['ok'] ?? false)) {
             $this->errorMessage = $otpResult['message'] ?? 'Could not send OTP. Try again.';
+            $this->scrollFeedbackIntoView();
 
             return;
         }
@@ -66,17 +68,18 @@ class PackageGatewayConfirm extends Component
             : 'OTP resent to '.$this->mobile.'.';
     }
 
-    public function confirm(): void
+    public function createPackage(): void
     {
         $this->errorMessage = '';
         $this->statusMessage = '';
         $this->resetErrorBag();
-        $this->otpInput = trim((string) $this->otpInput);
+        $this->otpInput = preg_replace('/\D+/', '', trim((string) $this->otpInput)) ?? '';
 
         $this->bootFromSession(sendOtpIfPaid: false);
 
         if (! $this->paid) {
             $this->errorMessage = 'Complete online payment before confirming.';
+            $this->scrollFeedbackIntoView();
 
             return;
         }
@@ -88,6 +91,7 @@ class PackageGatewayConfirm extends Component
         } catch (ValidationException $e) {
             $this->errorMessage = collect($e->validator->errors()->all())->implode(' ');
             $this->setErrorBag($e->validator->errors());
+            $this->scrollFeedbackIntoView();
 
             return;
         }
@@ -95,6 +99,7 @@ class PackageGatewayConfirm extends Component
         if (! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
             $this->errorMessage = 'Invalid or expired confirmation code. Request a new OTP and try again.';
             $this->addError('otpInput', 'Invalid or expired confirmation code.');
+            $this->scrollFeedbackIntoView();
 
             return;
         }
@@ -103,6 +108,7 @@ class PackageGatewayConfirm extends Component
         $payload = app(PaymentGateway::class)->find($this->token);
         if (! is_array($draft) || ! is_array($payload)) {
             $this->errorMessage = 'Payment session expired. Start package checkout again.';
+            $this->scrollFeedbackIntoView();
 
             return;
         }
@@ -129,6 +135,7 @@ class PackageGatewayConfirm extends Component
         } catch (\Throwable $e) {
             report($e);
             $this->errorMessage = $e->getMessage() ?: 'Could not create the package. Please try again.';
+            $this->scrollFeedbackIntoView();
 
             return;
         }
@@ -144,6 +151,15 @@ class PackageGatewayConfirm extends Component
         );
 
         $this->redirect(route('corporates.packages.show', $subscriptionId));
+    }
+
+    protected function scrollFeedbackIntoView(): void
+    {
+        $this->js(<<<'JS'
+            queueMicrotask(() => {
+                document.getElementById('pkg-confirm-feedback')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        JS);
     }
 
     protected function bootFromSession(bool $sendOtpIfPaid): void
