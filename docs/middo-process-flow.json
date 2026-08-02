@@ -1,0 +1,547 @@
+{
+  "domain": "middo",
+  "version": 1,
+  "description": "Canonical Middo end-to-end process flows derived from application status values and role actions.",
+  "timezone": "Asia/Dhaka",
+  "roles": [
+    {
+      "id": "admin",
+      "label": "Admin",
+      "responsibilities": [
+        "Full platform control",
+        "Kitchens, menus, packages, coupons, users, nav, Middo cash, accounts"
+      ]
+    },
+    {
+      "id": "operation",
+      "label": "Operation",
+      "responsibilities": [
+        "Day-to-day ops",
+        "Assign kitchens to order groups",
+        "Manage corporates, menus, packages, active orders, Middo boxes, cash/accounts"
+      ]
+    },
+    {
+      "id": "corporate",
+      "label": "Corporate",
+      "responsibilities": [
+        "Place and schedule meal orders",
+        "Subscribe to packages",
+        "Pay via wallet / gateway / COD",
+        "Track, edit, or cancel pending orders before cutoff"
+      ]
+    },
+    {
+      "id": "kitchen",
+      "label": "Kitchen",
+      "responsibilities": [
+        "Accept unassigned Middo order groups",
+        "Prepare meals",
+        "Pack into Middo Boxes and dispatch",
+        "Manage box inventory and cash handovers"
+      ]
+    },
+    {
+      "id": "delivery",
+      "label": "Delivery",
+      "responsibilities": [
+        "Accept kitchen dispatches",
+        "Deliver to corporate",
+        "Collect COD or send payment link",
+        "Return empty boxes",
+        "Cash handover to Middo"
+      ]
+    }
+  ],
+  "order": {
+    "statuses": [
+      {
+        "id": "pending",
+        "label": "Pending",
+        "description": "Order placed; not yet kitchen-accepted",
+        "active": true,
+        "customer_push": false
+      },
+      {
+        "id": "processing",
+        "label": "Processing",
+        "description": "Kitchen accepted / assigned; meal being prepared",
+        "active": true,
+        "customer_push": true
+      },
+      {
+        "id": "packed",
+        "label": "Packed",
+        "description": "Packed into Middo Boxes and kitchen-dispatched",
+        "active": true,
+        "customer_push": true
+      },
+      {
+        "id": "on_the_way_to_delivery",
+        "label": "On the way to delivery",
+        "description": "Rider accepted pickup; in transit to corporate",
+        "active": true,
+        "customer_push": true
+      },
+      {
+        "id": "delivered",
+        "label": "Delivered",
+        "description": "Handed to customer; balance still due (COD residual)",
+        "active": false,
+        "customer_push": true
+      },
+      {
+        "id": "delivered_and_paid",
+        "label": "Delivered and paid",
+        "description": "Delivered and fully settled",
+        "active": false,
+        "customer_push": true
+      },
+      {
+        "id": "cancelled",
+        "label": "Cancelled",
+        "description": "Cancelled or skipped",
+        "active": false,
+        "customer_push": true
+      },
+      {
+        "id": "others",
+        "label": "Others",
+        "description": "Catch-all; unused in app logic",
+        "active": false,
+        "customer_push": false
+      }
+    ],
+    "active_statuses": [
+      "pending",
+      "processing",
+      "packed",
+      "on_the_way_to_delivery"
+    ],
+    "payment_statuses": [
+      "pending",
+      "paid",
+      "returned",
+      "failed",
+      "others"
+    ],
+    "payment_methods": [
+      "balance",
+      "gateway",
+      "cash_on_delivery"
+    ],
+    "happy_path": [
+      "pending",
+      "processing",
+      "packed",
+      "on_the_way_to_delivery",
+      "delivered_and_paid"
+    ],
+    "transitions": [
+      {
+        "id": "place_order",
+        "from": null,
+        "to": "pending",
+        "actors": ["corporate", "system"],
+        "triggers": ["checkout", "package_schedule"],
+        "guards": [],
+        "side_effects": [
+          "meal_order_group_assign",
+          "order_money_flow_on_create"
+        ]
+      },
+      {
+        "id": "kitchen_accept_or_assign",
+        "from": "pending",
+        "to": "processing",
+        "actors": ["kitchen", "operation", "admin"],
+        "triggers": ["accept_order_group", "assign_kitchen"],
+        "guards": ["order_group.kitchen_id was null"],
+        "side_effects": ["set_order_group.kitchen_id", "customer_push"]
+      },
+      {
+        "id": "kitchen_pack_and_dispatch",
+        "from": ["pending", "processing"],
+        "to": "packed",
+        "actors": ["kitchen"],
+        "triggers": ["dispatch_with_middo_boxes"],
+        "guards": [
+          "middo_boxes.count == order.quantity",
+          "dispatched_at is null"
+        ],
+        "side_effects": [
+          "create_order_middo_boxes",
+          "set_dispatched_at",
+          "customer_push"
+        ]
+      },
+      {
+        "id": "rider_accept_dispatch",
+        "from": "packed",
+        "to": "on_the_way_to_delivery",
+        "actors": ["delivery"],
+        "triggers": ["accept_kitchen_dispatch"],
+        "guards": [
+          "dispatched_at is set",
+          "delivery_rider_id is null",
+          "order_status is packed"
+        ],
+        "side_effects": [
+          "set_delivery_rider_id",
+          "box_log:picked_by_delivery_from_kitchen",
+          "customer_push"
+        ]
+      },
+      {
+        "id": "deliver_unpaid",
+        "from": "on_the_way_to_delivery",
+        "to": "delivered",
+        "actors": ["delivery"],
+        "triggers": ["deliver_to_consumer"],
+        "guards": ["amountDue > 0"],
+        "side_effects": [
+          "box_log:delivered_to_corporate",
+          "customer_push"
+        ]
+      },
+      {
+        "id": "deliver_prepaid",
+        "from": "on_the_way_to_delivery",
+        "to": "delivered_and_paid",
+        "actors": ["delivery"],
+        "triggers": ["deliver_to_consumer"],
+        "guards": ["amountDue == 0"],
+        "side_effects": [
+          "box_log:delivered_to_corporate",
+          "accrue_partner_shares",
+          "customer_push"
+        ]
+      },
+      {
+        "id": "settle_after_delivery",
+        "from": "delivered",
+        "to": "delivered_and_paid",
+        "actors": ["delivery", "system"],
+        "triggers": ["cash_collect", "gateway_callback"],
+        "guards": [],
+        "side_effects": [
+          "set_payment_status:paid",
+          "accrue_partner_shares",
+          "customer_push"
+        ]
+      },
+      {
+        "id": "cancel_pending",
+        "from": "pending",
+        "to": "cancelled",
+        "actors": ["corporate", "admin", "operation", "system"],
+        "triggers": ["delete_order", "skip_package_day", "cancel_subscription"],
+        "guards": ["OrderCutoff.allowsModification"],
+        "side_effects": [
+          "wallet_refund_when_applicable",
+          "customer_push"
+        ]
+      }
+    ]
+  },
+  "processes": {
+    "place_single_order": {
+      "label": "Place à-la-carte order",
+      "actors": ["corporate"],
+      "steps": [
+        {
+          "step": 1,
+          "action": "Browse menu and open checkout",
+          "actor": "corporate"
+        },
+        {
+          "step": 2,
+          "action": "Confirm with OTP when required",
+          "actor": "corporate"
+        },
+        {
+          "step": 3,
+          "action": "Pay with Middo Balance, gateway, or COD",
+          "actor": "corporate",
+          "notes": "COD only for single-day orders without forced prepay"
+        },
+        {
+          "step": 4,
+          "action": "Create Order with order_status=pending",
+          "actor": "system",
+          "sets": {
+            "order_status": "pending",
+            "payment_status": "paid|pending"
+          }
+        },
+        {
+          "step": 5,
+          "action": "Assign to open OrderGroup by area + menu + delivery_date",
+          "actor": "system",
+          "notes": "Max qty from config middo.auto_meal_group_quantity (default 10); kitchen_id=null"
+        },
+        {
+          "step": 6,
+          "action": "Snapshot money shares/events",
+          "actor": "system",
+          "via": "OrderMoneyFlow.onOrderCreated"
+        }
+      ]
+    },
+    "kitchen_fulfillment": {
+      "label": "Kitchen accept, pack, dispatch",
+      "actors": ["kitchen", "operation", "admin"],
+      "steps": [
+        {
+          "step": 1,
+          "action": "Unassigned groups appear on Kitchen → Middo order groups (or ops assigns kitchen)",
+          "actor": "kitchen|operation|admin"
+        },
+        {
+          "step": 2,
+          "action": "Accept group → set kitchen_id → members pending → processing",
+          "actor": "kitchen|operation|admin",
+          "sets": {
+            "order_status": "processing"
+          }
+        },
+        {
+          "step": 3,
+          "action": "Pack qty Middo Boxes, create order_middo_boxes, set packed + dispatched_at",
+          "actor": "kitchen",
+          "sets": {
+            "order_status": "packed",
+            "dispatched_at": "now"
+          }
+        }
+      ]
+    },
+    "delivery_handoff": {
+      "label": "Rider accept, deliver, settle",
+      "actors": ["delivery"],
+      "steps": [
+        {
+          "step": 1,
+          "action": "View packed/in-transit kitchen dispatches",
+          "actor": "delivery"
+        },
+        {
+          "step": 2,
+          "action": "Accept dispatch → boxes leave kitchen custody → rider",
+          "actor": "delivery",
+          "sets": {
+            "order_status": "on_the_way_to_delivery"
+          },
+          "box_log": "picked_by_delivery_from_kitchen"
+        },
+        {
+          "step": 3,
+          "action": "Deliver to corporate; boxes → corporate custody",
+          "actor": "delivery",
+          "sets": {
+            "order_status": "delivered|delivered_and_paid"
+          },
+          "box_log": "delivered_to_corporate",
+          "notes": "delivered if amountDue > 0; delivered_and_paid if amountDue == 0"
+        },
+        {
+          "step": 4,
+          "action": "If unpaid: collect cash or send SMS payment link",
+          "actor": "delivery|system",
+          "sets": {
+            "order_status": "delivered_and_paid",
+            "payment_status": "paid"
+          }
+        },
+        {
+          "step": 5,
+          "action": "Accrue kitchen/delivery partner payables",
+          "actor": "system",
+          "via": "OrderMoneyFlow.accrueShares",
+          "when": "order_status becomes delivered_and_paid"
+        },
+        {
+          "step": 6,
+          "action": "Cash handover to Middo; empty box return run",
+          "actor": "delivery"
+        }
+      ]
+    },
+    "package_subscription": {
+      "label": "Meal package subscription",
+      "actors": ["corporate", "admin", "operation"],
+      "statuses": ["active", "completed", "cancelled"],
+      "schedule_statuses": ["awaiting_schedule", "scheduled"],
+      "checkout_intent_statuses": [
+        "awaiting_payment",
+        "paid_awaiting_otp",
+        "completed",
+        "cancelled"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "action": "Subscribe to published package for target month",
+          "actor": "corporate",
+          "payment": ["balance", "gateway"]
+        },
+        {
+          "step": 2,
+          "action": "Create subscription active + awaiting_schedule",
+          "actor": "system",
+          "sets": {
+            "status": "active",
+            "schedule_status": "awaiting_schedule"
+          }
+        },
+        {
+          "step": 3,
+          "action": "Schedule day→menu selections",
+          "actor": "corporate",
+          "sets": {
+            "schedule_status": "scheduled"
+          },
+          "side_effects": [
+            "create many prepaid Order rows (pending/paid)",
+            "auto_group via MealOrderGrouper"
+          ]
+        },
+        {
+          "step": 4,
+          "action": "Skip a pending day before cutoff",
+          "actor": "corporate",
+          "side_effects": ["cancel order", "wallet refund"]
+        },
+        {
+          "step": 5,
+          "action": "Cancel remaining days → subscription cancelled",
+          "actor": "corporate|admin|operation",
+          "sets": {
+            "status": "cancelled"
+          }
+        },
+        {
+          "step": 6,
+          "action": "All days fulfilled → subscription completed",
+          "actor": "system",
+          "sets": {
+            "status": "completed"
+          }
+        }
+      ]
+    },
+    "middo_box_custody": {
+      "label": "Middo Box asset flow",
+      "actors": ["operation", "kitchen", "delivery", "corporate"],
+      "log_actions": [
+        "registered_at_warehouse",
+        "dispatched_to_kitchen",
+        "received_at_kitchen",
+        "picked_by_delivery_from_kitchen",
+        "delivered_to_corporate",
+        "picked_from_corporate_by_delivery",
+        "returned_to_kitchen",
+        "returned_to_warehouse"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "action": "Register box at Middo warehouse",
+          "log_action": "registered_at_warehouse"
+        },
+        {
+          "step": 2,
+          "action": "Ops dispatch boxes to kitchen",
+          "log_action": "dispatched_to_kitchen"
+        },
+        {
+          "step": 3,
+          "action": "Kitchen receives incoming boxes",
+          "log_action": "received_at_kitchen"
+        },
+        {
+          "step": 4,
+          "action": "Rider picks packed order from kitchen",
+          "log_action": "picked_by_delivery_from_kitchen"
+        },
+        {
+          "step": 5,
+          "action": "Rider delivers filled box to corporate",
+          "log_action": "delivered_to_corporate"
+        },
+        {
+          "step": 6,
+          "action": "Rider picks empty box from corporate",
+          "log_action": "picked_from_corporate_by_delivery"
+        },
+        {
+          "step": 7,
+          "action": "Return empty box to kitchen",
+          "log_action": "returned_to_kitchen"
+        },
+        {
+          "step": 8,
+          "action": "Kitchen may return boxes to warehouse",
+          "log_action": "returned_to_warehouse"
+        }
+      ]
+    },
+    "payment": {
+      "label": "Payment settlement",
+      "methods": ["balance", "gateway", "cash_on_delivery"],
+      "paths": [
+        {
+          "id": "prepay",
+          "description": "Wallet debit or gateway at checkout",
+          "result": "payment_status=paid before delivery"
+        },
+        {
+          "id": "cod_residual",
+          "description": "Settle remaining amount at delivery (cash)",
+          "result": "delivered → delivered_and_paid"
+        },
+        {
+          "id": "post_delivery_online",
+          "description": "Signed public pay URL / SMS link → gateway callback",
+          "result": "delivered → delivered_and_paid"
+        },
+        {
+          "id": "partner_settlement",
+          "description": "Accrue kitchen/delivery payables and Middo cash ledger",
+          "via": ["OrderMoneyFlow", "AccountsHub", "MiddoCashLedgerPage"]
+        }
+      ]
+    }
+  },
+  "guards": {
+    "corporate_edit_or_cancel": {
+      "requires": [
+        "order_status is pending",
+        "before delivery-day cutoff (OrderCutoff, ~15:28 Asia/Dhaka)"
+      ]
+    },
+    "rider_accept": {
+      "requires": [
+        "dispatched_at is set",
+        "delivery_rider_id is null",
+        "order_status is packed"
+      ],
+      "via": "Order.isAwaitingRiderAccept"
+    }
+  },
+  "source_map": {
+    "order_model": "app/Models/Order.php",
+    "kitchen_acceptance": "app/Support/OrderKitchenAcceptance.php",
+    "order_grouper": "app/Support/MealOrderGrouper.php",
+    "kitchen_dispatch": "app/Livewire/Kitchen/DispatchOrderModal.php",
+    "kitchen_groups": "app/Livewire/Kitchen/MiddoOrderGroups.php",
+    "ops_assign_kitchen": "app/Livewire/Operation/AssignKitchenModal.php",
+    "delivery_dispatches": "app/Livewire/Delivery/KitchenDispatches.php",
+    "delivery_payment": "app/Livewire/Delivery/PaymentModal.php",
+    "money_flow": "app/Support/OrderMoneyFlow.php",
+    "packages": "app/Support/PackageSubscriptionService.php",
+    "status_push_copy": "app/Support/OrderStatusPushCopy.php",
+    "payment_methods": "app/Support/OrderPaymentMethod.php",
+    "cutoff": "app/Support/OrderCutoff.php"
+  }
+}
