@@ -1,0 +1,145 @@
+{
+  "ran_at": "2026-08-02",
+  "baseline_tests": {
+    "related_feature_files": "58 passed / 1 Sanctum env error (MealPackage API)",
+    "api_sanctum_blocked": 16,
+    "note": "Auth driver [sanctum] for guard [sanctum] is not defined — API corporate tests could not execute this run"
+  },
+  "diagnostic_suite": "tests/Feature/FlawHuntDiagnosticTest.php",
+  "diagnostic_result": "7 confirmed flaws (assertions against correct economic/policy behavior failed)",
+  "confirmed_flaws": [
+    {
+      "id": "F1",
+      "plan": "application",
+      "severity": "P0",
+      "title": "amountDue() ignores discount_amount",
+      "evidence": "FlawHuntDiagnosticTest::test_amount_due_should_honor_discount_for_economic_balance — due=100 when total=1000, discount=100, paid=900",
+      "impact": "Phantom residual; wrong deliver status; partner accrual skipped; PaymentModal blocked via isPaid()",
+      "fix": "amountDue() = max(0, total_amount - discount_amount - amount_paid) OR store net total_amount at checkout; align payment_status threshold with same formula"
+    },
+    {
+      "id": "F2",
+      "plan": "application",
+      "severity": "P0",
+      "title": "deliverToConsumer uses amountDue()===0 so discounted paid orders stay delivered",
+      "evidence": "test_deliver_branch_should_treat_discounted_paid_order_as_fully_paid",
+      "impact": "Orders never reach delivered_and_paid; OrderMoneyFlow.accrueShares never runs",
+      "fix": "Branch on economic due (after F1) or payment_status/isFullySettled() helper"
+    },
+    {
+      "id": "F3",
+      "plan": "application",
+      "severity": "P0",
+      "title": "Gateway residual counted as rider cash",
+      "evidence": "test_gateway_residual_must_not_look_like_rider_cash — cashCollectedAmount()=1000 when cash_collected=0, prepaid=0, payment_method=gateway",
+      "impact": "Online money enters cash handovers; rider float / Middo cash double-count risk",
+      "fix": "Remove legacy prepaid_amount==0 branch OR require payment_method=cash_on_delivery / explicit cash_collected only; set prepaid_amount on gateway residual settle"
+    },
+    {
+      "id": "F4",
+      "plan": "application",
+      "severity": "P0",
+      "title": "Partner commissions can exceed billNet",
+      "evidence": "test_partner_payables_should_not_exceed_customer_bill_net — kitchen+delivery=160 on billNet=100, middo_rest=0",
+      "impact": "Guaranteed Middo loss on heavily commissioned / discounted menus",
+      "fix": "Cap/pro-rate partner shares to billNet; validate menu commissions at save; alert when kitchen+delivery > price"
+    },
+    {
+      "id": "F5",
+      "plan": "application",
+      "severity": "P1",
+      "title": "Auto-grouper allows over-capacity solo groups",
+      "evidence": "test_auto_grouper_should_reject_order_qty_above_group_capacity — qty=11 with max=10 creates group",
+      "impact": "Kitchen batch size policy violated; ops planning assumptions break",
+      "fix": "Reject assignOrder when qty > max OR split order; keep daily corporate limit aligned"
+    },
+    {
+      "id": "F6",
+      "plan": "business",
+      "severity": "P1",
+      "title": "Multi-date COD policy conflict",
+      "evidence": "allowsCashOnDelivery(false,2)=false but OrderCheckoutModal forces COD fallback (lines 903-904)",
+      "impact": "Multi-day carts unpaid at checkout without explicit COD eligibility",
+      "fix": "Either allow multi-date COD in helper + UI, or require balance/gateway for multi-date and remove forced COD fallback"
+    },
+    {
+      "id": "F7",
+      "plan": "application",
+      "severity": "P0",
+      "title": "isPaid() true while amountDue()>0 blocks cash UI",
+      "evidence": "test_is_paid_true_can_block_cash_collection_while_amount_due_positive; PaymentModal early-returns on isPaid()",
+      "impact": "Stuck delivered orders with uncollectable residual after coupon path",
+      "fix": "Fix F1; make isPaid() mean economic due==0; PaymentModal gate on amountDue() only"
+    }
+  ],
+  "code_review_flaws": [
+    {
+      "id": "F8",
+      "plan": "business",
+      "severity": "P0",
+      "title": "Package skip does not refund subscription charges_amount",
+      "evidence": "PackageSubscriptionService skip refunds order.amount_paid (= day food only); charges stay on subscription",
+      "fix": "Pro-rate charges into day orders at schedule, or refund unused charge share on skip/cancelRemaining"
+    },
+    {
+      "id": "F9",
+      "plan": "business",
+      "severity": "P1",
+      "title": "Ops can reassign/clear kitchen after pack without status/custody guards",
+      "evidence": "AssignKitchenModal::save updates kitchen_id freely; only first assign advances pending→processing",
+      "fix": "Block reassignment when any member is packed/dispatched/in transit; or require box return first"
+    },
+    {
+      "id": "F10",
+      "plan": "business",
+      "severity": "P1",
+      "title": "cancelRemaining can mark subscription cancelled while past-cutoff days remain live",
+      "evidence": "PackageSubscriptionService cancelRemaining",
+      "fix": "Use status=active_partial / completed_partial, or only cancel when no locked live days remain"
+    },
+    {
+      "id": "F11",
+      "plan": "business",
+      "severity": "P1",
+      "title": "Gateway-prepaid cancel refunds wallet, not original tender",
+      "evidence": "DeleteOrderModal / skip credit WalletLedger",
+      "fix": "Gateway reverse for gateway pays; wallet credit only for balance pays"
+    },
+    {
+      "id": "F12",
+      "plan": "application",
+      "severity": "P1",
+      "title": "Coupon quote uses food subtotal; redeem allocates across food+fees cart",
+      "evidence": "OrderCheckoutModal::applyCoupon quotes round(subtotal); line totals include fees",
+      "fix": "Quote and redeem on the same base (prefer payable cart = food+fees)"
+    },
+    {
+      "id": "F13",
+      "plan": "infra",
+      "severity": "P1",
+      "title": "Sanctum guard driver not registered in test/runtime",
+      "evidence": "16 API tests error: Auth driver [sanctum] for guard [sanctum] is not defined",
+      "fix": "Ensure Laravel\\Sanctum\\SanctumServiceProvider is discovered; or use auth:sanctum with web guard tokens and remove custom sanctum driver guard if unsupported"
+    }
+  ],
+  "improvements": {
+    "immediate_fixes": [
+      "F1+F2+F7 together: introduce Order::economicDue() / isFullySettled() and use everywhere (checkout, deliver, PaymentModal, EPS)",
+      "F3: cashCollectedAmount() return cash_collected only (migrate legacy rows once)",
+      "F6: unify COD policy in one method used by web+API",
+      "F13: restore Sanctum so API regression suite runs in CI"
+    ],
+    "hardening": [
+      "Keep FlawHuntDiagnosticTest in CI as regression guard (expect pass after fixes)",
+      "Add parameterized money matrix test (AL-PROP-01)",
+      "Add concurrent rider-accept / double-cash tests already sketched in DeliveryDashboardTest",
+      "Menu admin validation: kitchen_commission + delivery_commission <= price - min_margin",
+      "Freeze partner commissions onto order columns at create (already partially snapshotted) and accrue from snapshots only"
+    ],
+    "process": [
+      "Treat docs/test-plan-*.json as living catalogs; mark cases pass/fail/skip after each hunt",
+      "Separate policy decisions (is multi-date COD wanted?) from bugs before coding",
+      "Require money-movement spreadsheet for any pricing PR"
+    ]
+  }
+}

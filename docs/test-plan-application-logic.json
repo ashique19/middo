@@ -1,0 +1,728 @@
+{
+  "id": "middo-tp-application-logic",
+  "version": 1,
+  "title": "Middo Application Logic & Calculation Flaw Hunt",
+  "purpose": "Prove correctness of formulas, allocations, status machines, idempotency, concurrency, and ledger invariants — every calculation checked with numeric oracles.",
+  "methodology": {
+    "goal": "Find flaws where code computes wrong money/qty/status even when the user followed the business rules.",
+    "not_in_scope": [
+      "Whether a business policy is commercially wise (that is Plan A)",
+      "Visual UI only"
+    ],
+    "approach": [
+      "For every formula: hand-compute expected integer Taka before acting",
+      "Assert DB columns and derived helpers (amountDue, cashCollectedAmount, isPaid) together",
+      "Invariant checks after every transition: ledgers balance, no double events, box count = quantity",
+      "Concurrency: parallel requests with locks; assert exactly-one winner",
+      "Idempotency: replay callbacks/actions; assert no double credit",
+      "Property-style cases: qty 1..N, discount 0/partial/full, fees on/off, single/multi-date"
+    ],
+    "money_conventions": {
+      "unit": "integer Taka (no paisa)",
+      "display_may_be_float": true,
+      "persist_must_be_int": true
+    },
+    "pass_criteria": "Numeric expected === actual for all money fields; status+ledger invariants hold; replay safe.",
+    "priority": {
+      "P0": "Wrong customer charge/refund, double pay, phantom due, wrong handover cash, share math error",
+      "P1": "Allocation remainder off-by-one, idempotency gaps, float round mismatch",
+      "P2": "Display float vs int drift without money impact",
+      "P3": "Log label only"
+    }
+  },
+  "canonical_formulas": {
+    "order_line_food": "food = (int) round(menu.price * qty)",
+    "order_line_total": "total_amount = food + fees_for_date",
+    "amount_due": "amountDue = max(0, total_amount - amount_paid)  // NOTE: discount_amount NOT subtracted",
+    "is_paid_helper": "isPaid = (order_status==delivered_and_paid) OR (payment_status==paid)",
+    "prepay_ratio": "receiver_mismatch ? 1.0 : (active+new_dates > 3 ? 0.5 : 0)",
+    "prepay_amount": "round(cartTotal * ratio)",
+    "allocate_largest_remainder": "split prepaid/discount across lines capped per line",
+    "package_food_total": "billable_days * price_per_day * quantity",
+    "package_payable": "max(0, foodTotal - discount) + chargesTotal",
+    "day_order_line": "price_per_day * quantity  // charges/discount NOT on day orders",
+    "money_flow_breakdown": {
+      "qty": "max(1, quantity)",
+      "kitchen": "menu.kitchen_commission * qty",
+      "delivery": "menu.delivery_commission * qty",
+      "billNet": "max(0, food + charges - discount)",
+      "middoRest": "max(0, billNet - kitchen - delivery)"
+    },
+    "cash_collected_amount": "cash_collected>0 ? cash_collected : (isPaid && prepaid_amount==0 && status==delivered_and_paid ? total_amount : 0)",
+    "wallet": "credit/debit ints with lockForUpdate; reject insufficient",
+    "grouping_fit": "sum(group.qtys) + order.qty <= auto_meal_group_quantity (default 10)"
+  },
+  "global_invariants": [
+    "INV-1: For any order, amount_paid >= 0 and amount_paid <= total_amount after settle paths (except document if overpay possible)",
+    "INV-2: amountDue() == max(0, total_amount - amount_paid) always",
+    "INV-3: When payment_status=paid AND discount_amount>0, customer economic due must be 0 — if amountDue()>0 this is a calc flaw",
+    "INV-4: Sum(WalletLedger deltas) == user.wallet_balance",
+    "INV-5: MiddoCashLedger next balance_after never negative",
+    "INV-6: At packed/on_the_way/delivered*, count(order_middo_boxes) == order.quantity",
+    "INV-7: AccrueShares runs at most once per order (single middo_rest event)",
+    "INV-8: Partner payable amount == commission*qty at accrual (or document clamp policy)",
+    "INV-9: Handover.amount == sum(cashCollectedAmount of included orders)",
+    "INV-10: Replay of EPS success callback does not double-credit wallet or double-mark paid"
+  ],
+  "suites": [
+    {
+      "id": "AL-ORDER-PRICE",
+      "name": "À-la-carte pricing & amountDue matrix",
+      "source": ["OrderCheckoutModal", "Order.php", "ChargeService", "CouponService", "CorporateOrderPrepayment"],
+      "cases": [
+        {
+          "id": "AL-OP-01",
+          "priority": "P0",
+          "title": "Single line no fee no coupon: totals exact",
+          "inputs": {"price": 250, "qty": 2, "fees": 0, "discount": 0},
+          "expected_calc": {
+            "food": 500,
+            "total_amount": 500,
+            "amount_paid_full_balance": 500,
+            "amountDue_after_pay": 0
+          },
+          "steps": ["Checkout full balance pay", "Assert columns + amountDue()"],
+          "oracle": ["orders.total_amount", "amount_paid", "amountDue()"]
+        },
+        {
+          "id": "AL-OP-02",
+          "priority": "P0",
+          "title": "Fees per_item / per_delivery / per_checkout composition",
+          "inputs": {
+            "price": 200,
+            "qty": 3,
+            "per_item": 10,
+            "per_delivery": 20,
+            "per_checkout": 15
+          },
+          "expected_calc": {
+            "food": 600,
+            "fees": "10*3 + 20*1 + 15*1 = 65",
+            "total_amount": 665
+          },
+          "steps": ["Enable each charge type", "Checkout single date"],
+          "oracle": ["total_amount=665", "OrderMoneyFlow charge events sum=65"]
+        },
+        {
+          "id": "AL-OP-03",
+          "priority": "P0",
+          "title": "Multi-date cart: per_checkout fee only on first date",
+          "inputs": {"dates": 3, "per_checkout": 50},
+          "expected_calc": {"sum_fees_checkout_component": 50},
+          "steps": ["3-date cart", "Sum fee components"],
+          "oracle": ["Only first date line includes per_checkout"]
+        },
+        {
+          "id": "AL-OP-04",
+          "priority": "P0",
+          "title": "PERCENT coupon floor + max_discount cap",
+          "inputs": {"food_subtotal": 1000, "percent": 15, "max_discount": 100},
+          "expected_calc": {"discount": "min(floor(1000*0.15),100)=100"},
+          "steps": ["Apply coupon", "Assert discount_amount allocation sum"],
+          "oracle": ["Sum line discount_amount = 100"]
+        },
+        {
+          "id": "AL-OP-05",
+          "priority": "P0",
+          "title": "FIXED coupon with min_subtotal gate",
+          "inputs": {"subtotal": 400, "fixed": 50, "min_subtotal": 500},
+          "expected_calc": {"discount": 0},
+          "steps": ["Apply coupon below min"],
+          "oracle": ["Rejected or discount 0"]
+        },
+        {
+          "id": "AL-OP-06",
+          "priority": "P0",
+          "title": "CRITICAL: discount vs amountDue inconsistency",
+          "inputs": {"total_amount": 1000, "discount_amount": 100, "amount_paid": 900},
+          "expected_calc": {
+            "amountDue_helper": 100,
+            "economic_due_if_discount_honored": 0,
+            "payment_status_at_create": "paid if amount_paid >= total-discount"
+          },
+          "steps": [
+            "Create order with coupon so payment_status=paid and amount_paid = payable",
+            "Call amountDue(), isPaid(), deliverToConsumer branching"
+          ],
+          "oracle": [
+            "Record amountDue",
+            "Record whether status becomes delivered or delivered_and_paid",
+            "FAIL product if customer shown due or blocked from paid path while economically paid"
+          ],
+          "flaw_hypothesis": "amountDue ignores discount_amount while payment_status uses discounted threshold"
+        },
+        {
+          "id": "AL-OP-07",
+          "priority": "P0",
+          "title": "Coupon quote base food-only vs redeem on food+fees",
+          "inputs": {"food": 500, "fees": 80, "percent": 10},
+          "expected_calc": {
+            "ui_quote_if_food_only": 50,
+            "if_redeem_on_food_plus_fees": 58
+          },
+          "steps": ["Compare UI quoted discount to persisted sum discount_amount"],
+          "oracle": ["Quote == persisted OR document intentional difference", "FAIL silent mismatch"],
+          "flaw_hypothesis": "Quote on food only; allocate against cart with fees"
+        },
+        {
+          "id": "AL-OP-08",
+          "priority": "P0",
+          "title": "Largest-remainder prepaid allocation sums exactly to chargeAmount",
+          "inputs": {"lineTotals": [333, 333, 334], "prepaid": 500},
+          "expected_calc": {"sum(allocations)=500", "each <= lineTotal"},
+          "steps": ["CorporateOrderPrepayment::allocate", "Persist checkout"],
+          "oracle": ["Sum prepaid_amount == chargeAmount", "No line over-allocated"]
+        },
+        {
+          "id": "AL-OP-09",
+          "priority": "P0",
+          "title": "50% prepay then deliver: amountDue exact residual",
+          "inputs": {"cartTotal": 1000, "ratio": 0.5},
+          "expected_calc": {"amount_paid": 500, "amountDue": 500},
+          "steps": ["Checkout", "Kitchen…deliver", "Cash collect 500"],
+          "oracle": ["due before cash=500", "after cash amount_paid=1000", "cash_collected=500"]
+        },
+        {
+          "id": "AL-OP-10",
+          "priority": "P0",
+          "title": "100% receiver-mismatch prepay: amountDue=0 at deliver",
+          "inputs": {"cartTotal": 870, "ratio": 1.0},
+          "expected_calc": {"amount_paid": 870, "amountDue": 0, "deliver_status": "delivered_and_paid"},
+          "steps": ["Checkout with mismatch receiver", "Fulfill to deliver"],
+          "oracle": ["status delivered_and_paid", "accrueShares fired"]
+        },
+        {
+          "id": "AL-OP-11",
+          "priority": "P1",
+          "title": "Discount allocation largest-remainder across unequal lines",
+          "inputs": {"lineTotals": [100, 200, 300], "discount": 100},
+          "expected_calc": {"shares sum to 100", "proportional with remainder distribution"},
+          "steps": ["CouponService::allocateDiscount"],
+          "oracle": ["Sum shares=100"]
+        },
+        {
+          "id": "AL-OP-12",
+          "priority": "P1",
+          "title": "Mobile API pricing without coupon matches web food+fees",
+          "steps": ["Identical cart web vs API"],
+          "expected_calc": {"same total_amount per line"},
+          "oracle": ["Parity of totals"]
+        },
+        {
+          "id": "AL-OP-13",
+          "priority": "P1",
+          "title": "qty boundary: 1 and max daily 5; reject 0",
+          "steps": ["qty 0 filtered", "qty 1", "qty 5"],
+          "expected_calc": {"food = price * qty"},
+          "oracle": ["No order with qty 0"]
+        }
+      ]
+    },
+    {
+      "id": "AL-PACKAGE-CALC",
+      "name": "Package billing & refund arithmetic",
+      "source": ["PackageBilling", "PackageSubscriptionService", "ChargeService"],
+      "cases": [
+        {
+          "id": "AL-PK-01",
+          "priority": "P0",
+          "title": "billable_days * price_per_day * quantity",
+          "inputs": {"billable_days": 20, "price_per_day": 180, "quantity": 2},
+          "expected_calc": {"total_amount": 7200},
+          "steps": ["quoteFromSelections"],
+          "oracle": ["subscription.total_amount=7200"]
+        },
+        {
+          "id": "AL-PK-02",
+          "priority": "P0",
+          "title": "payable = max(0, food-discount) + charges",
+          "inputs": {"food": 7200, "discount": 200, "charges": 150},
+          "expected_calc": {"amount_paid": 7150},
+          "steps": ["subscribe with coupon+charges"],
+          "oracle": ["amount_paid=7150", "charges_amount=150", "discount_amount=200"]
+        },
+        {
+          "id": "AL-PK-03",
+          "priority": "P0",
+          "title": "Scheduled day orders: line = price_per_day * qty only",
+          "inputs": {"price_per_day": 180, "quantity": 2, "charges_amount": 150},
+          "expected_calc": {
+            "each_order_total": 360,
+            "sum_day_orders": "360 * billable_days",
+            "charges_not_on_days": true
+          },
+          "steps": ["assignSchedule", "Sum day order totals vs subscription"],
+          "oracle": ["Each order amount_paid=360", "Sum days == food total not including charges"]
+        },
+        {
+          "id": "AL-PK-04",
+          "priority": "P0",
+          "title": "Skip day refund equals order.amount_paid not pro-rata charges",
+          "inputs": {"day_amount_paid": 360, "charges_amount": 150},
+          "expected_calc": {"wallet_credit": 360},
+          "steps": ["skipDay", "Assert wallet"],
+          "oracle": ["credit=360"],
+          "flaw_hypothesis": "Charges stranded"
+        },
+        {
+          "id": "AL-PK-05",
+          "priority": "P0",
+          "title": "cancelRemaining before schedule refunds full amount_paid",
+          "expected_calc": {"refund": "subscription.amount_paid including charges"},
+          "steps": ["subscribe", "cancelRemaining awaiting_schedule"],
+          "oracle": ["Wallet += amount_paid"]
+        },
+        {
+          "id": "AL-PK-06",
+          "priority": "P0",
+          "title": "Partial skips then cancelRemaining: no double refund / no over-refund",
+          "steps": ["Schedule", "Skip 2 days", "cancelRemaining"],
+          "expected_calc": {
+            "total_refunds_lifetime": "<= amount_paid",
+            "skipped_days_refunded_once": true
+          },
+          "oracle": ["Sum all TYPE_REFUND for user related to sub <= amount_paid"]
+        },
+        {
+          "id": "AL-PK-07",
+          "priority": "P1",
+          "title": "Mid-month available days shrink after cutoff — quote changes",
+          "steps": ["Freeze time mid-month after cutoff", "Recompute availableDatesInMonth"],
+          "expected_calc": {"billable_days decreases for past days"},
+          "oracle": ["fills_month uses shrunk set"]
+        },
+        {
+          "id": "AL-PK-08",
+          "priority": "P1",
+          "title": "Omitted weekdays Carbon 0=Sun..6=Sat; FriSat default [5,6]",
+          "steps": ["Month with known Fri/Sat count"],
+          "expected_calc": {"available = calendar_days - fri - sat - past_cutoff"},
+          "oracle": ["Match hand count"]
+        }
+      ]
+    },
+    {
+      "id": "AL-MONEY-FLOW",
+      "name": "OrderMoneyFlow shares & events",
+      "source": ["OrderMoneyFlow", "OrderObserver"],
+      "cases": [
+        {
+          "id": "AL-MF-01",
+          "priority": "P0",
+          "title": "create events: food, charge, discount, payment",
+          "inputs": {"food": 500, "charges": 40, "discount": 50, "prepaid": 490},
+          "expected_calc": {"billNet": 490, "payment_event": 490},
+          "steps": ["Create order", "List money events"],
+          "oracle": ["Event amounts signed correctly"]
+        },
+        {
+          "id": "AL-MF-02",
+          "priority": "P0",
+          "title": "accrueShares kitchen/delivery/middoRest math",
+          "inputs": {
+            "food": 1000,
+            "charges": 0,
+            "discount": 0,
+            "qty": 2,
+            "kitchen_commission": 100,
+            "delivery_commission": 40
+          },
+          "expected_calc": {
+            "kitchen": 200,
+            "delivery": 80,
+            "billNet": 1000,
+            "middoRest": 720
+          },
+          "steps": ["Reach delivered_and_paid", "Read payables + events"],
+          "oracle": ["payable kitchen=200", "delivery=80", "middo_rest=720"]
+        },
+        {
+          "id": "AL-MF-03",
+          "priority": "P0",
+          "title": "When kitchen+delivery > billNet, middoRest clamps 0 but payables still full",
+          "inputs": {
+            "billNet": 100,
+            "kitchen_commission_x_qty": 80,
+            "delivery_commission_x_qty": 80
+          },
+          "expected_calc": {"middoRest": 0, "kitchen_payable": 80, "delivery_payable": 80},
+          "steps": ["Accrue on discounted/small bill"],
+          "oracle": ["middo_rest=0", "payables uncapped"],
+          "flaw_hypothesis": "Partners can be owed more than bill net"
+        },
+        {
+          "id": "AL-MF-04",
+          "priority": "P0",
+          "title": "accrueShares idempotent on repeated status updates",
+          "steps": ["Touch order repeatedly while delivered_and_paid"],
+          "expected_calc": {"middo_rest events": 1},
+          "oracle": ["Count TYPE_MIDDO_REST == 1"]
+        },
+        {
+          "id": "AL-MF-05",
+          "priority": "P1",
+          "title": "qty=0 treated as max(1,qty) in breakdown",
+          "steps": ["Force qty 0 in computeBreakdown unit/feature"],
+          "expected_calc": {"commissions use qty=1"},
+          "oracle": ["Document / prevent qty0 orders upstream"]
+        },
+        {
+          "id": "AL-MF-06",
+          "priority": "P1",
+          "title": "amount_paid decrease emits refund event; increase emits payment",
+          "steps": ["Mutate amount_paid under controlled update"],
+          "oracle": ["Event deltas match"]
+        },
+        {
+          "id": "AL-MF-07",
+          "priority": "P1",
+          "title": "food_amount backfilled by money flow matches menu.price*qty when unset",
+          "oracle": ["food_amount after observer"]
+        }
+      ]
+    },
+    {
+      "id": "AL-WALLET-LEDGER",
+      "name": "Wallet & Middo cash ledger integrity",
+      "source": ["WalletLedger", "MiddoCashLedger", "CorporateWalletTopUp"],
+      "cases": [
+        {
+          "id": "AL-WL-01",
+          "priority": "P0",
+          "title": "Debit exact balance → 0; debit +1 fails",
+          "steps": ["Credit 100", "Debit 100", "Debit 1"],
+          "oracle": ["balance 0", "second debit exception", "ledger rows balance_after correct"]
+        },
+        {
+          "id": "AL-WL-02",
+          "priority": "P0",
+          "title": "Concurrent double debit cannot overdraw",
+          "steps": ["Parallel debit 80 and 80 with balance 100"],
+          "expected_calc": {"exactly one succeeds", "final balance in {20}"},
+          "oracle": ["balance>=0", "sum successful debits <=100"]
+        },
+        {
+          "id": "AL-WL-03",
+          "priority": "P0",
+          "title": "Wallet top-up gateway idempotent via credited + gateway_token",
+          "steps": ["Replay success callback twice"],
+          "expected_calc": {"credit once"},
+          "oracle": ["Single WalletTransaction", "balance +once"]
+        },
+        {
+          "id": "AL-WL-04",
+          "priority": "P0",
+          "title": "MiddoCashLedger debit rejected if would go negative",
+          "steps": ["Settle payable larger than ledger"],
+          "oracle": ["No negative balance_after"]
+        },
+        {
+          "id": "AL-WL-05",
+          "priority": "P1",
+          "title": "Credit rejects non-positive amounts",
+          "steps": ["credit(0)", "credit(-1)"],
+          "oracle": ["Rejected"]
+        }
+      ]
+    },
+    {
+      "id": "AL-CASH-HANDOVER",
+      "name": "Cash collect & handover calculations",
+      "source": ["PaymentModal", "CashHandovers", "Order::cashCollectedAmount"],
+      "cases": [
+        {
+          "id": "AL-CH-01",
+          "priority": "P0",
+          "title": "Partial prepay cash collect sets cash_collected=due not total",
+          "inputs": {"total": 1000, "prepaid": 400},
+          "expected_calc": {"due": 600, "cash_collected": 600, "rider_balance_delta": 600},
+          "steps": ["Deliver", "Cash pay"],
+          "oracle": ["cash_collected=600", "amount_paid=1000"]
+        },
+        {
+          "id": "AL-CH-02",
+          "priority": "P0",
+          "title": "CRITICAL: gateway residual must not enter cash handover",
+          "inputs": {"total": 1000, "prepaid": 0, "pay_via": "gateway_residual"},
+          "expected_calc": {
+            "cash_collected": 0,
+            "cashCollectedAmount()": 0,
+            "handover_eligible": false
+          },
+          "steps": ["Deliver unpaid", "Pay online residual", "Open handover picker"],
+          "oracle": ["Order not listed OR cashCollectedAmount=0"],
+          "flaw_hypothesis": "legacy branch treats prepaid_amount==0 paid orders as full cash"
+        },
+        {
+          "id": "AL-CH-03",
+          "priority": "P0",
+          "title": "Handover amount equals sum of cashCollectedAmount",
+          "steps": ["Select 3 cash orders", "Create handover"],
+          "expected_calc": {"handover.amount = sum"},
+          "oracle": ["DB amount", "item rows"]
+        },
+        {
+          "id": "AL-CH-04",
+          "priority": "P0",
+          "title": "Accept handover: rider -= amount; Middo cash += amount once",
+          "steps": ["Kitchen accept"],
+          "oracle": ["rider.balance", "MiddoCashLedger credit", "OrderMoneyFlow handover event once"]
+        },
+        {
+          "id": "AL-CH-05",
+          "priority": "P0",
+          "title": "Same order cannot be in two handovers",
+          "steps": ["Create handover1", "Attempt handover2 including same order"],
+          "oracle": ["Second rejected", "whereDoesntHave holds under concurrency"]
+        },
+        {
+          "id": "AL-CH-06",
+          "priority": "P1",
+          "title": "Wallet full prepaid (prepaid_amount set): cashCollectedAmount=0",
+          "oracle": ["Not in handover list"]
+        }
+      ]
+    },
+    {
+      "id": "AL-BOX-QTY",
+      "name": "Box quantity consistency",
+      "source": ["DispatchOrderModal", "KitchenDispatches"],
+      "cases": [
+        {
+          "id": "AL-BX-01",
+          "priority": "P0",
+          "title": "Dispatch count must equal quantity",
+          "inputs": {"quantity": 3},
+          "steps": ["Try 2,3,4 boxes"],
+          "oracle": ["Only 3 packs"]
+        },
+        {
+          "id": "AL-BX-02",
+          "priority": "P0",
+          "title": "Rider accept re-validates box count == quantity and at kitchen",
+          "steps": ["Tamper remove a box mid-flight if possible", "Accept"],
+          "oracle": ["Accept fails if mismatch"]
+        },
+        {
+          "id": "AL-BX-03",
+          "priority": "P1",
+          "title": "Same box cannot pack onto two orders (lock)",
+          "steps": ["Parallel dispatch sharing box id"],
+          "oracle": ["Exactly one OrderMiddoBox wins"]
+        }
+      ]
+    },
+    {
+      "id": "AL-GROUP-CAPACITY",
+      "name": "Grouping capacity math",
+      "source": ["MealOrderGrouper"],
+      "cases": [
+        {
+          "id": "AL-GR-01",
+          "priority": "P0",
+          "title": "Fit boundary at exactly 10",
+          "inputs": {"open": 7, "new": 3, "max": 10},
+          "expected_calc": {"joins": true},
+          "oracle": ["Same group"]
+        },
+        {
+          "id": "AL-GR-02",
+          "priority": "P0",
+          "title": "11th meal unit creates new group",
+          "inputs": {"open": 8, "new": 3},
+          "expected_calc": {"joins": false},
+          "oracle": ["New group"]
+        },
+        {
+          "id": "AL-GR-03",
+          "priority": "P1",
+          "title": "order.qty > max creates solo oversized group",
+          "inputs": {"qty": 11, "max": 10},
+          "oracle": ["Document actual; assert no silent merge into others"],
+          "flaw_hypothesis": "Oversize allowed"
+        },
+        {
+          "id": "AL-GR-04",
+          "priority": "P1",
+          "title": "Concurrent assignOrder same key does not exceed capacity across groups incorrectly",
+          "steps": ["Parallel place into empty key"],
+          "oracle": ["No single group sum > max unless single-order oversize case"]
+        }
+      ]
+    },
+    {
+      "id": "AL-STATUS-RACE",
+      "name": "Status transitions, races, idempotency",
+      "source": ["KitchenDispatches", "EpsPaymentCallbackController", "PaymentModal"],
+      "cases": [
+        {
+          "id": "AL-SR-01",
+          "priority": "P0",
+          "title": "Two riders accept same packed order → exactly one wins",
+          "steps": ["Parallel acceptOrder"],
+          "oracle": ["One delivery_rider_id", "One on_the_way status", "Loser error"]
+        },
+        {
+          "id": "AL-SR-02",
+          "priority": "P0",
+          "title": "Double deliver blocked",
+          "steps": ["deliver twice"],
+          "oracle": ["Second no-op/fail", "Single delivered_to_corporate log set"]
+        },
+        {
+          "id": "AL-SR-03",
+          "priority": "P0",
+          "title": "Double cash collect blocked",
+          "steps": ["Parallel PaymentModal cash"],
+          "oracle": ["Rider balance += due once", "amount_paid not > total"]
+        },
+        {
+          "id": "AL-SR-04",
+          "priority": "P0",
+          "title": "EPS residual callback idempotent",
+          "steps": ["Replay success twice"],
+          "oracle": ["Still paid once", "No double payment events beyond idempotent rules"]
+        },
+        {
+          "id": "AL-SR-05",
+          "priority": "P0",
+          "title": "EPS underpay rejected; amount_paid unchanged",
+          "steps": ["Callback with amount < due"],
+          "oracle": ["Not paid"]
+        },
+        {
+          "id": "AL-SR-06",
+          "priority": "P1",
+          "title": "EPS float round: paidAmount 99.6 vs int due 100",
+          "steps": ["Verify (int) round behavior"],
+          "oracle": ["Document accept/reject", "No partial silent pay"]
+        },
+        {
+          "id": "AL-SR-07",
+          "priority": "P1",
+          "title": "Kitchen group accept race: two kitchens → one kitchen_id",
+          "oracle": ["Single winner"]
+        },
+        {
+          "id": "AL-SR-08",
+          "priority": "P1",
+          "title": "isPaid true via payment_status blocks PaymentModal even if amountDue>0",
+          "steps": ["Construct discount inconsistency state", "Open cash modal"],
+          "oracle": ["Document stuck residual risk"],
+          "flaw_hypothesis": "Phantom due uncollectable via cash UI"
+        }
+      ]
+    },
+    {
+      "id": "AL-CUTOFF-TIME",
+      "name": "Cutoff datetime edge calculations",
+      "source": ["OrderCutoff"],
+      "cases": [
+        {
+          "id": "AL-CT-01",
+          "priority": "P0",
+          "title": "15:27:59 allow; 15:28:00 deny",
+          "steps": ["Carbon::setTestNow both"],
+          "oracle": ["Boolean flip exact"]
+        },
+        {
+          "id": "AL-CT-02",
+          "priority": "P1",
+          "title": "Delivery date as date-only string vs datetime midnight",
+          "steps": ["Pass Y-m-d and ISO datetime"],
+          "oracle": ["Same cutoff day"]
+        },
+        {
+          "id": "AL-CT-03",
+          "priority": "P1",
+          "title": "Future date always placeable regardless of today’s clock past cutoff",
+          "steps": ["After today’s cutoff, place for D+1"],
+          "oracle": ["Allowed"]
+        }
+      ]
+    },
+    {
+      "id": "AL-SETTLE",
+      "name": "Accounts settle & payable arithmetic",
+      "source": ["AccountsHub", "OrderMoneyFlow"],
+      "cases": [
+        {
+          "id": "AL-ST-01",
+          "priority": "P0",
+          "title": "Settle payable debits Middo cash by exact payable amount",
+          "steps": ["Accrue", "Settle"],
+          "oracle": ["payable closed", "ledger debit = payable.amount"]
+        },
+        {
+          "id": "AL-ST-02",
+          "priority": "P1",
+          "title": "Double settle rejected",
+          "oracle": ["Second settle no extra debit"]
+        }
+      ]
+    },
+    {
+      "id": "AL-PROPERTY",
+      "name": "Property / matrix scenarios (run as parameterized sets)",
+      "cases": [
+        {
+          "id": "AL-PROP-01",
+          "priority": "P0",
+          "title": "Cart matrix: dates∈{1,2,3} × qty∈{1,2,5} × fees∈{0,on} × coupon∈{none,percent,fixed,full} × pay∈{balance,gateway,COD,50%prepay}",
+          "steps": [
+            "Generate combinations allowed by policy",
+            "Hand-calc payable",
+            "Checkout",
+            "Assert totals, amount_paid, amountDue, payment_status agreement"
+          ],
+          "oracle": ["INV-1..3 hold for every cell"]
+        },
+        {
+          "id": "AL-PROP-02",
+          "priority": "P0",
+          "title": "Full lifecycle money conservation for one order",
+          "steps": [
+            "Place → accept → pack → ride → deliver → pay → handover → settle payables"
+          ],
+          "expected_calc": {
+            "customer_paid_total": "amount_paid final",
+            "middo_cash_from_handover": "cash parts only",
+            "partner_settlements": "kitchen+delivery commissions",
+            "conservation_note": "Track food+fees-discount vs middoRest+partners+direct memo"
+          },
+          "oracle": ["Spreadsheet of all ledger movements balances"]
+        },
+        {
+          "id": "AL-PROP-03",
+          "priority": "P1",
+          "title": "Package month matrix: omit sets × qty × coupon × charges × skip counts",
+          "oracle": ["Lifetime refunds <= amount_paid", "day order math intact"]
+        }
+      ]
+    }
+  ],
+  "suggested_automation": {
+    "unit": [
+      "PackageBilling::quoteFromSelections",
+      "CorporateOrderPrepayment::allocate",
+      "CouponService::allocateDiscount",
+      "Order::amountDue / cashCollectedAmount",
+      "OrderMoneyFlow::computeBreakdown"
+    ],
+    "feature": [
+      "Checkout end-to-end money columns",
+      "DeliveryDashboard cash due after prepay",
+      "EPS callback replay",
+      "Parallel rider accept",
+      "Handover eligibility after gateway residual"
+    ],
+    "existing_coverage_to_extend": [
+      "tests/Feature/OrderAccountsTest.php",
+      "tests/Feature/CouponTest.php",
+      "tests/Feature/ChargeTest.php",
+      "tests/Feature/Delivery/DeliveryDashboardTest.php",
+      "tests/Feature/EpsPaymentGatewayTest.php",
+      "tests/Feature/MealPackageTest.php"
+    ]
+  }
+}
