@@ -147,7 +147,7 @@ class PaymentModal extends Component
                 $order->update([
                     'order_status' => 'delivered_and_paid',
                     'payment_status' => 'paid',
-                    'amount_paid' => (int) $order->total_amount,
+                    'amount_paid' => $order->netTotalAmount(),
                     'cash_collected' => $due,
                     'updated_by' => $riderId,
                 ]);

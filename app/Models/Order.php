@@ -190,9 +190,21 @@ class Order extends Model
         return (int) ($this->prepaid_amount ?? 0);
     }
 
+    /**
+     * Customer bill after coupon/discount (food + charges − discount).
+     * total_amount stores pre-discount line total; discount_amount is separate.
+     */
+    public function netTotalAmount(): int
+    {
+        return max(0, (int) $this->total_amount - (int) ($this->discount_amount ?? 0));
+    }
+
+    /**
+     * Residual the customer still owes. Always respects discount_amount.
+     */
     public function amountDue(): int
     {
-        return max(0, (int) $this->total_amount - $this->amountPaidValue());
+        return max(0, $this->netTotalAmount() - $this->amountPaidValue());
     }
 
     public function paymentMethodKey(): ?string

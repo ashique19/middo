@@ -24,6 +24,7 @@ use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
 use App\Support\CorporateWalletTopUp;
 use App\Support\MealOrderGrouper;
+use App\Support\OrderCancellation;
 use App\Support\OrderConfirmationOtp;
 use App\Support\OrderCutoff;
 use App\Support\OrderPaymentMethod;
@@ -1010,24 +1011,8 @@ class CorporateMobileController extends Controller
 
     public function cancelOrder(Request $request, int $order): JsonResponse
     {
-        $model = $this->findOwnedPendingOrder($request->user()->id, $order);
-        $refund = (int) ($model->amount_paid ?? 0);
-
-        DB::transaction(function () use ($request, $model, $refund) {
-            if ($refund > 0) {
-                WalletLedger::credit(
-                    $request->user(),
-                    $refund,
-                    WalletTransaction::TYPE_REFUND,
-                    'Refund for cancelled order #'.$model->id,
-                    $model
-                );
-            }
-            $model->update([
-                'order_status' => 'cancelled',
-                'updated_by' => $request->user()->id,
-            ]);
-        });
+        $result = OrderCancellation::cancelPendingOwnedBy($request->user(), $order);
+        $refund = (int) $result['refunded_amount'];
 
         return response()->json([
             'message' => $refund > 0
@@ -1060,29 +1045,6 @@ class CorporateMobileController extends Controller
             'order' => CorporateApiPresenter::order($model),
             'events' => $mapped,
         ]);
-    }
-
-    private function findOwnedPendingOrder(int $userId, int $orderId): Order
-    {
-        $order = Order::with('menuItem')
-            ->where('id', $orderId)
-            ->where('user_id', $userId)
-            ->where('order_status', 'pending')
-            ->first();
-
-        if (! $order) {
-            throw ValidationException::withMessages([
-                'order' => ['Only pending orders can be edited or cancelled.'],
-            ]);
-        }
-
-        if (! OrderCutoff::allowsModification($order)) {
-            throw ValidationException::withMessages([
-                'order' => [OrderCutoff::modificationDeniedMessage()],
-            ]);
-        }
-
-        return $order;
     }
 
     public function supportThread(Request $request, int $order): JsonResponse
