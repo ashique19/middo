@@ -1,0 +1,691 @@
+{
+  "id": "middo-tp-business-logic",
+  "version": 1,
+  "title": "Middo Business Logic Flaw Hunt",
+  "purpose": "Prove or break domain/product rules: who may do what, when, under which status, cutoff, role, and commercial policy — independent of UI polish.",
+  "methodology": {
+    "goal": "Find flaws where the product allows or denies outcomes that violate Middo’s intended business rules.",
+    "not_in_scope": [
+      "Pixel-perfect UI",
+      "Floating-point display formatting alone",
+      "Pure concurrency race proofs (covered in application-logic plan except where race changes business outcome)"
+    ],
+    "approach": [
+      "Derive expected rules from Support classes + role routes, not from UI copy",
+      "For each rule: happy path, boundary, negative (should refuse), and privilege escalation",
+      "Cross-role: same action as corporate vs kitchen vs delivery vs operation vs admin",
+      "Cross-channel: web Livewire vs corporate mobile API must enforce the same rule",
+      "Record oracle: DB status fields, wallet ledger, box logs, partner payables — not toast text alone"
+    ],
+    "pass_criteria": "Every case has Expected Outcome + Observable Oracle. Fail if actual violates oracle.",
+    "severity": {
+      "P0": "Money loss, free meals, unauthorized cancel/refund, partner overpay, custody theft",
+      "P1": "Policy bypass (cutoff, COD, prepay, role)",
+      "P2": "Inconsistent UX/API with correct money",
+      "P3": "Docs/copy mismatch only"
+    }
+  },
+  "fixtures": {
+    "roles": ["admin", "operation", "corporate", "kitchen", "delivery"],
+    "password": "12345678",
+    "timezone": "Asia/Dhaka",
+    "cutoff_default": "15:28",
+    "max_order_qty_per_day": 5,
+    "auto_meal_group_quantity": 10,
+    "prepay_active_order_threshold": 3
+  },
+  "suites": [
+    {
+      "id": "BL-ORDER-CUTOFF",
+      "name": "Order cutoff & modification policy",
+      "source": ["app/Support/OrderCutoff.php", "DeleteOrderModal", "CorporateMobileController"],
+      "cases": [
+        {
+          "id": "BL-OC-01",
+          "priority": "P0",
+          "title": "Place order for today before cutoff succeeds",
+          "preconditions": ["Clock < 15:28 Dhaka on delivery day D", "Corporate authenticated"],
+          "steps": ["Place à-la-carte order for delivery_date=D"],
+          "expected": "Order created with order_status=pending",
+          "oracle": ["orders.order_status=pending", "orders.delivery_date=D"],
+          "flaw_hypothesis": "Cutoff applied too early or wrong timezone"
+        },
+        {
+          "id": "BL-OC-02",
+          "priority": "P0",
+          "title": "Place order for today at/after cutoff fails",
+          "preconditions": ["Clock >= 15:28 Dhaka on day D"],
+          "steps": ["Attempt place order for D (web + API)"],
+          "expected": "Rejected on both channels",
+          "oracle": ["No new order row", "Same error class on web and API"]
+        },
+        {
+          "id": "BL-OC-03",
+          "priority": "P0",
+          "title": "Cancel pending order before cutoff succeeds; refunds amount_paid only",
+          "preconditions": ["Pending order with amount_paid=A, unpaid residual R>0"],
+          "steps": ["Corporate cancel before cutoff"],
+          "expected": "cancelled; wallet credited A (not A+R)",
+          "oracle": ["order_status=cancelled", "WalletLedger credit = A", "No credit for residual"]
+        },
+        {
+          "id": "BL-OC-04",
+          "priority": "P0",
+          "title": "Cancel after cutoff fails while still pending",
+          "preconditions": ["Pending order, now past cutoff for delivery date"],
+          "steps": ["Cancel web + API"],
+          "expected": "Rejected; order remains pending",
+          "oracle": ["order_status still pending", "No wallet credit"]
+        },
+        {
+          "id": "BL-OC-05",
+          "priority": "P0",
+          "title": "Cancel non-pending statuses always denied for corporate",
+          "preconditions": ["Orders in processing|packed|on_the_way_to_delivery|delivered"],
+          "steps": ["Attempt cancel as corporate owner"],
+          "expected": "Denied for every non-pending status even before cutoff",
+          "oracle": ["Status unchanged"]
+        },
+        {
+          "id": "BL-OC-06",
+          "priority": "P1",
+          "title": "Edit order is disabled (cancel+recreate policy)",
+          "preconditions": ["Pending editable order"],
+          "steps": ["Call API updateOrder; look for web edit affordance"],
+          "expected": "Update hard-disabled; no silent partial edit",
+          "oracle": ["Order fields unchanged", "API returns disabled/error"]
+        },
+        {
+          "id": "BL-OC-07",
+          "priority": "P1",
+          "title": "Cutoff uses Asia/Dhaka even if server TZ differs",
+          "preconditions": ["Server TZ set to UTC for test"],
+          "steps": ["Cross boundary around 15:28 Dhaka"],
+          "expected": "Allow/deny matches Dhaka wall clock, not UTC",
+          "oracle": ["OrderCutoff::isPastForDeliveryDate matches Dhaka"]
+        },
+        {
+          "id": "BL-OC-08",
+          "priority": "P1",
+          "title": "Exactly at cutoff is closed (>=)",
+          "preconditions": ["Freeze time to deliveryDate 15:28:00 Dhaka"],
+          "steps": ["Place and cancel"],
+          "expected": "Both denied",
+          "oracle": ["No create; no cancel"]
+        }
+      ]
+    },
+    {
+      "id": "BL-COD-PREPAY",
+      "name": "COD eligibility & forced prepayment policy",
+      "source": ["OrderPaymentMethod", "CorporateOrderPrepayment"],
+      "cases": [
+        {
+          "id": "BL-CP-01",
+          "priority": "P0",
+          "title": "COD allowed for single-day cart when prepay not forced",
+          "preconditions": ["1 delivery date", "Active orders <=3 after add", "Receiver matches profile"],
+          "steps": ["Checkout with COD"],
+          "expected": "Order created; charge at checkout = 0; residual due at delivery",
+          "oracle": ["payment_method=cash_on_delivery", "amount_paid=0 or prepaid only", "amountDue()>0"]
+        },
+        {
+          "id": "BL-CP-02",
+          "priority": "P0",
+          "title": "COD denied when prepayment required (active+new > 3 → 50%)",
+          "preconditions": ["Corporate already has enough active dates that projected > 3"],
+          "steps": ["Attempt COD single-day checkout"],
+          "expected": "Must prepay 50% of cart; COD unavailable",
+          "oracle": ["Checkout charge = round(cart*0.5)", "No COD path"]
+        },
+        {
+          "id": "BL-CP-03",
+          "priority": "P0",
+          "title": "Receiver ≠ profile forces 100% prepay (wins over 50%)",
+          "preconditions": ["Receiver name/mobile differs from profile", "Also would trigger 50%"],
+          "steps": ["Checkout"],
+          "expected": "100% prepay required; COD blocked",
+          "oracle": ["checkoutCharge = full payable cart"]
+        },
+        {
+          "id": "BL-CP-04",
+          "priority": "P1",
+          "title": "Multi-date cart COD policy consistency web vs API",
+          "preconditions": ["2+ delivery dates, no forced prepay"],
+          "steps": ["Compare web vs API payment method resolution"],
+          "expected": "Document actual rule; both channels identical; if multi-date COD with 0 prepaid is allowed, flag as policy flaw",
+          "oracle": ["Same payment_method and amount_paid pattern on both channels"],
+          "flaw_hypothesis": "allowsCashOnDelivery not applied on multi-date path"
+        },
+        {
+          "id": "BL-CP-05",
+          "priority": "P1",
+          "title": "Mobile API has no coupon but same COD/prepay rules as web (sans coupon)",
+          "preconditions": ["Same cart shape on web and API"],
+          "steps": ["Place without coupon"],
+          "expected": "Prepay ratio and COD gates match",
+          "oracle": ["amount_paid / total_amount ratios equal"]
+        }
+      ]
+    },
+    {
+      "id": "BL-QTY-GROUP",
+      "name": "Daily quantity cap & meal grouping policy",
+      "source": ["CorporateOrderLimit", "MealOrderGrouper", "OrderGroupManager"],
+      "cases": [
+        {
+          "id": "BL-QG-01",
+          "priority": "P0",
+          "title": "Max 5 meals per user per delivery date across non-cancelled orders",
+          "preconditions": ["User already ordered 4 for date D"],
+          "steps": ["Order qty 2 for D", "Order qty 1 for D"],
+          "expected": "qty 2 rejected; qty 1 accepted (total 5)",
+          "oracle": ["Sum(quantity) for D non-cancelled = 5"]
+        },
+        {
+          "id": "BL-QG-02",
+          "priority": "P1",
+          "title": "Cancelled orders free daily capacity",
+          "preconditions": ["5 meals pending for D"],
+          "steps": ["Cancel one qty-2 order before cutoff", "Place qty 2 again"],
+          "expected": "Capacity restored",
+          "oracle": ["New order exists; sum still <=5"]
+        },
+        {
+          "id": "BL-QG-03",
+          "priority": "P1",
+          "title": "Auto-group: same menu+date+area, kitchen null, capacity <=10",
+          "preconditions": ["Open group with currentQty=8", "New order qty=2 same key"],
+          "steps": ["Place order"],
+          "expected": "Joins existing group",
+          "oracle": ["Same order_group_id", "group qty sum=10"]
+        },
+        {
+          "id": "BL-QG-04",
+          "priority": "P1",
+          "title": "Auto-group: overflow creates new group",
+          "preconditions": ["Open group qty=9", "New order qty=2"],
+          "steps": ["Place order"],
+          "expected": "New group created; does not push first group over 10",
+          "oracle": ["Two groups", "first sum=9", "second sum=2"]
+        },
+        {
+          "id": "BL-QG-05",
+          "priority": "P0",
+          "title": "Single order qty > 10 policy",
+          "preconditions": ["max_order_qty may block at 5 — use staff/manual path or temporarily raise daily limit in test to isolate grouper"],
+          "steps": ["Force assignOrder with qty=11"],
+          "expected": "Business decision: either hard-reject OR document solo over-capacity group as accepted risk",
+          "oracle": ["Record actual group qty", "Flag if over-capacity group created silently"],
+          "flaw_hypothesis": "qty>10 creates oversized group with no reject"
+        },
+        {
+          "id": "BL-QG-06",
+          "priority": "P1",
+          "title": "Manual regroup by ops does not silently violate same-menu/area/capacity policy",
+          "preconditions": ["Two orders different menus or areas"],
+          "steps": ["Ops manually merge via OrderGroupManager"],
+          "expected": "Either blocked OR explicit ops override logged; document intentional exception",
+          "oracle": ["Group membership after action", "Audit/log if override"]
+        },
+        {
+          "id": "BL-QG-07",
+          "priority": "P1",
+          "title": "Package-scheduled days count toward daily 5-meal limit",
+          "preconditions": ["Subscription scheduled creating pending package orders on D totaling 3"],
+          "steps": ["Place à-la-carte qty 3 for D"],
+          "expected": "Rejected if total would exceed 5; accepted if within 5",
+          "oracle": ["Sum all non-cancelled orders for D"],
+          "flaw_hypothesis": "Package days not counted until schedule creates orders — verify after schedule"
+        }
+      ]
+    },
+    {
+      "id": "BL-OTP",
+      "name": "OTP confirmation policy",
+      "source": ["OrderConfirmationOtp", "PackageGatewayCheckout"],
+      "cases": [
+        {
+          "id": "BL-OTP-01",
+          "priority": "P0",
+          "title": "Checkout finalize requires valid OTP",
+          "steps": ["Submit checkout without OTP / wrong OTP / expired (>300s)"],
+          "expected": "No order created",
+          "oracle": ["orders count unchanged"]
+        },
+        {
+          "id": "BL-OTP-02",
+          "priority": "P1",
+          "title": "Package subscribe (balance & gateway) requires OTP",
+          "steps": ["Complete payment path then wrong OTP"],
+          "expected": "No subscription completed",
+          "oracle": ["package_subscriptions / intent status not completed"]
+        },
+        {
+          "id": "BL-OTP-03",
+          "priority": "P1",
+          "title": "Same mobile concurrent checkouts OTP collision",
+          "steps": ["Start two checkouts for same mobile; consume OTP on first"],
+          "expected": "Second cannot reuse consumed OTP; no double charge",
+          "oracle": ["At most one successful finalize per OTP"],
+          "flaw_hypothesis": "Single cache key per mobile allows cross-session steal/collision"
+        }
+      ]
+    },
+    {
+      "id": "BL-KITCHEN",
+      "name": "Kitchen accept / pack / dispatch business rules",
+      "source": ["MiddoOrderGroups", "DispatchOrderModal", "AssignKitchenModal", "OrderKitchenAcceptance"],
+      "cases": [
+        {
+          "id": "BL-K-01",
+          "priority": "P0",
+          "title": "Only unassigned groups can be accepted by kitchen",
+          "preconditions": ["Group kitchen_id=null with pending orders"],
+          "steps": ["Kitchen A accepts", "Kitchen B accepts same group"],
+          "expected": "A wins; B fails; all pending members → processing",
+          "oracle": ["order_groups.kitchen_id=A", "members order_status=processing"]
+        },
+        {
+          "id": "BL-K-02",
+          "priority": "P0",
+          "title": "Dispatch requires exactly order.quantity Middo boxes at kitchen",
+          "steps": ["Dispatch with qty-1 boxes", "Dispatch with exact qty", "Dispatch with qty+1"],
+          "expected": "Only exact qty succeeds → packed + dispatched_at set",
+          "oracle": ["order_status=packed", "order_middo_boxes count = quantity"]
+        },
+        {
+          "id": "BL-K-03",
+          "priority": "P0",
+          "title": "Cannot dispatch boxes not at this kitchen or already reserved",
+          "steps": ["Select box at warehouse / other kitchen / already on another order"],
+          "expected": "Rejected",
+          "oracle": ["No packed status", "No OrderMiddoBox for invalid boxes"]
+        },
+        {
+          "id": "BL-K-04",
+          "priority": "P1",
+          "title": "Ops assign kitchen advances pending→processing on first assign",
+          "steps": ["Ops assign kitchen to unassigned group"],
+          "expected": "kitchen_id set; pending → processing",
+          "oracle": ["Statuses + kitchen_id"]
+        },
+        {
+          "id": "BL-K-05",
+          "priority": "P0",
+          "title": "Ops reassign / clear kitchen after packing mid-flight",
+          "preconditions": ["Order packed with boxes"],
+          "steps": ["Ops reassign group to another kitchen or clear"],
+          "expected": "Business decision: must either block or leave consistent custody + status; document flaw if packed order points at wrong kitchen while boxes elsewhere",
+          "oracle": ["order_group.kitchen_id", "box held_by", "order_status"],
+          "flaw_hypothesis": "Reassign after pack without reverting status / box custody"
+        },
+        {
+          "id": "BL-K-06",
+          "priority": "P2",
+          "title": "Accept does not require area match beyond group key",
+          "steps": ["Kitchen outside area accepts unassigned group"],
+          "expected": "Document if any kitchen can accept any unassigned group — policy check",
+          "oracle": ["Accept succeeds or geo-restricted"]
+        }
+      ]
+    },
+    {
+      "id": "BL-DELIVERY",
+      "name": "Delivery accept / deliver / COD settlement policy",
+      "source": ["KitchenDispatches", "PaymentModal", "OrderPaymentController"],
+      "cases": [
+        {
+          "id": "BL-D-01",
+          "priority": "P0",
+          "title": "Only packed+dispatched+unassigned orders can be accepted by rider",
+          "steps": ["Accept processing", "Accept packed without dispatched_at", "Accept already assigned", "Accept valid packed"],
+          "expected": "Only valid → on_the_way_to_delivery + delivery_rider_id set",
+          "oracle": ["isAwaitingRiderAccept semantics"]
+        },
+        {
+          "id": "BL-D-02",
+          "priority": "P0",
+          "title": "Deliver with amountDue>0 → delivered (not paid)",
+          "preconditions": ["COD residual due>0"],
+          "steps": ["Rider deliverToConsumer"],
+          "expected": "order_status=delivered; payment_status not fully settled; boxes with corporate",
+          "oracle": ["status", "box log delivered_to_corporate", "no partner accrue yet"]
+        },
+        {
+          "id": "BL-D-03",
+          "priority": "P0",
+          "title": "Deliver with amountDue=0 → delivered_and_paid + accrue shares",
+          "preconditions": ["Fully prepaid"],
+          "steps": ["Deliver"],
+          "expected": "delivered_and_paid; partner payables opened",
+          "oracle": ["status", "partner_payables rows", "OrderMoneyFlow middo_rest event"]
+        },
+        {
+          "id": "BL-D-04",
+          "priority": "P0",
+          "title": "Cash collect after delivered settles to delivered_and_paid and credits rider float",
+          "steps": ["Collect cash due"],
+          "expected": "status paid; cash_collected=due; rider.balance += due",
+          "oracle": ["orders fields", "users.balance delta"]
+        },
+        {
+          "id": "BL-D-05",
+          "priority": "P0",
+          "title": "Online residual pay link settles without treating as rider cash",
+          "steps": ["Send pay link", "Complete gateway residual"],
+          "expected": "delivered_and_paid; cash_collected remains 0; NOT eligible for cash handover as cash",
+          "oracle": ["cash_collected=0", "handover eligibility excludes order"],
+          "flaw_hypothesis": "legacy cashCollectedAmount treats gateway residual as cash"
+        },
+        {
+          "id": "BL-D-06",
+          "priority": "P1",
+          "title": "Non-assigned rider cannot deliver or collect",
+          "steps": ["Rider B attempts deliver on Rider A order"],
+          "expected": "Denied",
+          "oracle": ["Status unchanged"]
+        },
+        {
+          "id": "BL-D-07",
+          "priority": "P1",
+          "title": "Partner shares accrue only on delivered_and_paid (not on delivered)",
+          "steps": ["Stop at delivered unpaid; inspect payables; then settle"],
+          "expected": "No payables until paid; then payables appear once",
+          "oracle": ["partner_payables count before/after"]
+        }
+      ]
+    },
+    {
+      "id": "BL-PACKAGE",
+      "name": "Package subscription commercial rules",
+      "source": ["PackageBilling", "PackageSubscriptionService", "PackageCheckoutIntent"],
+      "cases": [
+        {
+          "id": "BL-P-01",
+          "priority": "P0",
+          "title": "Selections must fill all available working days in month",
+          "steps": ["Subscribe with under-filled selections", "With exact fill"],
+          "expected": "Under-fill rejected; exact fill accepted",
+          "oracle": ["assertSelectionsFillMonth"]
+        },
+        {
+          "id": "BL-P-02",
+          "priority": "P0",
+          "title": "One non-cancelled package per user per target_month",
+          "steps": ["Subscribe twice same month"],
+          "expected": "Second rejected",
+          "oracle": ["userHasPackageForMonth"]
+        },
+        {
+          "id": "BL-P-03",
+          "priority": "P0",
+          "title": "Default omitted weekdays Fri+Sat unless overridden",
+          "steps": ["Subscribe with default omit"],
+          "expected": "Available dates exclude Fri/Sat + past cutoff days",
+          "oracle": ["billable_days matches PackageBilling"]
+        },
+        {
+          "id": "BL-P-04",
+          "priority": "P0",
+          "title": "Skip pending day before cutoff refunds day amount and ungroups",
+          "steps": ["Skip one scheduled pending day"],
+          "expected": "Order cancelled; wallet refund; removed from group",
+          "oracle": ["Wallet credit", "order_group membership"]
+        },
+        {
+          "id": "BL-P-05",
+          "priority": "P0",
+          "title": "Skip does not refund subscription-level charges_amount",
+          "preconditions": ["Subscription had charges_amount>0 prepaid"],
+          "steps": ["Skip one day"],
+          "expected": "Refund = day food only; charges stay with Middo unless policy says otherwise — flag if product intends pro-rata charge refund",
+          "oracle": ["refund amount == order.amount_paid", "subscription.charges_amount unchanged"],
+          "flaw_hypothesis": "Charges stranded on per-day skip"
+        },
+        {
+          "id": "BL-P-06",
+          "priority": "P0",
+          "title": "cancelRemaining marks cancelled even if past-cutoff days remain live",
+          "steps": ["Staff cancelRemaining mid-month with some locked days"],
+          "expected": "Document: subscription cancelled while remaining locked orders still fulfill — confirm intended; else flaw",
+          "oracle": ["subscription.status=cancelled", "locked orders still non-cancelled"]
+        },
+        {
+          "id": "BL-P-07",
+          "priority": "P1",
+          "title": "Only admin forceComplete; operation cannot",
+          "steps": ["Ops forceComplete", "Admin forceComplete"],
+          "expected": "Ops denied; Admin sets completed",
+          "oracle": ["status"]
+        },
+        {
+          "id": "BL-P-08",
+          "priority": "P1",
+          "title": "No auto-complete when all days terminal",
+          "steps": ["Deliver/skip/cancel all days"],
+          "expected": "Status stays active until forceComplete — document as policy gap if auto-complete expected",
+          "oracle": ["subscription.status"]
+        },
+        {
+          "id": "BL-P-09",
+          "priority": "P1",
+          "title": "Gateway package: pay then OTP; fingerprint mismatch rejects",
+          "steps": ["Pay intent", "Change qty/selections", "OTP confirm"],
+          "expected": "Mismatch blocked; no wrong subscription",
+          "oracle": ["intent status", "no completed sub with wrong fingerprint"]
+        },
+        {
+          "id": "BL-P-10",
+          "priority": "P1",
+          "title": "Schedule assign only by admin/operation; corporate cannot invent days",
+          "steps": ["Corporate attempt staff schedule API/action", "Staff assign exact billable_days"],
+          "expected": "Corporate denied; staff succeeds only with exact dates",
+          "oracle": ["schedule_status", "orders created count = billable_days"]
+        }
+      ]
+    },
+    {
+      "id": "BL-BOX",
+      "name": "Middo Box custody business rules",
+      "source": ["MiddoBox", "PendingBoxRuns", "IncomingBoxes", "AssignMiddoBoxesModal"],
+      "cases": [
+        {
+          "id": "BL-BX-01",
+          "priority": "P0",
+          "title": "Full custody happy path logs correct actions in order",
+          "steps": ["warehouse → kitchen → pack → rider → corporate → collect → return kitchen → warehouse"],
+          "expected": "Each step only from valid prior custody",
+          "oracle": ["middo_box_logs.log_action sequence"]
+        },
+        {
+          "id": "BL-BX-02",
+          "priority": "P0",
+          "title": "Illegal custody jumps rejected",
+          "steps": ["Deliver without rider hold", "Return warehouse while reserved on order", "Kitchen receive non-incoming"],
+          "expected": "All rejected",
+          "oracle": ["held_by / kitchen_id unchanged"]
+        },
+        {
+          "id": "BL-BX-03",
+          "priority": "P1",
+          "title": "Corporate ready_for_pickup is not a hard gate on collect (document)",
+          "steps": ["Collect without ready flag", "With ready flag"],
+          "expected": "Document actual gate; if collect always allowed, confirm product intent",
+          "oracle": ["box custody after collect"]
+        },
+        {
+          "id": "BL-BX-04",
+          "priority": "P1",
+          "title": "Wrong role cannot move boxes",
+          "steps": ["Corporate tries kitchen receive", "Kitchen tries rider accept dispatch boxes"],
+          "expected": "Route/role denied",
+          "oracle": ["403 / no state change"]
+        }
+      ]
+    },
+    {
+      "id": "BL-WALLET-REFUND",
+      "name": "Wallet & refund commercial policy",
+      "source": ["WalletLedger", "DeleteOrderModal", "PackageSubscriptionService"],
+      "cases": [
+        {
+          "id": "BL-W-01",
+          "priority": "P0",
+          "title": "Debit refuses insufficient balance",
+          "steps": ["Checkout with balance pay > wallet"],
+          "expected": "No order; balance unchanged",
+          "oracle": ["wallet balance", "no order"]
+        },
+        {
+          "id": "BL-W-02",
+          "priority": "P0",
+          "title": "Gateway-prepaid order cancel credits wallet (not card reverse) — policy confirm",
+          "steps": ["Pay gateway", "Cancel pending before cutoff"],
+          "expected": "Wallet credited amount_paid; document if card reverse expected instead",
+          "oracle": ["WalletLedger TYPE_REFUND", "No gateway reverse call"],
+          "flaw_hypothesis": "Gateway cancel always refunds to wallet"
+        },
+        {
+          "id": "BL-W-03",
+          "priority": "P1",
+          "title": "Cancel remaining awaiting_schedule with no orders refunds full amount_paid including charges",
+          "steps": ["Pay package", "Staff cancel before schedule"],
+          "expected": "Full subscription.amount_paid refunded",
+          "oracle": ["Wallet credit = amount_paid"]
+        }
+      ]
+    },
+    {
+      "id": "BL-COUPON-CHARGE",
+      "name": "Coupon & charge commercial applicability",
+      "source": ["CouponService", "ChargeService"],
+      "cases": [
+        {
+          "id": "BL-CC-01",
+          "priority": "P1",
+          "title": "Coupon applies_to orders|packages|both enforced",
+          "steps": ["Use order-only coupon on package and vice versa"],
+          "expected": "Rejected when scope mismatch",
+          "oracle": ["discount_amount=0", "error"]
+        },
+        {
+          "id": "BL-CC-02",
+          "priority": "P1",
+          "title": "Usage_limit and per_user_limit enforced under redeem lock",
+          "steps": ["Exhaust global limit", "Exhaust per-user limit"],
+          "expected": "Further redemptions fail",
+          "oracle": ["redemption counts"]
+        },
+        {
+          "id": "BL-CC-03",
+          "priority": "P1",
+          "title": "Coupon window uses Dhaka starts_at/ends_at",
+          "steps": ["Redeem just inside/outside window"],
+          "expected": "Boundary correct in Dhaka",
+          "oracle": ["accepted/rejected"]
+        },
+        {
+          "id": "BL-CC-04",
+          "priority": "P1",
+          "title": "Charges scoped by area/menu/date; per_checkout on first date only for multi-day cart",
+          "steps": ["Multi-date cart with per_checkout charge"],
+          "expected": "Fee once on first date line only",
+          "oracle": ["Sum of charge lines = 1× unit"]
+        },
+        {
+          "id": "BL-CC-05",
+          "priority": "P0",
+          "title": "Fully coupon-covered cart must not leave customer owing phantom due",
+          "steps": ["100% food coupon with fees present and without fees"],
+          "expected": "Business: customer never owes more than payable after discount; payment_status and amountDue agree",
+          "oracle": ["amountDue vs payment_status vs isPaid"],
+          "flaw_hypothesis": "total_amount stores gross; amountDue ignores discount_amount"
+        }
+      ]
+    },
+    {
+      "id": "BL-ROLES",
+      "name": "Role boundaries affecting business outcomes",
+      "source": ["EnsureUserHasRole", "RolePermissionSeeder", "routes/web/*"],
+      "cases": [
+        {
+          "id": "BL-R-01",
+          "priority": "P0",
+          "title": "Admin ≠ operation: operation cannot reach admin-only money/user/nav actions",
+          "steps": ["As operation hit admin-only routes (forceComplete, user admin, coupons if admin-only)"],
+          "expected": "403",
+          "oracle": ["HTTP 403", "no DB change"]
+        },
+        {
+          "id": "BL-R-02",
+          "priority": "P0",
+          "title": "Corporate cannot view/modify other corporates’ orders",
+          "steps": ["Cancel/show foreign order id web+API"],
+          "expected": "Denied / not found",
+          "oracle": ["Foreign order unchanged"]
+        },
+        {
+          "id": "BL-R-03",
+          "priority": "P1",
+          "title": "Kitchen cannot accept delivery dispatches; delivery cannot pack kitchen orders",
+          "steps": ["Cross-role Livewire/actions"],
+          "expected": "Denied",
+          "oracle": ["No status change"]
+        },
+        {
+          "id": "BL-R-04",
+          "priority": "P1",
+          "title": "Accounts settle payable only admin/ops; kitchen/delivery cannot settle own payables",
+          "steps": ["Attempt settle as kitchen/delivery"],
+          "expected": "Denied",
+          "oracle": ["payable status open"]
+        }
+      ]
+    },
+    {
+      "id": "BL-MONEY-POLICY",
+      "name": "Partner share accrual business timing",
+      "source": ["OrderMoneyFlow"],
+      "cases": [
+        {
+          "id": "BL-M-01",
+          "priority": "P0",
+          "title": "Kitchen/delivery payables open only after delivered_and_paid",
+          "steps": ["Walk COD order through delivered then cash"],
+          "expected": "Payables absent at delivered; present after paid",
+          "oracle": ["partner_payables"]
+        },
+        {
+          "id": "BL-M-02",
+          "priority": "P1",
+          "title": "Cancel voids only open payables",
+          "steps": ["Cancel before accrue; cancel after settle"],
+          "expected": "Open voided; settled not reversed automatically — document",
+          "oracle": ["payable statuses"]
+        },
+        {
+          "id": "BL-M-03",
+          "priority": "P1",
+          "title": "Accrual kitchen beneficiary is order_group.kitchen_id at paid time",
+          "steps": ["Reassign kitchen before paid status"],
+          "expected": "Payable attributed to kitchen present at accrual — confirm intent",
+          "oracle": ["payable.user_id"]
+        }
+      ]
+    }
+  ],
+  "execution_notes": {
+    "preferred_layers": [
+      "PHPUnit Feature tests with Carbon::setTestNow for cutoff",
+      "Role-authenticated Livewire tests",
+      "Corporate mobile API feature tests",
+      "Manual exploratory only after automated oracles exist"
+    ],
+    "evidence_to_attach": [
+      "DB row dumps for order/subscription/box/wallet/payable",
+      "Request/response for web and API",
+      "Clock freeze value"
+    ]
+  }
+}
