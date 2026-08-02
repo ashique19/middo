@@ -149,7 +149,7 @@ class EpsPaymentCallbackController extends Controller
                 }
 
                 $locked->update([
-                    'amount_paid' => (int) $locked->total_amount,
+                    'amount_paid' => $locked->netTotalAmount(),
                     'payment_status' => 'paid',
                     'order_status' => $locked->isDelivered() ? 'delivered_and_paid' : $locked->order_status,
                 ]);

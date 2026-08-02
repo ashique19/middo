@@ -3,11 +3,10 @@
 namespace App\Livewire\Corporate;
 
 use App\Models\Order;
-use App\Models\WalletTransaction;
+use App\Support\OrderCancellation;
 use App\Support\OrderCutoff;
-use App\Support\WalletLedger;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -52,31 +51,20 @@ class DeleteOrderModal extends Component
 
     public function confirmDelete()
     {
-        $order = $this->findEditableOrder($this->orderId);
-
-        if (! $order) {
+        if (! $this->orderId || ! Auth::user()) {
             $this->errorMessage = OrderCutoff::modificationDeniedMessage();
 
             return;
         }
 
-        DB::transaction(function () use ($order) {
-            $user = Auth::user();
-            $refund = (int) ($order->amount_paid ?? 0);
-            if ($refund > 0) {
-                WalletLedger::credit(
-                    $user,
-                    $refund,
-                    WalletTransaction::TYPE_REFUND,
-                    'Refund for cancelled order #'.$order->id,
-                    $order
-                );
-            }
-            $order->update([
-                'order_status' => 'cancelled',
-                'updated_by' => Auth::id(),
-            ]);
-        });
+        try {
+            OrderCancellation::cancelPendingOwnedBy(Auth::user(), (int) $this->orderId);
+        } catch (ValidationException $e) {
+            $this->errorMessage = collect($e->errors())->flatten()->first()
+                ?: OrderCutoff::modificationDeniedMessage();
+
+            return;
+        }
 
         $this->closeModal();
         $this->dispatch('corporate-orders-changed');

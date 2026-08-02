@@ -238,11 +238,23 @@
         "triggers": ["delete_order", "skip_package_day", "cancel_subscription"],
         "guards": ["OrderCutoff.allowsModification"],
         "side_effects": [
-          "wallet_refund_when_applicable",
+          "wallet_refund_amount_paid_only",
           "customer_push"
-        ]
+        ],
+        "via": {
+          "alacarte_corporate": "App\\Support\\OrderCancellation::cancelPendingOwnedBy",
+          "package_day": "App\\Support\\PackageSubscriptionService::skipDay"
+        },
+        "notes": "À-la-carte cancel refunds orders.amount_paid only (never unpaid residual). Package skip may refund amount_paid or line total when prepaid."
       }
-    ]
+    ],
+    "money": {
+      "total_amount": "Pre-discount line total (food + applied charges)",
+      "discount_amount": "Coupon/discount allocated to the order line",
+      "net_total": "max(0, total_amount - discount_amount) via Order::netTotalAmount()",
+      "amount_due": "max(0, net_total - amount_paid) via Order::amountDue() — used for delivery status, COD, and residual gateway",
+      "settlement_amount_paid": "When marking fully paid, set amount_paid = netTotalAmount() (not raw total_amount)"
+    }
   },
   "processes": {
     "place_single_order": {
@@ -263,7 +275,7 @@
           "step": 3,
           "action": "Pay with Middo Balance, gateway, or COD",
           "actor": "corporate",
-          "notes": "COD only for single-day orders without forced prepay"
+          "notes": "COD only when cart is a single delivery date and CorporateOrderPrepayment is not required. Multi-date carts without forced prepay are stored as cash_on_delivery (no voluntary full wallet/gateway pay on that path). Receiver mismatch → 100% prepay; projected active orders > 3 → 50% prepay."
         },
         {
           "step": 4,
@@ -518,7 +530,8 @@
       "requires": [
         "order_status is pending",
         "before delivery-day cutoff (OrderCutoff, ~15:28 Asia/Dhaka)"
-      ]
+      ],
+      "notes": "Order edit is hard-disabled (cancel + recreate). Cancel entry points must share OrderCancellation for à-la-carte."
     },
     "rider_accept": {
       "requires": [
@@ -542,6 +555,8 @@
     "packages": "app/Support/PackageSubscriptionService.php",
     "status_push_copy": "app/Support/OrderStatusPushCopy.php",
     "payment_methods": "app/Support/OrderPaymentMethod.php",
-    "cutoff": "app/Support/OrderCutoff.php"
+    "cutoff": "app/Support/OrderCutoff.php",
+    "order_cancellation": "app/Support/OrderCancellation.php",
+    "prepayment": "app/Support/CorporateOrderPrepayment.php"
   }
 }

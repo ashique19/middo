@@ -1,0 +1,44 @@
+{
+  "id": "middo-bl-hunt-2026-08-02",
+  "loop": ["hunt", "harden", "clarify", "improve"],
+  "findings": [
+    {
+      "id": "BL-DUE-DISCOUNT",
+      "priority": "P0",
+      "title": "amountDue ignored discount_amount",
+      "oracle_violation": "Coupon-prepaid orders still showed residual due; delivery could demand COD / stay in delivered instead of delivered_and_paid",
+      "evidence": [
+        "app/Models/Order.php amountDue used total_amount - amount_paid",
+        "OrderMoneyFlow.computeBreakdown already used food+charges-discount as billNet",
+        "Checkout set payment_status with max(0, lineTotal - lineDiscount)"
+      ],
+      "fix": "Order::netTotalAmount() + amountDue uses net; residual settlement sets amount_paid = netTotalAmount()"
+    },
+    {
+      "id": "BL-CANCEL-DUP",
+      "priority": "P1",
+      "title": "Cancel duplicated without row lock",
+      "oracle_violation": "Web DeleteOrderModal and API cancelOrder duplicated refund/cancel; no lockForUpdate unlike package skip",
+      "fix": "App\\Support\\OrderCancellation::cancelPendingOwnedBy — shared by web + API, locks order, refunds amount_paid only"
+    },
+    {
+      "id": "BL-SETTLE-GROSS",
+      "priority": "P0",
+      "title": "Residual settlement wrote amount_paid = total_amount",
+      "oracle_violation": "Cash/gateway settle could inflate amount_paid above economic net when discount_amount > 0",
+      "fix": "PaymentModal, OrderPaymentController, EpsPaymentCallbackController use netTotalAmount()"
+    },
+    {
+      "id": "BL-MULTI-DATE-COD",
+      "priority": "P2",
+      "title": "Multi-date without forced prepay always COD",
+      "status": "documented_as_policy",
+      "notes": "Web and API agree. Clarified in middo-process-flow.json place_single_order step 3. Not changed this pass."
+    }
+  ],
+  "out_of_scope_this_pass": [
+    "Package skip refund amount_paid ?: total_amount (prepaid package path)",
+    "Formal order status Enum / state machine",
+    "Permission pivot enforcement"
+  ]
+}
