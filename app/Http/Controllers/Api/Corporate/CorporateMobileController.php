@@ -578,9 +578,10 @@ class CorporateMobileController extends Controller
 
         $menuItem = MenuItem::query()->findOrFail($data['menu_item_id']);
         $prepayment = $this->prepaymentQuote($request->user(), $data, $menuItem);
+        $activeDateCount = count($data['dates']);
         $codAllowed = OrderPaymentMethod::allowsCashOnDelivery(
             (bool) $prepayment['required'],
-            count($data['dates'])
+            $activeDateCount
         );
 
         $result = OrderConfirmationOtp::send($data['mobile']);
@@ -598,11 +599,10 @@ class CorporateMobileController extends Controller
             'debug_otp' => $result['debug_otp'] ?? null,
             'prepayment' => $prepayment,
             'cod_allowed' => $codAllowed,
-            'payment_methods' => $prepayment['required']
-                ? [OrderPaymentMethod::BALANCE, OrderPaymentMethod::GATEWAY]
-                : ($codAllowed
-                    ? OrderPaymentMethod::all()
-                    : [OrderPaymentMethod::CASH_ON_DELIVERY]),
+            'payment_methods' => OrderPaymentMethod::checkoutOptions(
+                (bool) $prepayment['required'],
+                $activeDateCount
+            ),
         ]);
     }
 
@@ -639,9 +639,15 @@ class CorporateMobileController extends Controller
         }
         $cartTotal += (int) ($this->orderChargesQuote($data, $menuItem)['total'] ?? 0);
 
-        $chargeAmount = $prepayment['required']
-            ? (int) $prepayment['amount']
-            : ($codAllowed ? $cartTotal : 0);
+        $resolvedPaymentMethod = $codAllowed || $prepayment['required']
+            ? OrderPaymentMethod::GATEWAY
+            : OrderPaymentMethod::CASH_ON_DELIVERY;
+        $chargeAmount = OrderPaymentMethod::checkoutChargeAmount(
+            $resolvedPaymentMethod,
+            (bool) $prepayment['required'],
+            (int) $prepayment['amount'],
+            $cartTotal
+        );
 
         if ($chargeAmount <= 0) {
             throw ValidationException::withMessages([
@@ -707,28 +713,19 @@ class CorporateMobileController extends Controller
         $prepayment = $this->prepaymentQuote($user, $data, $menuItem);
         $activeDateCount = count($data['dates']);
 
-        $paymentMethod = $data['payment_method'] ?? null;
-        if ($prepayment['required']) {
-            if (! in_array($paymentMethod, [OrderPaymentMethod::BALANCE, OrderPaymentMethod::GATEWAY], true)) {
-                throw ValidationException::withMessages([
-                    'payment_method' => [
-                        $prepayment['message'] ?? 'Prepayment is required. Pay from Middo Balance or payment gateway.',
-                    ],
-                    'prepayment' => [$prepayment['message'] ?? 'Prepayment required.'],
-                ]);
+        try {
+            $paymentMethod = OrderPaymentMethod::resolveCheckout(
+                $data['payment_method'] ?? null,
+                (bool) $prepayment['required'],
+                $activeDateCount
+            );
+        } catch (\InvalidArgumentException $e) {
+            $errors = ['payment_method' => [$prepayment['message'] ?? $e->getMessage()]];
+            if ($prepayment['required']) {
+                $errors['prepayment'] = [$prepayment['message'] ?? 'Prepayment required.'];
             }
-        } elseif (OrderPaymentMethod::allowsCashOnDelivery(false, $activeDateCount)) {
-            if ($paymentMethod === null || $paymentMethod === '') {
-                $paymentMethod = OrderPaymentMethod::CASH_ON_DELIVERY;
-            }
-            if (! in_array($paymentMethod, OrderPaymentMethod::all(), true)) {
-                throw ValidationException::withMessages([
-                    'payment_method' => ['Choose Cash on Delivery, Middo Balance, or online payment.'],
-                ]);
-            }
-        } else {
-            // Multi-date carts without forced prepayment settle as COD.
-            $paymentMethod = OrderPaymentMethod::CASH_ON_DELIVERY;
+
+            throw ValidationException::withMessages($errors);
         }
 
         $chargeQuote = $this->orderChargesQuote($data, $menuItem);
@@ -740,9 +737,12 @@ class CorporateMobileController extends Controller
             $lineTotals[] = $food + $fees;
         }
         $cartTotal = (int) array_sum($lineTotals);
-        $chargeAmount = $paymentMethod === OrderPaymentMethod::CASH_ON_DELIVERY
-            ? 0
-            : ($prepayment['required'] ? (int) $prepayment['amount'] : $cartTotal);
+        $chargeAmount = OrderPaymentMethod::checkoutChargeAmount(
+            $paymentMethod,
+            (bool) $prepayment['required'],
+            (int) $prepayment['amount'],
+            $cartTotal
+        );
 
         if ($chargeAmount > 0 && $paymentMethod === OrderPaymentMethod::BALANCE && (int) $user->balance < $chargeAmount) {
             throw ValidationException::withMessages([
@@ -1442,8 +1442,9 @@ class CorporateMobileController extends Controller
             ->firstOrFail();
 
         try {
-            $refund = (int) ($model->amount_paid ?: $model->total_amount);
-            $updated = app(PackageSubscriptionService::class)->skipDay($request->user(), $model);
+            $result = app(PackageSubscriptionService::class)->skipDay($request->user(), $model);
+            $refund = (int) $result['refunded_amount'];
+            $updated = $result['order'];
         } catch (\Throwable $e) {
             throw ValidationException::withMessages([
                 'order' => [$e->getMessage()],

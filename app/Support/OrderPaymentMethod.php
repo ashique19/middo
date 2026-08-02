@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Order;
+use InvalidArgumentException;
 
 class OrderPaymentMethod
 {
@@ -63,5 +64,62 @@ class OrderPaymentMethod
     public static function allowsCashOnDelivery(bool $prepaymentRequired, int $activeDateCount): bool
     {
         return ! $prepaymentRequired && $activeDateCount === 1;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function checkoutOptions(bool $prepaymentRequired, int $activeDateCount): array
+    {
+        if ($prepaymentRequired) {
+            return [self::BALANCE, self::GATEWAY];
+        }
+
+        if (self::allowsCashOnDelivery(false, $activeDateCount)) {
+            return self::all();
+        }
+
+        return [self::CASH_ON_DELIVERY];
+    }
+
+    public static function resolveCheckout(?string $requested, bool $prepaymentRequired, int $activeDateCount): string
+    {
+        $requested = $requested !== '' ? $requested : null;
+
+        if ($prepaymentRequired) {
+            if (in_array($requested, [self::BALANCE, self::GATEWAY], true)) {
+                return $requested;
+            }
+
+            throw new InvalidArgumentException('Prepayment is required. Pay from Middo Balance or payment gateway.');
+        }
+
+        if (self::allowsCashOnDelivery(false, $activeDateCount)) {
+            if ($requested === null) {
+                return self::CASH_ON_DELIVERY;
+            }
+
+            if (in_array($requested, self::all(), true)) {
+                return $requested;
+            }
+
+            throw new InvalidArgumentException('Choose Cash on Delivery, Middo Balance, or online payment.');
+        }
+
+        // Product policy: multi-date carts without forced prepay settle each day by COD.
+        return self::CASH_ON_DELIVERY;
+    }
+
+    public static function checkoutChargeAmount(
+        string $paymentMethod,
+        bool $prepaymentRequired,
+        int $prepaymentAmount,
+        int $cartTotal
+    ): int {
+        if ($paymentMethod === self::CASH_ON_DELIVERY) {
+            return 0;
+        }
+
+        return $prepaymentRequired ? max(0, $prepaymentAmount) : max(0, $cartTotal);
     }
 }

@@ -123,8 +123,8 @@ class SubscriptionShow extends Component
 
         try {
             $order = Order::query()->findOrFail($orderId);
-            app(PackageSubscriptionService::class)->skipDayAsStaff(Auth::user(), $order);
-            $this->statusMessage = "Skipped package day order #{$orderId} and refunded the corporate wallet.";
+            $result = app(PackageSubscriptionService::class)->skipDayAsStaff(Auth::user(), $order);
+            $this->statusMessage = "Skipped package day order #{$orderId} and refunded ৳".number_format($result['refunded_amount']).' to the corporate wallet.';
             $this->errorMessage = null;
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage();

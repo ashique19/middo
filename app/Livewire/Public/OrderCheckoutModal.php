@@ -366,27 +366,10 @@ class OrderCheckoutModal extends Component
     protected function syncDefaultPaymentMethod(int $activeDateCount): void
     {
         $prepayRequired = (bool) ($this->prepayment['required'] ?? false);
+        $options = OrderPaymentMethod::checkoutOptions($prepayRequired, $activeDateCount);
 
-        if ($prepayRequired) {
-            if (! in_array($this->paymentMethod, [OrderPaymentMethod::BALANCE, OrderPaymentMethod::GATEWAY], true)) {
-                $this->paymentMethod = OrderPaymentMethod::BALANCE;
-            }
-
-            return;
-        }
-
-        if (OrderPaymentMethod::allowsCashOnDelivery(false, $activeDateCount)) {
-            if (! in_array($this->paymentMethod, OrderPaymentMethod::all(), true)) {
-                $this->paymentMethod = OrderPaymentMethod::CASH_ON_DELIVERY;
-            }
-
-            return;
-        }
-
-        // Multi-date carts without forced prepayment still settle residual as COD.
-        if ($this->paymentMethod === OrderPaymentMethod::CASH_ON_DELIVERY
-            || ! in_array($this->paymentMethod, [OrderPaymentMethod::BALANCE, OrderPaymentMethod::GATEWAY, OrderPaymentMethod::CASH_ON_DELIVERY], true)) {
-            $this->paymentMethod = OrderPaymentMethod::CASH_ON_DELIVERY;
+        if (! in_array($this->paymentMethod, $options, true)) {
+            $this->paymentMethod = $options[0] ?? OrderPaymentMethod::CASH_ON_DELIVERY;
         }
     }
 
@@ -880,28 +863,17 @@ class OrderCheckoutModal extends Component
      */
     protected function resolveCheckoutPaymentMethod(array $prepayment, int $activeDateCount): ?string
     {
-        $prepayRequired = (bool) ($prepayment['required'] ?? false);
+        try {
+            return OrderPaymentMethod::resolveCheckout(
+                $this->paymentMethod,
+                (bool) ($prepayment['required'] ?? false),
+                $activeDateCount
+            );
+        } catch (\InvalidArgumentException $e) {
+            $this->addError('paymentMethod', $prepayment['message'] ?? $e->getMessage());
 
-        if ($prepayRequired) {
-            if (! in_array($this->paymentMethod, [OrderPaymentMethod::BALANCE, OrderPaymentMethod::GATEWAY], true)) {
-                $this->addError('paymentMethod', $prepayment['message'] ?? 'Prepayment is required.');
-
-                return null;
-            }
-
-            return $this->paymentMethod;
+            return null;
         }
-
-        if (OrderPaymentMethod::allowsCashOnDelivery(false, $activeDateCount)) {
-            if (! in_array($this->paymentMethod, OrderPaymentMethod::all(), true)) {
-                return OrderPaymentMethod::CASH_ON_DELIVERY;
-            }
-
-            return $this->paymentMethod;
-        }
-
-        // Multi-date without forced prepayment settles as COD.
-        return OrderPaymentMethod::CASH_ON_DELIVERY;
     }
 
     /**
@@ -909,16 +881,12 @@ class OrderCheckoutModal extends Component
      */
     protected function checkoutChargeAmount(array $prepayment, int $cartTotal): int
     {
-        if ($this->paymentMethod === OrderPaymentMethod::CASH_ON_DELIVERY) {
-            return 0;
-        }
-
-        if ($prepayment['required'] ?? false) {
-            return (int) ($prepayment['amount'] ?? 0);
-        }
-
-        // Optional full payment for a single order via balance/gateway.
-        return max(0, $cartTotal);
+        return OrderPaymentMethod::checkoutChargeAmount(
+            $this->paymentMethod,
+            (bool) ($prepayment['required'] ?? false),
+            (int) ($prepayment['amount'] ?? 0),
+            $cartTotal
+        );
     }
 
     public function render()

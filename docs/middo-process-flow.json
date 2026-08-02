@@ -243,9 +243,10 @@
         ],
         "via": {
           "alacarte_corporate": "App\\Support\\OrderCancellation::cancelPendingOwnedBy",
-          "package_day": "App\\Support\\PackageSubscriptionService::skipDay"
+          "package_day": "App\\Support\\PackageSubscriptionService::skipDay",
+          "transition_guard": "App\\Support\\OrderTransition"
         },
-        "notes": "À-la-carte cancel refunds orders.amount_paid only (never unpaid residual). Package skip may refund amount_paid or line total when prepaid."
+        "notes": "À-la-carte cancel refunds orders.amount_paid only (never unpaid residual). Package skip/cancel refunds use App\\Support\\PackageRefund so discounted package days refund allocated prepaid net, not gross list amount."
       }
     ],
     "money": {
@@ -275,6 +276,7 @@
           "step": 3,
           "action": "Pay with Middo Balance, gateway, or COD",
           "actor": "corporate",
+          "via": "App\\Support\\OrderPaymentMethod::resolveCheckout",
           "notes": "COD only when cart is a single delivery date and CorporateOrderPrepayment is not required. Multi-date carts without forced prepay are stored as cash_on_delivery (no voluntary full wallet/gateway pay on that path). Receiver mismatch → 100% prepay; projected active orders > 3 → 50% prepay."
         },
         {
@@ -422,7 +424,8 @@
           "step": 4,
           "action": "Skip a pending day before cutoff",
           "actor": "corporate",
-          "side_effects": ["cancel order", "wallet refund"]
+          "side_effects": ["cancel order", "wallet refund"],
+          "via": "App\\Support\\PackageRefund::orderRefundAmount"
         },
         {
           "step": 5,

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Contracts\PaymentGateway;
 use App\Models\Order;
+use App\Support\OrderTransition;
 use App\Support\Payments\EpsPaymentGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -83,12 +84,19 @@ class OrderPaymentController extends Controller
                 return;
             }
 
-            $locked->update([
+            $attributes = [
                 'amount_paid' => $locked->netTotalAmount(),
                 'payment_status' => 'paid',
-                'order_status' => $locked->isDelivered() ? 'delivered_and_paid' : $locked->order_status,
                 // Online residual is not rider cash — leave cash_collected unchanged.
-            ]);
+            ];
+
+            if ($locked->isDelivered()) {
+                OrderTransition::apply($locked, OrderTransition::DELIVERED_AND_PAID, $attributes);
+
+                return;
+            }
+
+            $locked->update($attributes);
         });
 
         return redirect()->to(

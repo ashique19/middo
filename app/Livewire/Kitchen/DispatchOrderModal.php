@@ -5,6 +5,7 @@ namespace App\Livewire\Kitchen;
 use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Models\OrderMiddoBox;
+use App\Support\OrderTransition;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
@@ -51,7 +52,7 @@ class DispatchOrderModal extends Component
             return;
         }
 
-        if (! in_array($order->order_status, ['pending', 'processing'], true) || $order->dispatched_at !== null) {
+        if (! OrderTransition::can($order, OrderTransition::PACKED) || $order->dispatched_at !== null) {
             $this->errorMessage = 'This order can no longer be dispatched.';
             $this->showModal = true;
             $this->orderId = $order->id;
@@ -150,7 +151,7 @@ class DispatchOrderModal extends Component
                     throw new \RuntimeException('Order not found for your kitchen.');
                 }
 
-                if (! in_array($order->order_status, ['pending', 'processing'], true)) {
+                if (! OrderTransition::can($order, OrderTransition::PACKED)) {
                     throw new \RuntimeException('This order is no longer active.');
                 }
 
@@ -186,8 +187,7 @@ class DispatchOrderModal extends Component
                     ]);
                 }
 
-                $order->update([
-                    'order_status' => 'packed',
+                OrderTransition::apply($order, OrderTransition::PACKED, [
                     'dispatched_at' => now(),
                     'updated_by' => $kitchenId,
                 ]);

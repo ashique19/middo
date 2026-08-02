@@ -137,4 +137,69 @@ class CashOnDeliveryOrderTest extends TestCase
             'payment_method' => OrderPaymentMethod::CASH_ON_DELIVERY,
         ])->assertUnprocessable();
     }
+
+    public function test_multi_date_without_required_prepay_is_intentional_cod_policy(): void
+    {
+        $role = Role::create(['name' => 'corporate']);
+        $user = User::create([
+            'first_name' => 'Corporate',
+            'last_name' => 'User',
+            'company_name' => 'Acme',
+            'mobile' => '01310123452',
+            'password' => '12345678',
+            'role_id' => $role->id,
+            'status' => 'active',
+            'is_mobile_verified' => true,
+            'balance' => 5000,
+        ]);
+
+        $menu = MenuItem::create([
+            'name' => 'Tehari',
+            'summary' => 'Test',
+            'price' => 420,
+            'thumbnail' => 'img/menu/menu-1.jpg',
+            'is_featured' => true,
+            'display_order' => 1,
+        ]);
+
+        $city = City::create(['name' => 'Dhaka']);
+        $area = Area::create(['name' => 'Gulshan', 'city_id' => $city->id]);
+
+        Sanctum::actingAs($user);
+
+        $payload = [
+            'menu_item_id' => $menu->id,
+            'delivery_time' => '12:00 PM',
+            'receiver_name' => 'Corporate User',
+            'mobile' => '01310123452',
+            'address' => 'House 12, Road 5',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'dates' => [
+                ['date' => now('Asia/Dhaka')->addDay()->format('Y-m-d'), 'quantity' => 1],
+                ['date' => now('Asia/Dhaka')->addDays(2)->format('Y-m-d'), 'quantity' => 1],
+            ],
+        ];
+
+        $this->postJson('/api/corporate/orders/send-otp', $payload)
+            ->assertOk()
+            ->assertJsonPath('cod_allowed', false)
+            ->assertJsonPath('prepayment.required', false)
+            ->assertJsonPath('payment_methods', [OrderPaymentMethod::CASH_ON_DELIVERY]);
+
+        OrderConfirmationOtp::generate('01310123452');
+
+        $this->postJson('/api/corporate/orders', $payload + [
+            'otp' => '1234',
+            'payment_method' => OrderPaymentMethod::GATEWAY,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('orders.0.payment_method', OrderPaymentMethod::CASH_ON_DELIVERY)
+            ->assertJsonPath('orders.0.amount_paid', 0)
+            ->assertJsonPath('orders.1.payment_method', OrderPaymentMethod::CASH_ON_DELIVERY)
+            ->assertJsonPath('orders.1.amount_paid', 0);
+
+        $this->assertSame(2, Order::query()->where('payment_method', OrderPaymentMethod::CASH_ON_DELIVERY)->count());
+        $this->assertSame(5000, (int) $user->fresh()->balance);
+    }
 }

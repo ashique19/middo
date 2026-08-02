@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Area;
 use App\Models\City;
+use App\Models\Coupon;
 use App\Models\MealPackage;
 use App\Models\MenuItem;
 use App\Models\Order;
@@ -13,6 +14,7 @@ use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Support\OrderCutoff;
 use App\Support\PackageBilling;
+use App\Support\PackageRefund;
 use App\Support\PackageSubscriptionService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -521,6 +523,75 @@ class MealPackageTest extends TestCase
             'user_id' => $user->id,
             'type' => WalletTransaction::TYPE_REFUND,
             'amount' => $refund,
+        ]);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_discounted_package_skip_refunds_allocated_net_amount_via_api(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'balance' => 50000,
+            'mobile' => '01710123555',
+        ]);
+        $ops = $this->makeOps();
+        $menu = $this->makeMenuItem('Discounted Package Meal', 150);
+        $package = $this->makeRatePlan(100);
+        Coupon::create([
+            'code' => 'PKG100',
+            'name' => 'Package Save 100',
+            'type' => Coupon::TYPE_FIXED,
+            'value' => 100,
+            'min_subtotal' => 0,
+            'per_user_limit' => 1,
+            'applies_to' => Coupon::APPLIES_PACKAGES,
+            'is_active' => true,
+        ]);
+        $workingDays = $this->workingDays('2026-08');
+
+        $result = app(PackageSubscriptionService::class)->subscribe(
+            $user,
+            $package,
+            1,
+            [5, 6],
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]],
+            '2026-08',
+            'Corporate User',
+            $user->mobile,
+            'House 12, Road 5',
+            $city->id,
+            $area->id,
+            '12:00 PM',
+            'balance',
+            null,
+            'PKG100'
+        );
+        $subscription = $result['subscription'];
+        $this->assertSame((100 * $workingDays) - 100, (int) $subscription->amount_paid);
+
+        $scheduled = $this->assignAllDates($ops, $subscription, $menu);
+        $order = $scheduled['orders']->first();
+        $expectedRefund = PackageRefund::orderRefundAmount($order->fresh('packageSubscription.orders'));
+        $beforeBalance = (int) $user->fresh()->balance;
+
+        $this->assertLessThan((int) $order->amount_paid, $expectedRefund);
+
+        Sanctum::actingAs($user);
+        $this->postJson('/api/corporate/orders/'.$order->id.'/skip-package-day')
+            ->assertOk()
+            ->assertJsonPath('refunded_amount', $expectedRefund);
+
+        $this->assertSame('cancelled', $order->fresh()->order_status);
+        $this->assertSame($beforeBalance + $expectedRefund, (int) $user->fresh()->balance);
+        $this->assertDatabaseHas('wallet_transactions', [
+            'user_id' => $user->id,
+            'type' => WalletTransaction::TYPE_REFUND,
+            'amount' => $expectedRefund,
         ]);
 
         Carbon::setTestNow();

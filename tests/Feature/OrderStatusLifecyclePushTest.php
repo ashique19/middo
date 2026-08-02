@@ -13,6 +13,7 @@ use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\OrderTransition;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -250,5 +251,40 @@ class OrderStatusLifecyclePushTest extends TestCase
         ]);
 
         Queue::assertPushed(SendOrderStatusPush::class, fn ($job) => $job->status === 'delivered_and_paid');
+    }
+
+    public function test_light_transition_guard_rejects_invalid_status_jump(): void
+    {
+        $corporateRole = Role::create(['name' => 'corporate']);
+        $customer = User::create([
+            'first_name' => 'Buyer',
+            'last_name' => 'Worker',
+            'company_name' => 'Acme',
+            'mobile' => '01720000023',
+            'password' => 'password',
+            'role_id' => $corporateRole->id,
+            'status' => 'active',
+        ]);
+        $menu = MenuItem::create([
+            'name' => 'Beef Tehari',
+            'summary' => 'Test',
+            'price' => 400,
+        ]);
+        $order = Order::create([
+            'user_id' => $customer->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => now('Asia/Dhaka')->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 400,
+            'address' => 'Gulshan',
+            'order_status' => 'pending',
+            'payment_status' => 'pending',
+            'created_by' => $customer->id,
+            'updated_by' => $customer->id,
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        OrderTransition::apply($order, OrderTransition::ON_THE_WAY_TO_DELIVERY);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Contracts\PaymentGateway;
 use App\Models\Order;
 use App\Support\CorporateWalletTopUp;
+use App\Support\OrderTransition;
 use App\Support\PackageGatewayCheckout;
 use App\Support\Payments\EpsPaymentGateway;
 use Illuminate\Http\RedirectResponse;
@@ -148,11 +149,18 @@ class EpsPaymentCallbackController extends Controller
                     }
                 }
 
-                $locked->update([
+                $attributes = [
                     'amount_paid' => $locked->netTotalAmount(),
                     'payment_status' => 'paid',
-                    'order_status' => $locked->isDelivered() ? 'delivered_and_paid' : $locked->order_status,
-                ]);
+                ];
+
+                if ($locked->isDelivered()) {
+                    OrderTransition::apply($locked, OrderTransition::DELIVERED_AND_PAID, $attributes);
+
+                    return;
+                }
+
+                $locked->update($attributes);
             });
         }
     }

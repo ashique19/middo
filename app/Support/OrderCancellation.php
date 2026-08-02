@@ -59,8 +59,7 @@ class OrderCancellation
                 );
             }
 
-            $order->update([
-                'order_status' => 'cancelled',
+            OrderTransition::apply($order, OrderTransition::CANCELLED, [
                 'updated_by' => $actor->id,
             ]);
 

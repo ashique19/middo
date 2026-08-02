@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\PackageSubscription;
 use App\Support\OrderCutoff;
 use App\Support\PackageBilling;
+use App\Support\PackageRefund;
 use App\Support\PackageSubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -64,10 +65,12 @@ class PackageShow extends Component
             'thumbnail' => $sel->menuItem?->thumbnail ? asset($sel->menuItem->thumbnail) : null,
         ])->values()->all();
 
+        $refunds = PackageRefund::packageDayRefundAllocations($sub);
+
         $this->days = $sub->orders
             ->sortBy('delivery_date')
             ->values()
-            ->map(function (Order $order) {
+            ->map(function (Order $order) use ($refunds) {
                 return [
                     'id' => $order->id,
                     'date' => $order->delivery_date->toDateString(),
@@ -77,6 +80,7 @@ class PackageShow extends Component
                     'quantity' => (int) $order->quantity,
                     'total_amount' => (int) $order->total_amount,
                     'amount_paid' => (int) $order->amount_paid,
+                    'refund_amount' => $refunds[(int) $order->id] ?? PackageRefund::orderRefundAmount($order),
                     'order_status' => $order->order_status,
                     'can_skip' => $order->order_status === 'pending' && OrderCutoff::allowsModification($order),
                 ];
@@ -102,8 +106,8 @@ class PackageShow extends Component
         }
 
         try {
-            $refund = (int) ($order->amount_paid ?: $order->total_amount);
-            app(PackageSubscriptionService::class)->skipDay(Auth::user(), $order);
+            $result = app(PackageSubscriptionService::class)->skipDay(Auth::user(), $order);
+            $refund = (int) $result['refunded_amount'];
             $this->successMessage = 'Day skipped. ৳'.number_format($refund).' credited to your Middo Balance.';
             $this->dispatch('corporate-orders-changed');
         } catch (\Throwable $e) {

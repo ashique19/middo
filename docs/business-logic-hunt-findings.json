@@ -32,13 +32,33 @@
       "id": "BL-MULTI-DATE-COD",
       "priority": "P2",
       "title": "Multi-date without forced prepay always COD",
-      "status": "documented_as_policy",
-      "notes": "Web and API agree. Clarified in middo-process-flow.json place_single_order step 3. Not changed this pass."
+      "status": "fixed_as_shared_policy",
+      "fix": "OrderPaymentMethod::checkoutOptions/resolveCheckout/checkoutChargeAmount now drive both web and API. Multi-date carts without forced prepay intentionally resolve to cash_on_delivery."
+    },
+    {
+      "id": "BL-PACKAGE-REFUND",
+      "priority": "P1",
+      "title": "Package skip/cancel refund used amount_paid ?: total_amount",
+      "oracle_violation": "Discounted prepaid packages could refund gross scheduled day amounts instead of allocated economic prepaid value.",
+      "fix": "App\\Support\\PackageRefund is the refund oracle for subscription net totals and per-day allocations; PackageSubscriptionService, corporate package UI, and mobile API use the service-returned refund."
+    },
+    {
+      "id": "BL-STATUS-TRANSITION",
+      "priority": "P2",
+      "title": "Hot order status transitions were ad hoc strings",
+      "status": "light_guard_added",
+      "fix": "App\\Support\\OrderTransition encodes the current pending→processing/packed/cancelled, packed→on_the_way_to_delivery, on_the_way_to_delivery→delivered(_and_paid), and delivered→delivered_and_paid paths used by kitchen, delivery, cancellation, and settlement."
+    },
+    {
+      "id": "BL-PERMISSION-PIVOT",
+      "priority": "P3",
+      "title": "Permission model exists but role gates dominate",
+      "status": "deferred",
+      "notes": "No quick safe pivot found. Current flows consistently gate by role names; moving to permission-backed policies would be a larger auth design/migration."
     }
   ],
   "out_of_scope_this_pass": [
-    "Package skip refund amount_paid ?: total_amount (prepaid package path)",
-    "Formal order status Enum / state machine",
+    "Full formal order status Enum / state machine",
     "Permission pivot enforcement"
   ]
 }

@@ -104,7 +104,7 @@
                             @elseif($day['can_skip'])
                                 <button type="button"
                                         wire:click="skipDay({{ $day['id'] }})"
-                                        wire:confirm="Skip this day? ৳{{ number_format($day['amount_paid']) }} will be credited to your wallet."
+                                        wire:confirm="Skip this day? ৳{{ number_format($day['refund_amount']) }} will be credited to your wallet."
                                         class="text-[11px] font-black uppercase tracking-wider text-middo-orange hover:underline">
                                     Skip day
                                 </button>

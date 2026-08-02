@@ -4,6 +4,7 @@ namespace App\Livewire\Delivery;
 
 use App\Models\MiddoBoxLog;
 use App\Models\Order;
+use App\Support\OrderTransition;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -68,9 +69,8 @@ class KitchenDispatches extends Component
                     ]);
                 }
 
-                $order->update([
+                OrderTransition::apply($order, OrderTransition::ON_THE_WAY_TO_DELIVERY, [
                     'delivery_rider_id' => $riderId,
-                    'order_status' => 'on_the_way_to_delivery',
                     'updated_by' => $riderId,
                 ]);
 
@@ -128,9 +128,12 @@ class KitchenDispatches extends Component
                     ]);
                 }
 
-                $order->update([
-                    'order_status' => $order->amountDue() === 0 ? 'delivered_and_paid' : 'delivered',
-                    'payment_status' => $order->amountDue() === 0 ? 'paid' : $order->payment_status,
+                $toStatus = $order->amountDue() === 0
+                    ? OrderTransition::DELIVERED_AND_PAID
+                    : OrderTransition::DELIVERED;
+
+                OrderTransition::apply($order, $toStatus, [
+                    'payment_status' => $toStatus === OrderTransition::DELIVERED_AND_PAID ? 'paid' : $order->payment_status,
                     'updated_by' => $riderId,
                 ]);
 

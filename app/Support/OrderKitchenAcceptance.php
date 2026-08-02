@@ -22,8 +22,7 @@ class OrderKitchenAcceptance
                 ->get();
 
             foreach ($orders as $order) {
-                $order->update([
-                    'order_status' => 'processing',
+                OrderTransition::apply($order, OrderTransition::PROCESSING, [
                     'updated_by' => $actorId ?? $order->updated_by,
                 ]);
             }

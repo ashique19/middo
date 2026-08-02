@@ -5,6 +5,7 @@ namespace App\Livewire\Delivery;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\MimSms;
+use App\Support\OrderTransition;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
@@ -144,8 +145,7 @@ class PaymentModal extends Component
                     throw new \RuntimeException('Nothing due for this order.');
                 }
 
-                $order->update([
-                    'order_status' => 'delivered_and_paid',
+                OrderTransition::apply($order, OrderTransition::DELIVERED_AND_PAID, [
                     'payment_status' => 'paid',
                     'amount_paid' => $order->netTotalAmount(),
                     'cash_collected' => $due,

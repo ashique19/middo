@@ -401,9 +401,11 @@ class PackageSubscriptionService
     }
 
     /**
-     * Skip a pending package delivery day before cutoff; refund line amount to wallet.
+     * Skip a pending package delivery day before cutoff; refund the allocated prepaid amount.
+     *
+     * @return array{order: Order, refunded_amount: int}
      */
-    public function skipDay(User $user, Order $order): Order
+    public function skipDay(User $user, Order $order): array
     {
         if ((int) $order->user_id !== (int) $user->id) {
             throw new RuntimeException('Order not found.');
@@ -414,8 +416,10 @@ class PackageSubscriptionService
 
     /**
      * Admin/operation skip of a package day (refunds the corporate wallet).
+     *
+     * @return array{order: Order, refunded_amount: int}
      */
-    public function skipDayAsStaff(User $actor, Order $order): Order
+    public function skipDayAsStaff(User $actor, Order $order): array
     {
         $this->assertStaffActor($actor);
 
@@ -454,7 +458,7 @@ class PackageSubscriptionService
 
             // Unscheduled prepaid packages: refund the full prepaid amount.
             if ($lockedSub->isAwaitingSchedule() && $orders->isEmpty()) {
-                $refund = (int) ($lockedSub->amount_paid ?: $lockedSub->total_amount);
+                $refund = PackageRefund::subscriptionPrepaidAmount($lockedSub);
                 if ($refund > 0) {
                     WalletLedger::credit(
                         $owner,
@@ -482,7 +486,7 @@ class PackageSubscriptionService
                     continue;
                 }
 
-                $lineRefund = (int) ($order->amount_paid ?: $order->total_amount);
+                $lineRefund = PackageRefund::orderRefundAmount($order);
                 $this->cancelPackageOrder($order, $owner, $actor->id, $lineRefund, 'Package subscription cancelled — refund for order #'.$order->id);
                 $cancelled++;
                 $refunded += $lineRefund;
@@ -654,7 +658,7 @@ class PackageSubscriptionService
                 }
 
                 $owner = User::query()->findOrFail($order->user_id);
-                $lineRefund = (int) ($order->amount_paid ?: $order->total_amount);
+                $lineRefund = PackageRefund::orderRefundAmount($order);
                 $this->cancelPackageOrder(
                     $order,
                     $owner,
@@ -689,7 +693,7 @@ class PackageSubscriptionService
         return $subscription->fresh(['package', 'user']);
     }
 
-    protected function skipDayInternal(User $walletOwner, Order $order, int $actorId): Order
+    protected function skipDayInternal(User $walletOwner, Order $order, int $actorId): array
     {
         if (! $order->package_subscription_id) {
             throw new RuntimeException('This order is not part of a meal package.');
@@ -711,7 +715,8 @@ class PackageSubscriptionService
                 throw new RuntimeException(OrderCutoff::modificationDeniedMessage());
             }
 
-            $refund = (int) ($locked->amount_paid ?: $locked->total_amount);
+            $locked->loadMissing('packageSubscription.orders');
+            $refund = PackageRefund::orderRefundAmount($locked);
             $this->cancelPackageOrder(
                 $locked,
                 $walletOwner,
@@ -720,7 +725,10 @@ class PackageSubscriptionService
                 'Package day skipped — refund for order #'.$locked->id
             );
 
-            return $locked->fresh('menuItem');
+            return [
+                'order' => $locked->fresh('menuItem'),
+                'refunded_amount' => $refund,
+            ];
         });
     }
 
@@ -741,8 +749,7 @@ class PackageSubscriptionService
             );
         }
 
-        $order->update([
-            'order_status' => 'cancelled',
+        OrderTransition::apply($order, OrderTransition::CANCELLED, [
             'updated_by' => $actorId,
         ]);
 
