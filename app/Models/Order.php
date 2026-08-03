@@ -219,8 +219,8 @@ class Order extends Model
 
     /**
      * Cash the rider collected at delivery (for handovers).
-     * Only counts explicit cash_collected, plus legacy fully-COD paid rows
-     * that predate the cash_collected column.
+     * Prefers explicit cash_collected. Legacy fallback only for COD rows that
+     * predate the column — never for balance/gateway residuals.
      */
     public function cashCollectedAmount(): int
     {
@@ -230,9 +230,19 @@ class Order extends Model
             return $collected;
         }
 
-        // Legacy fully-COD paid deliveries: no prepaid, treat full bill as cash.
-        if ($this->isPaid() && $this->prepaidAmountValue() === 0 && $this->order_status === 'delivered_and_paid') {
-            return (int) $this->total_amount;
+        $method = $this->payment_method;
+        if (in_array($method, [OrderPaymentMethod::BALANCE, OrderPaymentMethod::GATEWAY], true)) {
+            return 0;
+        }
+
+        // Legacy COD paid deliveries (null/COD method, no prepaid, no cash_collected column).
+        if (
+            ($method === null || $method === '' || $method === OrderPaymentMethod::CASH_ON_DELIVERY)
+            && $this->isPaid()
+            && $this->prepaidAmountValue() === 0
+            && $this->order_status === 'delivered_and_paid'
+        ) {
+            return $this->netTotalAmount();
         }
 
         return 0;

@@ -69,17 +69,36 @@ class AssignKitchenModal extends Component
             ]);
         }
 
-        $group = OrderGroup::findOrFail($this->orderGroupId);
+        $group = OrderGroup::with('orders')->findOrFail($this->orderGroupId);
 
         $previousKitchenId = $group->kitchen_id;
+        $nextKitchenId = $this->selectedKitchenId ?: null;
+        $kitchenChanging = (int) ($previousKitchenId ?? 0) !== (int) ($nextKitchenId ?? 0);
+
+        if ($kitchenChanging) {
+            $lockedStatuses = ['packed', 'on_the_way_to_delivery', 'delivered', 'delivered_and_paid'];
+            $hasLockedOrders = $group->orders->contains(function ($order) use ($lockedStatuses) {
+                return in_array($order->order_status, $lockedStatuses, true)
+                    || $order->dispatched_at !== null;
+            });
+
+            if ($hasLockedOrders) {
+                $this->addError(
+                    'selectedKitchenId',
+                    'Cannot reassign kitchen after orders in this group are packed or dispatched.'
+                );
+
+                return;
+            }
+        }
 
         $group->update([
-            'kitchen_id' => $this->selectedKitchenId ?: null,
+            'kitchen_id' => $nextKitchenId,
             'updated_by' => Auth::id(),
         ]);
 
         // First-time kitchen assignment advances pending orders to processing (push + UI).
-        if ($this->selectedKitchenId && ! $previousKitchenId) {
+        if ($nextKitchenId && ! $previousKitchenId) {
             \App\Support\OrderKitchenAcceptance::markGroupOrdersProcessing($group, Auth::id());
         }
 

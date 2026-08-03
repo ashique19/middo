@@ -251,14 +251,14 @@ class OrderCheckoutModal extends Component
     public function applyCoupon(): void
     {
         $this->couponMessage = '';
-        $subtotal = (int) round($this->subtotal);
+        $quoteBase = (int) round($this->subtotal + $this->taxesAndFees);
 
         try {
             $quoted = app(CouponService::class)->quote(
                 $this->couponCode,
                 Auth::user(),
                 CouponRedemption::CONTEXT_ORDER,
-                $subtotal
+                $quoteBase
             );
         } catch (\Illuminate\Validation\ValidationException $e) {
             $this->appliedCouponCode = '';
@@ -299,8 +299,8 @@ class OrderCheckoutModal extends Component
             return;
         }
 
-        $subtotal = (int) round($this->subtotal);
-        if ($subtotal < 1) {
+        $quoteBase = (int) round($this->subtotal + $this->taxesAndFees);
+        if ($quoteBase < 1) {
             $this->appliedCouponCode = '';
             $this->couponDiscount = 0;
 
@@ -312,7 +312,7 @@ class OrderCheckoutModal extends Component
                 $this->appliedCouponCode,
                 Auth::user(),
                 CouponRedemption::CONTEXT_ORDER,
-                $subtotal
+                $quoteBase
             );
             $this->couponDiscount = (int) $quoted['discount_amount'];
             $this->appliedCouponCode = $quoted['coupon']->code;

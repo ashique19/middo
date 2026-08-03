@@ -22,12 +22,22 @@ class MealOrderGrouper
         }
 
         $maxQuantity = (int) config('middo.auto_meal_group_quantity', 10);
+        $orderQty = (int) $order->quantity;
+
+        if ($orderQty > $maxQuantity) {
+            throw new \InvalidArgumentException(sprintf(
+                'Order quantity %d exceeds auto-group capacity of %d.',
+                $orderQty,
+                $maxQuantity
+            ));
+        }
+
         $actorId = $actorId ?: (int) ($order->created_by ?: $order->user_id);
         $deliveryDate = $order->delivery_date;
         $deliveryDateKey = $deliveryDate->format('Ymd');
         $menuId = (int) $order->menu_item_id;
 
-        return DB::transaction(function () use ($order, $areaId, $maxQuantity, $actorId, $deliveryDate, $deliveryDateKey, $menuId) {
+        return DB::transaction(function () use ($order, $areaId, $maxQuantity, $actorId, $deliveryDate, $deliveryDateKey, $menuId, $orderQty) {
             if (OrderGroupOrder::query()->where('order_id', $order->id)->exists()) {
                 return $order->orderGroup()->firstOrFail();
             }
@@ -44,7 +54,7 @@ class MealOrderGrouper
 
             foreach ($openGroups as $group) {
                 $currentQty = (int) ($group->orders_sum_quantity ?? 0);
-                if ($currentQty + (int) $order->quantity <= $maxQuantity) {
+                if ($currentQty + $orderQty <= $maxQuantity) {
                     $group->orders()->attach($order->id);
 
                     return $group->fresh();

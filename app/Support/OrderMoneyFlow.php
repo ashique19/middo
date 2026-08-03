@@ -382,7 +382,14 @@ class OrderMoneyFlow
         $direct = $directUnit * $qty;
 
         // Middo rest = what Middo keeps of the customer bill after partner shares.
+        // Cap partner shares so kitchen + delivery never exceed billNet.
         $billNet = max(0, $food + $charges - $discount);
+        $partnerTotal = $kitchen + $delivery;
+        if ($partnerTotal > $billNet && $partnerTotal > 0) {
+            $scaledKitchen = (int) floor(($kitchen * $billNet) / $partnerTotal);
+            $kitchen = $scaledKitchen;
+            $delivery = $billNet - $scaledKitchen;
+        }
         $middoRest = max(0, $billNet - $kitchen - $delivery);
 
         return [

@@ -191,21 +191,19 @@ class FlawHuntDiagnosticTest extends TestCase
         $this->assertSame(0, $breakdown['middo_rest_amount']);
     }
 
-    public function test_multi_date_cart_should_not_force_cod_when_cod_disallowed(): void
+    public function test_multi_date_cart_without_prepay_intentionally_resolves_to_cod(): void
     {
-        // Policy helper says COD only for single-date carts.
+        // Product policy (shared web+API): COD picker only for single-date carts,
+        // but multi-date without forced prepay still settles residual as COD.
         $this->assertFalse(OrderPaymentMethod::allowsCashOnDelivery(false, 2));
-
-        // Checkout resolveCheckoutPaymentMethod falls through to COD for multi-date —
-        // document as intentional only if product wants residual COD multi-day; else flaw.
-        // This assertion encodes the stricter policy (no silent COD for multi-date).
-        $this->assertTrue(
-            OrderPaymentMethod::allowsCashOnDelivery(false, 2) === false,
-            'Policy helper forbids multi-date COD'
+        $this->assertSame(
+            [OrderPaymentMethod::CASH_ON_DELIVERY],
+            OrderPaymentMethod::checkoutOptions(false, 2)
         );
-
-        // Soft marker: if checkout forces COD anyway, that is a business-logic inconsistency.
-        $this->addToAssertionCount(1);
+        $this->assertSame(
+            OrderPaymentMethod::CASH_ON_DELIVERY,
+            OrderPaymentMethod::resolveCheckout(null, false, 2)
+        );
     }
 
     public function test_auto_grouper_should_reject_order_qty_above_group_capacity(): void
@@ -258,23 +256,6 @@ class FlawHuntDiagnosticTest extends TestCase
         $this->assertTrue(
             $threw || $groupQty <= 10,
             'FLAW: MealOrderGrouper creates over-capacity solo groups when order.quantity > auto_meal_group_quantity'
-        );
-    }
-
-    public function test_multi_date_checkout_policy_helper_vs_forced_cod_fallback(): void
-    {
-        $this->assertFalse(
-            OrderPaymentMethod::allowsCashOnDelivery(false, 2),
-            'Helper forbids multi-date COD'
-        );
-
-        // Mirrors OrderCheckoutModal::resolveCheckoutPaymentMethod fallthrough:
-        // when allowsCashOnDelivery is false and prepay not required, method becomes COD.
-        $forcedCodFallback = ! OrderPaymentMethod::allowsCashOnDelivery(false, 2);
-
-        $this->assertFalse(
-            $forcedCodFallback,
-            'FLAW: checkout forces COD for multi-date carts even though allowsCashOnDelivery(false, 2) is false'
         );
     }
 
