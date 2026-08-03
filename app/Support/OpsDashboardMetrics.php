@@ -41,7 +41,10 @@ class OpsDashboardMetrics
 
         $awaitingSchedule = PackageSubscription::query()
             ->active()
-            ->where('schedule_status', PackageSubscription::SCHEDULE_AWAITING)
+            ->whereIn('schedule_status', [
+                PackageSubscription::SCHEDULE_AWAITING,
+                PackageSubscription::SCHEDULE_PARTIAL,
+            ])
             ->count();
 
         $activePackages = PackageSubscription::query()->active()->count();

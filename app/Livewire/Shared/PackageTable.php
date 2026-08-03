@@ -116,11 +116,14 @@ class PackageTable extends Component
                 'updated_by' => Auth::id(),
             ]);
         } else {
-            if ((int) $package->days_count < 1) {
-                session()->flash('package_error', 'Assign at least one menu day before publishing.');
-
-                return;
-            }
+            // Monthly pack: no pre-built calendar required. Keep only one published pack.
+            MealPackage::query()
+                ->where('id', '!=', $package->id)
+                ->where('status', MealPackage::STATUS_PUBLISHED)
+                ->update([
+                    'status' => MealPackage::STATUS_ARCHIVED,
+                    'updated_by' => Auth::id(),
+                ]);
 
             $package->update([
                 'status' => MealPackage::STATUS_PUBLISHED,

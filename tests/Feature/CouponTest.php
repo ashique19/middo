@@ -169,7 +169,7 @@ class CouponTest extends TestCase
 
         /** @var PackageSubscription $subscription */
         $subscription = $result['subscription'];
-        $expectedTotal = 100 * $workingDays;
+        $expectedTotal = 150 * $workingDays;
         $this->assertSame($expectedTotal, (int) $subscription->total_amount);
         $this->assertSame(100, (int) $subscription->discount_amount);
         $this->assertSame($expectedTotal - 100, (int) $subscription->amount_paid);

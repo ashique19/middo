@@ -180,7 +180,8 @@ class MealPackageTest extends TestCase
         );
         $this->assertTrue($full['fills_month']);
         $this->assertSame($workingDays, $full['billable_days']);
-        $this->assertSame($workingDays * 100, $full['total_amount']);
+        $this->assertSame($workingDays * 150, $full['total_amount']); // menu price × days × qty
+        $this->assertSame(150, $full['selections'][0]['unit_price']);
         $this->assertSame('2026-08', $full['target_month']);
 
         try {
@@ -572,7 +573,7 @@ class MealPackageTest extends TestCase
             'PKG100'
         );
         $subscription = $result['subscription'];
-        $this->assertSame((100 * $workingDays) - 100, (int) $subscription->amount_paid);
+        $this->assertSame((150 * $workingDays) - 100, (int) $subscription->amount_paid);
 
         $scheduled = $this->assignAllDates($ops, $subscription, $menu);
         $order = $scheduled['orders']->first();
@@ -720,6 +721,75 @@ class MealPackageTest extends TestCase
             ->assertSet('targetMonth', $before);
 
         $this->assertStringContainsString('already ordered a package', $component->get('errorMessage'));
+
+        Carbon::setTestNow();
+    }
+
+    public function test_ops_can_confirm_partial_package_days_then_finish_later(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'balance' => 100000,
+        ]);
+        $ops = $this->makeOps();
+        $menuA = $this->makeMenuItem('Menu A', 200);
+        $menuB = $this->makeMenuItem('Menu B', 120);
+        $package = $this->makeRatePlan(0);
+        $workingDays = $this->workingDays('2026-08');
+        $this->assertGreaterThan(5, $workingDays);
+
+        $result = app(PackageSubscriptionService::class)->subscribe(
+            $user,
+            $package,
+            2,
+            [5, 6],
+            [
+                ['menu_item_id' => $menuA->id, 'day_count' => 3],
+                ['menu_item_id' => $menuB->id, 'day_count' => $workingDays - 3],
+            ],
+            '2026-08',
+            'Corporate User',
+            $user->mobile,
+            'House 12, Road 5',
+            $city->id,
+            $area->id,
+            '12:00 PM',
+            'balance'
+        );
+        $subscription = $result['subscription'];
+        $expectedFood = (200 * 3 * 2) + (120 * ($workingDays - 3) * 2);
+        $this->assertSame($expectedFood, (int) $subscription->total_amount);
+        $this->assertSame(200, (int) $subscription->selections()->where('menu_item_id', $menuA->id)->value('unit_price'));
+
+        $available = PackageBilling::availableDatesInMonth('2026-08', [5, 6])->values();
+        $firstBatch = [
+            ['date' => $available[0], 'menu_item_id' => $menuA->id],
+            ['date' => $available[1], 'menu_item_id' => $menuA->id],
+        ];
+        $partial = app(PackageSubscriptionService::class)->assignSchedule($ops, $subscription, $firstBatch);
+        $this->assertSame(PackageSubscription::SCHEDULE_PARTIAL, $partial['subscription']->schedule_status);
+        $this->assertSame(2, $partial['orders']->count());
+        $this->assertSame(400, (int) $partial['orders']->first()->total_amount); // 200 × qty 2
+
+        $remainingDates = $available->slice(2)->values();
+        $secondBatch = $remainingDates->map(function ($date, $index) use ($menuA, $menuB) {
+            return [
+                'date' => $date,
+                'menu_item_id' => $index === 0 ? $menuA->id : $menuB->id,
+            ];
+        })->all();
+
+        $done = app(PackageSubscriptionService::class)->assignSchedule(
+            $ops,
+            $partial['subscription'],
+            $secondBatch
+        );
+        $this->assertSame(PackageSubscription::SCHEDULE_SCHEDULED, $done['subscription']->schedule_status);
+        $this->assertSame($workingDays, Order::where('package_subscription_id', $subscription->id)->where('order_status', '!=', 'cancelled')->count());
 
         Carbon::setTestNow();
     }

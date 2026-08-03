@@ -214,6 +214,7 @@ class PackageSubscriptionService
                     'package_subscription_id' => $subscription->id,
                     'menu_item_id' => $selection['menu_item_id'],
                     'day_count' => $selection['day_count'],
+                    'unit_price' => (int) ($selection['unit_price'] ?? 0),
                 ]);
             }
 
@@ -268,7 +269,8 @@ class PackageSubscriptionService
     }
 
     /**
-     * Operations assigns exact delivery dates + menus from the corporate selection.
+     * Operations confirms one or more delivery dates + menus from the corporate selection.
+     * Partial confirms are allowed; remaining days stay open until later.
      *
      * @param  array<int, array{date:string, menu_item_id:int}>  $assignments
      * @return array{subscription: PackageSubscription, orders: Collection<int, Order>}
@@ -291,8 +293,10 @@ class PackageSubscriptionService
                 throw new RuntimeException('Only active subscriptions can be scheduled.');
             }
 
-            if ($lockedSub->isScheduled() && $lockedSub->orders()->exists()) {
-                throw new RuntimeException('This subscription already has a delivery schedule. Use swap/skip on individual days.');
+            if (! $lockedSub->canReceiveScheduleAssignments()) {
+                throw new RuntimeException(
+                    'This subscription is fully scheduled. Use swap/skip on individual days.'
+                );
             }
 
             $normalized = collect($assignments)
@@ -304,19 +308,19 @@ class PackageSubscriptionService
                 ->values();
 
             if ($normalized->isEmpty()) {
-                throw new RuntimeException('Assign at least one delivery date.');
+                throw new RuntimeException('Confirm at least one delivery date.');
             }
 
             if ($normalized->pluck('date')->unique()->count() !== $normalized->count()) {
                 throw new RuntimeException('Each delivery date can only be assigned once.');
             }
 
-            $expectedDays = (int) $lockedSub->billable_days;
-            if ($normalized->count() !== $expectedDays) {
-                throw new RuntimeException(
-                    'Assign exactly '.$expectedDays.' delivery day(s) to match the prepaid package.'
-                );
-            }
+            $alreadyDated = $lockedSub->orders()
+                ->where('order_status', '!=', 'cancelled')
+                ->get()
+                ->mapWithKeys(fn (Order $order) => [
+                    $order->delivery_date->toDateString() => true,
+                ]);
 
             $omitted = PackageBilling::normalizeOmittedWeekdays($lockedSub->omitted_weekdays ?? []);
             $available = PackageBilling::availableDatesInMonth(
@@ -324,11 +328,16 @@ class PackageSubscriptionService
                 $omitted
             )->flip();
 
-            $selectionCounts = $lockedSub->selections
-                ->mapWithKeys(fn ($sel) => [(int) $sel->menu_item_id => (int) $sel->day_count]);
+            $remainingCounts = $lockedSub->remainingSelectionCounts();
+            $unitPrices = $lockedSub->selections
+                ->mapWithKeys(fn ($sel) => [(int) $sel->menu_item_id => (int) $sel->unit_price]);
             $assignedCounts = [];
 
             foreach ($normalized as $row) {
+                if ($alreadyDated->has($row['date'])) {
+                    throw new RuntimeException($row['date'].' is already confirmed for this package.');
+                }
+
                 if (! $available->has($row['date'])) {
                     throw new RuntimeException(
                         $row['date'].' is not an eligible delivery date (outside month, omitted weekday, or past cutoff).'
@@ -336,31 +345,35 @@ class PackageSubscriptionService
                 }
 
                 $menuId = $row['menu_item_id'];
-                if (! $selectionCounts->has($menuId)) {
+                if (! array_key_exists($menuId, $remainingCounts)) {
                     throw new RuntimeException('Menu item #'.$menuId.' was not part of the corporate selection.');
                 }
 
                 $assignedCounts[$menuId] = ($assignedCounts[$menuId] ?? 0) + 1;
-            }
-
-            foreach ($selectionCounts as $menuId => $dayCount) {
-                if ((int) ($assignedCounts[$menuId] ?? 0) !== (int) $dayCount) {
+                if ($assignedCounts[$menuId] > (int) $remainingCounts[$menuId]) {
                     $name = MenuItem::query()->whereKey($menuId)->value('name') ?? ('#'.$menuId);
                     throw new RuntimeException(
-                        'Menu "'.$name.'" must be assigned exactly '.$dayCount.' day(s).'
+                        'Menu "'.$name.'" only has '.(int) $remainingCounts[$menuId]
+                        .' remaining prepaid day(s).'
                     );
                 }
             }
 
-            $lineTotal = (int) $lockedSub->price_per_day * (int) $lockedSub->quantity;
+            $qty = max(1, (int) $lockedSub->quantity);
             $createdOrderIds = [];
 
             foreach ($normalized->sortBy('date')->values() as $row) {
+                $unitPrice = (int) ($unitPrices[(int) $row['menu_item_id']] ?? 0);
+                if ($unitPrice < 1) {
+                    $unitPrice = (int) (MenuItem::query()->whereKey($row['menu_item_id'])->value('price') ?? 0);
+                }
+                $lineTotal = $unitPrice * $qty;
+
                 $order = Order::create([
                     'user_id' => $lockedSub->user_id,
                     'menu_item_id' => $row['menu_item_id'],
                     'package_subscription_id' => $lockedSub->id,
-                    'quantity' => $lockedSub->quantity,
+                    'quantity' => $qty,
                     'delivery_date' => $row['date'],
                     'delivery_time' => $lockedSub->delivery_time,
                     'total_amount' => $lineTotal,
@@ -386,11 +399,22 @@ class PackageSubscriptionService
                 $grouper->assignOrder($order->load('user'), $actor->id);
             }
 
-            $dates = $orders->pluck('delivery_date')->map(fn ($d) => $d->toDateString())->all();
+            $freshSub = $lockedSub->fresh(['selections', 'orders']);
+            $remainingAfter = $freshSub->remainingBillableDays();
+            $allDates = $freshSub->orders()
+                ->where('order_status', '!=', 'cancelled')
+                ->orderBy('delivery_date')
+                ->pluck('delivery_date')
+                ->map(fn ($d) => $d->toDateString())
+                ->values()
+                ->all();
+
             $lockedSub->update([
-                'schedule_status' => PackageSubscription::SCHEDULE_SCHEDULED,
-                'start_date' => $dates[0] ?? $lockedSub->start_date,
-                'end_date' => $dates[array_key_last($dates)] ?? $lockedSub->end_date,
+                'schedule_status' => $remainingAfter > 0
+                    ? PackageSubscription::SCHEDULE_PARTIAL
+                    : PackageSubscription::SCHEDULE_SCHEDULED,
+                'start_date' => $allDates[0] ?? $lockedSub->start_date,
+                'end_date' => $allDates[array_key_last($allDates)] ?? $lockedSub->end_date,
             ]);
 
             return [
@@ -618,8 +642,17 @@ class PackageSubscriptionService
 
             app(OrderGroupManager::class)->ungroup($locked->id);
 
+            $subscription = $locked->packageSubscription()->with('selections')->first();
+            $unitPrice = (int) ($subscription?->selections
+                ->firstWhere('menu_item_id', (int) $menu->id)
+                ?->unit_price ?? $menu->price);
+            $lineTotal = $unitPrice * max(1, (int) $locked->quantity);
+
             $locked->update([
                 'menu_item_id' => $menu->id,
+                'total_amount' => $lineTotal,
+                'amount_paid' => $lineTotal,
+                'prepaid_amount' => $lineTotal,
                 'updated_by' => $actor->id,
             ]);
 

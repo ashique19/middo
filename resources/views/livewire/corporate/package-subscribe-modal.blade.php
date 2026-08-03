@@ -9,7 +9,7 @@
                     <div>
                         <p class="text-[11px] font-black uppercase tracking-wider text-middo-orange">Build monthly package</p>
                         <h2 class="text-xl font-black text-gray-800 mt-0.5">{{ $package['name'] }}</h2>
-                        <p class="text-sm font-semibold text-gray-500 mt-1">৳{{ number_format($package['price_per_day']) }}/day · prepaid · ops schedules dates</p>
+                        <p class="text-sm font-semibold text-gray-500 mt-1">Mix any menus · billed at each menu price · coupon at checkout</p>
                     </div>
                     <button type="button" wire:click="closeModal" class="text-gray-400 hover:text-gray-700 font-bold text-lg leading-none">✕</button>
                 </div>
@@ -145,9 +145,19 @@
                                 <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-200/80">Total due now</div>
                                 <div class="text-3xl font-black mt-1">৳{{ number_format($this->payableTotal()) }}</div>
                                 <div class="text-xs font-semibold text-emerald-100/80 mt-1">
-                                    {{ $selectedDays }} days × ৳{{ number_format($quote['price_per_day'] ?? ($package['price_per_day'] ?? 0)) }} × qty {{ $quantity }}
+                                    Menu mix · {{ $selectedDays }} day(s) · qty {{ $quantity }}
                                     = ৳{{ number_format($quote['total_amount'] ?? 0) }}
                                 </div>
+                                @if(!empty($quote['selections']))
+                                    <div class="mt-2 space-y-0.5 border-t border-emerald-800/60 pt-2">
+                                        @foreach($quote['selections'] as $sel)
+                                            <div class="flex justify-between text-[11px] text-emerald-100/85">
+                                                <span>{{ $sel['menu_item_name'] ?? 'Menu' }} · {{ (int) $sel['day_count'] }}d × ৳{{ number_format((int) ($sel['unit_price'] ?? 0)) }}</span>
+                                                <span>৳{{ number_format((int) ($sel['line_total'] ?? 0)) }}</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
                                 @if($chargesTotal > 0)
                                     <div class="mt-2 space-y-0.5 border-t border-emerald-800/60 pt-2">
                                         @foreach($chargeLines as $chargeLine)

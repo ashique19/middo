@@ -45,18 +45,25 @@ class PackageRefund
         return $netTotal;
     }
 
+    /**
+     * Confirmed package days store menu×qty on amount_paid. Refund that food line
+     * plus a pro-rated share of subscription charges/discount across billable_days.
+     */
     public static function packageDayRefundAmount(Order $order): int
     {
         $subscription = $order->packageSubscription;
 
         if (! $subscription && $order->package_subscription_id) {
-            $subscription = PackageSubscription::query()
-                ->with('orders')
-                ->find($order->package_subscription_id);
+            $subscription = PackageSubscription::query()->find($order->package_subscription_id);
         }
 
+        $dayFood = min(
+            (int) ($order->amount_paid ?: $order->total_amount),
+            max(0, (int) $order->total_amount - (int) ($order->discount_amount ?? 0))
+        );
+
         if (! $subscription) {
-            return min((int) ($order->amount_paid ?: $order->total_amount), $order->netTotalAmount());
+            return $dayFood;
         }
 
         $allocations = self::packageDayRefundAllocations($subscription);
@@ -64,7 +71,11 @@ class PackageRefund
             return $allocations[(int) $order->id];
         }
 
-        return min((int) ($order->amount_paid ?: $order->total_amount), $order->netTotalAmount());
+        $days = max(1, (int) $subscription->billable_days);
+        $chargeShare = (int) floor(((int) ($subscription->charges_amount ?? 0)) / $days);
+        $discountShare = (int) floor(((int) ($subscription->discount_amount ?? 0)) / $days);
+
+        return max(0, $dayFood + $chargeShare - $discountShare);
     }
 
     /**
@@ -75,26 +86,29 @@ class PackageRefund
         $orders = $subscription->orders()
             ->orderBy('delivery_date')
             ->orderBy('id')
-            ->get(['id']);
+            ->get(['id', 'amount_paid', 'total_amount', 'discount_amount']);
 
-        $count = $orders->count();
-        if ($count < 1) {
+        if ($orders->isEmpty()) {
             return [];
         }
 
-        $refundable = self::subscriptionPrepaidAmount($subscription);
-        if ($refundable <= 0) {
-            return $orders->mapWithKeys(fn (Order $order) => [(int) $order->id => 0])->all();
-        }
-
-        $base = intdiv($refundable, $count);
-        $remainder = $refundable % $count;
+        $days = max(1, (int) $subscription->billable_days);
+        $charges = (int) ($subscription->charges_amount ?? 0);
+        $discount = (int) ($subscription->discount_amount ?? 0);
+        $chargeBase = intdiv($charges, $days);
+        $chargeRem = $charges % $days;
+        $discountBase = intdiv($discount, $days);
+        $discountRem = $discount % $days;
 
         return $orders
             ->values()
-            ->mapWithKeys(fn (Order $order, int $index) => [
-                (int) $order->id => $base + ($index < $remainder ? 1 : 0),
-            ])
+            ->mapWithKeys(function (Order $order, int $index) use ($chargeBase, $chargeRem, $discountBase, $discountRem) {
+                $dayFood = (int) ($order->amount_paid ?: $order->total_amount);
+                $chargeShare = $chargeBase + ($index < $chargeRem ? 1 : 0);
+                $discountShare = $discountBase + ($index < $discountRem ? 1 : 0);
+
+                return [(int) $order->id => max(0, $dayFood + $chargeShare - $discountShare)];
+            })
             ->all();
     }
 }

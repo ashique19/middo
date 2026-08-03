@@ -13,12 +13,18 @@
                 <x-package-badge />
                 <span @class([
                     'px-2.5 py-1 rounded-full text-[11px] font-bold uppercase',
-                    'bg-amber-100 text-amber-800 border border-amber-200' => $subscription->isAwaitingSchedule(),
+                    'bg-amber-100 text-amber-800 border border-amber-200' => $subscription->isAwaitingSchedule() || $subscription->isPartiallyScheduled(),
                     'bg-emerald-100 text-emerald-800 border border-emerald-200' => $subscription->status === 'active' && $subscription->isScheduled(),
                     'bg-gray-100 text-gray-600 border border-gray-200' => $subscription->status === 'completed',
                     'bg-red-50 text-red-700 border border-red-200' => $subscription->status === 'cancelled',
                 ])>
-                    {{ $subscription->isAwaitingSchedule() ? 'awaiting schedule' : $subscription->status }}
+                    @if($subscription->isAwaitingSchedule())
+                        awaiting schedule
+                    @elseif($subscription->isPartiallyScheduled())
+                        partially scheduled
+                    @else
+                        {{ $subscription->status }}
+                    @endif
                 </span>
             </div>
         </div>
@@ -35,7 +41,7 @@
         <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Prepaid</p>
             <p class="text-2xl font-black text-middo-dark">৳{{ number_format($subscription->amount_paid) }}</p>
-            <p class="text-xs text-gray-500 mt-1">{{ $subscription->billable_days }} days · ৳{{ number_format($subscription->price_per_day) }}/day · qty {{ $subscription->quantity }}</p>
+            <p class="text-xs text-gray-500 mt-1">{{ $subscription->billable_days }} menu-days · qty {{ $subscription->quantity }} · menu-priced</p>
         </div>
         <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Window</p>
@@ -69,8 +75,8 @@
                 @foreach($selectionRemaining as $sel)
                     <div class="px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm">
                         <span class="font-bold text-gray-800">{{ $sel['name'] }}</span>
-                        <span class="text-gray-500 ml-2">{{ $sel['assigned'] }}/{{ $sel['day_count'] }}</span>
-                        @if($subscription->isAwaitingSchedule())
+                        <span class="text-gray-500 ml-2">৳{{ number_format($sel['unit_price'] ?? 0) }} · {{ $sel['assigned'] }}/{{ $sel['day_count'] }}</span>
+                        @if($subscription->canReceiveScheduleAssignments())
                             <span class="text-xs font-semibold text-amber-700 ml-1">({{ $sel['remaining'] }} left)</span>
                         @endif
                     </div>
@@ -79,18 +85,19 @@
         </div>
     @endif
 
-    @if($canManage && $subscription->isAwaitingSchedule())
+    @if($canManage && $subscription->canReceiveScheduleAssignments())
         <div class="bg-white border border-amber-200 rounded-2xl p-5 shadow-sm space-y-4">
             <div class="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <h2 class="text-lg font-bold text-gray-800">Assign delivery schedule</h2>
+                    <h2 class="text-lg font-bold text-gray-800">Confirm delivery days</h2>
                     <p class="text-sm text-gray-500 mt-1">
-                        Map corporate menu selections onto eligible dates this month.
-                        Assigned {{ $assignedCount }} / {{ $subscription->billable_days }}.
+                        Confirm one or more days now; leave the rest for later.
+                        Selecting {{ $assignedCount }} of {{ $remainingDays }} remaining prepaid day(s).
+                        Past cutoff dates are hidden and not editable.
                     </p>
                 </div>
                 <button type="button" wire:click="saveSchedule" class="px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold">
-                    Save schedule & create orders
+                    Confirm selected days
                 </button>
             </div>
 
@@ -155,16 +162,16 @@
             </div>
         </div>
 
-        @if($subscription->isScheduled())
+        @if($subscription->isScheduled() || $subscription->isPartiallyScheduled())
             <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
                 <h2 class="text-lg font-bold text-gray-800">Swap menu for a pending day</h2>
                 <select wire:model="swapMenuItemId" class="w-full md:w-96 rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                    <option value="">Select menu item…</option>
-                    @foreach($menuItems as $menu)
+                    <option value="">Select menu from package…</option>
+                    @foreach($selectionMenus as $menu)
                         <option value="{{ $menu->id }}">{{ $menu->name }} (৳{{ number_format($menu->price) }})</option>
                     @endforeach
                 </select>
-                <p class="text-xs text-gray-500">Choose a menu above, then click Swap on a pending order row below.</p>
+                <p class="text-xs text-gray-500">Only pending days before cutoff can change menu. Past cutoff days are locked.</p>
             </div>
         @endif
     @endif

@@ -64,6 +64,18 @@ class MealPackage extends Model
         return $query->where('status', self::STATUS_PUBLISHED);
     }
 
+    /**
+     * Single published monthly pack (product rule: only one active plan).
+     */
+    public static function solePublished(): ?self
+    {
+        return static::query()
+            ->published()
+            ->orderBy('display_order')
+            ->orderBy('id')
+            ->first();
+    }
+
     public function isPublished(): bool
     {
         return $this->status === self::STATUS_PUBLISHED;

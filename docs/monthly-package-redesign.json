@@ -1,0 +1,15 @@
+{
+  "id": "monthly-package-redesign",
+  "version": 1,
+  "summary": "Single monthly pack; corporate free menu×day mix billed at menu prices; ops partial day confirmation; cutoff locks day edits.",
+  "rules": {
+    "packs": "Only one published MealPackage (Monthly Pack). Publishing archives other published packs.",
+    "corporate_selection": "Any menus + day counts that fill working days; coupon at checkout.",
+    "billing": "food = Σ(menu.price × day_count × quantity); charges and coupon applied on top.",
+    "ops_confirm": "assignSchedule accepts 1..N days; schedule_status awaiting_schedule → partially_scheduled → scheduled.",
+    "cutoff": "Past cutoff dates excluded from confirm UI; pending day swap/skip blocked after OrderCutoff."
+  },
+  "schema": {
+    "package_subscription_selections.unit_price": "snapshot of menu_items.price at subscribe"
+  }
+}

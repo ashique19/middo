@@ -17,6 +17,8 @@ class PackageSubscription extends Model
 
     public const SCHEDULE_AWAITING = 'awaiting_schedule';
 
+    public const SCHEDULE_PARTIAL = 'partially_scheduled';
+
     public const SCHEDULE_SCHEDULED = 'scheduled';
 
     protected $fillable = [
@@ -149,8 +151,51 @@ class PackageSubscription extends Model
         return $this->schedule_status === self::SCHEDULE_AWAITING;
     }
 
+    public function isPartiallyScheduled(): bool
+    {
+        return $this->schedule_status === self::SCHEDULE_PARTIAL;
+    }
+
     public function isScheduled(): bool
     {
         return $this->schedule_status === self::SCHEDULE_SCHEDULED;
+    }
+
+    public function canReceiveScheduleAssignments(): bool
+    {
+        return in_array($this->schedule_status, [self::SCHEDULE_AWAITING, self::SCHEDULE_PARTIAL], true)
+            && $this->status === self::STATUS_ACTIVE;
+    }
+
+    /**
+     * Remaining prepaid menu-day quotas after non-cancelled confirmed orders.
+     *
+     * @return array<int, int> menu_item_id => remaining day count
+     */
+    public function remainingSelectionCounts(): array
+    {
+        $this->loadMissing('selections');
+
+        $confirmed = $this->orders()
+            ->where('order_status', '!=', 'cancelled')
+            ->selectRaw('menu_item_id, COUNT(*) as confirmed_count')
+            ->groupBy('menu_item_id')
+            ->pluck('confirmed_count', 'menu_item_id');
+
+        $remaining = [];
+        foreach ($this->selections as $selection) {
+            $menuId = (int) $selection->menu_item_id;
+            $remaining[$menuId] = max(
+                0,
+                (int) $selection->day_count - (int) ($confirmed[$menuId] ?? 0)
+            );
+        }
+
+        return $remaining;
+    }
+
+    public function remainingBillableDays(): int
+    {
+        return (int) array_sum($this->remainingSelectionCounts());
     }
 }

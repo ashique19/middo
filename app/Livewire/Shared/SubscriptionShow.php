@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Shared;
 
-use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\PackageSubscription;
 use App\Support\PackageBilling;
@@ -66,13 +65,21 @@ class SubscriptionShow extends Component
         $model ??= $this->subscription();
         $this->scheduleAssignments = [];
 
-        if (! $model->isAwaitingSchedule()) {
+        if (! $model->canReceiveScheduleAssignments()) {
             return;
         }
 
         $month = (string) ($model->target_month ?: $model->start_date->format('Y-m'));
         $dates = PackageBilling::availableDatesInMonth($month, $model->omitted_weekdays ?? []);
+        $confirmedDates = $model->orders
+            ->where('order_status', '!=', 'cancelled')
+            ->map(fn ($order) => $order->delivery_date->toDateString())
+            ->all();
+
         foreach ($dates as $date) {
+            if (in_array($date, $confirmedDates, true)) {
+                continue;
+            }
             $this->scheduleAssignments[$date] = null;
         }
     }
@@ -110,7 +117,10 @@ class SubscriptionShow extends Component
                 $this->subscription(),
                 $assignments
             );
-            $this->statusMessage = 'Scheduled '.$result['orders']->count().' delivery day(s) from the corporate selection.';
+            $remaining = $result['subscription']->remainingBillableDays();
+            $this->statusMessage = $remaining > 0
+                ? 'Confirmed '.$result['orders']->count().' day(s). '.$remaining.' day(s) still unconfirmed.'
+                : 'Confirmed '.$result['orders']->count().' day(s). Package schedule is complete.';
             $this->resetScheduleAssignments($result['subscription']);
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage();
@@ -226,20 +236,24 @@ class SubscriptionShow extends Component
 
     public function selectionRemaining(PackageSubscription $subscription): array
     {
-        $assigned = collect($this->scheduleAssignments)
+        $draftAssigned = collect($this->scheduleAssignments)
             ->filter()
             ->countBy(fn ($id) => (int) $id);
 
-        return $subscription->selections->map(function ($sel) use ($assigned) {
-            $needed = (int) $sel->day_count;
-            $used = (int) ($assigned[(int) $sel->menu_item_id] ?? 0);
+        $remaining = $subscription->remainingSelectionCounts();
+
+        return $subscription->selections->map(function ($sel) use ($draftAssigned, $remaining) {
+            $menuId = (int) $sel->menu_item_id;
+            $left = (int) ($remaining[$menuId] ?? 0);
+            $draft = (int) ($draftAssigned[$menuId] ?? 0);
 
             return [
-                'menu_item_id' => (int) $sel->menu_item_id,
+                'menu_item_id' => $menuId,
                 'name' => $sel->menuItem?->name ?? 'Menu',
-                'day_count' => $needed,
-                'assigned' => $used,
-                'remaining' => max(0, $needed - $used),
+                'unit_price' => (int) $sel->unit_price,
+                'day_count' => (int) $sel->day_count,
+                'assigned' => max(0, (int) $sel->day_count - $left) + $draft,
+                'remaining' => max(0, $left - $draft),
             ];
         })->values()->all();
     }
@@ -247,15 +261,15 @@ class SubscriptionShow extends Component
     public function render()
     {
         $subscription = $this->subscription();
-        $menuItems = MenuItem::query()->orderBy('name')->get(['id', 'name', 'price']);
         $selectionMenus = $subscription->selections->pluck('menuItem')->filter()->values();
 
         return view('livewire.shared.subscriptions.show', [
             'subscription' => $subscription,
-            'menuItems' => $menuItems,
+            'menuItems' => $selectionMenus,
             'selectionMenus' => $selectionMenus,
             'selectionRemaining' => $this->selectionRemaining($subscription),
             'assignedCount' => collect($this->scheduleAssignments)->filter()->count(),
+            'remainingDays' => $subscription->remainingBillableDays(),
         ])->layout('layouts.private.app', [
             'title' => 'Subscription #'.$subscription->id,
         ]);

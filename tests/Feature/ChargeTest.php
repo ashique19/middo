@@ -229,7 +229,7 @@ class ChargeTest extends TestCase
 
         /** @var PackageSubscription $subscription */
         $subscription = $result['subscription'];
-        $food = 150 * $workingDays;
+        $food = 200 * $workingDays;
         $fees = 100 + (30 * $workingDays);
 
         // total_amount stores pre-discount merchandise only; charges_amount stores charges separately.

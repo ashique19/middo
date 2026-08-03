@@ -11,11 +11,18 @@ class PackageSubscriptionSelection extends Model
         'package_subscription_id',
         'menu_item_id',
         'day_count',
+        'unit_price',
     ];
 
     protected $casts = [
         'day_count' => 'integer',
+        'unit_price' => 'integer',
     ];
+
+    public function lineTotal(int $quantity = 1): int
+    {
+        return max(1, $quantity) * (int) $this->unit_price * (int) $this->day_count;
+    }
 
     public function subscription(): BelongsTo
     {

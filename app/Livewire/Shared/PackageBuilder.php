@@ -283,7 +283,7 @@ class PackageBuilder extends Component
         $this->validate([
             'name' => 'required|string|max:255',
             'summary' => 'nullable|string|max:2000',
-            'price_per_day' => 'required|integer|min:1',
+            'price_per_day' => 'nullable|integer|min:0',
             'diet_tag' => 'required|in:'.implode(',', MealPackage::DIET_TAGS),
             'duration_days' => 'required|integer|min:1|max:60',
             'start_date' => 'required|date',
@@ -336,6 +336,16 @@ class PackageBuilder extends Component
                 $payload['created_by'] = Auth::id();
                 $package = MealPackage::create($payload);
                 $this->packageId = $package->id;
+            }
+
+            if ($package->status === MealPackage::STATUS_PUBLISHED) {
+                MealPackage::query()
+                    ->where('id', '!=', $package->id)
+                    ->where('status', MealPackage::STATUS_PUBLISHED)
+                    ->update([
+                        'status' => MealPackage::STATUS_ARCHIVED,
+                        'updated_by' => Auth::id(),
+                    ]);
             }
 
             if ($this->thumbnail) {

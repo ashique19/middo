@@ -159,6 +159,8 @@ class CorporateApiPresenter
             'selections' => $subscription->selections->map(fn ($sel) => [
                 'menu_item_id' => (int) $sel->menu_item_id,
                 'day_count' => (int) $sel->day_count,
+                'unit_price' => (int) $sel->unit_price,
+                'line_total' => (int) $sel->unit_price * (int) $sel->day_count * max(1, (int) $subscription->quantity),
                 'menu_item' => $sel->menuItem ? self::menuItem($sel->menuItem) : null,
             ])->values()->all(),
             'orders' => $subscription->orders

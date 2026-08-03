@@ -77,15 +77,15 @@
                                     <p class="text-xs font-semibold text-[#635347] mt-1 capitalize">{{ $package['diet_tag'] }} · monthly rate</p>
                                 </div>
                                 <div class="text-right shrink-0">
-                                    <div class="text-2xl font-black text-middo-orange leading-none">৳{{ number_format($package['price_per_day']) }}</div>
-                                    <div class="text-[10px] font-bold uppercase text-[#635347] mt-1">per day</div>
+                                    <div class="text-sm font-black text-middo-orange leading-none">Menu-priced</div>
+                                    <div class="text-[10px] font-bold uppercase text-[#635347] mt-1">build your mix</div>
                                 </div>
                             </div>
                             @if($package['summary'])
                                 <p class="text-sm text-[#635347] mt-3">{{ $package['summary'] }}</p>
                             @endif
                             <p class="text-[11px] font-semibold text-gray-400 mt-2">
-                                Fill every working day — select menus & day counts at checkout
+                                Mix any menus and day counts — bill is Σ(menu × days × seats). Coupon at checkout.
                             </p>
                             @if(count($package['sample_days']))
                                 <div class="mt-3 flex gap-1.5 overflow-x-auto pb-1">

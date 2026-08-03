@@ -96,7 +96,7 @@ class PackageBilling
 
     /**
      * @param  array<int, array{menu_item_id:int, day_count:int}>  $selections
-     * @return array<int, array{menu_item_id:int, day_count:int, menu_item_name:?string}>
+     * @return array<int, array{menu_item_id:int, day_count:int, menu_item_name:?string, unit_price:int, line_total:int}>
      */
     public static function normalizeSelections(array $selections): array
     {
@@ -124,15 +124,18 @@ class PackageBilling
             return [];
         }
 
-        $names = MenuItem::query()
+        $menus = MenuItem::query()
             ->whereIn('id', array_keys($normalized))
-            ->pluck('name', 'id');
+            ->get(['id', 'name', 'price'])
+            ->keyBy('id');
 
         foreach ($normalized as $menuItemId => $row) {
-            if (! $names->has($menuItemId)) {
+            if (! $menus->has($menuItemId)) {
                 throw new RuntimeException('One or more selected menu items are invalid.');
             }
-            $normalized[$menuItemId]['menu_item_name'] = $names[$menuItemId];
+            $menu = $menus[$menuItemId];
+            $normalized[$menuItemId]['menu_item_name'] = $menu->name;
+            $normalized[$menuItemId]['unit_price'] = (int) $menu->price;
         }
 
         return array_values($normalized);
@@ -140,6 +143,7 @@ class PackageBilling
 
     /**
      * Quote a corporate-built monthly package from menu day-count selections.
+     * Food total = Σ(menu.price × day_count × quantity).
      *
      * @param  array<int, array{menu_item_id:int, day_count:int}>  $selections
      * @param  array<int>  $omittedWeekdays
@@ -159,9 +163,19 @@ class PackageBilling
         $billableDays = (int) collect($normalized)->sum('day_count');
         $available = self::availableDatesInMonth($targetMonth, $omittedWeekdays, $now);
         $availableDays = $available->count();
-        $pricePerDay = (int) $package->price_per_day;
-        $total = $billableDays * $pricePerDay * $quantity;
         $bounds = self::monthBounds($targetMonth);
+
+        $total = 0;
+        foreach ($normalized as $index => $row) {
+            $lineTotal = (int) $row['unit_price'] * (int) $row['day_count'] * $quantity;
+            $normalized[$index]['line_total'] = $lineTotal;
+            $total += $lineTotal;
+        }
+
+        // Compatibility snapshot: weighted average menu price (not used for billing).
+        $pricePerDay = $billableDays > 0
+            ? (int) floor($total / ($billableDays * $quantity))
+            : 0;
 
         return [
             'billable_days' => $billableDays,

@@ -124,9 +124,11 @@ class Dashboard extends Component
                     'name' => $sub->package?->name ?? 'Package',
                     'status' => $sub->status,
                     'schedule_status' => $sub->schedule_status,
-                    'schedule_label' => $sub->schedule_status === PackageSubscription::SCHEDULE_AWAITING
-                        ? 'Awaiting schedule'
-                        : 'Scheduled',
+                    'schedule_label' => match ($sub->schedule_status) {
+                        PackageSubscription::SCHEDULE_AWAITING => 'Awaiting schedule',
+                        PackageSubscription::SCHEDULE_PARTIAL => 'Partially scheduled',
+                        default => 'Scheduled',
+                    },
                     'quantity' => (int) $sub->quantity,
                     'billable_days' => (int) $sub->billable_days,
                     'total_amount' => (int) $sub->total_amount + (int) $sub->charges_amount,
