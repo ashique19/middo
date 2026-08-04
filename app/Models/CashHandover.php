@@ -13,6 +13,14 @@ class CashHandover extends Model
 
     public const TARGET_MIDDO = 'middo';
 
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_ACCEPTED = 'accepted';
+
+    public const STATUS_REJECTED = 'rejected';
+
+    public const STATUS_PROPOSED_REJECT = 'proposed_reject';
+
     protected $fillable = [
         'rider_id',
         'amount',
@@ -20,6 +28,8 @@ class CashHandover extends Model
         'status',
         'accepted_by',
         'accepted_at',
+        'rejection_proposed_by',
+        'rejection_proposed_at',
         'notes',
     ];
 
@@ -28,6 +38,7 @@ class CashHandover extends Model
         return [
             'amount' => 'integer',
             'accepted_at' => 'datetime',
+            'rejection_proposed_at' => 'datetime',
         ];
     }
 
@@ -39,6 +50,11 @@ class CashHandover extends Model
     public function acceptedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'accepted_by');
+    }
+
+    public function rejectionProposedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rejection_proposed_by');
     }
 
     public function items(): HasMany
@@ -55,7 +71,12 @@ class CashHandover extends Model
 
     public function isPending(): bool
     {
-        return $this->status === 'pending';
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isProposedReject(): bool
+    {
+        return $this->status === self::STATUS_PROPOSED_REJECT;
     }
 
     public function isKitchenTarget(): bool

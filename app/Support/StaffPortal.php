@@ -21,6 +21,12 @@ class StaffPortal
         return ['admin', 'operation'];
     }
 
+    /** @return list<string> */
+    public static function moneyWriteRoles(): array
+    {
+        return ['admin', 'accounts'];
+    }
+
     public static function canAccessMoney(?string $role = null): bool
     {
         $role ??= Auth::user()?->role?->name;
@@ -33,6 +39,38 @@ class StaffPortal
         $role ??= Auth::user()?->role?->name;
 
         return in_array($role, self::dayOpsRoles(), true);
+    }
+
+    /** Middo cash adjust, partner withdrawals, corporate wallet adjust. */
+    public static function canWriteMoney(?string $role = null): bool
+    {
+        $role ??= Auth::user()?->role?->name;
+
+        return in_array($role, self::moneyWriteRoles(), true);
+    }
+
+    /** Accept rider → Middo Due handovers (ops and accounts). */
+    public static function canAcceptHandover(?string $role = null): bool
+    {
+        $role ??= Auth::user()?->role?->name;
+
+        return in_array($role, ['admin', 'operation', 'accounts'], true);
+    }
+
+    /** Propose reject on a Middo Due handover (ops; admin break-glass). */
+    public static function canProposeHandoverReject(?string $role = null): bool
+    {
+        $role ??= Auth::user()?->role?->name;
+
+        return in_array($role, ['admin', 'operation'], true);
+    }
+
+    /** Confirm (or dismiss) a proposed Middo Due reject (accounts; admin break-glass). */
+    public static function canConfirmHandoverReject(?string $role = null): bool
+    {
+        $role ??= Auth::user()?->role?->name;
+
+        return in_array($role, ['admin', 'accounts'], true);
     }
 
     /**

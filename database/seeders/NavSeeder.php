@@ -303,31 +303,45 @@ class NavSeeder extends Seeder
             'role_id' => $accountsId,
         ]);
         Nav::create([
+            'title' => 'Rider cash handovers',
+            'route_name' => 'accounts.cash-handovers',
+            'icon' => '🤝',
+            'order' => 4,
+            'role_id' => $accountsId,
+        ]);
+        Nav::create([
             'title' => 'COD / Due recon',
             'route_name' => 'accounts.cod-recon.index',
             'icon' => '📊',
-            'order' => 4,
+            'order' => 5,
             'role_id' => $accountsId,
         ]);
         Nav::create([
             'title' => 'Operating costs',
             'route_name' => 'accounts.operating-costs.index',
             'icon' => '📈',
-            'order' => 5,
+            'order' => 6,
             'role_id' => $accountsId,
         ]);
         Nav::create([
             'title' => 'Kitchen money',
             'route_name' => 'accounts.kitchen-money.index',
             'icon' => '💰',
-            'order' => 6,
+            'order' => 7,
             'role_id' => $accountsId,
         ]);
         Nav::create([
             'title' => 'Rider money',
             'route_name' => 'accounts.rider-money.index',
             'icon' => '🛵',
-            'order' => 7,
+            'order' => 8,
+            'role_id' => $accountsId,
+        ]);
+        Nav::create([
+            'title' => 'Corporates',
+            'route_name' => 'accounts.corporates.index',
+            'icon' => '🏢',
+            'order' => 9,
             'role_id' => $accountsId,
         ]);
 

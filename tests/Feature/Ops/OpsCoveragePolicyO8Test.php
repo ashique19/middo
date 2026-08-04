@@ -179,9 +179,25 @@ class OpsCoveragePolicyO8Test extends TestCase
         $this->assertTrue($this->rider->servesArea($this->area2->id));
     }
 
-    public function test_ops_can_adjust_corporate_wallet(): void
+    public function test_ops_cannot_adjust_corporate_wallet_accounts_can(): void
     {
+        $accountsRole = Role::create(['name' => 'accounts']);
+        $accounts = User::create([
+            'first_name' => 'Accounts', 'last_name' => 'O8', 'mobile' => '01912000099',
+            'password' => 'password', 'role_id' => $accountsRole->id, 'status' => 'active',
+        ]);
+
         Livewire::actingAs($this->ops)
+            ->test(CorporateShow::class, ['corporate' => $this->corporate])
+            ->set('adjustDirection', 'credit')
+            ->set('adjustAmount', '150')
+            ->set('adjustReason', 'Goodwill for late delivery')
+            ->call('postWalletAdjustment')
+            ->assertForbidden();
+
+        $this->assertSame(500, (int) $this->corporate->fresh()->balance);
+
+        Livewire::actingAs($accounts)
             ->test(CorporateShow::class, ['corporate' => $this->corporate])
             ->set('adjustDirection', 'credit')
             ->set('adjustAmount', '150')
@@ -196,7 +212,7 @@ class OpsCoveragePolicyO8Test extends TestCase
             'amount' => 150,
         ]);
 
-        Livewire::actingAs($this->ops)
+        Livewire::actingAs($accounts)
             ->test(CorporateShow::class, ['corporate' => $this->corporate->fresh()])
             ->set('adjustDirection', 'debit')
             ->set('adjustAmount', '50')

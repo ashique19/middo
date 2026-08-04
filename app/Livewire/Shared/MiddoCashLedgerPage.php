@@ -40,6 +40,8 @@ class MiddoCashLedgerPage extends Component
 
     public function postAdjustment(): void
     {
+        abort_unless(StaffPortal::canWriteMoney(), 403);
+
         $this->statusMessage = '';
         $this->errorMessage = '';
 
@@ -104,6 +106,7 @@ class MiddoCashLedgerPage extends Component
             'entries' => $entries,
             'balance' => $balance,
             'variance' => $variance,
+            'canWriteMoney' => StaffPortal::canWriteMoney(),
         ])->layout('layouts.private.app', ['title' => 'Middo cash']);
     }
 }

@@ -148,8 +148,14 @@ class OpsCashHandoversO0O1Test extends TestCase
         );
     }
 
-    public function test_ops_reject_frees_orders_for_resubmit(): void
+    public function test_ops_propose_reject_then_accounts_confirm_frees_orders(): void
     {
+        $accountsRole = Role::create(['name' => 'accounts']);
+        $accounts = User::create([
+            'first_name' => 'Accounts', 'last_name' => 'O0', 'mobile' => '01940000006',
+            'password' => 'password', 'role_id' => $accountsRole->id, 'status' => 'active',
+        ]);
+
         $order = $this->deliverAndCollect();
 
         Livewire::actingAs($this->rider)
@@ -166,11 +172,20 @@ class OpsCashHandoversO0O1Test extends TestCase
         Livewire::actingAs($this->ops)
             ->test(OpsCashHandovers::class)
             ->set('rejectReason', 'Amount mismatch')
-            ->call('reject', $handover->id)
+            ->call('proposeReject', $handover->id)
             ->assertSet('errorMessage', null);
 
         $handover->refresh();
-        $this->assertSame('rejected', $handover->status);
+        $this->assertSame(CashHandover::STATUS_PROPOSED_REJECT, $handover->status);
+        $this->assertSame(1, CashHandoverOrder::query()->count());
+
+        Livewire::actingAs($accounts)
+            ->test(OpsCashHandovers::class)
+            ->call('confirmReject', $handover->id)
+            ->assertSet('errorMessage', null);
+
+        $handover->refresh();
+        $this->assertSame(CashHandover::STATUS_REJECTED, $handover->status);
         $this->assertStringContainsString('Amount mismatch', (string) $handover->notes);
         $this->assertSame(0, CashHandoverOrder::query()->count());
         $this->assertSame((int) $order->dueToMiddoAmount(), (int) $this->rider->fresh()->balance);

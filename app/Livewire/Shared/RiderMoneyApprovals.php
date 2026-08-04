@@ -25,6 +25,7 @@ class RiderMoneyApprovals extends Component
 
     public function approveWithdrawal(int $id): void
     {
+        abort_unless(StaffPortal::canWriteMoney(), 403);
         $this->statusMessage = '';
         $this->errorMessage = '';
 
@@ -39,12 +40,13 @@ class RiderMoneyApprovals extends Component
 
     public function rejectWithdrawal(int $id): void
     {
+        abort_unless(StaffPortal::canWriteMoney(), 403);
         $this->statusMessage = '';
         $this->errorMessage = '';
 
         try {
             $request = RiderWithdrawalRequest::query()->findOrFail($id);
-            RiderMoneyService::rejectWithdrawal($request, (int) Auth::id(), 'Rejected by ops');
+            RiderMoneyService::rejectWithdrawal($request, (int) Auth::id(), 'Rejected by accounts');
             $this->statusMessage = "Rider withdrawal #{$id} rejected.";
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not reject withdrawal.';
@@ -68,6 +70,7 @@ class RiderMoneyApprovals extends Component
             'withdrawals' => $withdrawals,
             'previews' => $previews,
             'middoCash' => MiddoCashLedger::balance(),
+            'canWriteMoney' => StaffPortal::canWriteMoney(),
         ])->layout('layouts.private.app', ['title' => 'Rider money']);
     }
 }

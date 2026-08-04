@@ -2,8 +2,8 @@
     <div class="space-y-1">
         <h1 class="text-3xl font-bold text-middo-dark">Accounts</h1>
         <p class="text-sm font-semibold text-gray-500">
-            Money ownership portal (A0 shell). MiddoCashLedger remains the cash source of truth — no Middo login user.
-            Day-of cash handovers stay with ops until dual-control (A2).
+            Money ownership portal. MiddoCashLedger is cash SoT (no Middo login user).
+            Dual-control: ops propose handover rejects → you confirm; both can accept Due.
         </p>
     </div>
 
@@ -21,5 +21,17 @@
                 <span class="inline-block text-xs font-bold text-middo-orange">Open →</span>
             </a>
         @endforeach
+    </div>
+
+    <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-3">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-gray-400">Middo money buckets</h2>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            @foreach($buckets as $bucket)
+                <div>
+                    <dt class="font-bold text-middo-dark">{{ $bucket['name'] }}</dt>
+                    <dd class="text-gray-500 mt-0.5">{{ $bucket['desc'] }}</dd>
+                </div>
+            @endforeach
+        </dl>
     </div>
 </div>

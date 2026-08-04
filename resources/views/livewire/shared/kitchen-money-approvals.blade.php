@@ -59,12 +59,14 @@
                             <td class="p-3 text-right font-bold align-top">৳{{ number_format($w->amount) }}</td>
                             <td class="p-3 text-gray-600 align-top">{{ $w->notes ?: '—' }}</td>
                             <td class="p-3 text-right whitespace-nowrap align-top">
-                                @if($w->status === 'pending')
+                                @if($w->status === 'pending' && $canWriteMoney)
                                     <button type="button" wire:click="approveWithdrawal({{ $w->id }})"
                                             wire:confirm="Approve withdrawal #{{ $w->id }} and pay from Middo cash?"
                                             class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold">Approve</button>
                                     <button type="button" wire:click="rejectWithdrawal({{ $w->id }})"
                                             class="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 text-xs font-bold">Reject</button>
+                                @elseif($w->status === 'pending')
+                                    <span class="text-xs font-semibold text-gray-400">Awaiting accounts</span>
                                 @else
                                     <span class="capitalize text-xs font-bold">{{ $w->status }}</span>
                                 @endif
@@ -109,12 +111,14 @@
                                 @endif
                             </td>
                             <td class="p-3 text-right whitespace-nowrap">
-                                @if($t->status === 'pending')
+                                @if($t->status === 'pending' && $canWriteMoney)
                                     <button type="button" wire:click="confirmTransfer({{ $t->id }})"
                                             wire:confirm="Confirm transfer #{{ $t->id }} into Middo cash?"
                                             class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold">Confirm</button>
                                     <button type="button" wire:click="rejectTransfer({{ $t->id }})"
                                             class="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 text-xs font-bold">Reject</button>
+                                @elseif($t->status === 'pending')
+                                    <span class="text-xs font-semibold text-gray-400">Awaiting accounts</span>
                                 @else
                                     <span class="capitalize text-xs font-bold">{{ $t->status }}</span>
                                 @endif

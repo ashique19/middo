@@ -42,8 +42,8 @@ class OrderShow extends Component
             $requested = $allowed[0];
         }
 
-        // Native roles stay on their fixed lens (no middo switcher).
-        if (! OrderLens::isStaff($role)) {
+        // Partner roles stay on their fixed lens; staff + accounts may switch.
+        if (! OrderLens::canViewStaffLenses($role)) {
             $requested = OrderLens::defaultForRole($role);
         }
 
@@ -58,7 +58,7 @@ class OrderShow extends Component
         abort_unless($actor, 403);
 
         $next = OrderLens::normalize($value);
-        if (! OrderLens::isStaff($actor->role?->name)) {
+        if (! OrderLens::canViewStaffLenses($actor->role?->name)) {
             $next = OrderLens::defaultForRole($actor->role?->name);
         }
 
@@ -215,6 +215,11 @@ class OrderShow extends Component
 
     public function canSwitchLenses(): bool
     {
+        return OrderLens::canViewStaffLenses(Auth::user()?->role?->name);
+    }
+
+    public function canIntervene(): bool
+    {
         return OrderLens::isStaff(Auth::user()?->role?->name);
     }
 
@@ -228,7 +233,7 @@ class OrderShow extends Component
 
     public function corporateShowRoute(): ?string
     {
-        if (! OrderLens::isStaff(Auth::user()?->role?->name)) {
+        if (! OrderLens::canViewStaffLenses(Auth::user()?->role?->name)) {
             return null;
         }
 
@@ -253,7 +258,9 @@ class OrderShow extends Component
             return null;
         }
 
-        return route($this->rolePrefix().'.kitchens.orders', $kitchen);
+        $name = $this->rolePrefix().'.kitchens.orders';
+
+        return Route::has($name) ? route($name, $kitchen) : null;
     }
 
     public function kitchenShowRoute(): ?string
@@ -306,7 +313,7 @@ class OrderShow extends Component
 
     public function subscriptionShowRoute(): ?string
     {
-        if (! OrderLens::isStaff(Auth::user()?->role?->name)) {
+        if (! OrderLens::canViewStaffLenses(Auth::user()?->role?->name)) {
             return null;
         }
 
@@ -315,12 +322,14 @@ class OrderShow extends Component
             return null;
         }
 
-        return route($this->rolePrefix().'.subscriptions.show', $subscriptionId);
+        $name = $this->rolePrefix().'.subscriptions.show';
+
+        return Route::has($name) ? route($name, $subscriptionId) : null;
     }
 
     public function accountsHubRoute(): ?string
     {
-        if (! OrderLens::isStaff(Auth::user()?->role?->name)) {
+        if (! OrderLens::canViewStaffLenses(Auth::user()?->role?->name)) {
             return null;
         }
 
@@ -334,6 +343,7 @@ class OrderShow extends Component
         $role = Auth::user()?->role?->name;
         $name = match ($role) {
             'admin' => 'admin.orders.show',
+            'accounts' => 'accounts.orders.show',
             'kitchen' => 'kitchen.orders.show',
             'delivery' => 'delivery.orders.show',
             default => 'operation.orders.show',
@@ -344,7 +354,7 @@ class OrderShow extends Component
         }
 
         $url = route($name, $orderId);
-        if ($lens && OrderLens::isStaff($role)) {
+        if ($lens && OrderLens::canViewStaffLenses($role)) {
             $url .= '?lens='.urlencode(OrderLens::normalize($lens));
         }
 

@@ -2,7 +2,10 @@
     <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
             <h1 class="text-3xl font-bold text-middo-dark">Operating costs</h1>
-            <p class="text-sm text-gray-500 mt-1">Box/custom rider commissions booked outside order middo_rest (P&amp;L cost ledger).</p>
+            <p class="text-sm text-gray-500 mt-1">
+                Box/custom rider commissions booked outside order <span class="font-mono">middo_rest</span>
+                (P&amp;L cost ledger — separate from Middo cash and partner Due wallets).
+            </p>
         </div>
         <select wire:model.live="runType" class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold">
             <option value="all">All run types</option>

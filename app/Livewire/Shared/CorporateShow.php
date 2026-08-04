@@ -7,8 +7,10 @@ use App\Models\PackageSubscription;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Support\PackageOrderPresenter;
+use App\Support\StaffPortal;
 use App\Support\WalletLedger;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -30,8 +32,7 @@ class CorporateShow extends Component
 
     public function mount(User $corporate): void
     {
-        $role = Auth::user()?->role?->name;
-        abort_unless(in_array($role, ['admin', 'operation'], true), 403);
+        abort_unless(StaffPortal::canAccessMoney(), 403);
 
         $corporate->load(['role', 'city', 'area']);
         abort_unless($corporate->role?->name === 'corporate', 404);
@@ -41,21 +42,23 @@ class CorporateShow extends Component
 
     public function indexRoute(): string
     {
-        return Auth::user()?->role?->name === 'admin'
-            ? route('admin.corporates.index')
+        $name = StaffPortal::rolePrefix().'.corporates.index';
+
+        return Route::has($name)
+            ? route($name)
             : route('operation.corporates.index');
     }
 
-    public function subscriptionShowRoute(int $subscriptionId): string
+    public function subscriptionShowRoute(int $subscriptionId): ?string
     {
-        return Auth::user()?->role?->name === 'admin'
-            ? route('admin.subscriptions.show', $subscriptionId)
-            : route('operation.subscriptions.show', $subscriptionId);
+        $name = StaffPortal::rolePrefix().'.subscriptions.show';
+
+        return Route::has($name) ? route($name, $subscriptionId) : null;
     }
 
     public function canAdjustWallet(): bool
     {
-        return in_array(Auth::user()?->role?->name, ['admin', 'operation'], true);
+        return StaffPortal::canWriteMoney();
     }
 
     public function postWalletAdjustment(): void

@@ -1,13 +1,16 @@
 {
   "title": "Accounts role — completion backlog",
-  "version": 1,
+  "version": 2,
   "updated": "2026-08-04",
   "source": "docs/ops-review.json → accounts_role_proposal + O-ACCOUNTS-ROLE",
   "prerequisite": "docs/ops-clear-gate.json (O9 ops clear)",
   "decided": [
     "role=accounts after O-* clear",
     "MiddoCashLedger is cash SoT — no Middo login user",
-    "Admin remains break-glass + settings + user admin"
+    "Admin remains break-glass + settings + user admin",
+    "Handover accept: ops AND accounts",
+    "Handover reject: ops propose → accounts confirm",
+    "Cash adjust / withdrawals / corporate wallet: accounts|admin write; ops read"
   ],
   "suggested_ship_order": ["A0", "A1", "A2", "A3", "A4"],
   "phases": [
@@ -26,44 +29,47 @@
     {
       "id": "A1",
       "title": "Move money page gates to accounts|admin",
-      "status": "pending",
+      "status": "done",
       "items": [
-        "Hub, Middo cash, operating costs, COD recon, kitchen/rider money — primary accounts|admin",
-        "Ops retains read or loses write per surface",
-        "Corporate wallet adjust under accounts"
+        "Hub / cash / costs / recon / kitchen+rider money — ops read, accounts|admin write — done",
+        "Corporate wallet adjust under accounts|admin — done",
+        "accounts.corporates.* routes — done"
       ]
     },
     {
       "id": "A2",
       "title": "Dual-control: day-cash ops vs accounts",
-      "status": "pending",
+      "status": "done",
       "items": [
-        "Decide handover accept stay ops vs accounts",
-        "Document dual-control matrix in UI"
+        "Accept Middo Due: ops AND accounts — done",
+        "Reject: ops propose → accounts confirm (proposed_reject) — done",
+        "accounts.cash-handovers route + nav — done",
+        "Dual-control copy on handovers UI — done"
       ]
     },
     {
       "id": "A3",
       "title": "Cash adjust + day-end variance under accounts",
-      "status": "pending",
+      "status": "done",
       "items": [
-        "Tighten Middo cash adjustment ownership",
-        "Day-end variance workflow owned by accounts"
+        "Middo cash adjustment accounts|admin only — done",
+        "Day-end variance check visible to ops (read) and accounts — done"
       ]
     },
     {
       "id": "A4",
-      "title": "Period P&L / bank ledger ownership",
-      "status": "pending",
+      "title": "Period P&L / order flow / money buckets",
+      "status": "done",
       "items": [
-        "Operating costs / period P&L under accounts",
-        "Document Middo money buckets in UI (cash vs middo_rest vs operating costs)"
+        "Operating costs owned under accounts portal + bucket copy — done",
+        "Accounts readonly detailed order flow (all lenses, no force) — done",
+        "Dashboard Middo money buckets legend — done"
       ]
     }
   ],
   "non_goals": [
     "Kitchen assign / box dispatch / order force (stays ops|admin)",
     "Middo login user",
-    "Full bank ledger / VAT in A0–A2"
+    "Full bank ledger / VAT"
   ]
 }

@@ -35,6 +35,7 @@ class KitchenMoneyApprovals extends Component
 
     public function approveWithdrawal(int $id): void
     {
+        abort_unless(StaffPortal::canWriteMoney(), 403);
         $this->statusMessage = '';
         $this->errorMessage = '';
 
@@ -49,12 +50,13 @@ class KitchenMoneyApprovals extends Component
 
     public function rejectWithdrawal(int $id): void
     {
+        abort_unless(StaffPortal::canWriteMoney(), 403);
         $this->statusMessage = '';
         $this->errorMessage = '';
 
         try {
             $request = KitchenWithdrawalRequest::query()->findOrFail($id);
-            KitchenMoneyService::rejectWithdrawal($request, (int) Auth::id(), 'Rejected by ops');
+            KitchenMoneyService::rejectWithdrawal($request, (int) Auth::id(), 'Rejected by accounts');
             $this->statusMessage = "Withdrawal #{$id} rejected.";
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not reject withdrawal.';
@@ -63,6 +65,7 @@ class KitchenMoneyApprovals extends Component
 
     public function confirmTransfer(int $id): void
     {
+        abort_unless(StaffPortal::canWriteMoney(), 403);
         $this->statusMessage = '';
         $this->errorMessage = '';
 
@@ -77,12 +80,13 @@ class KitchenMoneyApprovals extends Component
 
     public function rejectTransfer(int $id): void
     {
+        abort_unless(StaffPortal::canWriteMoney(), 403);
         $this->statusMessage = '';
         $this->errorMessage = '';
 
         try {
             $transfer = KitchenMiddoTransfer::query()->findOrFail($id);
-            KitchenMoneyService::rejectTransfer($transfer, (int) Auth::id(), 'Rejected by ops');
+            KitchenMoneyService::rejectTransfer($transfer, (int) Auth::id(), 'Rejected by accounts');
             $this->statusMessage = "Transfer #{$id} rejected.";
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not reject transfer.';
@@ -117,6 +121,7 @@ class KitchenMoneyApprovals extends Component
             'transfers' => $transfers,
             'previews' => $previews,
             'middoCash' => MiddoCashLedger::balance(),
+            'canWriteMoney' => StaffPortal::canWriteMoney(),
         ])->layout('layouts.private.app', ['title' => 'Kitchen money']);
     }
 }

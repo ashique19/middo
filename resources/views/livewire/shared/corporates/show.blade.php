@@ -157,9 +157,16 @@
                         @foreach($subscriptions as $subscription)
                             <li class="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
                                 <div class="min-w-0">
-                                    <a href="{{ $this->subscriptionShowRoute($subscription->id) }}" class="text-sm font-bold text-middo-dark hover:text-middo-orange transition">
-                                        #{{ $subscription->id }} · {{ $subscription->package?->name ?? 'Package' }}
-                                    </a>
+                                    @php $subUrl = $this->subscriptionShowRoute($subscription->id); @endphp
+                                    @if($subUrl)
+                                        <a href="{{ $subUrl }}" class="text-sm font-bold text-middo-dark hover:text-middo-orange transition">
+                                            #{{ $subscription->id }} · {{ $subscription->package?->name ?? 'Package' }}
+                                        </a>
+                                    @else
+                                        <span class="text-sm font-bold text-middo-dark">
+                                            #{{ $subscription->id }} · {{ $subscription->package?->name ?? 'Package' }}
+                                        </span>
+                                    @endif
                                     <div class="text-[11px] font-semibold text-gray-400 mt-0.5">
                                         {{ $subscription->start_date?->format('M d, Y') }} – {{ $subscription->end_date?->format('M d, Y') }}
                                         · qty {{ $subscription->quantity }}

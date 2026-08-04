@@ -3,8 +3,10 @@
 namespace App\Livewire\Shared;
 
 use App\Models\User;
+use App\Support\StaffPortal;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Route;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -20,10 +22,9 @@ class CorporateTable extends Component
 
     public function mount(): void
     {
-        $role = Auth::user()?->role?->name;
-        abort_unless(in_array($role, ['admin', 'operation'], true), 403);
+        abort_unless(StaffPortal::canAccessMoney(), 403);
 
-        $this->canManage = $role === 'admin';
+        $this->canManage = Auth::user()?->role?->name === 'admin';
     }
 
     public function updatingSearch(): void
@@ -33,8 +34,10 @@ class CorporateTable extends Component
 
     public function showRoute(User $corporate): string
     {
-        return Auth::user()?->role?->name === 'admin'
-            ? route('admin.corporates.show', $corporate)
+        $name = StaffPortal::rolePrefix().'.corporates.show';
+
+        return Route::has($name)
+            ? route($name, $corporate)
             : route('operation.corporates.show', $corporate);
     }
 

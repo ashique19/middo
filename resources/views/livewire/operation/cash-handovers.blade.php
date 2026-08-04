@@ -3,11 +3,12 @@
         <div class="space-y-1">
             <h1 class="text-3xl font-bold text-middo-dark">Rider Due handovers</h1>
             <p class="text-sm font-semibold text-gray-500">
-                Accept or reject Due-to-Middo cash from riders. Middo cash balance: ৳{{ number_format($middoCashBalance) }}
+                Ops and accounts can accept Due into Middo cash. Reject requires ops propose → accounts confirm.
+                Middo cash: ৳{{ number_format($middoCashBalance) }}
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
-            @foreach(['pending' => 'Pending', 'accepted' => 'Accepted', 'rejected' => 'Rejected', 'all' => 'All'] as $key => $label)
+            @foreach(['pending' => 'Pending', 'proposed_reject' => 'Propose reject', 'accepted' => 'Accepted', 'rejected' => 'Rejected', 'all' => 'All'] as $key => $label)
                 <button
                     type="button"
                     wire:click="$set('filter', '{{ $key }}')"
@@ -29,7 +30,7 @@
         <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $errorMessage }}</div>
     @endif
 
-    @if($filter === 'pending')
+    @if(in_array($filter, ['pending', 'proposed_reject'], true) && ($canProposeReject || $canConfirmReject))
         <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm space-y-2">
             <label class="text-xs font-bold uppercase text-gray-400">Reject reason (optional)</label>
             <input
@@ -56,7 +57,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100 text-sm">
                     @forelse($handovers as $handover)
-                        <tr>
+                        <tr @class(['bg-amber-50/40' => $handover->isProposedReject()])>
                             <td class="p-4 font-mono font-bold">#{{ $handover->id }}</td>
                             <td class="p-4">{{ $handover->rider?->name }}</td>
                             <td class="p-4 font-semibold">৳{{ number_format($handover->amount) }}</td>
@@ -64,29 +65,56 @@
                                 {{ $handover->items->pluck('order_id')->map(fn ($id) => '#'.$id)->implode(', ') ?: '—' }}
                             </td>
                             <td class="p-4">
-                                <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-gray-50 text-gray-700 border border-gray-200">
-                                    {{ $handover->status }}
+                                <span @class([
+                                    'inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border',
+                                    'bg-amber-50 text-amber-800 border-amber-200' => $handover->isProposedReject(),
+                                    'bg-gray-50 text-gray-700 border-gray-200' => ! $handover->isProposedReject(),
+                                ])>
+                                    {{ str_replace('_', ' ', $handover->status) }}
                                 </span>
+                                @if($handover->rejectionProposedBy)
+                                    <p class="text-[11px] text-amber-700 mt-1">Proposed by {{ $handover->rejectionProposedBy->name }}</p>
+                                @endif
                                 @if($handover->notes)
-                                    <p class="text-[11px] text-gray-400 mt-1 max-w-xs">{{ $handover->notes }}</p>
+                                    <p class="text-[11px] text-gray-400 mt-1 max-w-xs whitespace-pre-line">{{ $handover->notes }}</p>
                                 @endif
                             </td>
                             <td class="p-4 text-right space-x-2 whitespace-nowrap">
                                 @if($handover->isPending())
+                                    @if($canAccept)
+                                        <button
+                                            type="button"
+                                            wire:click="accept({{ $handover->id }})"
+                                            wire:loading.attr="disabled"
+                                            class="inline-flex px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold disabled:opacity-60">
+                                            Accept
+                                        </button>
+                                    @endif
+                                    @if($canProposeReject)
+                                        <button
+                                            type="button"
+                                            wire:click="proposeReject({{ $handover->id }})"
+                                            wire:confirm="Propose reject? Accounts must confirm before orders are freed."
+                                            wire:loading.attr="disabled"
+                                            class="inline-flex px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-bold disabled:opacity-60">
+                                            Propose reject
+                                        </button>
+                                    @endif
+                                @elseif($handover->isProposedReject() && $canConfirmReject)
                                     <button
                                         type="button"
-                                        wire:click="accept({{ $handover->id }})"
+                                        wire:click="confirmReject({{ $handover->id }})"
+                                        wire:confirm="Confirm reject? Rider can re-submit the orders."
                                         wire:loading.attr="disabled"
-                                        class="inline-flex px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold disabled:opacity-60">
-                                        Accept
+                                        class="inline-flex px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-bold disabled:opacity-60">
+                                        Confirm reject
                                     </button>
                                     <button
                                         type="button"
-                                        wire:click="reject({{ $handover->id }})"
-                                        wire:confirm="Reject this Due handover? Rider can re-submit the orders."
+                                        wire:click="dismissProposeReject({{ $handover->id }})"
                                         wire:loading.attr="disabled"
-                                        class="inline-flex px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-bold disabled:opacity-60">
-                                        Reject
+                                        class="inline-flex px-4 py-2 rounded-xl border border-gray-200 text-middo-dark text-sm font-bold disabled:opacity-60">
+                                        Dismiss
                                     </button>
                                 @endif
                             </td>

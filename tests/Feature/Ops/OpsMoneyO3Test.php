@@ -173,11 +173,27 @@ class OpsMoneyO3Test extends TestCase
             ->assertSee('pay via Kitchen money');
     }
 
-    public function test_middo_cash_adjustment_and_variance(): void
+    public function test_middo_cash_adjustment_accounts_only_ops_can_view_variance(): void
     {
+        $accountsRole = Role::firstOrCreate(['name' => 'accounts']);
+        $accounts = User::create([
+            'first_name' => 'Accounts', 'last_name' => 'O3', 'mobile' => '01950000999',
+            'password' => 'password', 'role_id' => $accountsRole->id, 'status' => 'active',
+        ]);
+
         MiddoCashLedger::credit(500, 'seed', null, null, 'Seed', $this->ops->id);
 
         Livewire::actingAs($this->ops)
+            ->test(MiddoCashLedgerPage::class)
+            ->set('adjustDirection', 'debit')
+            ->set('adjustAmount', '50')
+            ->set('adjustReason', 'Day-end count correction')
+            ->call('postAdjustment')
+            ->assertForbidden();
+
+        $this->assertSame(500, MiddoCashLedger::balance());
+
+        Livewire::actingAs($accounts)
             ->test(MiddoCashLedgerPage::class)
             ->set('adjustDirection', 'debit')
             ->set('adjustAmount', '50')

@@ -53,12 +53,16 @@
                     @endif
                 @endif
                 <div class="flex justify-end gap-2">
-                    <button type="button" wire:click="approveWithdrawal({{ $w->id }})"
-                            wire:confirm="Approve rider withdrawal #{{ $w->id }} and pay from Middo cash?"
-                            @disabled($preview['blocked_by_due'] ?? false)
-                            class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50">Approve</button>
-                    <button type="button" wire:click="rejectWithdrawal({{ $w->id }})"
-                            class="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 text-xs font-bold">Reject</button>
+                    @if($canWriteMoney)
+                        <button type="button" wire:click="approveWithdrawal({{ $w->id }})"
+                                wire:confirm="Approve rider withdrawal #{{ $w->id }} and pay from Middo cash?"
+                                @disabled($preview['blocked_by_due'] ?? false)
+                                class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50">Approve</button>
+                        <button type="button" wire:click="rejectWithdrawal({{ $w->id }})"
+                                class="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 text-xs font-bold">Reject</button>
+                    @else
+                        <span class="text-xs font-semibold text-gray-400">Awaiting accounts</span>
+                    @endif
                 </div>
             </div>
         @empty

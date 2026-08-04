@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Accounts;
 
+use App\Models\CashHandover;
 use App\Support\MiddoCashLedger;
 use App\Support\StaffPortal;
 use Illuminate\Support\Facades\Auth;
@@ -19,6 +20,10 @@ class Dashboard extends Component
     {
         $prefix = StaffPortal::rolePrefix('accounts');
         $cashBalance = MiddoCashLedger::balance();
+        $proposedRejects = CashHandover::query()
+            ->where('target', CashHandover::TARGET_MIDDO)
+            ->where('status', CashHandover::STATUS_PROPOSED_REJECT)
+            ->count();
 
         $tiles = array_values(array_filter([
             [
@@ -29,9 +34,15 @@ class Dashboard extends Component
             ],
             [
                 'label' => 'Middo cash',
-                'hint' => 'Cash ledger + adjustments',
+                'hint' => 'Ledger, adjustments, day-end variance',
                 'route' => $prefix.'.middo-cash',
                 'stat' => '৳'.number_format($cashBalance),
+            ],
+            [
+                'label' => 'Cash handovers',
+                'hint' => 'Accept Due · confirm reject proposals',
+                'route' => $prefix.'.cash-handovers',
+                'stat' => $proposedRejects > 0 ? (string) $proposedRejects.' proposed' : null,
             ],
             [
                 'label' => 'COD / Due recon',
@@ -41,7 +52,7 @@ class Dashboard extends Component
             ],
             [
                 'label' => 'Operating costs',
-                'hint' => 'Box / custom P&L',
+                'hint' => 'Box / custom P&L buckets',
                 'route' => $prefix.'.operating-costs.index',
                 'stat' => null,
             ],
@@ -57,10 +68,24 @@ class Dashboard extends Component
                 'route' => $prefix.'.rider-money.index',
                 'stat' => null,
             ],
+            [
+                'label' => 'Corporates',
+                'hint' => 'Wallet adjust + history',
+                'route' => $prefix.'.corporates.index',
+                'stat' => null,
+            ],
         ], fn (array $tile) => Route::has($tile['route'])));
+
+        $buckets = [
+            ['name' => 'Middo cash', 'desc' => 'Physical / ledger cash (MiddoCashLedger SoT)'],
+            ['name' => 'middo_rest', 'desc' => 'Order economics residual after partner shares'],
+            ['name' => 'Operating costs', 'desc' => 'Box / custom-run commissions and costs'],
+            ['name' => 'Partner wallets / Due', 'desc' => 'Kitchen & rider ledgers; rider Due float'],
+        ];
 
         return view('livewire.accounts.dashboard', [
             'tiles' => $tiles,
+            'buckets' => $buckets,
         ])->layout('layouts.private.app', ['title' => 'Accounts Dashboard']);
     }
 }
