@@ -1,6 +1,6 @@
 {
   "title": "Rider / delivery portal — completion backlog",
-  "version": 2,
+  "version": 3,
   "updated": "2026-08-04",
   "context": {
     "existing_delivery_livewire": [
@@ -18,9 +18,12 @@
       "Do NOT stack menu.delivery_commission AND a settings lunch rate on the same order — one cost path per run",
       "Admin sets commission per settings run type; rider overrides optional; rider sees commission details only when effective rate is set (> 0)",
       "Commission credited to rider wallet on RUN START → Middo owes rider",
+      "Lunch delivery_share accrues once at run start from menu.delivery_commission — never a second time on delivered_and_paid",
+      "Box/custom rider commissions book into a Middo cost ledger (outside order middo_rest) so profit still reflects all rider cost",
       "Cash collected credited to rider wallet as rider owes Middo (commission already sitting as Middo-owes)",
       "Cash handover accepted by kitchen CLEARS rider owes-Middo for that cash (and kitchen wallet is debited — kitchen now holds Middo's cash)",
-      "Rider may have multiple areas; parcel calls / notifications scoped to those areas"
+      "Rider may have multiple areas; parcel calls / notifications scoped to those areas",
+      "Rider portal needs a mobile-app-like UI (thumbs-first shell, bottom nav) — cleaner navigation now; foundation for a later native rider app"
     ],
     "commission_source_matrix": {
       "kitchen_to_corporate_lunch": {
@@ -88,9 +91,17 @@
     },
     {
       "id": "SI4",
-      "title": "Box/custom run commissions are Middo cost (often no order revenue)",
+      "title": "Box/custom run commissions are Middo cost (often no order revenue) — AGREED",
+      "status": "decided",
       "why": "Box repositioning and custom X→Y usually have no customer bill. P&L still needs the cost.",
-      "recommendation": "Order-linked lunch → order money events. Box/custom → MiddoCost / ops cost ledger (or order event only if order_id attached)."
+      "recommendation": "Order-linked lunch → order money events at run start only. Box/custom → Middo cost ledger so Accounts Hub / profit still includes all rider cost. Never stuff box/custom into orders.delivery_share_amount."
+    },
+    {
+      "id": "SI8",
+      "title": "Mobile-app-like rider shell now; native app later",
+      "status": "decided",
+      "why": "Delivery Livewire pages are desktop-ish; riders need cleaner, navigable thumbs-first UX. A later native app will reuse the same IA.",
+      "recommendation": "Ship R5 shell (bottom nav + layout + optional PWA) mirroring kitchen mobile shell. Keep routes/Livewire; avoid desktop-only chrome. Document nav IA for future React Native / Flutter / Cap app."
     },
     {
       "id": "SI5",
@@ -138,8 +149,9 @@
       "id": "C4",
       "severity": "medium",
       "title": "Accrual timing mismatch with kitchen",
+      "status": "resolved",
       "detail": "Kitchen share credits on dispatch. Delivery share today on delivered_and_paid. Product wants rider credit on RUN START (accept / start box leg).",
-      "resolution": "Lunch: credit at accept using menu commission. Box/custom: credit at run start using settings. delivered_and_paid must not double-accrue lunch."
+      "resolution": "AGREED: Lunch credit at accept from menu; skip second accrual on delivered_and_paid. Box/custom credit at run start from settings into Middo cost ledger + rider wallet."
     },
     {
       "id": "C5",
@@ -350,21 +362,30 @@
     },
     {
       "id": "R5",
-      "name": "Portal UX polish (mobile shell parity optional)",
-      "priority": 6,
+      "name": "Mobile-app-like rider shell (required)",
+      "priority": 2,
       "status": "todo",
-      "depends_on": ["R1", "R4"],
-      "goal": "Thumbs-first delivery app shell similar to kitchen if needed.",
+      "depends_on": ["R0"],
+      "goal": "Thumbs-first delivery UI with clear bottom/side nav — cleaner day-to-day UX and IA for a future native rider app.",
+      "build_order": ["R5.1", "R5.2", "R5.3"],
       "items": [
         {
           "id": "R5.1",
-          "title": "Delivery layout / bottom nav (Home, Runs, Boxes, Cash, More)",
-          "status": "todo"
+          "title": "Delivery layout component (mirror kitchen.layout.app patterns)",
+          "status": "todo",
+          "notes": "Mobile bottom nav + desktop sidebar. Wire Livewire pages to delivery.layout.app."
         },
         {
           "id": "R5.2",
-          "title": "PWA manifest for delivery (optional)",
-          "status": "todo"
+          "title": "Bottom nav IA: Home, Runs (lunch), Boxes, Cash, More (Account, handovers, profile)",
+          "status": "todo",
+          "notes": "Stable route names for later native app screens."
+        },
+        {
+          "id": "R5.3",
+          "title": "PWA manifest + service worker for delivery (installable web app)",
+          "status": "todo",
+          "notes": "Like kitchen PWA; bridge until native app ships."
         }
       ]
     },
