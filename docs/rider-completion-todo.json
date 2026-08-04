@@ -459,11 +459,12 @@
       "blocks": ["R4.3", "SI5"]
     }
   ],
-  "suggested_ship_order": ["R0", "R1", "R2", "R3", "R4", "R6", "R2b", "R5"],
+  "suggested_ship_order": ["R0", "R5", "R1", "R2", "R3", "R4", "R6", "R2b"],
   "non_goals_for_now": [
     "Changing kitchen wallet semantics (already shipped)",
     "Rider-to-rider cash transfer",
     "GPS tracking / route optimization",
-    "Settings-based lunch rate that duplicates menu.delivery_commission"
+    "Settings-based lunch rate that duplicates menu.delivery_commission",
+    "Native iOS/Android rider app (later — reuse R5 IA)"
   ]
 }
