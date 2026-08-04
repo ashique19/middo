@@ -18,7 +18,7 @@
             <p class="mt-1 text-2xl font-black text-middo-dark">৳{{ number_format($walletOwed) }}</p>
             <p class="mt-1 text-xs text-gray-500">
                 @if($walletOwed > 0 && $dueBalance === 0)
-                    Request payment from Account (coming next).
+                    <a href="{{ route('delivery.account') }}" class="font-semibold text-middo-orange hover:underline">Request payment →</a>
                 @else
                     Prepaid / unsettled commissions
                 @endif

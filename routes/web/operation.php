@@ -12,6 +12,7 @@ use App\Livewire\Shared\AccountsHub;
 use App\Livewire\Shared\CorporateShow;
 use App\Livewire\Shared\CorporateTable;
 use App\Livewire\Shared\KitchenMoneyApprovals;
+use App\Livewire\Shared\RiderMoneyApprovals;
 use App\Livewire\Shared\MealItemShow;
 use App\Livewire\Shared\MenuShow;
 use App\Livewire\Shared\MiddoCashLedgerPage;
@@ -67,4 +68,5 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/cash-handovers', CashHandovers::class)->name('operation.cash-handovers');
     Route::get('/accounts', AccountsHub::class)->name('operation.accounts.index');
     Route::get('/kitchen-money', KitchenMoneyApprovals::class)->name('operation.kitchen-money.index');
+    Route::get('/rider-money', RiderMoneyApprovals::class)->name('operation.rider-money.index');
 });

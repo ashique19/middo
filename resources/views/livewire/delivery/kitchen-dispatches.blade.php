@@ -52,6 +52,11 @@
                         Consumer: <span class="font-medium text-gray-700">{{ $order['customer_name'] }}</span>
                         · {{ $order['address'] }}
                     </p>
+                    @if(!empty($order['show_commission']))
+                        <p class="text-xs font-semibold text-emerald-700">
+                            Commission ৳{{ number_format($order['commission_amount']) }}
+                        </p>
+                    @endif
                     @if(count($order['box_codes']) > 0)
                         <p class="text-xs font-mono text-gray-400">
                             Boxes: {{ implode(', ', $order['box_codes']) }}

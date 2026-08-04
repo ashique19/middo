@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Support\DeliveryAreaScope;
 use App\Support\OrderMoneyFlow;
 use App\Support\OrderTransition;
+use App\Support\RiderCommission;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -192,9 +193,10 @@ class KitchenDispatches extends Component
             ->paginate(20);
 
         $nodes = collect($orders->items())
-            ->map(function (Order $order) use ($riderId) {
+            ->map(function (Order $order) use ($riderId, $rider) {
                 $kitchen = $order->orderGroup?->kitchen;
                 $party = $order->partyPayload();
+                $commission = RiderCommission::forLunchOrder($rider, $order);
 
                 return [
                     'id' => $order->id,
@@ -208,6 +210,8 @@ class KitchenDispatches extends Component
                     'quantity' => $order->quantity,
                     'amount_due' => $party['amount_due'],
                     'amount_paid' => $party['amount_paid'],
+                    'commission_amount' => $commission,
+                    'show_commission' => RiderCommission::shouldShow($commission),
                     'delivery_time' => $order->delivery_time,
                     'date_label' => $this->dateLabel($order->delivery_date->toDateString()),
                     'kitchen_name' => $kitchen?->name ?? 'Kitchen',

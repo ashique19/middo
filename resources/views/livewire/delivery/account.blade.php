@@ -1,0 +1,197 @@
+<div class="max-w-5xl mx-auto py-8 px-4 sm:px-6 space-y-6">
+    <div class="space-y-1">
+        <a href="{{ route('delivery.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
+        <h1 class="text-3xl font-bold text-middo-dark">Rider account</h1>
+        <p class="text-sm text-gray-500">
+            Commission credits your wallet (Middo owes you). Cash Due is handed over separately. Request payment when the wallet is positive and Due is cleared.
+        </p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-middo-orange mb-1">Due to Middo</p>
+            <p class="text-3xl font-black text-middo-orange">৳{{ number_format($due) }}</p>
+            <p class="text-xs text-gray-500 mt-1">
+                @if($due > 0)
+                    <a href="{{ route('delivery.cash-handovers') }}" class="font-semibold text-middo-orange hover:underline">Hand over Due →</a>
+                @else
+                    No cash Due
+                @endif
+            </p>
+        </div>
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            @if($wallet > 0)
+                <p class="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-1">Wallet — Middo owes you</p>
+                <p class="text-3xl font-black text-middo-dark">৳{{ number_format($wallet) }}</p>
+            @else
+                <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Wallet — Middo owes you</p>
+                <p class="text-3xl font-black text-middo-dark">৳0</p>
+            @endif
+            @if($openPayableTotal > 0)
+                <p class="text-xs text-gray-500 mt-1">Open lunch payables ৳{{ number_format($openPayableTotal) }}</p>
+            @endif
+            <div class="flex flex-wrap gap-2 mt-3">
+                @if($canRequestPayment)
+                    <button type="button" wire:click="$set('tab', 'withdraw')" class="px-3 py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request payment</button>
+                @endif
+                <a href="{{ route('delivery.cash-handovers') }}" class="px-3 py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold bg-sky-50">Cash →</a>
+            </div>
+        </div>
+    </div>
+
+    @if($statusMessage)
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{{ $statusMessage }}</div>
+    @endif
+    @if($errorMessage)
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $errorMessage }}</div>
+    @endif
+
+    <div class="flex flex-wrap gap-2">
+        @foreach(['statement' => 'Statement', 'commissions' => 'Commissions', 'withdraw' => 'Request payment', 'withdrawals' => 'My requests'] as $key => $label)
+            <button type="button" wire:click="$set('tab', '{{ $key }}')"
+                    @class(['px-3 py-1.5 rounded-xl text-xs font-bold border', 'bg-middo-orange text-white border-middo-orange' => $tab === $key, 'bg-white text-gray-700 border-gray-200' => $tab !== $key])>
+                {{ $label }}
+            </button>
+        @endforeach
+    </div>
+
+    @if($tab === 'statement')
+        <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b text-sm font-bold text-middo-dark">Wallet ledger</div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm min-w-[640px]">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
+                        <tr>
+                            <th class="p-3 text-left">When</th>
+                            <th class="p-3 text-left">Type</th>
+                            <th class="p-3 text-left">Description</th>
+                            <th class="p-3 text-right">Amount</th>
+                            <th class="p-3 text-right">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse($statement as $row)
+                            <tr>
+                                <td class="p-3 text-gray-500 whitespace-nowrap">{{ $row->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</td>
+                                <td class="p-3 font-semibold">{{ str($row->entry_type)->replace('_', ' ')->headline() }}</td>
+                                <td class="p-3 text-gray-600">{{ $row->description ?: '—' }}</td>
+                                <td @class(['p-3 text-right font-bold', 'text-emerald-700' => $row->amount > 0, 'text-rose-700' => $row->amount < 0])>
+                                    {{ $row->amount > 0 ? '+' : '' }}৳{{ number_format($row->amount) }}
+                                </td>
+                                <td class="p-3 text-right font-mono">৳{{ number_format($row->balance_after) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="p-10 text-center text-gray-400 italic">No ledger entries yet. Commission credits when you start a run.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if($statement->hasPages()) <div class="p-3">{{ $statement->links() }}</div> @endif
+        </div>
+    @endif
+
+    @if($tab === 'commissions')
+        <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b text-sm font-bold text-middo-dark">Commission activity</div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm min-w-[560px]">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
+                        <tr>
+                            <th class="p-3 text-left">When</th>
+                            <th class="p-3 text-left">Type</th>
+                            <th class="p-3 text-left">Description</th>
+                            <th class="p-3 text-right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse($commissionEntries as $row)
+                            <tr>
+                                <td class="p-3 text-gray-500 whitespace-nowrap">{{ $row->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</td>
+                                <td class="p-3 font-semibold">{{ str($row->entry_type)->replace('_', ' ')->headline() }}</td>
+                                <td class="p-3 text-gray-600">{{ $row->description ?: '—' }}</td>
+                                <td @class(['p-3 text-right font-bold', 'text-emerald-700' => $row->amount > 0, 'text-rose-700' => $row->amount < 0])>
+                                    {{ $row->amount > 0 ? '+' : '' }}৳{{ number_format($row->amount) }}
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4" class="p-10 text-center text-gray-400 italic">No commission lines yet (rates of ৳0 are hidden).</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if($openPayables->isNotEmpty())
+            <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
+                <h2 class="text-sm font-bold text-middo-dark mb-2">Open lunch payables</h2>
+                <ul class="text-sm text-gray-600 space-y-1">
+                    @foreach($openPayables as $p)
+                        <li class="flex justify-between gap-3">
+                            <span>Order #{{ $p->order_id }}</span>
+                            <span class="font-semibold">৳{{ number_format($p->amount) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+    @endif
+
+    @if($tab === 'withdraw')
+        <form wire:submit="requestWithdrawal" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 space-y-4">
+            <h2 class="text-lg font-bold text-middo-dark">Request payment</h2>
+            <p class="text-sm text-gray-500">
+                Available when Middo owes you and you have no Due cash to hand over. Ops pays from Middo cash on approval.
+            </p>
+            @if($due > 0)
+                <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                    You still have Due to Middo ৳{{ number_format($due) }}.
+                    <a href="{{ route('delivery.cash-handovers') }}" class="underline">Hand it over first</a>.
+                </div>
+            @elseif($wallet < 1)
+                <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                    Wallet is ৳0 — nothing to request.
+                </div>
+            @endif
+            <div>
+                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Amount (৳)</label>
+                <input type="number" min="1" max="{{ max(1, $wallet) }}" wire:model="withdrawAmount" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" @disabled(! $canRequestPayment)>
+                @error('withdrawAmount') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Notes</label>
+                <textarea wire:model="withdrawNotes" rows="2" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" @disabled(! $canRequestPayment)></textarea>
+            </div>
+            <button type="submit" class="px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold disabled:opacity-50" @disabled(! $canRequestPayment)>
+                Submit request
+            </button>
+        </form>
+    @endif
+
+    @if($tab === 'withdrawals')
+        <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+            <table class="w-full text-sm min-w-[560px]">
+                <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
+                    <tr>
+                        <th class="p-3 text-left">ID</th>
+                        <th class="p-3 text-right">Amount</th>
+                        <th class="p-3 text-left">Status</th>
+                        <th class="p-3 text-left">When</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    @forelse($withdrawals as $w)
+                        <tr>
+                            <td class="p-3 font-mono">#{{ $w->id }}</td>
+                            <td class="p-3 text-right font-bold">৳{{ number_format($w->amount) }}</td>
+                            <td class="p-3 capitalize">{{ $w->status }}</td>
+                            <td class="p-3 text-gray-500">{{ $w->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="p-8 text-center text-gray-400 italic">No payment requests yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+            @if($withdrawals->hasPages()) <div class="p-3">{{ $withdrawals->links() }}</div> @endif
+        </div>
+    @endif
+</div>
