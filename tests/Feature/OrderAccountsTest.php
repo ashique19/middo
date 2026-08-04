@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\Area;
+use App\Livewire\Kitchen\CashHandovers;
+use App\Livewire\Shared\AccountsHub;
 use App\Models\CashHandover;
 use App\Models\CashHandoverOrder;
-use App\Models\City;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderGroup;
@@ -14,6 +14,7 @@ use App\Models\OrderMoneyEvent;
 use App\Models\PartnerPayable;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\KitchenAccountLedger;
 use App\Support\MiddoCashLedger;
 use App\Support\OrderMoneyFlow;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -198,9 +199,20 @@ class OrderAccountsTest extends TestCase
             'status' => PartnerPayable::STATUS_OPEN,
         ]);
 
+        KitchenAccountLedger::credit(
+            $kitchen->id,
+            40,
+            'share_accrued',
+            PartnerPayable::class,
+            $payable->id,
+            'Test seed',
+            $admin->id
+        );
+
         OrderMoneyFlow::settlePayable($payable, $admin->id);
 
         $this->assertSame(460, MiddoCashLedger::balance());
+        $this->assertSame(0, KitchenAccountLedger::balance($kitchen->id));
         $this->assertSame(PartnerPayable::STATUS_SETTLED, $payable->fresh()->status);
         $this->assertTrue(OrderMoneyEvent::query()
             ->where('order_id', $order->id)
@@ -235,6 +247,14 @@ class OrderAccountsTest extends TestCase
             'updated_by' => $corporate->id,
         ]);
 
+        $group = OrderGroup::create([
+            'name' => 'GRP-CASH-1',
+            'menu_id' => $menu->id,
+            'delivery_date' => now('Asia/Dhaka')->toDateString(),
+            'kitchen_id' => $kitchen->id,
+        ]);
+        $group->orders()->attach($order->id);
+
         $handover = CashHandover::create([
             'rider_id' => $rider->id,
             'amount' => 200,
@@ -247,7 +267,7 @@ class OrderAccountsTest extends TestCase
         ]);
 
         Livewire::actingAs($kitchen)
-            ->test(\App\Livewire\Kitchen\CashHandovers::class)
+            ->test(CashHandovers::class)
             ->call('accept', $handover->id)
             ->assertSet('errorMessage', null);
 
@@ -265,7 +285,7 @@ class OrderAccountsTest extends TestCase
         $admin = $this->user('admin');
 
         Livewire::actingAs($admin)
-            ->test(\App\Livewire\Shared\AccountsHub::class)
+            ->test(AccountsHub::class)
             ->assertStatus(200)
             ->assertSee('Accounts')
             ->assertSee('Middo cash on hand');

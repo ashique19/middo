@@ -1,15 +1,16 @@
 <?php
 
 use App\Http\Controllers\Operation\MiddoBoxPrintController;
-use App\Livewire\Shared\StaffDashboard;
 use App\Livewire\Operation\ActiveOrders;
 use App\Livewire\Operation\KitchenAllOrders;
 use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\MiddoBoxes;
 use App\Livewire\Operation\OrderHistory;
 use App\Livewire\Operation\SearchOrder;
+use App\Livewire\Shared\AccountsHub;
 use App\Livewire\Shared\CorporateShow;
 use App\Livewire\Shared\CorporateTable;
+use App\Livewire\Shared\KitchenMoneyApprovals;
 use App\Livewire\Shared\MealItemShow;
 use App\Livewire\Shared\MenuShow;
 use App\Livewire\Shared\MiddoCashLedgerPage;
@@ -18,6 +19,7 @@ use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
 use App\Livewire\Shared\PackageInsights;
 use App\Livewire\Shared\RecipeShow;
+use App\Livewire\Shared\StaffDashboard;
 use App\Livewire\Shared\StaffProfileShow;
 use App\Livewire\Shared\SubscriptionShow;
 use Illuminate\Support\Facades\Route;
@@ -59,5 +61,6 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/middo-boxes', MiddoBoxes::class)->name('operation.middo-boxes.index');
     Route::get('/middo-boxes/{middoBox}/print', MiddoBoxPrintController::class)->name('operation.middo-boxes.print');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('operation.middo-cash');
-    Route::get('/accounts', \App\Livewire\Shared\AccountsHub::class)->name('operation.accounts.index');
+    Route::get('/accounts', AccountsHub::class)->name('operation.accounts.index');
+    Route::get('/kitchen-money', KitchenMoneyApprovals::class)->name('operation.kitchen-money.index');
 });

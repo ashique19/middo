@@ -86,6 +86,14 @@ class NavSeeder extends Seeder
             'role_id' => $adminId,
         ]);
 
+        Nav::create([
+            'title' => 'Kitchen money',
+            'route_name' => 'admin.kitchen-money.index',
+            'icon' => '💰',
+            'order' => 8,
+            'role_id' => $adminId,
+        ]);
+
         // ── Operation ────────────────────────────────────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'operation.dashboard', 'order' => 1, 'role_id' => $operationId]);
         Nav::create(['title' => 'Corporates', 'route_name' => 'operation.corporates.index', 'order' => 2, 'role_id' => $operationId, 'icon' => '🏢']);
@@ -124,6 +132,14 @@ class NavSeeder extends Seeder
             'role_id' => $operationId,
         ]);
 
+        Nav::create([
+            'title' => 'Kitchen money',
+            'route_name' => 'operation.kitchen-money.index',
+            'icon' => '💰',
+            'order' => 7,
+            'role_id' => $operationId,
+        ]);
+
         // ── Other roles (private sidebar when used) ───────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'corporates.dashboard', 'order' => 1, 'role_id' => $corporateId]);
         Nav::create(['title' => 'Packages', 'route_name' => 'corporates.packages.index', 'order' => 2, 'role_id' => $corporateId]);
@@ -146,6 +162,8 @@ class NavSeeder extends Seeder
         ]);
         Nav::create(['title' => 'Boxes at kitchen', 'route_name' => 'kitchen.middo-boxes.at-kitchen', 'order' => 1, 'role_id' => $kitchenId, 'parent_id' => $kitchenBoxesNav->id]);
         Nav::create(['title' => 'Incoming', 'route_name' => 'kitchen.middo-boxes.incoming', 'order' => 2, 'role_id' => $kitchenId, 'parent_id' => $kitchenBoxesNav->id]);
+        Nav::create(['title' => 'Account', 'route_name' => 'kitchen.account', 'order' => 8, 'role_id' => $kitchenId]);
+        Nav::create(['title' => 'Cash handovers', 'route_name' => 'kitchen.cash-handovers', 'order' => 9, 'role_id' => $kitchenId]);
 
         Nav::create(['title' => 'Dashboard', 'route_name' => 'delivery.dashboard', 'order' => 1, 'role_id' => $deliveryId]);
         Nav::create(['title' => 'Kitchen dispatches', 'route_name' => 'delivery.kitchen-dispatches', 'order' => 2, 'role_id' => $deliveryId]);

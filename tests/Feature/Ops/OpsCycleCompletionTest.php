@@ -179,6 +179,14 @@ class OpsCycleCompletionTest extends TestCase
             'delivery_rider_id' => $rider->id,
         ]);
 
+        $group = OrderGroup::create([
+            'name' => 'GRP-HANDOVER-1',
+            'menu_id' => $menu->id,
+            'delivery_date' => now('Asia/Dhaka')->toDateString(),
+            'kitchen_id' => $kitchen->id,
+        ]);
+        $group->orders()->attach($order->id);
+
         Livewire::actingAs($rider)
             ->test(DeliveryCashHandovers::class)
             ->call('toggleOrder', $order->id)

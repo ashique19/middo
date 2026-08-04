@@ -128,12 +128,50 @@
       "id": "K3",
       "name": "Kitchen money — receivable, withdraw, send to Middo",
       "priority": 4,
-      "status": "todo",
+      "status": "done",
       "items": [
-        {"id": "K3.1", "title": "Kitchen account: Middo receivable balance", "status": "todo"},
-        {"id": "K3.2", "title": "Kitchen withdrawal request", "status": "todo"},
-        {"id": "K3.3", "title": "Send money to Middo (with proof)", "status": "todo"},
-        {"id": "K3.4", "title": "Cash handover scoped to this kitchen", "status": "todo"}
+        {
+          "id": "K3.1",
+          "title": "Kitchen account: Middo receivable balance",
+          "status": "done",
+          "shipped": [
+            "kitchen_account_ledger table + KitchenAccountLedger",
+            "Accrue on kitchen share; debit on settle/void",
+            "Kitchen Account Livewire: statement + balance"
+          ]
+        },
+        {
+          "id": "K3.2",
+          "title": "Kitchen withdrawal request",
+          "status": "done",
+          "shipped": [
+            "kitchen_withdrawal_requests",
+            "FIFO whole open partner_payables on approve",
+            "Admin/ops KitchenMoneyApprovals"
+          ]
+        },
+        {
+          "id": "K3.3",
+          "title": "Send money to Middo (with proof)",
+          "status": "done",
+          "shipped": [
+            "kitchen_middo_transfers + proof upload",
+            "Confirm credits Middo cash only (does not reduce receivable)"
+          ]
+        },
+        {
+          "id": "K3.4",
+          "title": "Cash handover scoped to this kitchen",
+          "status": "done",
+          "shipped": [
+            "Kitchen CashHandovers only lists/accepts handovers for this kitchen's order groups"
+          ]
+        }
+      ],
+      "shipped_notes": [
+        "Kitchen receivable is kitchen_account_ledger (not users.balance)",
+        "Withdrawal approve: one Middo cash debit + one kitchen ledger debit for FIFO payable total",
+        "Feature tests: KitchenAccountK3Test + OrderAccountsTest + OpsCycleCompletionTest handover"
       ]
     },
     {
@@ -170,12 +208,9 @@
   ],
   "suggested_build_order": [
     "K0 (done)",
-    "K1.1 Accept window (capacity already done)",
-    "K1.4 Ready vs Dispatch status split",
-    "K1.3 Release before ready/pack",
-    "K1.2 Decline + shortage → pool + ops visibility",
-    "K2 Boxes damage",
-    "K3 Money flows",
+    "K1 (done)",
+    "K2 (done)",
+    "K3 (done)",
     "K4 Prep rollup",
     "K5 Notifications",
     "K6 Profile / complaints / perms"

@@ -5,6 +5,7 @@ namespace App\Livewire\Kitchen;
 use App\Models\CashHandover;
 use App\Models\User;
 use App\Support\MiddoCashLedger;
+use App\Support\OrderMoneyFlow;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -27,12 +28,17 @@ class CashHandovers extends Component
         try {
             DB::transaction(function () use ($handoverId, $kitchenId) {
                 $handover = CashHandover::query()
+                    ->with('items.order.orderGroup')
                     ->whereKey($handoverId)
                     ->lockForUpdate()
                     ->first();
 
                 if (! $handover || ! $handover->isPending()) {
                     throw new \RuntimeException('This cash handover is no longer pending.');
+                }
+
+                if (! $this->handoverBelongsToKitchen($handover, $kitchenId)) {
+                    throw new \RuntimeException('This cash handover is not linked to your kitchen’s orders.');
                 }
 
                 $rider = User::query()->whereKey($handover->rider_id)->lockForUpdate()->firstOrFail();
@@ -58,7 +64,7 @@ class CashHandovers extends Component
                     'accepted_at' => now(),
                 ]);
 
-                \App\Support\OrderMoneyFlow::recordCashHandover($handover->fresh(['items.order']));
+                OrderMoneyFlow::recordCashHandover($handover->fresh(['items.order']));
             });
 
             $this->statusMessage = "Cash handover #{$handoverId} accepted. Middo cash ledger updated.";
@@ -68,11 +74,34 @@ class CashHandovers extends Component
         }
     }
 
+    protected function handoverBelongsToKitchen(CashHandover $handover, int $kitchenId): bool
+    {
+        $handover->loadMissing('items.order.orderGroup');
+
+        if ($handover->items->isEmpty()) {
+            return false;
+        }
+
+        return $handover->items->every(function ($item) use ($kitchenId) {
+            return (int) ($item->order?->orderGroup?->kitchen_id) === $kitchenId;
+        });
+    }
+
     public function render()
     {
+        $kitchenId = (int) Auth::id();
+
+        $scopedIds = CashHandover::query()
+            ->with(['items.order.orderGroup'])
+            ->where('status', 'pending')
+            ->get()
+            ->filter(fn (CashHandover $h) => $this->handoverBelongsToKitchen($h, $kitchenId))
+            ->pluck('id')
+            ->all();
+
         $handovers = CashHandover::query()
             ->with(['rider', 'items.order'])
-            ->where('status', 'pending')
+            ->whereIn('id', $scopedIds ?: [0])
             ->orderBy('id')
             ->paginate(20);
 

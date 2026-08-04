@@ -7,7 +7,6 @@ use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderMoneyEvent;
 use App\Models\PartnerPayable;
-use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -171,6 +170,24 @@ class OrderMoneyFlow
                 $order->orderGroup?->kitchen_id,
                 (int) $breakdown['kitchen_share_amount']
             );
+
+            $kitchenId = $order->orderGroup?->kitchen_id;
+            if ($kitchenId) {
+                $payable = PartnerPayable::query()
+                    ->where('order_id', $order->id)
+                    ->where('beneficiary_role', PartnerPayable::ROLE_KITCHEN)
+                    ->first();
+
+                KitchenAccountLedger::credit(
+                    (int) $kitchenId,
+                    (int) $breakdown['kitchen_share_amount'],
+                    'share_accrued',
+                    $payable ? PartnerPayable::class : null,
+                    $payable?->id,
+                    'Kitchen share accrued for order #'.$order->id,
+                    $order->updated_by
+                );
+            }
         }
 
         if ((int) $breakdown['delivery_share_amount'] > 0) {
@@ -208,34 +225,56 @@ class OrderMoneyFlow
         ]);
     }
 
-    public static function settlePayable(PartnerPayable $payable, ?int $actorId = null, ?string $notes = null): PartnerPayable
+    public static function settlePayable(PartnerPayable $payable, ?int $actorId = null, ?string $notes = null, array $options = []): PartnerPayable
     {
-        return DB::transaction(function () use ($payable, $actorId, $notes) {
+        $debitMiddo = $options['debit_middo'] ?? true;
+        $debitKitchenLedger = $options['debit_kitchen_ledger'] ?? true;
+
+        return DB::transaction(function () use ($payable, $actorId, $notes, $debitMiddo, $debitKitchenLedger) {
             /** @var PartnerPayable $locked */
             $locked = PartnerPayable::query()->whereKey($payable->id)->lockForUpdate()->firstOrFail();
             if (! $locked->isOpen()) {
                 throw new \RuntimeException('Payable is not open.');
             }
 
-            $entry = MiddoCashLedger::debit(
-                (int) $locked->amount,
-                'partner_payable_settled',
-                PartnerPayable::class,
-                $locked->id,
-                ucfirst($locked->beneficiary_role).' payable settled for order #'.$locked->order_id,
-                $actorId
-            );
+            $entry = null;
+            if ($debitMiddo) {
+                $entry = MiddoCashLedger::debit(
+                    (int) $locked->amount,
+                    'partner_payable_settled',
+                    PartnerPayable::class,
+                    $locked->id,
+                    ucfirst($locked->beneficiary_role).' payable settled for order #'.$locked->order_id,
+                    $actorId
+                );
+            }
+
+            if (
+                $debitKitchenLedger
+                && $locked->beneficiary_role === PartnerPayable::ROLE_KITCHEN
+                && $locked->beneficiary_user_id
+            ) {
+                KitchenAccountLedger::debit(
+                    (int) $locked->beneficiary_user_id,
+                    (int) $locked->amount,
+                    'payable_settled',
+                    PartnerPayable::class,
+                    $locked->id,
+                    'Kitchen share paid for order #'.$locked->order_id,
+                    $actorId
+                );
+            }
 
             $locked->update([
                 'status' => PartnerPayable::STATUS_SETTLED,
                 'settled_at' => now(),
                 'settled_by' => $actorId,
-                'middo_cash_ledger_entry_id' => $entry->id,
+                'middo_cash_ledger_entry_id' => $entry?->id,
                 'notes' => $notes,
             ]);
 
             $order = Order::query()->find($locked->order_id);
-            if ($order) {
+            if ($order && $entry) {
                 self::write($order, OrderMoneyEvent::TYPE_PAYABLE_SETTLED, OrderMoneyEvent::BUCKET_MIDDO_CASH, -1 * (int) $locked->amount, [
                     'channel' => 'settlement',
                     'description' => ucfirst($locked->beneficiary_role).' share paid from Middo cash',
@@ -471,6 +510,33 @@ class OrderMoneyFlow
     {
         if (! Schema::hasTable('partner_payables')) {
             return;
+        }
+
+        $open = PartnerPayable::query()
+            ->where('order_id', $order->id)
+            ->where('status', PartnerPayable::STATUS_OPEN)
+            ->get();
+
+        foreach ($open as $payable) {
+            if (
+                $payable->beneficiary_role === PartnerPayable::ROLE_KITCHEN
+                && $payable->beneficiary_user_id
+                && Schema::hasTable('kitchen_account_ledger')
+            ) {
+                try {
+                    KitchenAccountLedger::debit(
+                        (int) $payable->beneficiary_user_id,
+                        (int) $payable->amount,
+                        'share_voided',
+                        PartnerPayable::class,
+                        $payable->id,
+                        'Kitchen share voided for cancelled order #'.$order->id,
+                        $order->updated_by
+                    );
+                } catch (\Throwable) {
+                    // Balance may already be withdrawn; void payable anyway.
+                }
+            }
         }
 
         PartnerPayable::query()

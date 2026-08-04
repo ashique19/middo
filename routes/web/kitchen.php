@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Kitchen\Account;
 use App\Livewire\Kitchen\ActiveOrders;
 use App\Livewire\Kitchen\BoxesAtKitchen;
 use App\Livewire\Kitchen\CashHandovers;
@@ -27,6 +28,7 @@ Route::middleware(['auth', 'role:kitchen'])->group(function () {
     Route::get('/middo-boxes/at-kitchen', BoxesAtKitchen::class)->name('kitchen.middo-boxes.at-kitchen');
     Route::get('/middo-boxes/incoming', IncomingBoxes::class)->name('kitchen.middo-boxes.incoming');
     Route::get('/cash-handovers', CashHandovers::class)->name('kitchen.cash-handovers');
+    Route::get('/account', Account::class)->name('kitchen.account');
 
     Route::get('/menus/{menuItem}', MenuDetails::class)->name('kitchen.menus.show');
     Route::get('/menus/{menuItem}/meal-items/{mealItem}/recipe', RecipeShow::class)
