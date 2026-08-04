@@ -6,10 +6,12 @@ use App\Models\Area;
 use App\Models\CustomRun;
 use App\Models\User;
 use App\Support\DeliveryRunType;
+use App\Support\MiddoOperatingCosts;
 use App\Support\MiddoSettings;
 use App\Support\RiderCommission;
 use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -101,19 +103,67 @@ class CustomRuns extends Component
     {
         $this->statusMessage = '';
         $this->errorMessage = '';
+        $actorId = (int) Auth::id();
+
+        try {
+            DB::transaction(function () use ($id, $actorId) {
+                $run = CustomRun::query()->whereKey($id)->lockForUpdate()->firstOrFail();
+                if ($run->isCompleted() || $run->isCancelled()) {
+                    throw new \RuntimeException('This custom run is already finished.');
+                }
+                if (! $run->isPending() && ! $run->isStarted()) {
+                    throw new \RuntimeException('Only pending or started runs can be cancelled.');
+                }
+
+                if ($run->isStarted()) {
+                    MiddoOperatingCosts::voidRiderCommission(
+                        DeliveryRunType::CUSTOM,
+                        CustomRun::class,
+                        (int) $run->id,
+                        $actorId,
+                        'Ops cancelled started custom run #'.$run->id
+                    );
+                }
+
+                $run->update([
+                    'status' => CustomRun::STATUS_CANCELLED,
+                    'cancelled_at' => now(),
+                ]);
+            });
+
+            $this->statusMessage = "Custom run #{$id} cancelled.";
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not cancel run.';
+        }
+    }
+
+    public function reassignRun(int $id, ?int $riderUserId = null): void
+    {
+        $this->statusMessage = '';
+        $this->errorMessage = '';
 
         try {
             $run = CustomRun::query()->findOrFail($id);
             if (! $run->isPending()) {
-                throw new \RuntimeException('Only pending runs can be cancelled.');
+                throw new \RuntimeException('Only pending runs can be reassigned. Cancel a started run first.');
             }
-            $run->update([
-                'status' => CustomRun::STATUS_CANCELLED,
-                'cancelled_at' => now(),
-            ]);
-            $this->statusMessage = "Custom run #{$id} cancelled.";
+
+            if ($riderUserId) {
+                $rider = User::query()->with('role')->findOrFail($riderUserId);
+                if ($rider->role?->name !== 'delivery') {
+                    throw new \RuntimeException('Assignee must be a delivery rider.');
+                }
+                if ($run->area_id && ! $rider->servesArea((int) $run->area_id)) {
+                    throw new \RuntimeException('Selected rider does not serve that area.');
+                }
+            }
+
+            $run->update(['rider_user_id' => $riderUserId]);
+            $this->statusMessage = $riderUserId
+                ? "Custom run #{$id} reassigned."
+                : "Custom run #{$id} returned to open pool.";
         } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage() ?: 'Could not cancel run.';
+            $this->errorMessage = $e->getMessage() ?: 'Could not reassign run.';
         }
     }
 

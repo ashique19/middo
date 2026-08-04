@@ -93,13 +93,13 @@
     {
       "id": "O4",
       "title": "Rider visibility from ops",
-      "status": "pending",
+      "status": "done",
       "notes": "Overlaps parked rider next-wave; build ops side here",
       "items": [
-        "Riders directory (area, Due, wallet, active runs)",
-        "Packed-awaiting-rider queue",
-        "Who-holds-what live board",
-        "Custom run force cancel/reassign for stuck started runs"
+        "Riders directory (area, Due, wallet, active runs) — done (Rider ops tab)",
+        "Packed-awaiting-rider queue — done",
+        "Who-holds-what live board (on the way + box custody + custom) — done",
+        "Custom run force cancel/reassign for stuck started runs — done"
       ]
     },
     {

@@ -62,4 +62,49 @@ class MiddoOperatingCosts
 
         return $cost;
     }
+
+    /**
+     * Reverse a booked box/custom commission (e.g. ops force-cancels a started custom run).
+     */
+    public static function voidRiderCommission(
+        string $runType,
+        string $referenceType,
+        int $referenceId,
+        ?int $createdBy = null,
+        ?string $reason = null,
+    ): bool {
+        if (! Schema::hasTable('middo_operating_costs')) {
+            return false;
+        }
+
+        $cost = MiddoOperatingCost::query()
+            ->where('cost_type', MiddoOperatingCost::TYPE_RIDER_COMMISSION)
+            ->where('run_type', $runType)
+            ->where('reference_type', $referenceType)
+            ->where('reference_id', $referenceId)
+            ->first();
+
+        if (! $cost) {
+            return false;
+        }
+
+        $amount = (int) $cost->amount;
+        $riderId = (int) $cost->rider_user_id;
+
+        if ($amount > 0 && Schema::hasTable('rider_account_ledger') && $riderId > 0) {
+            RiderAccountLedger::debit(
+                $riderId,
+                $amount,
+                'commission_voided',
+                $referenceType,
+                $referenceId,
+                $reason ?: ('Voided: '.($cost->description ?: 'operating cost #'.$cost->id)),
+                $createdBy
+            );
+        }
+
+        $cost->delete();
+
+        return true;
+    }
 }

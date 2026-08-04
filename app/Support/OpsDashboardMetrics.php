@@ -154,6 +154,7 @@ class OpsDashboardMetrics
             ->all();
 
         $slaCounts = OpsSlaBoard::counts();
+        $riderCounts = OpsRiderBoard::counts();
 
         $attention = array_values(array_filter([
             $ungrouped > 0 ? [
@@ -199,6 +200,13 @@ class OpsDashboardMetrics
                 'tone' => 'rose',
                 'route' => $role.'.sla.index',
                 'hint' => 'Kitchen past dispatch deadline',
+            ] : null,
+            $riderCounts['awaiting'] > 0 ? [
+                'label' => 'Packed awaiting rider',
+                'value' => $riderCounts['awaiting'],
+                'tone' => 'amber',
+                'route' => $role.'.riders.index',
+                'hint' => 'Kitchen dispatched — no rider yet',
             ] : null,
             $role === 'admin' && $pendingKitchens > 0 ? [
                 'label' => 'Kitchens pending onboarding',
@@ -343,6 +351,7 @@ class OpsDashboardMetrics
         $links = [
             ['label' => 'Active orders', 'route' => $role.'.orders.active', 'hint' => 'Group & dispatch'],
             ['label' => 'Dispatch SLA', 'route' => $role.'.sla.index', 'hint' => 'Unassigned & late'],
+            ['label' => 'Rider ops', 'route' => $role.'.riders.index', 'hint' => 'Who holds what'],
             ['label' => 'Corporates', 'route' => $role.'.corporates.index', 'hint' => 'Accounts & history'],
             ['label' => 'Kitchens', 'route' => $role === 'admin' ? 'admin.kitchens.active' : 'operation.kitchens.index', 'hint' => 'Kitchen roster'],
             ['label' => 'Packages', 'route' => $role.'.packages.index', 'hint' => 'Rate plans'],

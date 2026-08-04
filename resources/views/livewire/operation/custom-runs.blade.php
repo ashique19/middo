@@ -81,12 +81,18 @@
                             <td class="p-3 text-gray-600">{{ $run->rider?->name ?? 'Open pool' }}</td>
                             <td class="p-3 text-right font-bold">৳{{ number_format($run->commission_amount) }}</td>
                             <td class="p-3 capitalize">{{ $run->status }}</td>
-                            <td class="p-3 text-right">
+                            <td class="p-3 text-right space-x-2 whitespace-nowrap">
                                 @if($run->isPending())
                                     <button type="button" wire:click="cancelRun({{ $run->id }})"
                                             wire:confirm="Cancel custom run #{{ $run->id }}?"
                                             class="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 text-xs font-bold">
                                         Cancel
+                                    </button>
+                                @elseif($run->isStarted())
+                                    <button type="button" wire:click="cancelRun({{ $run->id }})"
+                                            wire:confirm="Cancel started run #{{ $run->id }} and void rider commission?"
+                                            class="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 text-xs font-bold">
+                                        Force cancel
                                     </button>
                                 @endif
                             </td>

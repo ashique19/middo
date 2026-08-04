@@ -8,6 +8,7 @@ use App\Livewire\Operation\KitchenAllOrders;
 use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\MiddoBoxes;
 use App\Livewire\Operation\OrderHistory;
+use App\Livewire\Operation\RidersBoard;
 use App\Livewire\Operation\SearchOrder;
 use App\Livewire\Operation\SlaBoard;
 use App\Livewire\Shared\AccountsHub;
@@ -71,6 +72,7 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('operation.middo-cash');
     Route::get('/cash-handovers', CashHandovers::class)->name('operation.cash-handovers');
     Route::get('/sla', SlaBoard::class)->name('operation.sla.index');
+    Route::get('/riders', RidersBoard::class)->name('operation.riders.index');
     Route::get('/accounts', AccountsHub::class)->name('operation.accounts.index');
     Route::get('/cod-recon', CodDueReconPage::class)->name('operation.cod-recon.index');
     Route::get('/operating-costs', OperatingCostsPage::class)->name('operation.operating-costs.index');
