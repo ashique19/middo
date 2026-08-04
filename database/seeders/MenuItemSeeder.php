@@ -66,6 +66,7 @@ class MenuItemSeeder extends Seeder
                 'summary' => $data['summary'],
                 'price' => $data['price'],
                 'kitchen_commission' => $data['kitchen_commission'],
+                'delivery_commission' => max(20, (int) round($data['kitchen_commission'] * 0.8)),
                 'thumbnail' => $thumbnail,
                 'is_featured' => true,
                 'is_homepage' => $data['display_order'] <= 3,

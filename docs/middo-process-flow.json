@@ -369,14 +369,26 @@
         },
         {
           "step": 5,
-          "action": "Accrue kitchen/delivery partner payables",
+          "action": "Accrue delivery share (menu.delivery_commission × qty) into rider wallet + PartnerPayable",
+          "actor": "system",
+          "via": "OrderMoneyFlow.accrueDeliveryShareOnRunStart",
+          "when": "rider accepts kitchen dispatch (run start)"
+        },
+        {
+          "step": 6,
+          "action": "On delivered_and_paid: middo_rest (+ kitchen share if not already); never second delivery_share",
           "actor": "system",
           "via": "OrderMoneyFlow.accrueShares",
           "when": "order_status becomes delivered_and_paid"
         },
         {
-          "step": 6,
-          "action": "Cash handover to Middo; empty box return run",
+          "step": 7,
+          "action": "Cash collect: Collection − Commission = Due; handover Due to kitchen or Middo",
+          "actor": "delivery"
+        },
+        {
+          "step": 8,
+          "action": "Empty box return run (corporate→kitchen settings commission)",
           "actor": "delivery"
         }
       ]

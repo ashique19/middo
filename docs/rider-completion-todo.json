@@ -1,6 +1,6 @@
 {
   "title": "Rider / delivery portal — completion backlog",
-  "version": 8,
+  "version": 9,
   "updated": "2026-08-04",
   "context": {
     "existing_delivery_livewire": [
@@ -187,8 +187,9 @@
       "id": "C5",
       "severity": "medium",
       "title": "PartnerPayable delivery settlement ignores rider wallet",
+      "status": "resolved",
       "detail": "AccountsHub settlePayable debits Middo cash for delivery role but never credits rider balance. Parallel kitchen path uses KitchenAccountLedger.",
-      "resolution": "Prefer rider ledger + withdrawal like kitchen. PartnerPayable for lunch can remain as P&L/open-payable mirror of ledger credit, settled via withdrawal not separate AccountsHub pay that skips ledger."
+      "resolution": "AccountsHub blocks delivery settle and links to Rider money withdrawals. RiderMoneyService settles payables + debits rider ledger + Middo cash together."
     },
     {
       "id": "C6",
@@ -477,24 +478,31 @@
       "id": "R6",
       "name": "Tests + seeders + Accounts Hub cleanup",
       "priority": 7,
-      "status": "todo",
+      "status": "done",
       "depends_on": ["R2", "R3", "R4"],
       "items": [
         {
           "id": "R6.1",
           "title": "Feature tests: lunch menu commission, box settings commission, cash, handover clear, no double lunch accrual",
-          "status": "todo"
+          "status": "done",
+          "notes": "RiderCompletionR6Test covers lunch+cash Due+handover, ops→kitchen settings commission, AccountsHub delivery settle block."
         },
         {
           "id": "R6.2",
           "title": "Update FlawHunt / OrderAccounts tests for run-start lunch accrual",
-          "status": "todo"
+          "status": "done",
+          "notes": "OrderAccountsTest run-start path; FlawHunt copy; BL/AL/process-flow docs aligned."
         },
         {
           "id": "R6.3",
           "title": "DeliveryFeaturesTestSeeder + docs sync",
-          "status": "todo"
+          "status": "done",
+          "notes": "DeliveryFeaturesTestSeeder + test; UserSeeder rider areas; MenuItemSeeder delivery_commission; DatabaseSeeder wired."
         }
+      ],
+      "shipped_notes": [
+        "tests/Feature/Delivery/RiderCompletionR6Test.php",
+        "tests/Feature/Delivery/DeliveryFeaturesTestSeederTest.php"
       ]
     }
   ],

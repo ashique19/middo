@@ -120,13 +120,13 @@ class UserSeeder extends Seeder
         $deliveryRoleId = Role::where('name', 'delivery')->value('id');
 
         $riders = [
-            ['first_name' => 'Rahim', 'last_name' => 'Uddin', 'email' => 'delivery@middo.com', 'mobile' => '01310123454'],
-            ['first_name' => 'Karim', 'last_name' => 'Ahmed', 'email' => 'delivery2@middo.com', 'mobile' => '01310123460'],
-            ['first_name' => 'Jamal', 'last_name' => 'Hossain', 'email' => 'delivery3@middo.com', 'mobile' => '01310123461'],
+            ['first_name' => 'Rahim', 'last_name' => 'Uddin', 'email' => 'delivery@middo.com', 'mobile' => '01310123454', 'area_id' => $gulshanId],
+            ['first_name' => 'Karim', 'last_name' => 'Ahmed', 'email' => 'delivery2@middo.com', 'mobile' => '01310123460', 'area_id' => $bananiId],
+            ['first_name' => 'Jamal', 'last_name' => 'Hossain', 'email' => 'delivery3@middo.com', 'mobile' => '01310123461', 'area_id' => $mirpurId],
         ];
 
         foreach ($riders as $rider) {
-            User::create([
+            $user = User::create([
                 'first_name' => $rider['first_name'],
                 'last_name' => $rider['last_name'],
                 'email' => $rider['email'],
@@ -135,7 +135,12 @@ class UserSeeder extends Seeder
                 'role_id' => $deliveryRoleId,
                 'status' => 'active',
                 'is_mobile_verified' => true,
+                'city_id' => $dhakaId,
+                'area_id' => $rider['area_id'],
             ]);
+            if (\Illuminate\Support\Facades\Schema::hasTable('area_user')) {
+                $user->areas()->sync([$rider['area_id']]);
+            }
         }
 
         User::create([

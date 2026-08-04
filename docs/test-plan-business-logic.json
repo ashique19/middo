@@ -355,19 +355,19 @@
         {
           "id": "BL-D-03",
           "priority": "P0",
-          "title": "Deliver with amountDue=0 → delivered_and_paid + accrue shares",
-          "preconditions": ["Fully prepaid"],
+          "title": "Deliver with amountDue=0 → delivered_and_paid; middo_rest if not already; delivery share already at run start",
+          "preconditions": ["Fully prepaid", "Rider already accepted (delivery share accrued)"],
           "steps": ["Deliver"],
-          "expected": "delivered_and_paid; partner payables opened",
-          "oracle": ["status", "partner_payables rows", "OrderMoneyFlow middo_rest event"]
+          "expected": "delivered_and_paid; no second delivery_share; middo_rest event once",
+          "oracle": ["status", "TYPE_DELIVERY_SHARE count=1", "OrderMoneyFlow middo_rest event"]
         },
         {
           "id": "BL-D-04",
           "priority": "P0",
-          "title": "Cash collect after delivered settles to delivered_and_paid and credits rider float",
+          "title": "Cash collect after delivered: Collection − Commission = Due float",
           "steps": ["Collect cash due"],
-          "expected": "status paid; cash_collected=due; rider.balance += due",
-          "oracle": ["orders fields", "users.balance delta"]
+          "expected": "status paid; cash_collected=due; rider.balance += due − commission; commission settled in-kind",
+          "oracle": ["orders.cash_due_to_middo", "users.balance delta", "rider_account_ledger"]
         },
         {
           "id": "BL-D-05",
@@ -389,10 +389,10 @@
         {
           "id": "BL-D-07",
           "priority": "P1",
-          "title": "Partner shares accrue only on delivered_and_paid (not on delivered)",
-          "steps": ["Stop at delivered unpaid; inspect payables; then settle"],
-          "expected": "No payables until paid; then payables appear once",
-          "oracle": ["partner_payables count before/after"]
+          "title": "Delivery lunch share accrues on run start; not again on delivered_and_paid",
+          "steps": ["Accept packed lunch run", "Deliver COD unpaid", "Collect cash / mark paid"],
+          "expected": "delivery PartnerPayable + rider ledger at accept; TYPE_DELIVERY_SHARE count stays 1 after paid",
+          "oracle": ["partner_payables", "rider_account_ledger", "order_money_events"]
         }
       ]
     },
@@ -651,10 +651,10 @@
         {
           "id": "BL-M-01",
           "priority": "P0",
-          "title": "Kitchen/delivery payables open only after delivered_and_paid",
-          "steps": ["Walk COD order through delivered then cash"],
-          "expected": "Payables absent at delivered; present after paid",
-          "oracle": ["partner_payables"]
+          "title": "Kitchen payable on dispatch; delivery lunch payable on rider accept",
+          "steps": ["Dispatch packed order", "Rider accept", "Deliver COD then cash"],
+          "expected": "Kitchen payable+ledger at dispatch; delivery payable+rider ledger at accept; middo_rest on paid; no second delivery_share",
+          "oracle": ["partner_payables", "kitchen_account_ledger", "rider_account_ledger"]
         },
         {
           "id": "BL-M-02",

@@ -28,7 +28,10 @@
         <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
             <p class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Open delivery payables</p>
             <p class="mt-2 text-3xl font-black text-sky-800">৳{{ number_format($openDelivery) }}</p>
-            <p class="mt-1 text-xs text-gray-500">Accrued delivery commission not yet settled</p>
+            <p class="mt-1 text-xs text-gray-500">
+                Mirror of rider wallet lunch share —
+                <a href="{{ route($orderShowRoutePrefix.'.rider-money.index') }}" class="font-semibold text-middo-orange hover:underline">pay via Rider money →</a>
+            </p>
         </div>
     </div>
 
@@ -60,13 +63,18 @@
                                 @endif
                             </p>
                         </div>
-                        @if($payable->status === 'open')
+                        @if($payable->status === 'open' && $payable->beneficiary_role === 'kitchen')
                             <button type="button"
                                     wire:click="settlePayable({{ $payable->id }})"
-                                    wire:confirm="Pay ৳{{ number_format($payable->amount) }} from Middo cash for this {{ $payable->beneficiary_role }} share?"
+                                    wire:confirm="Pay ৳{{ number_format($payable->amount) }} from Middo cash for this kitchen share?"
                                     class="shrink-0 rounded-lg bg-middo-orange px-3 py-1.5 text-[11px] font-black uppercase text-white hover:bg-[#733614]">
                                 Settle
                             </button>
+                        @elseif($payable->status === 'open' && $payable->beneficiary_role === 'delivery')
+                            <a href="{{ route($orderShowRoutePrefix.'.rider-money.index') }}"
+                               class="shrink-0 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-black uppercase text-sky-800 hover:bg-sky-100">
+                                Rider money
+                            </a>
                         @endif
                     </div>
                 @empty

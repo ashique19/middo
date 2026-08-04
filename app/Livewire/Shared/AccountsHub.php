@@ -39,6 +39,14 @@ class AccountsHub extends Component
 
         try {
             $payable = PartnerPayable::query()->findOrFail($id);
+
+            if ($payable->beneficiary_role === PartnerPayable::ROLE_DELIVERY) {
+                $prefix = Auth::user()?->role?->name === 'admin' ? 'admin' : 'operation';
+                throw new \RuntimeException(
+                    'Delivery payables are paid via Rider money withdrawals ('.$prefix.'.rider-money), not Accounts Hub settle — so the rider wallet stays correct.'
+                );
+            }
+
             OrderMoneyFlow::settlePayable($payable, Auth::id());
             $this->statusMessage = 'Payable #'.$id.' settled from Middo cash.';
         } catch (\Throwable $e) {

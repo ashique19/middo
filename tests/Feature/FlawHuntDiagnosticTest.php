@@ -113,7 +113,7 @@ class FlawHuntDiagnosticTest extends TestCase
 
         $this->assertTrue(
             $wouldMarkDeliveredAndPaid,
-            'FLAW: deliverToConsumer uses amountDue()===0; discounted fully-paid orders stay delivered (unpaid) and skip share accrual'
+            'FLAW: deliverToConsumer uses amountDue()===0; discounted fully-paid orders stay delivered (unpaid) instead of delivered_and_paid'
         );
     }
 

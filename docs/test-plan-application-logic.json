@@ -318,7 +318,7 @@
         {
           "id": "AL-MF-02",
           "priority": "P0",
-          "title": "accrueShares kitchen/delivery/middoRest math",
+          "title": "Kitchen share on dispatch; delivery share on run start; middoRest on paid",
           "inputs": {
             "food": 1000,
             "charges": 0,
@@ -333,8 +333,8 @@
             "billNet": 1000,
             "middoRest": 720
           },
-          "steps": ["Reach delivered_and_paid", "Read payables + events"],
-          "oracle": ["payable kitchen=200", "delivery=80", "middo_rest=720"]
+          "steps": ["Dispatch", "Rider accept (accrueDeliveryShareOnRunStart)", "Reach delivered_and_paid", "Read payables + events"],
+          "oracle": ["payable kitchen=200 at dispatch", "delivery=80 at accept", "TYPE_DELIVERY_SHARE count=1", "middo_rest=720"]
         },
         {
           "id": "AL-MF-03",

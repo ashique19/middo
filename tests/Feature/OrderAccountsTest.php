@@ -87,7 +87,7 @@ class OrderAccountsTest extends TestCase
         $this->assertNotEmpty($tree['movements']);
     }
 
-    public function test_delivered_and_paid_accrues_partner_payables(): void
+    public function test_run_start_and_paid_accrue_partner_payables_once(): void
     {
         $corporate = $this->user('corporate');
         $kitchen = $this->user('kitchen');
@@ -112,10 +112,9 @@ class OrderAccountsTest extends TestCase
             'address' => 'Test',
             'receiver_name' => 'R',
             'receiver_mobile' => '01710123456',
-            'order_status' => 'on_the_way_to_delivery',
+            'order_status' => 'pending',
             'payment_status' => 'pending',
             'payment_method' => 'cash_on_delivery',
-            'delivery_rider_id' => $rider->id,
             'created_by' => $corporate->id,
             'updated_by' => $corporate->id,
         ]);
@@ -132,29 +131,54 @@ class OrderAccountsTest extends TestCase
             'order_id' => $order->id,
         ]);
 
+        // Kitchen share accrues on dispatch.
         $order->update([
             'dispatched_at' => now(),
-            'order_status' => 'delivered_and_paid',
-            'payment_status' => 'paid',
-            'amount_paid' => 400,
-            'cash_collected' => 400,
+            'order_status' => 'packed',
+            'updated_by' => $kitchen->id,
         ]);
-
+        $this->assertSame(100, KitchenAccountLedger::balance($kitchen->id));
         $this->assertDatabaseHas('partner_payables', [
             'order_id' => $order->id,
             'beneficiary_role' => 'kitchen',
             'amount' => 100,
             'status' => 'open',
         ]);
+
+        // Delivery share accrues on run start (rider accept).
+        $order->update([
+            'order_status' => 'on_the_way_to_delivery',
+            'delivery_rider_id' => $rider->id,
+            'updated_by' => $rider->id,
+        ]);
+        \App\Support\OrderMoneyFlow::accrueDeliveryShareOnRunStart($order->fresh(['menuItem', 'orderGroup']), $rider);
+
         $this->assertDatabaseHas('partner_payables', [
             'order_id' => $order->id,
             'beneficiary_role' => 'delivery',
             'amount' => 50,
             'status' => 'open',
         ]);
+        $this->assertSame(50, \App\Support\RiderAccountLedger::balance($rider->id));
+        $this->assertSame(1, OrderMoneyEvent::query()
+            ->where('order_id', $order->id)
+            ->where('event_type', 'delivery_share')
+            ->count());
 
+        $order->update([
+            'order_status' => 'delivered_and_paid',
+            'payment_status' => 'paid',
+            'amount_paid' => 400,
+            'cash_collected' => 400,
+        ]);
+
+        // No second delivery_share; middo_rest recorded once.
+        $this->assertSame(1, OrderMoneyEvent::query()
+            ->where('order_id', $order->id)
+            ->where('event_type', 'delivery_share')
+            ->count());
+        $this->assertSame(50, \App\Support\RiderAccountLedger::balance($rider->id));
         $this->assertSame(100, KitchenAccountLedger::balance($kitchen->id));
-        $this->assertTrue(OrderMoneyEvent::query()->where('order_id', $order->id)->where('event_type', 'kitchen_share')->exists());
 
         $order->refresh();
         $this->assertSame(250, (int) $order->middo_rest_amount); // 400 - 100 - 50
