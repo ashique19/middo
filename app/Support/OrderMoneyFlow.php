@@ -359,8 +359,9 @@ class OrderMoneyFlow
     {
         $debitMiddo = $options['debit_middo'] ?? true;
         $debitKitchenLedger = $options['debit_kitchen_ledger'] ?? true;
+        $debitRiderLedger = $options['debit_rider_ledger'] ?? false;
 
-        return DB::transaction(function () use ($payable, $actorId, $notes, $debitMiddo, $debitKitchenLedger) {
+        return DB::transaction(function () use ($payable, $actorId, $notes, $debitMiddo, $debitKitchenLedger, $debitRiderLedger) {
             /** @var PartnerPayable $locked */
             $locked = PartnerPayable::query()->whereKey($payable->id)->lockForUpdate()->firstOrFail();
             if (! $locked->isOpen()) {
@@ -395,6 +396,23 @@ class OrderMoneyFlow
                 );
             }
 
+            if (
+                $debitRiderLedger
+                && $locked->beneficiary_role === PartnerPayable::ROLE_DELIVERY
+                && $locked->beneficiary_user_id
+                && Schema::hasTable('rider_account_ledger')
+            ) {
+                RiderAccountLedger::debit(
+                    (int) $locked->beneficiary_user_id,
+                    (int) $locked->amount,
+                    'commission_settled_in_kind',
+                    PartnerPayable::class,
+                    $locked->id,
+                    'Commission kept from cash for order #'.$locked->order_id,
+                    $actorId
+                );
+            }
+
             $locked->update([
                 'status' => PartnerPayable::STATUS_SETTLED,
                 'settled_at' => now(),
@@ -416,10 +434,124 @@ class OrderMoneyFlow
                     ],
                     'created_by' => $actorId,
                 ]);
+            } elseif ($order && $debitRiderLedger && ! $debitMiddo) {
+                self::write($order, OrderMoneyEvent::TYPE_PAYABLE_SETTLED, OrderMoneyEvent::BUCKET_DELIVERY_PAYABLE, (int) $locked->amount, [
+                    'channel' => 'in_kind_from_cash',
+                    'description' => 'Delivery commission settled in-kind from rider cash',
+                    'reference' => $locked,
+                    'meta' => [
+                        'beneficiary_role' => $locked->beneficiary_role,
+                        'beneficiary_user_id' => $locked->beneficiary_user_id,
+                        'settlement' => 'in_kind_from_cash',
+                    ],
+                    'created_by' => $actorId,
+                ]);
             }
 
             return $locked->fresh();
         });
+    }
+
+    /**
+     * After COD collect: settle open lunch commission from the cash float so it is
+     * not also withdrawable. Returns the commission amount settled (0 if none).
+     */
+    public static function settleDeliveryCommissionFromCash(Order $order, User $rider, int $cashCollected): int
+    {
+        if ($cashCollected < 1 || ! Schema::hasTable('partner_payables')) {
+            return 0;
+        }
+
+        $payable = PartnerPayable::query()
+            ->where('order_id', $order->id)
+            ->where('beneficiary_role', PartnerPayable::ROLE_DELIVERY)
+            ->where('beneficiary_user_id', $rider->id)
+            ->where('status', PartnerPayable::STATUS_OPEN)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $payable) {
+            return 0;
+        }
+
+        $commission = (int) $payable->amount;
+        if ($commission < 1) {
+            return 0;
+        }
+
+        // Only settle what cash can cover; leave remainder open/withdrawable.
+        if ($commission > $cashCollected) {
+            $settle = $cashCollected;
+            $payable->update(['amount' => $commission - $settle]);
+            if (Schema::hasTable('rider_account_ledger')) {
+                RiderAccountLedger::debit(
+                    (int) $rider->id,
+                    $settle,
+                    'commission_settled_in_kind',
+                    PartnerPayable::class,
+                    $payable->id,
+                    'Partial commission kept from cash for order #'.$order->id,
+                    $rider->id
+                );
+            }
+            self::write($order, OrderMoneyEvent::TYPE_PAYABLE_SETTLED, OrderMoneyEvent::BUCKET_DELIVERY_PAYABLE, $settle, [
+                'channel' => 'in_kind_from_cash',
+                'description' => 'Partial delivery commission settled in-kind from rider cash',
+                'reference' => $payable,
+                'meta' => [
+                    'settlement' => 'in_kind_from_cash_partial',
+                    'remaining_open' => $commission - $settle,
+                ],
+                'created_by' => $rider->id,
+            ]);
+
+            return $settle;
+        }
+
+        self::settlePayable($payable, $rider->id, 'settled_in_kind_from_cash', [
+            'debit_middo' => false,
+            'debit_kitchen_ledger' => false,
+            'debit_rider_ledger' => true,
+        ]);
+
+        return $commission;
+    }
+
+    /**
+     * Rider Due cash accepted by Middo/ops (not kitchen).
+     */
+    public static function recordCashHandoverToMiddo(CashHandover $handover, ?int $actorId = null): void
+    {
+        if (! Schema::hasTable('order_money_events')) {
+            return;
+        }
+
+        $handover->loadMissing('items.order');
+        $middoBalance = MiddoCashLedger::balance();
+
+        foreach ($handover->items as $item) {
+            $order = $item->order;
+            if (! $order) {
+                continue;
+            }
+            $amount = (int) $item->amount;
+            if ($amount < 1) {
+                continue;
+            }
+
+            self::write($order, OrderMoneyEvent::TYPE_CASH_TO_MIDDO, OrderMoneyEvent::BUCKET_MIDDO_CASH, $amount, [
+                'channel' => 'cash',
+                'description' => "Due cash handed to Middo (handover #{$handover->id})",
+                'middo_cash_balance_after' => $middoBalance,
+                'reference' => $handover,
+                'meta' => [
+                    'handover_id' => $handover->id,
+                    'rider_id' => $handover->rider_id,
+                    'target' => CashHandover::TARGET_MIDDO,
+                ],
+                'created_by' => $actorId,
+            ]);
+        }
     }
 
     /**

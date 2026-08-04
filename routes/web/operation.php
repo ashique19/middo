@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Operation\MiddoBoxPrintController;
+use App\Livewire\Operation\CashHandovers;
 use App\Livewire\Operation\ActiveOrders;
 use App\Livewire\Operation\KitchenAllOrders;
 use App\Livewire\Operation\Kitchens;
@@ -63,6 +64,7 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/middo-boxes', MiddoBoxes::class)->name('operation.middo-boxes.index');
     Route::get('/middo-boxes/{middoBox}/print', MiddoBoxPrintController::class)->name('operation.middo-boxes.print');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('operation.middo-cash');
+    Route::get('/cash-handovers', CashHandovers::class)->name('operation.cash-handovers');
     Route::get('/accounts', AccountsHub::class)->name('operation.accounts.index');
     Route::get('/kitchen-money', KitchenMoneyApprovals::class)->name('operation.kitchen-money.index');
 });

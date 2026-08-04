@@ -9,9 +9,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CashHandover extends Model
 {
+    public const TARGET_KITCHEN = 'kitchen';
+
+    public const TARGET_MIDDO = 'middo';
+
     protected $fillable = [
         'rider_id',
         'amount',
+        'target',
         'status',
         'accepted_by',
         'accepted_at',
@@ -51,5 +56,15 @@ class CashHandover extends Model
     public function isPending(): bool
     {
         return $this->status === 'pending';
+    }
+
+    public function isKitchenTarget(): bool
+    {
+        return ($this->target ?: self::TARGET_KITCHEN) === self::TARGET_KITCHEN;
+    }
+
+    public function isMiddoTarget(): bool
+    {
+        return $this->target === self::TARGET_MIDDO;
     }
 }

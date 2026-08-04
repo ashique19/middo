@@ -75,8 +75,22 @@
                     </div>
                 @elseif($paymentMethod === 'cash')
                     <div class="space-y-4">
+                        <div class="rounded-xl border border-gray-200 px-4 py-3 space-y-1 text-sm">
+                            <div class="flex justify-between gap-3">
+                                <span class="text-gray-500">Collection</span>
+                                <span class="font-semibold text-middo-dark">৳{{ number_format($amountDue) }}</span>
+                            </div>
+                            <div class="flex justify-between gap-3">
+                                <span class="text-gray-500">Commission (you keep)</span>
+                                <span class="font-semibold text-middo-dark">৳{{ number_format($commissionAmount) }}</span>
+                            </div>
+                            <div class="flex justify-between gap-3 pt-1 border-t border-gray-200">
+                                <span class="font-bold text-gray-700">Due to Middo</span>
+                                <span class="font-black text-middo-orange">৳{{ number_format($dueToMiddo) }}</span>
+                            </div>
+                        </div>
                         <p class="text-sm text-gray-600">
-                            Confirm cash received. Order becomes <strong>Delivered and Paid</strong> and ৳{{ number_format($amountDue) }} is added to your balance.
+                            Confirm cash received. Order becomes <strong>Delivered and Paid</strong>. Hand over only the Due amount later; keep your commission from the bag.
                         </p>
                         <div class="flex justify-end gap-3">
                             <button type="button" wire:click="$set('paymentMethod', '')" class="px-4 py-2.5 rounded-xl border border-gray-300 text-sm font-bold text-gray-700">Back</button>

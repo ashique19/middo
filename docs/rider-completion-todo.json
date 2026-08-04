@@ -310,7 +310,7 @@
       "id": "R2",
       "name": "Rider signed wallet + credit on run start",
       "priority": 3,
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["R0"],
       "goal": "Commission credited at run start (Middo owes rider); P&L records the cost without double-counting.",
       "build_order": ["R2.1", "R2.2", "R2.3", "R2.4", "R2.5"],
@@ -345,13 +345,16 @@
           "status": "done",
           "notes": "voidOpenPayables debits rider_account_ledger share_voided for open delivery PartnerPayable."
         }
+      ],
+      "shipped_notes": [
+        "tests/Feature/Delivery/RiderWalletR2Test.php"
       ]
     },
     {
       "id": "R3",
       "name": "Cash collect UI + due handover (keep commission)",
       "priority": 4,
-      "status": "todo",
+      "status": "done",
       "depends_on": ["R2"],
       "goal": "After collect: show Collection − Commission = Due to Middo; handover only due to kitchen or Middo; prepaid shows wallet + withdrawal.",
       "build_order": ["R3.1", "R3.2", "R3.3", "R3.4"],
@@ -359,26 +362,30 @@
         {
           "id": "R3.1",
           "title": "PaymentModal cash → hold cash + settle commission in-kind from float",
-          "status": "todo",
-          "notes": "UI breakdown: collection, commission, due. Ledger must not leave settled commission withdrawable."
+          "status": "done",
+          "notes": "settleDeliveryCommissionFromCash; users.balance nets to Due; payable settled without Middo cash debit."
         },
         {
           "id": "R3.2",
           "title": "Handover create/accept for Due amount only (kitchen or Middo/ops)",
-          "status": "todo",
-          "notes": "Kitchen accept → kitchen ledger debit. Middo/ops accept → MiddoCashLedger credit. Clear rider due by handed amount."
+          "status": "done",
+          "notes": "cash_handovers.target kitchen|middo; kitchen accept + ops CashHandovers MiddoCashLedger credit."
         },
         {
           "id": "R3.3",
           "title": "Cash screen: Due to Middo vs Wallet (Middo owes) with correct CTA",
-          "status": "todo",
-          "notes": "Due > 0 → Handover. Wallet > 0 and due = 0 → Request payment."
+          "status": "done",
+          "notes": "Delivery CashHandovers shows Due float vs RiderAccountLedger wallet."
         },
         {
           "id": "R3.4",
           "title": "Order money events for cash_held / commission_settled_from_cash / due_handed_over",
-          "status": "todo"
+          "status": "done",
+          "notes": "in_kind payable_settled events + cash_to_kitchen / cash_to_middo on accept; orders.cash_due_to_middo."
         }
+      ],
+      "shipped_notes": [
+        "tests/Feature/Delivery/RiderCashDueR3Test.php"
       ]
     },
     {

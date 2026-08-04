@@ -5,7 +5,9 @@ namespace App\Livewire\Delivery;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\MimSms;
+use App\Support\OrderMoneyFlow;
 use App\Support\OrderTransition;
+use App\Support\RiderCommission;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
@@ -29,6 +31,10 @@ class PaymentModal extends Component
     public int $amountPaid = 0;
 
     public int $amountDue = 0;
+
+    public int $commissionAmount = 0;
+
+    public int $dueToMiddo = 0;
 
     public string $accountHolderName = '';
 
@@ -71,6 +77,9 @@ class PaymentModal extends Component
         }
 
         $party = $order->partyPayload();
+        $rider = Auth::user();
+        $due = $order->amountDue();
+        $commission = min(RiderCommission::forLunchOrder($rider, $order), $due);
 
         $this->resetErrorBag();
         $this->errorMessage = null;
@@ -82,7 +91,9 @@ class PaymentModal extends Component
         $this->quantity = (int) $order->quantity;
         $this->totalAmount = (int) $order->total_amount;
         $this->amountPaid = $order->amountPaidValue();
-        $this->amountDue = $order->amountDue();
+        $this->amountDue = $due;
+        $this->commissionAmount = $commission;
+        $this->dueToMiddo = max(0, $due - $commission);
         $this->accountHolderName = $party['account_holder_name'];
         $this->accountHolderMobile = (string) ($party['account_holder_mobile'] ?? '');
         $this->receiverName = $party['receiver_name'];
@@ -99,6 +110,8 @@ class PaymentModal extends Component
         $this->orderId = null;
         $this->paymentMethod = '';
         $this->receiverPhone = '';
+        $this->commissionAmount = 0;
+        $this->dueToMiddo = 0;
         $this->errorMessage = null;
         $this->successMessage = null;
     }
@@ -129,7 +142,9 @@ class PaymentModal extends Component
         $riderId = Auth::id();
 
         try {
-            DB::transaction(function () use ($riderId) {
+            $dueToMiddo = 0;
+
+            DB::transaction(function () use ($riderId, &$dueToMiddo) {
                 $order = Order::query()->whereKey($this->orderId)->lockForUpdate()->first();
 
                 if (! $order || (int) $order->delivery_rider_id !== (int) $riderId || ! $order->isDelivered()) {
@@ -152,10 +167,27 @@ class PaymentModal extends Component
                     'updated_by' => $riderId,
                 ]);
 
-                User::query()->whereKey($riderId)->lockForUpdate()->increment('balance', $due);
+                $rider = User::query()->whereKey($riderId)->lockForUpdate()->firstOrFail();
+                $rider->increment('balance', $due);
+
+                $commission = OrderMoneyFlow::settleDeliveryCommissionFromCash(
+                    $order->fresh(),
+                    $rider->fresh(),
+                    $due
+                );
+
+                $dueToMiddo = max(0, $due - $commission);
+                $order->forceFill(['cash_due_to_middo' => $dueToMiddo])->saveQuietly();
+
+                if ($commission > 0) {
+                    User::query()->whereKey($riderId)->lockForUpdate()->decrement('balance', $commission);
+                }
             });
 
-            $this->dispatch('order-payment-recorded', message: "Cash payment recorded for {$this->orderLabel}. Rider balance updated.");
+            $this->dispatch(
+                'order-payment-recorded',
+                message: "Cash recorded for {$this->orderLabel}. Due to Middo ৳{$dueToMiddo}."
+            );
             $this->closeModal();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not record cash payment.';

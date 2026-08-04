@@ -31,6 +31,7 @@ class Order extends Model
         'amount_paid',
         'prepaid_amount',
         'cash_collected',
+        'cash_due_to_middo',
         'address',
         'receiver_name',
         'receiver_mobile',
@@ -60,6 +61,7 @@ class Order extends Model
         'amount_paid' => 'integer',
         'prepaid_amount' => 'integer',
         'cash_collected' => 'integer',
+        'cash_due_to_middo' => 'integer',
     ];
 
     public function user(): BelongsTo
@@ -246,6 +248,32 @@ class Order extends Model
         }
 
         return 0;
+    }
+
+    /**
+     * Cash still owed to Middo after in-kind commission settle (Collection − Commission).
+     * Null cash_due_to_middo = pre-R3 legacy → full cash collected.
+     */
+    public function dueToMiddoAmount(): int
+    {
+        if ($this->cashHandoverOrder()->exists()) {
+            return 0;
+        }
+
+        if ($this->cash_due_to_middo !== null) {
+            return max(0, (int) $this->cash_due_to_middo);
+        }
+
+        return $this->cashCollectedAmount();
+    }
+
+    public function commissionRetainedFromCashAmount(): int
+    {
+        if ($this->cash_due_to_middo === null) {
+            return 0;
+        }
+
+        return max(0, $this->cashCollectedAmount() - (int) $this->cash_due_to_middo);
     }
 
     public function accountHolderName(): string

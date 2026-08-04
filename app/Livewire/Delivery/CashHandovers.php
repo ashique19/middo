@@ -6,6 +6,7 @@ use App\Models\CashHandover;
 use App\Models\CashHandoverOrder;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\RiderAccountLedger;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -17,6 +18,8 @@ class CashHandovers extends Component
 
     /** @var array<int> */
     public array $selectedOrderIds = [];
+
+    public string $target = CashHandover::TARGET_KITCHEN;
 
     public ?string $notes = null;
 
@@ -48,6 +51,12 @@ class CashHandovers extends Component
             return;
         }
 
+        if (! in_array($this->target, [CashHandover::TARGET_KITCHEN, CashHandover::TARGET_MIDDO], true)) {
+            $this->errorMessage = 'Choose kitchen or Middo as the handover target.';
+
+            return;
+        }
+
         try {
             $handoverId = DB::transaction(function () use ($riderId) {
                 $orders = Order::query()
@@ -63,25 +72,34 @@ class CashHandovers extends Component
                     throw new \RuntimeException('One or more selected orders are not available for cash handover.');
                 }
 
-                $amount = (int) $orders->sum(fn (Order $order) => $order->cashCollectedAmount());
+                $amount = (int) $orders->sum(fn (Order $order) => $order->dueToMiddoAmount());
+                if ($amount < 1) {
+                    throw new \RuntimeException('Selected orders have no Due to Middo left to hand over.');
+                }
+
                 $rider = User::query()->whereKey($riderId)->lockForUpdate()->firstOrFail();
 
                 if ((int) $rider->balance < $amount) {
-                    throw new \RuntimeException('Your rider balance is lower than the selected cash total.');
+                    throw new \RuntimeException('Your Due balance is lower than the selected Due total.');
                 }
 
                 $handover = CashHandover::create([
                     'rider_id' => $riderId,
                     'amount' => $amount,
+                    'target' => $this->target,
                     'status' => 'pending',
                     'notes' => $this->notes,
                 ]);
 
                 foreach ($orders as $order) {
+                    $due = $order->dueToMiddoAmount();
+                    if ($due < 1) {
+                        continue;
+                    }
                     CashHandoverOrder::create([
                         'cash_handover_id' => $handover->id,
                         'order_id' => $order->id,
-                        'amount' => $order->cashCollectedAmount(),
+                        'amount' => $due,
                     ]);
                 }
 
@@ -90,7 +108,8 @@ class CashHandovers extends Component
 
             $this->selectedOrderIds = [];
             $this->notes = null;
-            $this->statusMessage = "Cash handover #{$handoverId} submitted for kitchen acceptance.";
+            $label = $this->target === CashHandover::TARGET_MIDDO ? 'Middo/ops' : 'kitchen';
+            $this->statusMessage = "Due handover #{$handoverId} submitted for {$label} acceptance.";
             $this->resetPage();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not create cash handover.';
@@ -109,7 +128,7 @@ class CashHandovers extends Component
             ->whereDoesntHave('cashHandoverOrder')
             ->orderByDesc('updated_at')
             ->get()
-            ->filter(fn (Order $order) => $order->cashCollectedAmount() > 0)
+            ->filter(fn (Order $order) => $order->dueToMiddoAmount() > 0)
             ->values();
 
         $handovers = CashHandover::query()
@@ -120,13 +139,17 @@ class CashHandovers extends Component
 
         $selectedTotal = $eligibleOrders
             ->whereIn('id', $this->selectedOrderIds)
-            ->sum(fn (Order $order) => $order->cashCollectedAmount());
+            ->sum(fn (Order $order) => $order->dueToMiddoAmount());
+
+        $dueBalance = (int) Auth::user()?->balance;
+        $walletOwed = RiderAccountLedger::balance($riderId);
 
         return view('livewire.delivery.cash-handovers', [
             'eligibleOrders' => $eligibleOrders,
             'handovers' => $handovers,
             'selectedTotal' => (int) $selectedTotal,
-            'riderBalance' => (int) Auth::user()?->balance,
+            'dueBalance' => $dueBalance,
+            'walletOwed' => $walletOwed,
         ])->layout('delivery.layout.app', ['title' => 'Cash handovers']);
     }
 }

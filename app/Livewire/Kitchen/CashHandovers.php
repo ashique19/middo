@@ -37,6 +37,10 @@ class CashHandovers extends Component
                     throw new \RuntimeException('This cash handover is no longer pending.');
                 }
 
+                if (! $handover->isKitchenTarget()) {
+                    throw new \RuntimeException('This handover is for Middo/ops, not kitchen.');
+                }
+
                 if (! $this->handoverBelongsToKitchen($handover, $kitchenId)) {
                     throw new \RuntimeException('This cash handover is not linked to your kitchen’s orders.');
                 }
@@ -99,6 +103,10 @@ class CashHandovers extends Component
         $scopedIds = CashHandover::query()
             ->with(['items.order.orderGroup'])
             ->where('status', 'pending')
+            ->where(function ($q) {
+                $q->where('target', CashHandover::TARGET_KITCHEN)
+                    ->orWhereNull('target');
+            })
             ->get()
             ->filter(fn (CashHandover $h) => $this->handoverBelongsToKitchen($h, $kitchenId))
             ->pluck('id')
