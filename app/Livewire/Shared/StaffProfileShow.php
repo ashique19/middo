@@ -223,6 +223,9 @@ class StaffProfileShow extends Component
             'orders' => $orders,
             'orderRows' => $orderRows,
             'stats' => $stats,
+            'kitchenHours' => $this->staffRole === 'kitchen'
+                ? $this->staff->kitchenHours()->get()
+                : collect(),
         ])->layout('layouts.private.app', ['title' => $title]);
     }
 }

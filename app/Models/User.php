@@ -115,6 +115,11 @@ class User extends Authenticatable
         return $this->hasMany(DeviceToken::class);
     }
 
+    public function kitchenHours(): HasMany
+    {
+        return $this->hasMany(KitchenHour::class, 'user_id')->orderBy('day_of_week');
+    }
+
     public function logs(): HasMany
     {
         return $this->hasMany(UserLog::class);
@@ -129,6 +134,22 @@ class User extends Authenticatable
 
     public function hasPermission($permissionName)
     {
-        return $this->role && $this->role->permissions()->where('name', $permissionName)->exists();
+        if (! $this->role) {
+            return false;
+        }
+
+        // Bare kitchen fixtures (tests / legacy) without a synced kitchen.* matrix
+        // still pass kitchen.* checks; role:kitchen remains the primary gate.
+        if (is_string($permissionName) && str_starts_with($permissionName, 'kitchen.')) {
+            $hasKitchenMatrix = $this->role->permissions()
+                ->where('name', 'like', 'kitchen.%')
+                ->exists();
+
+            if (! $hasKitchenMatrix) {
+                return $this->role->name === 'kitchen';
+            }
+        }
+
+        return $this->role->permissions()->where('name', $permissionName)->exists();
     }
 }

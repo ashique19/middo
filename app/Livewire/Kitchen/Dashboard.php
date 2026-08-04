@@ -3,6 +3,7 @@
 namespace App\Livewire\Kitchen;
 
 use App\Models\OrderGroup;
+use App\Support\KitchenComplaints;
 use App\Support\StaffAlerts;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +26,11 @@ class Dashboard extends Component
                 'label' => 'Alerts',
                 'count' => StaffAlerts::unreadCount((int) $kitchenId),
                 'route' => 'kitchen.alerts',
+            ],
+            [
+                'label' => 'Complaints',
+                'count' => KitchenComplaints::scopedRootsQuery((int) $kitchenId)->count(),
+                'route' => 'kitchen.complaints',
             ],
             [
                 'label' => 'My Order this month',

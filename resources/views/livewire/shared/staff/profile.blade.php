@@ -120,6 +120,24 @@
         </dl>
     </div>
 
+    @if($staffRole === 'kitchen')
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-middo-dark mb-4">Weekly hours</h2>
+            @if($kitchenHours->isEmpty())
+                <p class="text-sm text-gray-400 italic">No hours set yet.</p>
+            @else
+                <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                    @foreach($kitchenHours as $hour)
+                        <div>
+                            <dt class="text-[11px] font-bold uppercase tracking-wider text-gray-400">{{ $hour->dayLabel() }}</dt>
+                            <dd class="font-semibold text-gray-800 mt-0.5">{{ $hour->hoursLabel() }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+            @endif
+        </div>
+    @endif
+
     @if($staffRole === 'kitchen' && $this->canEditKitchenCapacity())
         <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
             <div>

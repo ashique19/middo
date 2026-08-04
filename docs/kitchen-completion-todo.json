@@ -226,11 +226,37 @@
       "id": "K6",
       "name": "Trust, profile, permissions",
       "priority": 7,
-      "status": "todo",
+      "status": "done",
       "items": [
-        {"id": "K6.1", "title": "Complaints visible to kitchen (scoped)", "status": "todo"},
-        {"id": "K6.2", "title": "Kitchen profile & hours edit", "status": "todo"},
-        {"id": "K6.3", "title": "Permission matrix cleanup for kitchen role", "status": "todo"}
+        {
+          "id": "K6.1",
+          "title": "Complaints visible to kitchen (scoped)",
+          "status": "done",
+          "shipped": [
+            "Read-only Complaints list + show for orders with order_groups.kitchen_id = self",
+            "Dashboard tile; drops after release/shortage"
+          ]
+        },
+        {
+          "id": "K6.2",
+          "title": "Kitchen profile & hours edit",
+          "status": "done",
+          "shipped": [
+            "kitchen_hours table + Kitchen Profile page",
+            "Contact fields editable; tier/capacity read-only",
+            "Hours shown on admin/ops StaffProfileShow"
+          ]
+        },
+        {
+          "id": "K6.3",
+          "title": "Permission matrix cleanup for kitchen role",
+          "status": "done",
+          "shipped": [
+            "kitchen.* permissions synced via KitchenPermissions",
+            "permission middleware on kitchen routes",
+            "Legacy edit-menu/accept-order detached from kitchen"
+          ]
+        }
       ]
     }
   ],
@@ -241,7 +267,7 @@
     "K3 (done)",
     "K4 (done)",
     "K5 (done)",
-    "K6 Profile / complaints / perms"
+    "K6 (done)"
   ],
   "data_model_sketch": {
     "settings_keys": [
