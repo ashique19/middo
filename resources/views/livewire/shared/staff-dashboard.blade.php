@@ -149,6 +149,10 @@
                         <span class="text-gray-400 text-xs">· ৳{{ number_format($data['money']['pending_kitchen_handover_amount'] ?? 0) }}</span>
                     </dd>
                 </div>
+                <div class="flex justify-between gap-3">
+                    <dt class="text-gray-500">Operating costs (all-time)</dt>
+                    <dd class="font-mono font-bold text-gray-900">৳{{ number_format($data['money']['operating_costs_total'] ?? 0) }}</dd>
+                </div>
                 @if($data['money']['has_accounts'])
                     <div class="flex justify-between gap-3">
                         <dt class="text-gray-500">Open kitchen payables</dt>

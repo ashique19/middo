@@ -5,6 +5,7 @@ namespace App\Livewire\Shared;
 use App\Models\KitchenMiddoTransfer;
 use App\Models\KitchenWithdrawalRequest;
 use App\Support\KitchenMoneyService;
+use App\Support\MiddoCashLedger;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -101,9 +102,20 @@ class KitchenMoneyApprovals extends Component
             ->latest('id')
             ->paginate(15, ['*'], 'transfersPage');
 
+        $previews = [];
+        if ($this->tab === 'withdrawals') {
+            foreach ($withdrawals as $w) {
+                if ($w->status === KitchenWithdrawalRequest::STATUS_PENDING) {
+                    $previews[$w->id] = KitchenMoneyService::withdrawalPreview($w);
+                }
+            }
+        }
+
         return view('livewire.shared.kitchen-money-approvals', [
             'withdrawals' => $withdrawals,
             'transfers' => $transfers,
+            'previews' => $previews,
+            'middoCash' => MiddoCashLedger::balance(),
         ])->layout('layouts.private.app', ['title' => 'Kitchen money']);
     }
 }

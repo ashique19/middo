@@ -7,6 +7,7 @@ use App\Models\MealItem;
 use App\Models\MealPackage;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
+use App\Models\MiddoOperatingCost;
 use App\Models\Order;
 use App\Models\OrderComplaint;
 use App\Models\PackageSubscription;
@@ -274,6 +275,9 @@ class OpsDashboardMetrics
                 'open_delivery_payables' => $openDeliveryPayables,
                 'has_accounts' => $hasPayables,
                 'has_cash_ledger' => Schema::hasTable('middo_cash_ledger'),
+                'operating_costs_total' => Schema::hasTable('middo_operating_costs')
+                    ? (int) MiddoOperatingCost::query()->sum('amount')
+                    : 0,
             ],
             'attention' => $attention,
             'upcoming' => $upcoming,
@@ -346,6 +350,8 @@ class OpsDashboardMetrics
             ['label' => 'Package demand', 'route' => $role.'.packages.demand', 'hint' => 'Tomorrow’s volume'],
             ['label' => 'Package insights', 'route' => $role.'.packages.insights', 'hint' => 'Prepaid & refunds'],
             ['label' => 'Middo cash', 'route' => $role.'.middo-cash', 'hint' => 'Cash ledger'],
+            ['label' => 'COD recon', 'route' => $role.'.cod-recon.index', 'hint' => 'Day × rider Due'],
+            ['label' => 'Operating costs', 'route' => $role.'.operating-costs.index', 'hint' => 'Box/custom P&L'],
             ['label' => 'Rider cash handovers', 'route' => $role.'.cash-handovers', 'hint' => 'Accept Middo Due'],
         ];
 

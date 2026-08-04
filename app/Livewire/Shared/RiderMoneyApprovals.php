@@ -3,6 +3,7 @@
 namespace App\Livewire\Shared;
 
 use App\Models\RiderWithdrawalRequest;
+use App\Support\MiddoCashLedger;
 use App\Support\RiderMoneyService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -57,8 +58,15 @@ class RiderMoneyApprovals extends Component
             ->latest('id')
             ->paginate(15);
 
+        $previews = [];
+        foreach ($withdrawals as $w) {
+            $previews[$w->id] = RiderMoneyService::withdrawalPreview($w);
+        }
+
         return view('livewire.shared.rider-money-approvals', [
             'withdrawals' => $withdrawals,
+            'previews' => $previews,
+            'middoCash' => MiddoCashLedger::balance(),
         ])->layout('layouts.private.app', ['title' => 'Rider money']);
     }
 }

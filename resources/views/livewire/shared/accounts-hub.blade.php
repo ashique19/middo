@@ -4,7 +4,11 @@
             <h1 class="text-3xl font-bold text-middo-dark">Accounts</h1>
             <p class="text-sm text-gray-500 mt-1">Money flow across orders — revenue, shares, cash, and Middo balance.</p>
         </div>
-        <a href="{{ route($orderShowRoutePrefix.'.middo-cash') }}" class="text-sm font-bold text-middo-orange hover:underline">Middo cash ledger →</a>
+        <div class="flex flex-wrap gap-3 justify-end">
+            <a href="{{ route($orderShowRoutePrefix.'.middo-cash') }}" class="text-sm font-bold text-middo-orange hover:underline">Middo cash →</a>
+            <a href="{{ route($orderShowRoutePrefix.'.cod-recon.index') }}" class="text-sm font-bold text-middo-orange hover:underline">COD recon →</a>
+            <a href="{{ route($orderShowRoutePrefix.'.operating-costs.index') }}" class="text-sm font-bold text-middo-orange hover:underline">Operating costs →</a>
+        </div>
     </div>
 
     @if($statusMessage)
@@ -23,7 +27,10 @@
         <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
             <p class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Open kitchen payables</p>
             <p class="mt-2 text-3xl font-black text-amber-800">৳{{ number_format($openKitchen) }}</p>
-            <p class="mt-1 text-xs text-gray-500">Accrued kitchen commission not yet settled</p>
+            <p class="mt-1 text-xs text-gray-500">
+                Accrued kitchen commission —
+                <a href="{{ route($orderShowRoutePrefix.'.kitchen-money.index') }}" class="font-semibold text-middo-orange hover:underline">pay via Kitchen money →</a>
+            </p>
         </div>
         <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
             <p class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Open delivery payables</p>
@@ -64,12 +71,10 @@
                             </p>
                         </div>
                         @if($payable->status === 'open' && $payable->beneficiary_role === 'kitchen')
-                            <button type="button"
-                                    wire:click="settlePayable({{ $payable->id }})"
-                                    wire:confirm="Pay ৳{{ number_format($payable->amount) }} from Middo cash for this kitchen share?"
-                                    class="shrink-0 rounded-lg bg-middo-orange px-3 py-1.5 text-[11px] font-black uppercase text-white hover:bg-[#733614]">
-                                Settle
-                            </button>
+                            <a href="{{ route($orderShowRoutePrefix.'.kitchen-money.index') }}"
+                               class="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-black uppercase text-amber-900 hover:bg-amber-100">
+                                Kitchen money
+                            </a>
                         @elseif($payable->status === 'open' && $payable->beneficiary_role === 'delivery')
                             <a href="{{ route($orderShowRoutePrefix.'.rider-money.index') }}"
                                class="shrink-0 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-black uppercase text-sky-800 hover:bg-sky-100">
@@ -161,12 +166,16 @@
     </div>
 
     <div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 p-5 space-y-2 text-sm text-gray-600">
-        <p class="font-bold text-gray-800">Also manage here (roadmap)</p>
+        <p class="font-bold text-gray-800">Money policy</p>
+        <ul class="list-disc pl-5 space-y-1 text-xs">
+            <li>Kitchen + rider payables settle only via Kitchen money / Rider money withdrawals (Hub Settle removed).</li>
+            <li>COD recon and operating costs are linked above; Middo cash adjustments live on the cash ledger page.</li>
+        </ul>
+        <p class="font-bold text-gray-800 pt-2">Also manage here (roadmap)</p>
         <ul class="list-disc pl-5 space-y-1 text-xs">
             <li>Bank / EPS ledger separate from Middo cash (online collections, top-ups, payouts)</li>
             <li>Coupon & discount audit tied to each order’s billing branch</li>
             <li>Period P&amp;L (day/week/month) and kitchen settlement batches</li>
-            <li>Rider wage vs cash-float separation (today rider balance = cash liability only)</li>
             <li>VAT/tax lines and supplier / packaging purchase costs</li>
             <li>Corporate credit / invoice aging for billed accounts</li>
         </ul>

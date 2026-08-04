@@ -1,7 +1,10 @@
 <div class="max-w-6xl mx-auto py-8 px-4 sm:px-6 space-y-6">
     <div>
         <h1 class="text-3xl font-bold text-middo-dark">Kitchen money</h1>
-        <p class="text-sm text-gray-500 mt-1">Approve kitchen withdrawals and confirm transfers into Middo cash.</p>
+        <p class="text-sm text-gray-500 mt-1">
+            Approve kitchen withdrawals and confirm transfers into Middo cash.
+            Middo cash: <span class="font-bold text-middo-dark">৳{{ number_format($middoCash) }}</span>
+        </p>
     </div>
 
     @if($statusMessage)
@@ -36,15 +39,26 @@
                 </thead>
                 <tbody class="divide-y">
                     @forelse($withdrawals as $w)
+                        @php($preview = $previews[$w->id] ?? null)
                         <tr>
-                            <td class="p-3 font-mono">#{{ $w->id }}</td>
-                            <td class="p-3">
+                            <td class="p-3 font-mono align-top">#{{ $w->id }}</td>
+                            <td class="p-3 align-top">
                                 <div class="font-semibold">{{ $w->kitchen?->name }}</div>
                                 <div class="text-xs text-gray-500">{{ $w->kitchen?->mobile }}</div>
+                                @if($preview)
+                                    <div class="mt-2 text-[11px] text-gray-500 space-y-0.5">
+                                        <div>Wallet ৳{{ number_format($preview['wallet']) }} · Open payables ৳{{ number_format($preview['open_payables_total']) }}</div>
+                                        <div>FIFO fit ৳{{ number_format($preview['fifo_fit_total']) }}
+                                            @unless($preview['fifo_ok'])
+                                                <span class="text-amber-700 font-semibold">— amount may not match whole payables</span>
+                                            @endunless
+                                        </div>
+                                    </div>
+                                @endif
                             </td>
-                            <td class="p-3 text-right font-bold">৳{{ number_format($w->amount) }}</td>
-                            <td class="p-3 text-gray-600">{{ $w->notes ?: '—' }}</td>
-                            <td class="p-3 text-right whitespace-nowrap">
+                            <td class="p-3 text-right font-bold align-top">৳{{ number_format($w->amount) }}</td>
+                            <td class="p-3 text-gray-600 align-top">{{ $w->notes ?: '—' }}</td>
+                            <td class="p-3 text-right whitespace-nowrap align-top">
                                 @if($w->status === 'pending')
                                     <button type="button" wire:click="approveWithdrawal({{ $w->id }})"
                                             wire:confirm="Approve withdrawal #{{ $w->id }} and pay from Middo cash?"

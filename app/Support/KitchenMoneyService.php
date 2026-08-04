@@ -94,6 +94,51 @@ class KitchenMoneyService
         });
     }
 
+    /**
+     * @return array{
+     *   wallet:int,
+     *   middo_cash:int,
+     *   open_payables_total:int,
+     *   open_payables:list<array{id:int,order_id:int|null,amount:int}>,
+     *   fifo_fit_total:int,
+     *   fifo_ok:bool
+     * }
+     */
+    public static function withdrawalPreview(KitchenWithdrawalRequest $request): array
+    {
+        $kitchenId = (int) $request->kitchen_user_id;
+        $requested = (int) $request->amount;
+        $open = PartnerPayable::query()
+            ->where('beneficiary_role', PartnerPayable::ROLE_KITCHEN)
+            ->where('beneficiary_user_id', $kitchenId)
+            ->where('status', PartnerPayable::STATUS_OPEN)
+            ->orderBy('id')
+            ->get();
+
+        $remaining = $requested;
+        $fifoFit = 0;
+        foreach ($open as $payable) {
+            if ((int) $payable->amount > $remaining) {
+                break;
+            }
+            $fifoFit += (int) $payable->amount;
+            $remaining -= (int) $payable->amount;
+        }
+
+        return [
+            'wallet' => KitchenAccountLedger::balance($kitchenId),
+            'middo_cash' => MiddoCashLedger::balance(),
+            'open_payables_total' => (int) $open->sum('amount'),
+            'open_payables' => $open->take(8)->map(fn (PartnerPayable $p) => [
+                'id' => $p->id,
+                'order_id' => $p->order_id,
+                'amount' => (int) $p->amount,
+            ])->all(),
+            'fifo_fit_total' => $fifoFit,
+            'fifo_ok' => $fifoFit >= 1 && $fifoFit <= $requested,
+        ];
+    }
+
     public static function rejectWithdrawal(KitchenWithdrawalRequest $request, int $actorId, ?string $reviewNotes = null): KitchenWithdrawalRequest
     {
         if (! $request->isPending()) {

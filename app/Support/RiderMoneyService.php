@@ -88,6 +88,54 @@ class RiderMoneyService
         });
     }
 
+    /**
+     * @return array{
+     *   wallet:int,
+     *   due_float:int,
+     *   middo_cash:int,
+     *   open_payables_total:int,
+     *   open_payables:list<array{id:int,order_id:int|null,amount:int}>,
+     *   fifo_fit_total:int,
+     *   blocked_by_due:bool
+     * }
+     */
+    public static function withdrawalPreview(RiderWithdrawalRequest $request): array
+    {
+        $riderId = (int) $request->rider_user_id;
+        $requested = (int) $request->amount;
+        $rider = User::query()->find($riderId);
+        $open = PartnerPayable::query()
+            ->where('beneficiary_role', PartnerPayable::ROLE_DELIVERY)
+            ->where('beneficiary_user_id', $riderId)
+            ->where('status', PartnerPayable::STATUS_OPEN)
+            ->orderBy('id')
+            ->get();
+
+        $remaining = $requested;
+        $fifoFit = 0;
+        foreach ($open as $payable) {
+            if ((int) $payable->amount > $remaining) {
+                break;
+            }
+            $fifoFit += (int) $payable->amount;
+            $remaining -= (int) $payable->amount;
+        }
+
+        return [
+            'wallet' => RiderAccountLedger::balance($riderId),
+            'due_float' => (int) ($rider?->balance ?? 0),
+            'middo_cash' => MiddoCashLedger::balance(),
+            'open_payables_total' => (int) $open->sum('amount'),
+            'open_payables' => $open->take(8)->map(fn (PartnerPayable $p) => [
+                'id' => $p->id,
+                'order_id' => $p->order_id,
+                'amount' => (int) $p->amount,
+            ])->all(),
+            'fifo_fit_total' => $fifoFit,
+            'blocked_by_due' => (int) ($rider?->balance ?? 0) > 0,
+        ];
+    }
+
     public static function rejectWithdrawal(RiderWithdrawalRequest $request, int $actorId, ?string $reviewNotes = null): RiderWithdrawalRequest
     {
         if (! $request->isPending()) {

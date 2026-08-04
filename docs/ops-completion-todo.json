@@ -81,13 +81,13 @@
     {
       "id": "O3",
       "title": "Money hardening (ops surfaces)",
-      "status": "pending",
+      "status": "done",
       "items": [
-        "COD/Due day-end recon report (day × rider × collected / Due / handed / accepted)",
-        "Kitchen payout path policy (Hub settle vs withdrawals) — document + enforce",
-        "Operating costs report + Accounts Hub / dashboard surface",
-        "Richer kitchen/rider approval detail (Due, wallet, payables)",
-        "Middo cash adjustment + day-end variance (may hand to accounts later)"
+        "COD/Due day-end recon report (day × rider × collected / Due / handed / accepted) — done",
+        "Kitchen payout path policy: Hub Settle blocked; Kitchen money withdrawals only — done",
+        "Operating costs report + Accounts Hub / dashboard surface — done",
+        "Richer kitchen/rider approval detail (Due, wallet, payables) — done",
+        "Middo cash adjustment + day-end variance check — done"
       ]
     },
     {

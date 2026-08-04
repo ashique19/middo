@@ -6,7 +6,6 @@ use App\Models\Order;
 use App\Models\OrderMoneyEvent;
 use App\Models\PartnerPayable;
 use App\Support\MiddoCashLedger;
-use App\Support\OrderMoneyFlow;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -47,8 +46,14 @@ class AccountsHub extends Component
                 );
             }
 
-            OrderMoneyFlow::settlePayable($payable, Auth::id());
-            $this->statusMessage = 'Payable #'.$id.' settled from Middo cash.';
+            if ($payable->beneficiary_role === PartnerPayable::ROLE_KITCHEN) {
+                $prefix = Auth::user()?->role?->name === 'admin' ? 'admin' : 'operation';
+                throw new \RuntimeException(
+                    'Kitchen payables are paid via Kitchen money withdrawals ('.$prefix.'.kitchen-money), not Accounts Hub settle — single FIFO payout path.'
+                );
+            }
+
+            throw new \RuntimeException('Unknown payable role; settle via partner money queues.');
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not settle payable.';
         }
