@@ -78,6 +78,14 @@ class NavSeeder extends Seeder
             'role_id' => $adminId,
         ]);
 
+        Nav::create([
+            'title' => 'Settings',
+            'route_name' => 'admin.settings.index',
+            'icon' => '⚙️',
+            'order' => 7,
+            'role_id' => $adminId,
+        ]);
+
         // ── Operation ────────────────────────────────────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'operation.dashboard', 'order' => 1, 'role_id' => $operationId]);
         Nav::create(['title' => 'Corporates', 'route_name' => 'operation.corporates.index', 'order' => 2, 'role_id' => $operationId, 'icon' => '🏢']);

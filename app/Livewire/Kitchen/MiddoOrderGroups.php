@@ -4,6 +4,8 @@ namespace App\Livewire\Kitchen;
 
 use App\Livewire\Kitchen\Concerns\FormatsOrderGroups;
 use App\Models\OrderGroup;
+use App\Models\User;
+use App\Support\KitchenCapacity;
 use App\Support\OrderKitchenAcceptance;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +20,12 @@ class MiddoOrderGroups extends Component
     public ?string $statusMessage = null;
 
     public ?string $errorMessage = null;
+
+    public int $openGroupCount = 0;
+
+    public int $allowedOpenGroups = 0;
+
+    public int $remainingSlots = 0;
 
     public function acceptOrder(int $orderGroupId): void
     {
@@ -34,6 +42,13 @@ class MiddoOrderGroups extends Component
 
         try {
             $accepted = DB::transaction(function () use ($orderGroupId, $kitchenId) {
+                $kitchen = User::query()->lockForUpdate()->find($kitchenId);
+                if (! $kitchen) {
+                    throw new \RuntimeException('Kitchen account not found.');
+                }
+
+                KitchenCapacity::assertCanAccept($kitchen);
+
                 $group = OrderGroup::query()
                     ->whereKey($orderGroupId)
                     ->lockForUpdate()
@@ -64,8 +79,25 @@ class MiddoOrderGroups extends Component
         }
     }
 
+    protected function refreshCapacity(): void
+    {
+        $kitchen = Auth::user();
+        if (! $kitchen) {
+            $this->openGroupCount = 0;
+            $this->allowedOpenGroups = 0;
+            $this->remainingSlots = 0;
+
+            return;
+        }
+
+        $this->openGroupCount = KitchenCapacity::openGroupCount((int) $kitchen->id);
+        $this->allowedOpenGroups = KitchenCapacity::effectiveAllowedOpenGroups($kitchen);
+        $this->remainingSlots = KitchenCapacity::remainingSlots($kitchen);
+    }
+
     public function render()
     {
+        $this->refreshCapacity();
         $today = now('Asia/Dhaka')->toDateString();
 
         $groups = OrderGroup::with([
@@ -88,6 +120,7 @@ class MiddoOrderGroups extends Component
         return view('livewire.kitchen.middo-order-groups', [
             'groups' => $groups,
             'groupNodes' => $groupNodes,
+            'atCapacity' => $this->remainingSlots <= 0,
         ])->layout('layouts.private.app', ['title' => 'Middo Order Groups']);
     }
 }

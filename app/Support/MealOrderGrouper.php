@@ -21,7 +21,7 @@ class MealOrderGrouper
             throw new \InvalidArgumentException('Order area is required for auto-grouping.');
         }
 
-        $maxQuantity = (int) config('middo.auto_meal_group_quantity', 10);
+        $maxQuantity = MiddoSettings::autoGroupQuantity();
         $orderQty = (int) $order->quantity;
 
         if ($orderQty > $maxQuantity) {

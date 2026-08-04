@@ -27,6 +27,34 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Kitchen Accept Window
+    |--------------------------------------------------------------------------
+    |
+    | Minutes around a group's schedule during which a kitchen may accept it.
+    | Admin Settings can override this at runtime via the settings table.
+    |
+    */
+
+    'accept_window_minutes' => (int) env('ACCEPT_WINDOW_MINUTES', 120),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Kitchen Tier Defaults (allowed concurrent open groups)
+    |--------------------------------------------------------------------------
+    |
+    | Used when Settings rows are missing. Admin Settings overrides per tier;
+    | activation copies the tier default onto the kitchen (overridable later).
+    |
+    */
+
+    'kitchen_tier_defaults' => [
+        'silver' => (int) env('KITCHEN_TIER_SILVER_OPEN_GROUPS', 1),
+        'gold' => (int) env('KITCHEN_TIER_GOLD_OPEN_GROUPS', 2),
+        'platinum' => (int) env('KITCHEN_TIER_PLATINUM_OPEN_GROUPS', 3),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Kitchen Dispatch Deadline
     |--------------------------------------------------------------------------
     |

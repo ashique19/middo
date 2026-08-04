@@ -5,7 +5,17 @@
         <p class="text-sm font-semibold text-gray-500">
             Unassigned menu order groups. Accepting assigns the group to your kitchen permanently.
         </p>
+        <p class="text-xs font-semibold text-gray-500">
+            Capacity: {{ $openGroupCount }} / {{ $allowedOpenGroups }} open groups
+            · {{ $remainingSlots }} slot(s) remaining
+        </p>
     </div>
+
+    @if($atCapacity)
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+            You are at capacity. Finish packing/dispatch (or release a group) before accepting another.
+        </div>
+    @endif
 
     @if($statusMessage)
         <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
@@ -40,9 +50,12 @@
                         wire:click="acceptOrder({{ $group['id'] }})"
                         wire:loading.attr="disabled"
                         wire:target="acceptOrder({{ $group['id'] }})"
+                        @disabled($atCapacity)
                         wire:confirm="Accept this order group? You cannot undo this."
-                        class="inline-flex items-center px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
-                        <span wire:loading.remove wire:target="acceptOrder({{ $group['id'] }})">Accept order</span>
+                        class="inline-flex items-center px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60 disabled:cursor-not-allowed">
+                        <span wire:loading.remove wire:target="acceptOrder({{ $group['id'] }})">
+                            {{ $atCapacity ? 'At capacity' : 'Accept order' }}
+                        </span>
                         <span wire:loading wire:target="acceptOrder({{ $group['id'] }})">Accepting...</span>
                     </button>
                 </div>

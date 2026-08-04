@@ -105,8 +105,61 @@
                     {{ $staff->created_at?->timezone('Asia/Dhaka')->format('M d, Y') ?: '—' }}
                 </dd>
             </div>
+            @if($staffRole === 'kitchen')
+                <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Tier</dt>
+                    <dd class="font-semibold text-gray-800 mt-0.5 capitalize">{{ $staff->kitchen_tier ?: '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Allowed open groups</dt>
+                    <dd class="font-semibold text-gray-800 mt-0.5">
+                        {{ $staff->allowed_open_groups !== null ? $staff->allowed_open_groups : '—' }}
+                    </dd>
+                </div>
+            @endif
         </dl>
     </div>
+
+    @if($staffRole === 'kitchen' && $this->canEditKitchenCapacity())
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Kitchen capacity</h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    Tier defaults come from Settings on activation. You can override allowed open groups for this kitchen anytime.
+                </p>
+            </div>
+            <form wire:submit="saveKitchenCapacity" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Tier</label>
+                    <select wire:model="edit_kitchen_tier"
+                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                        <option value="silver">Silver</option>
+                        <option value="gold">Gold</option>
+                        <option value="platinum">Platinum</option>
+                    </select>
+                    @error('edit_kitchen_tier') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Allowed open groups</label>
+                    <input type="number" min="0" max="100" wire:model="edit_allowed_open_groups"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    @error('edit_allowed_open_groups') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="submit"
+                            class="inline-flex px-4 py-2 rounded-xl bg-middo-orange text-white text-xs font-bold hover:bg-[#733614] transition">
+                        Save
+                    </button>
+                    <button type="button"
+                            wire:click="resetAllowedToTierDefault"
+                            wire:confirm="Reset allowed open groups to the current Settings default for this tier?"
+                            class="inline-flex px-4 py-2 rounded-xl border border-gray-200 text-xs font-bold text-middo-dark hover:border-middo-orange transition">
+                        Reset to tier default
+                    </button>
+                </div>
+            </form>
+        </div>
+    @endif
 
     <div class="space-y-3">
         <div class="flex items-center justify-between gap-3">

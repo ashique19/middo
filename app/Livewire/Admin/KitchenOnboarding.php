@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\User;
+use App\Support\KitchenActivation;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -20,8 +21,8 @@ class KitchenOnboarding extends Component
     public function activate(int $id): void
     {
         $kitchen = $this->findPendingKitchen($id);
-        $kitchen->update(['status' => 'active']);
-        session()->flash('message', "{$kitchen->name} activated.");
+        KitchenActivation::activate($kitchen);
+        session()->flash('message', "{$kitchen->fresh()->name} activated.");
     }
 
     public function suspend(int $id): void

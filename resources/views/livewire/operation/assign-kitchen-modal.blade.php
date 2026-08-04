@@ -26,7 +26,9 @@
                             class="w-full border border-gray-300 rounded-xl shadow-sm focus:border-middo-orange focus:ring-middo-orange p-3 text-sm">
                             <option value="">Unassigned</option>
                             @foreach($kitchens as $kitchen)
-                                <option value="{{ $kitchen['id'] }}">{{ $kitchen['name'] }}</option>
+                                <option value="{{ $kitchen['id'] }}" @disabled(!empty($kitchen['at_capacity']))>
+                                    {{ $kitchen['label'] ?? $kitchen['name'] }}{{ !empty($kitchen['at_capacity']) ? ' (at capacity)' : '' }}
+                                </option>
                             @endforeach
                         </select>
                         @error('selectedKitchenId')

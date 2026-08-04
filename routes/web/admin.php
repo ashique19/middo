@@ -2,12 +2,14 @@
 
 use App\Http\Controllers\Admin\NavRoleController;
 use App\Livewire\Admin\KitchenOnboarding;
+use App\Livewire\Admin\SettingsPage;
+use App\Livewire\Admin\UserShow;
 use App\Livewire\Operation\ActiveOrders;
 use App\Livewire\Operation\KitchenAllOrders;
 use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\OrderHistory;
 use App\Livewire\Operation\SearchOrder;
-use App\Livewire\Admin\UserShow;
+use App\Livewire\Shared\AccountsHub;
 use App\Livewire\Shared\CorporateShow;
 use App\Livewire\Shared\CorporateTable;
 use App\Livewire\Shared\MealItemShow;
@@ -18,13 +20,14 @@ use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
 use App\Livewire\Shared\PackageInsights;
 use App\Livewire\Shared\RecipeShow;
+use App\Livewire\Shared\StaffDashboard;
 use App\Livewire\Shared\StaffProfileShow;
 use App\Livewire\Shared\SubscriptionShow;
 use Illuminate\Support\Facades\Route;
 
 // routes/web/admin.php
 Route::middleware(['auth', 'role:admin'])->group(function () {
-    Route::get('/dashboard', \App\Livewire\Shared\StaffDashboard::class)->name('admin.dashboard');
+    Route::get('/dashboard', StaffDashboard::class)->name('admin.dashboard');
 
     Route::get('/kitchens/active', Kitchens::class)->name('admin.kitchens.active');
     Route::get('/kitchens/onboarding', KitchenOnboarding::class)->name('admin.kitchens.onboarding');
@@ -54,8 +57,9 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/orders/{order}', OrderShow::class)->name('admin.orders.show');
 
     Route::get('/navs-roles', [NavRoleController::class, 'index'])->name('admin.navrole.index');
+    Route::get('/settings', SettingsPage::class)->name('admin.settings.index');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('admin.middo-cash');
-    Route::get('/accounts', \App\Livewire\Shared\AccountsHub::class)->name('admin.accounts.index');
+    Route::get('/accounts', AccountsHub::class)->name('admin.accounts.index');
 
     Route::get('/corporates', CorporateTable::class)->name('admin.corporates.index');
     Route::get('/corporates/{corporate}', CorporateShow::class)->name('admin.corporates.show');

@@ -1,0 +1,304 @@
+{
+  "title": "Kitchen experience — completion backlog",
+  "version": 2,
+  "updated": "2026-08-04",
+  "context": {
+    "existing_kitchen_livewire": [
+      "Dashboard",
+      "MealOrders (accept open groups, pack, dispatch)",
+      "Boxes (receive Middo boxes, send empty to ops)",
+      "Accounts (cash handovers into Middo ledger)",
+      "Recipes (menus assigned to kitchen)"
+    ],
+    "product_rules_agreed": [
+      "MealOrderGrouper already rejects qty > auto_meal_group_quantity",
+      "Admin configures accept window, group size, kitchen tiers + default accept qty per tier",
+      "On kitchen activation, allowed_quantity is auto-copied from that kitchen's tier default; admin can override per kitchen",
+      "Kitchen can decline or report shortage; Middo reassigns",
+      "Kitchen can release accepted group back to pool before pack",
+      "Ready (kitchen done) is separate from rider pickup / dispatch",
+      "Kitchen can mark Middo box damaged before return to ops",
+      "Kitchen ledger: receivable from Middo + withdrawal + send-money-to-Middo with proof"
+    ]
+  },
+  "phases": [
+    {
+      "id": "K0",
+      "name": "Admin settings + kitchen capacity model",
+      "priority": 1,
+      "status": "done",
+      "items": [
+        {
+          "id": "K0.1",
+          "title": "Admin Settings: grouping & accept window",
+          "status": "done",
+          "details": [
+            "UI under Admin → Settings (or Ops config) for: accept_window_minutes, auto_meal_group_quantity (default 10)",
+            "Persist in settings / config table (not only .env)",
+            "MealOrderGrouper and Kitchen MealOrders read these values"
+          ]
+        },
+        {
+          "id": "K0.2",
+          "title": "Kitchen tiers + default accept quantity by tier",
+          "status": "done",
+          "details": [
+            "Define kitchen tiers: silver, gold, platinum (extensible enum/config)",
+            "Admin Settings: default_allowed_open_groups (or accept quantity) PER TIER — e.g. silver=1, gold=2, platinum=3 (example only; admin-editable)",
+            "Kitchens table: tier column (silver|gold|platinum) + allowed_open_groups (nullable until activated / set)",
+            "Admin can change a kitchen's tier anytime; optionally offer 'reset allowed qty to tier default' action",
+            "Admin can always override allowed_open_groups for a specific kitchen without changing the tier default"
+          ]
+        },
+        {
+          "id": "K0.3",
+          "title": "On activation: auto-apply tier default quantity",
+          "status": "done",
+          "details": [
+            "When admin activates a kitchen (KitchenOnboarding::activate or equivalent), if allowed_open_groups is empty/null, copy from Settings default for that kitchen's tier",
+            "If kitchen has no tier set at activation, require selecting a tier first (or default to silver)",
+            "After activation, admin can still edit that kitchen's allowed_open_groups independently",
+            "Changing tier defaults in Settings does NOT retroactively overwrite existing kitchens' allowed_open_groups (only new activations / explicit reset)"
+          ]
+        },
+        {
+          "id": "K0.4",
+          "title": "Enforce capacity / open-group slots",
+          "status": "done",
+          "details": [
+            "At accept time: kitchen may only hold up to allowed_open_groups concurrent open groups (definition: accepted/preparing/ready — not yet dispatched or released)",
+            "Hide or disable Accept when at capacity; show remaining slots",
+            "Tests for tier default copy on activate + per-kitchen override + capacity gate"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K1",
+      "name": "Accept / decline / release / ready vs pickup",
+      "priority": 2,
+      "status": "todo",
+      "depends_on": ["K0"],
+      "items": [
+        {
+          "id": "K1.1",
+          "title": "Accept window + capacity guards on Accept",
+          "status": "todo",
+          "details": [
+            "Reject accept if outside accept_window_minutes from schedule/group time",
+            "Reject accept if kitchen already at allowed_open_groups",
+            "Clear UX: countdown / slots remaining"
+          ]
+        },
+        {
+          "id": "K1.2",
+          "title": "Decline or report shortage → Middo reassign",
+          "status": "todo",
+          "details": [
+            "Kitchen: Decline with reason OR Report shortage (items/qty)",
+            "Unassign kitchen; group returns to open pool or ops queue",
+            "Notify Middo ops; audit log"
+          ]
+        },
+        {
+          "id": "K1.3",
+          "title": "Kitchen release before pack",
+          "status": "todo",
+          "details": [
+            "If accepted but not packed, kitchen can Release back to open pool",
+            "Clears one capacity slot; audit log"
+          ]
+        },
+        {
+          "id": "K1.4",
+          "title": "Split Ready vs Rider pickup / Dispatch",
+          "status": "todo",
+          "details": [
+            "New kitchen action: Mark ready (prep complete, waiting for rider)",
+            "Dispatch / hand to rider remains separate (existing or renamed)",
+            "Statuses/UI: Open → Accepted → Preparing → Ready → Dispatched",
+            "Dashboard counts Ready separately from in-prep"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K2",
+      "name": "Boxes — damage + UX",
+      "priority": 3,
+      "status": "todo",
+      "items": [
+        {
+          "id": "K2.1",
+          "title": "Mark Middo box damaged (before send to ops)",
+          "status": "todo",
+          "details": [
+            "While box is with kitchen (empty/full as allowed by rules), Mark damaged + note/photo optional",
+            "Status/path so ops sees damaged boxes; do not treat as normal empty return",
+            "Audit + notify ops"
+          ]
+        },
+        {
+          "id": "K2.2",
+          "title": "Box list UX polish",
+          "status": "todo",
+          "details": [
+            "Clear filters: with me / sendable / damaged / history",
+            "Confirmations on receive / damage / send to Middo"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K3",
+      "name": "Kitchen money — receivable, withdraw, send to Middo",
+      "priority": 4,
+      "status": "todo",
+      "items": [
+        {
+          "id": "K3.1",
+          "title": "Kitchen account: Middo receivable balance",
+          "status": "todo",
+          "details": [
+            "Show amount Middo owes kitchen (from settlement share rules)",
+            "Ledger / statement of earnings vs payouts"
+          ]
+        },
+        {
+          "id": "K3.2",
+          "title": "Kitchen withdrawal request",
+          "status": "todo",
+          "details": [
+            "Kitchen requests withdrawal of receivable",
+            "Admin/ops approve/pay; reduce receivable"
+          ]
+        },
+        {
+          "id": "K3.3",
+          "title": "Send money to Middo (with proof)",
+          "status": "todo",
+          "details": [
+            "Kitchen declares transfer to Middo + proof upload (bkash/bank ref)",
+            "Ops/admin confirm; reconcile against COD / dues"
+          ]
+        },
+        {
+          "id": "K3.4",
+          "title": "Cash handover scoped to this kitchen",
+          "status": "todo",
+          "details": [
+            "Handover UI only shows riders/deliveries tied to this kitchen",
+            "Align with Middo cash ledger confirmation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K4",
+      "name": "Prep intelligence (recipes → shopping list)",
+      "priority": 5,
+      "status": "todo",
+      "items": [
+        {
+          "id": "K4.1",
+          "title": "Accepted-groups ingredient rollup",
+          "status": "todo",
+          "details": [
+            "From recipes on menus in accepted/preparing groups, aggregate ingredients × qty",
+            "Printable / exportable prep sheet for the day"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K5",
+      "name": "Notifications & SLA",
+      "priority": 6,
+      "status": "todo",
+      "items": [
+        {
+          "id": "K5.1",
+          "title": "Kitchen alerts",
+          "status": "todo",
+          "details": [
+            "New open group in catchment",
+            "Accept window ending",
+            "Rider assigned / arrived for Ready orders",
+            "Box / money confirmation updates"
+          ]
+        },
+        {
+          "id": "K5.2",
+          "title": "SLA warn before accept window ends",
+          "status": "todo",
+          "details": [
+            "Dashboard badge / list highlight for groups nearing deadline"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K6",
+      "name": "Trust, profile, permissions",
+      "priority": 7,
+      "status": "todo",
+      "items": [
+        {
+          "id": "K6.1",
+          "title": "Complaints visible to kitchen (scoped)",
+          "status": "todo"
+        },
+        {
+          "id": "K6.2",
+          "title": "Kitchen profile & hours edit",
+          "status": "todo"
+        },
+        {
+          "id": "K6.3",
+          "title": "Permission matrix cleanup for kitchen role",
+          "status": "todo"
+        }
+      ]
+    }
+  ],
+  "suggested_build_order": [
+    "K0.1 Settings: window + group size",
+    "K0.2 Tiers + default qty per tier + kitchen.tier + kitchen.allowed_open_groups",
+    "K0.3 Activation copies tier default → kitchen.allowed_open_groups",
+    "K0.4 Enforce slots on accept",
+    "K1.1–K1.4 Accept guards, decline/shortage, release, Ready vs Dispatch",
+    "K2 Boxes damage",
+    "K3 Money flows",
+    "K4 Prep rollup",
+    "K5 Notifications",
+    "K6 Profile / complaints / perms"
+  ],
+  "data_model_sketch": {
+    "settings_keys": [
+      "meal.accept_window_minutes",
+      "meal.auto_group_quantity",
+      "kitchen.tier_defaults.silver.allowed_open_groups",
+      "kitchen.tier_defaults.gold.allowed_open_groups",
+      "kitchen.tier_defaults.platinum.allowed_open_groups"
+    ],
+    "kitchens_columns": [
+      "tier: string enum silver|gold|platinum",
+      "allowed_open_groups: unsigned int null — set on activate from tier default; admin-overridable"
+    ],
+    "activation_hook": "KitchenOnboarding::activate (and any other activate path) → resolve tier default → set allowed_open_groups if null"
+  },
+  "example_defaults_not_binding": {
+    "auto_meal_group_quantity": 10,
+    "tier_allowed_open_groups": {
+      "silver": 1,
+      "gold": 2,
+      "platinum": 3
+    },
+    "note": "Numbers are examples only; admin configures real defaults in Settings"
+  },
+  "out_of_scope_unless_requested": [
+    "Full WMS / inventory purchasing",
+    "Kitchen mobile native apps",
+    "Dynamic surge pricing by kitchen tier"
+  ]
+}

@@ -23,6 +23,8 @@ use Laravel\Sanctum\HasApiTokens;
     'password',
     'role_id',
     'status',
+    'kitchen_tier',
+    'allowed_open_groups',
     'is_mobile_verified',
     'address',
     'city_id',
@@ -46,6 +48,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_mobile_verified' => 'boolean', // Ensures 0/1 becomes false/true
             'balance' => 'integer',
+            'allowed_open_groups' => 'integer',
         ];
     }
 

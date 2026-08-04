@@ -4,6 +4,8 @@ namespace App\Livewire\Operation;
 
 use App\Models\OrderGroup;
 use App\Models\User;
+use App\Support\KitchenCapacity;
+use App\Support\OrderKitchenAcceptance;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -44,7 +46,7 @@ class AssignKitchenModal extends Component
         $this->groupName = $group->name;
         $this->kitchenLabel = $group->kitchenDisplayName();
         $this->selectedKitchenId = $group->kitchen_id;
-        $this->kitchens = $this->fetchKitchens();
+        $this->kitchens = $this->fetchKitchens($group->kitchen_id);
         $this->showModal = true;
     }
 
@@ -92,6 +94,19 @@ class AssignKitchenModal extends Component
             }
         }
 
+        if ($nextKitchenId && $kitchenChanging) {
+            $kitchen = User::query()->find($nextKitchenId);
+            if ($kitchen) {
+                try {
+                    KitchenCapacity::assertCanAccept($kitchen);
+                } catch (\RuntimeException $e) {
+                    $this->addError('selectedKitchenId', $e->getMessage());
+
+                    return;
+                }
+            }
+        }
+
         $group->update([
             'kitchen_id' => $nextKitchenId,
             'updated_by' => Auth::id(),
@@ -99,14 +114,14 @@ class AssignKitchenModal extends Component
 
         // First-time kitchen assignment advances pending orders to processing (push + UI).
         if ($nextKitchenId && ! $previousKitchenId) {
-            \App\Support\OrderKitchenAcceptance::markGroupOrdersProcessing($group, Auth::id());
+            OrderKitchenAcceptance::markGroupOrdersProcessing($group, Auth::id());
         }
 
         $this->dispatch('order-group-kitchen-changed');
         $this->closeModal();
     }
 
-    protected function fetchKitchens(): array
+    protected function fetchKitchens(?int $currentKitchenId = null): array
     {
         return User::query()
             ->whereHas('role', fn ($query) => $query->where('name', 'kitchen'))
@@ -114,10 +129,26 @@ class AssignKitchenModal extends Component
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get()
-            ->map(fn (User $user) => [
-                'id' => $user->id,
-                'name' => $user->name,
-            ])
+            ->map(function (User $user) use ($currentKitchenId) {
+                $remaining = KitchenCapacity::remainingSlots($user);
+                $atCapacity = $remaining <= 0 && (int) $user->id !== (int) $currentKitchenId;
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'tier' => $user->kitchen_tier,
+                    'remaining_slots' => $remaining,
+                    'at_capacity' => $atCapacity,
+                    'label' => sprintf(
+                        '%s · %s · %d slot(s) left',
+                        $user->name,
+                        KitchenCapacity::effectiveAllowedOpenGroups($user) > 0
+                            ? ucfirst((string) ($user->kitchen_tier ?: 'silver'))
+                            : 'no tier',
+                        $remaining
+                    ),
+                ];
+            })
             ->all();
     }
 

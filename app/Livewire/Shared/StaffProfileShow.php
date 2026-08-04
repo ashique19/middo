@@ -4,8 +4,12 @@ namespace App\Livewire\Shared;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Support\KitchenActivation;
+use App\Support\KitchenTier;
+use App\Support\MiddoSettings;
 use App\Support\PackageOrderPresenter;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -17,6 +21,10 @@ class StaffProfileShow extends Component
 
     /** @var 'kitchen'|'delivery' */
     public string $staffRole;
+
+    public string $edit_kitchen_tier = KitchenTier::SILVER;
+
+    public $edit_allowed_open_groups = 1;
 
     public function mount(?User $kitchen = null, ?User $delivery = null): void
     {
@@ -32,6 +40,18 @@ class StaffProfileShow extends Component
 
         $this->staff = $staff;
         $this->staffRole = $expected;
+        $this->syncKitchenEditFields();
+    }
+
+    protected function syncKitchenEditFields(): void
+    {
+        if ($this->staffRole !== 'kitchen') {
+            return;
+        }
+
+        $this->edit_kitchen_tier = KitchenTier::normalize($this->staff->kitchen_tier);
+        $this->edit_allowed_open_groups = $this->staff->allowed_open_groups
+            ?? MiddoSettings::defaultAllowedOpenGroupsForTier($this->edit_kitchen_tier);
     }
 
     protected function rolePrefix(): string
@@ -67,12 +87,18 @@ class StaffProfileShow extends Component
             && Auth::user()?->role?->name === 'admin';
     }
 
+    public function canEditKitchenCapacity(): bool
+    {
+        return $this->canManageKitchenStatus();
+    }
+
     public function activate(): void
     {
         abort_unless($this->canManageKitchenStatus(), 403);
 
-        $this->staff->update(['status' => 'active']);
+        KitchenActivation::activate($this->staff);
         $this->staff->refresh();
+        $this->syncKitchenEditFields();
 
         session()->flash('message', "{$this->staff->name} activated.");
     }
@@ -85,6 +111,41 @@ class StaffProfileShow extends Component
         $this->staff->refresh();
 
         session()->flash('message', "{$this->staff->name} suspended.");
+    }
+
+    public function saveKitchenCapacity(): void
+    {
+        abort_unless($this->canEditKitchenCapacity(), 403);
+
+        $this->validate([
+            'edit_kitchen_tier' => ['required', Rule::in(KitchenTier::all())],
+            'edit_allowed_open_groups' => 'required|integer|min:0|max:100',
+        ]);
+
+        $this->staff->update([
+            'kitchen_tier' => $this->edit_kitchen_tier,
+            'allowed_open_groups' => (int) $this->edit_allowed_open_groups,
+        ]);
+        $this->staff->refresh();
+        $this->syncKitchenEditFields();
+
+        session()->flash('message', 'Kitchen tier and allowed open groups updated.');
+    }
+
+    public function resetAllowedToTierDefault(): void
+    {
+        abort_unless($this->canEditKitchenCapacity(), 403);
+
+        $this->validate([
+            'edit_kitchen_tier' => ['required', Rule::in(KitchenTier::all())],
+        ]);
+
+        $this->staff->update(['kitchen_tier' => $this->edit_kitchen_tier]);
+        KitchenActivation::resetAllowedOpenGroupsToTierDefault($this->staff->fresh());
+        $this->staff->refresh();
+        $this->syncKitchenEditFields();
+
+        session()->flash('message', 'Allowed open groups reset to '.$this->edit_kitchen_tier.' tier default ('.$this->staff->allowed_open_groups.').');
     }
 
     /**
