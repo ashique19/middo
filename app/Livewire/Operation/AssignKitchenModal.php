@@ -5,6 +5,7 @@ namespace App\Livewire\Operation;
 use App\Models\OrderGroup;
 use App\Models\OrderGroupEvent;
 use App\Models\User;
+use App\Support\KitchenAcceptWindow;
 use App\Support\KitchenCapacity;
 use App\Support\OrderKitchenAcceptance;
 use App\Support\StaffAlerts;
@@ -28,6 +29,8 @@ class AssignKitchenModal extends Component
 
     public ?string $groupAlert = null;
 
+    public ?array $acceptWindow = null;
+
     #[On('open-assign-kitchen-modal')]
     public function openModal($orderGroupId = null): void
     {
@@ -39,7 +42,7 @@ class AssignKitchenModal extends Component
             return;
         }
 
-        $group = OrderGroup::with('kitchen')->find((int) $id);
+        $group = OrderGroup::with(['kitchen', 'orders'])->find((int) $id);
 
         if (! $group) {
             return;
@@ -52,6 +55,7 @@ class AssignKitchenModal extends Component
         $this->selectedKitchenId = $group->kitchen_id;
         $this->kitchens = $this->fetchKitchens($group->kitchen_id);
         $this->groupAlert = $this->recentGroupAlert($group->id);
+        $this->acceptWindow = KitchenAcceptWindow::statusPayload($group);
         $this->showModal = true;
     }
 
@@ -63,6 +67,7 @@ class AssignKitchenModal extends Component
         $this->kitchenLabel = 'Unassigned';
         $this->selectedKitchenId = null;
         $this->groupAlert = null;
+        $this->acceptWindow = null;
     }
 
     public function save(): void

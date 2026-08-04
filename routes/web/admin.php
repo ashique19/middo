@@ -16,6 +16,7 @@ use App\Livewire\Shared\KitchenMoneyApprovals;
 use App\Livewire\Shared\RiderMoneyApprovals;
 use App\Livewire\Operation\CashHandovers;
 use App\Livewire\Operation\CustomRuns;
+use App\Livewire\Operation\SlaBoard;
 use App\Livewire\Shared\MealItemShow;
 use App\Livewire\Shared\MenuShow;
 use App\Livewire\Shared\MiddoCashLedgerPage;
@@ -66,6 +67,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/settings', SettingsPage::class)->name('admin.settings.index');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('admin.middo-cash');
     Route::get('/cash-handovers', CashHandovers::class)->name('admin.cash-handovers');
+    Route::get('/sla', SlaBoard::class)->name('admin.sla.index');
     Route::get('/accounts', AccountsHub::class)->name('admin.accounts.index');
     Route::get('/kitchen-money', KitchenMoneyApprovals::class)->name('admin.kitchen-money.index');
     Route::get('/rider-money', RiderMoneyApprovals::class)->name('admin.rider-money.index');

@@ -40,6 +40,21 @@
                         Current assignment: <span class="font-semibold text-gray-700">{{ $kitchenLabel }}</span>
                     </p>
 
+                    @if($acceptWindow)
+                        <div @class([
+                            'rounded-xl border px-3 py-2 text-xs font-semibold',
+                            'border-rose-200 bg-rose-50 text-rose-900' => ($acceptWindow['state'] ?? '') === 'closed',
+                            'border-amber-200 bg-amber-50 text-amber-900' => ($acceptWindow['state'] ?? '') === 'open' && ($acceptWindow['closing_soon'] ?? false),
+                            'border-emerald-200 bg-emerald-50 text-emerald-900' => ($acceptWindow['state'] ?? '') === 'open' && !($acceptWindow['closing_soon'] ?? false),
+                            'border-gray-200 bg-gray-50 text-gray-700' => ($acceptWindow['state'] ?? '') === 'not_yet',
+                        ])>
+                            Kitchen accept window — {{ $acceptWindow['label'] ?? '—' }}
+                            @if(($acceptWindow['state'] ?? '') === 'closed')
+                                <span class="block mt-1 font-medium opacity-80">Ops can still assign (override).</span>
+                            @endif
+                        </div>
+                    @endif
+
                     @if($groupAlert)
                         <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
                             Recent kitchen event — {{ $groupAlert }}

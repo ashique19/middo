@@ -152,6 +152,8 @@ class OpsDashboardMetrics
             ])
             ->all();
 
+        $slaCounts = OpsSlaBoard::counts();
+
         $attention = array_values(array_filter([
             $ungrouped > 0 ? [
                 'label' => 'Ungrouped active orders',
@@ -182,6 +184,20 @@ class OpsDashboardMetrics
                 'tone' => 'emerald',
                 'route' => null,
                 'hint' => 'Rider cash waiting kitchen accept',
+            ] : null,
+            $slaCounts['unassigned_closed'] > 0 ? [
+                'label' => 'Unassigned — accept window closed',
+                'value' => $slaCounts['unassigned_closed'],
+                'tone' => 'rose',
+                'route' => $role.'.sla.index',
+                'hint' => 'Needs ops kitchen assign',
+            ] : null,
+            $slaCounts['late_to_pack'] > 0 ? [
+                'label' => 'Late to pack / past deadline',
+                'value' => $slaCounts['late_to_pack'],
+                'tone' => 'rose',
+                'route' => $role.'.sla.index',
+                'hint' => 'Kitchen past dispatch deadline',
             ] : null,
             $role === 'admin' && $pendingKitchens > 0 ? [
                 'label' => 'Kitchens pending onboarding',
@@ -322,6 +338,7 @@ class OpsDashboardMetrics
     {
         $links = [
             ['label' => 'Active orders', 'route' => $role.'.orders.active', 'hint' => 'Group & dispatch'],
+            ['label' => 'Dispatch SLA', 'route' => $role.'.sla.index', 'hint' => 'Unassigned & late'],
             ['label' => 'Corporates', 'route' => $role.'.corporates.index', 'hint' => 'Accounts & history'],
             ['label' => 'Kitchens', 'route' => $role === 'admin' ? 'admin.kitchens.active' : 'operation.kitchens.index', 'hint' => 'Kitchen roster'],
             ['label' => 'Packages', 'route' => $role.'.packages.index', 'hint' => 'Rate plans'],

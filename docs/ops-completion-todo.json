@@ -69,12 +69,13 @@
     {
       "id": "O2",
       "title": "Situational awareness — unassigned + SLA board",
-      "status": "pending",
+      "status": "done",
       "items": [
-        "Unassigned groups board with KitchenAcceptWindow + DispatchDeadline state",
-        "Late-to-pack / past-deadline list on ops dashboard or dedicated page",
-        "Accept-window status in AssignKitchenModal",
-        "Optional: unread alert badge"
+        "Unassigned groups board with KitchenAcceptWindow + DispatchDeadline state — done",
+        "Late-to-pack / past-deadline list on ops Dispatch SLA page — done",
+        "Accept-window status in AssignKitchenModal — done",
+        "Dashboard attention + nav for Dispatch SLA — done",
+        "Optional: unread alert badge — deferred"
       ]
     },
     {
