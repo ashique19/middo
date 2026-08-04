@@ -2,14 +2,25 @@
     <div class="space-y-1">
         <a href="{{ route('kitchen.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
         <h1 class="text-3xl font-bold text-middo-dark">Kitchen account</h1>
-        <p class="text-sm text-gray-500">Middo receivable balance, withdrawals, and transfers to Middo.</p>
+        <p class="text-sm text-gray-500">Dispatch credits your wallet (Middo owes you). Cash from riders debits it. Surplus cash means you owe Middo.</p>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Receivable from Middo</p>
-            <p class="text-3xl font-black text-middo-dark">৳{{ number_format($balance) }}</p>
-            <p class="text-xs text-gray-500 mt-1">Open payables ৳{{ number_format($openPayableTotal) }}</p>
+            @if($balance > 0)
+                <p class="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-1">Middo owes you</p>
+                <p class="text-3xl font-black text-middo-dark">৳{{ number_format($balance) }}</p>
+            @elseif($balance < 0)
+                <p class="text-xs font-bold uppercase tracking-wider text-rose-600 mb-1">You owe Middo</p>
+                <p class="text-3xl font-black text-rose-700">৳{{ number_format(abs($balance)) }}</p>
+            @else
+                <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Wallet balance</p>
+                <p class="text-3xl font-black text-middo-dark">৳0</p>
+                <p class="text-xs text-gray-500 mt-1">Settled</p>
+            @endif
+            @if($openPayableTotal > 0)
+                <p class="text-xs text-gray-500 mt-1">Open dispatch payables ৳{{ number_format($openPayableTotal) }}</p>
+            @endif
         </div>
         <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Quick actions</p>
@@ -39,7 +50,7 @@
 
     @if($tab === 'statement')
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-            <div class="px-4 py-3 border-b text-sm font-bold text-middo-dark">Receivable ledger</div>
+            <div class="px-4 py-3 border-b text-sm font-bold text-middo-dark">Kitchen wallet ledger</div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm min-w-[640px]">
                     <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
@@ -60,10 +71,12 @@
                                 <td @class(['p-3 text-right font-bold', 'text-emerald-700' => $row->amount > 0, 'text-rose-700' => $row->amount < 0])>
                                     {{ $row->amount > 0 ? '+' : '' }}৳{{ number_format($row->amount) }}
                                 </td>
-                                <td class="p-3 text-right font-mono">৳{{ number_format($row->balance_after) }}</td>
+                                <td @class(['p-3 text-right font-mono', 'text-rose-700' => $row->balance_after < 0])>
+                                    ৳{{ number_format($row->balance_after) }}
+                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="p-10 text-center text-gray-400 italic">No ledger entries yet. Earnings appear when orders are delivered & paid.</td></tr>
+                            <tr><td colspan="5" class="p-10 text-center text-gray-400 italic">No ledger entries yet. Balance credits when you dispatch an order.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -91,7 +104,7 @@
     @if($tab === 'withdraw')
         <form wire:submit="requestWithdrawal" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Request withdrawal</h2>
-            <p class="text-sm text-gray-500">Amount must match a FIFO total of whole open payables (see Statement). Middo pays from cash on approval.</p>
+            <p class="text-sm text-gray-500">Withdraw when Middo owes you (positive balance). Amount must match a FIFO total of whole open payables. Middo pays from cash on approval.</p>
             <div>
                 <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Amount (৳)</label>
                 <input type="number" min="1" wire:model="withdrawAmount" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
@@ -136,7 +149,7 @@
     @if($tab === 'send')
         <form wire:submit="submitTransfer" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Send money to Middo</h2>
-            <p class="text-sm text-gray-500">Declare a bank/bKash transfer with proof. Ops confirms into the Middo cash ledger.</p>
+            <p class="text-sm text-gray-500">When you hold surplus cash (you owe Middo), transfer it with proof. Ops confirmation credits your wallet and Middo’s cash ledger.</p>
             <div>
                 <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Amount (৳)</label>
                 <input type="number" min="1" wire:model="transferAmount" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">

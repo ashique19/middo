@@ -128,6 +128,17 @@ class KitchenMoneyService
                 $actorId
             );
 
+            // Kitchen paid Middo cash they were holding → credit kitchen wallet (reduce debt / Middo owes more).
+            KitchenAccountLedger::credit(
+                (int) $locked->kitchen_user_id,
+                (int) $locked->amount,
+                'transfer_confirmed',
+                KitchenMiddoTransfer::class,
+                $locked->id,
+                "Transfer #{$locked->id} to Middo confirmed",
+                $actorId
+            );
+
             $locked->update([
                 'status' => KitchenMiddoTransfer::STATUS_CONFIRMED,
                 'reviewed_by' => $actorId,

@@ -57,8 +57,11 @@ class Account extends Component
 
             $amount = (int) $this->withdrawAmount;
             $balance = KitchenAccountLedger::balance($kitchenId);
+            if ($balance < 1) {
+                throw new \RuntimeException('Nothing to withdraw — Middo does not currently owe you.');
+            }
             if ($amount > $balance) {
-                throw new \RuntimeException("Requested ৳{$amount} exceeds receivable balance ৳{$balance}.");
+                throw new \RuntimeException("Requested ৳{$amount} exceeds what Middo owes you (৳{$balance}).");
             }
 
             if (KitchenWithdrawalRequest::query()

@@ -20,6 +20,8 @@ class OrderMoneyEvent extends Model
 
     public const TYPE_CASH_TO_MIDDO = 'cash_to_middo';
 
+    public const TYPE_CASH_TO_KITCHEN = 'cash_to_kitchen';
+
     public const TYPE_REFUND = 'refund';
 
     public const TYPE_KITCHEN_SHARE = 'kitchen_share';
@@ -51,6 +53,8 @@ class OrderMoneyEvent extends Model
     public const BUCKET_MIDDO_RETAINED = 'middo_retained';
 
     public const BUCKET_MIDDO_CASH = 'middo_cash';
+
+    public const BUCKET_KITCHEN_CASH = 'kitchen_cash';
 
     protected $fillable = [
         'order_id',

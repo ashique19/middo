@@ -133,6 +133,7 @@ class OrderAccountsTest extends TestCase
         ]);
 
         $order->update([
+            'dispatched_at' => now(),
             'order_status' => 'delivered_and_paid',
             'payment_status' => 'paid',
             'amount_paid' => 400,
@@ -151,6 +152,9 @@ class OrderAccountsTest extends TestCase
             'amount' => 50,
             'status' => 'open',
         ]);
+
+        $this->assertSame(100, KitchenAccountLedger::balance($kitchen->id));
+        $this->assertTrue(OrderMoneyEvent::query()->where('order_id', $order->id)->where('event_type', 'kitchen_share')->exists());
 
         $order->refresh();
         $this->assertSame(250, (int) $order->middo_rest_amount); // 400 - 100 - 50
@@ -220,7 +224,7 @@ class OrderAccountsTest extends TestCase
             ->exists());
     }
 
-    public function test_cash_handover_records_cash_to_middo_with_balance(): void
+    public function test_cash_handover_debits_kitchen_wallet(): void
     {
         $kitchen = $this->user('kitchen');
         $rider = $this->user('delivery', ['balance' => 300]);
@@ -271,13 +275,14 @@ class OrderAccountsTest extends TestCase
             ->call('accept', $handover->id)
             ->assertSet('errorMessage', null);
 
-        $this->assertSame(200, MiddoCashLedger::balance());
+        $this->assertSame(0, MiddoCashLedger::balance());
+        $this->assertSame(-200, KitchenAccountLedger::balance($kitchen->id));
         $event = OrderMoneyEvent::query()
             ->where('order_id', $order->id)
-            ->where('event_type', 'cash_to_middo')
+            ->where('event_type', 'cash_to_kitchen')
             ->first();
         $this->assertNotNull($event);
-        $this->assertSame(200, (int) $event->middo_cash_balance_after);
+        $this->assertSame(200, (int) $event->amount);
     }
 
     public function test_admin_accounts_hub_loads(): void

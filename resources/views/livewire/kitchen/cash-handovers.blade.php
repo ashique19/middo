@@ -3,7 +3,14 @@
         <a href="{{ route('kitchen.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
         <h1 class="text-3xl font-bold text-middo-dark">Cash handovers</h1>
         <p class="text-sm font-semibold text-gray-500">
-            Accept rider cash into the Middo cash ledger. Current Middo cash: ৳{{ number_format($middoBalance) }}
+            Accept rider cash into your kitchen float. Your wallet is debited (cash received).
+            @if($walletBalance > 0)
+                Middo currently owes you ৳{{ number_format($walletBalance) }}.
+            @elseif($walletBalance < 0)
+                You currently owe Middo ৳{{ number_format(abs($walletBalance)) }}.
+            @else
+                Wallet settled at ৳0.
+            @endif
         </p>
     </div>
 
@@ -42,7 +49,7 @@
                                 <button
                                     type="button"
                                     wire:click="accept({{ $handover->id }})"
-                                    wire:confirm="Accept this cash into Middo ledger?"
+                                    wire:confirm="Accept this cash? Your kitchen wallet will be debited."
                                     class="inline-flex px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">
                                     Accept cash
                                 </button>

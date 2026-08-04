@@ -66,6 +66,18 @@ class OrderMoneyFlow
 
         $changes = $order->getChanges();
 
+        // Capture transitions before any nested saveQuietly() syncs originals.
+        $newlyDispatched = array_key_exists('dispatched_at', $changes)
+            && $order->dispatched_at !== null
+            && blank($order->getOriginal('dispatched_at'));
+
+        $becameDeliveredAndPaid = array_key_exists('order_status', $changes)
+            && $order->order_status === 'delivered_and_paid'
+            && $order->getOriginal('order_status') !== 'delivered_and_paid';
+
+        $becameCancelled = array_key_exists('order_status', $changes)
+            && $order->order_status === 'cancelled';
+
         if (array_key_exists('cash_collected', $changes)) {
             $from = (int) $order->getOriginal('cash_collected');
             $to = (int) $order->cash_collected;
@@ -104,26 +116,31 @@ class OrderMoneyFlow
             }
         }
 
-        if (array_key_exists('order_status', $changes)
-            && $order->order_status === 'delivered_and_paid'
-            && $order->getOriginal('order_status') !== 'delivered_and_paid') {
+        if ($newlyDispatched) {
+            self::accrueKitchenShareOnDispatch($order);
+        }
+
+        if ($becameDeliveredAndPaid) {
             self::accrueShares($order);
         }
 
-        if (array_key_exists('order_status', $changes)
-            && $order->order_status === 'cancelled') {
+        if ($becameCancelled) {
             self::voidOpenPayables($order);
         }
     }
 
-    public static function recordCashHandover(CashHandover $handover): void
+    /**
+     * Rider cash accepted by kitchen: kitchen holds the cash, so Middo's debt to kitchen
+     * decreases (or kitchen begins to owe Middo if cash exceeds dispatched share).
+     */
+    public static function recordCashHandover(CashHandover $handover, ?int $kitchenUserId = null): void
     {
         if (! Schema::hasTable('order_money_events')) {
             return;
         }
 
-        $handover->loadMissing('items.order');
-        $cashBalance = MiddoCashLedger::balance();
+        $handover->loadMissing('items.order.orderGroup');
+        $kitchenBalance = $kitchenUserId ? KitchenAccountLedger::balance($kitchenUserId) : null;
 
         foreach ($handover->items as $item) {
             $order = $item->order;
@@ -135,14 +152,82 @@ class OrderMoneyFlow
                 continue;
             }
 
-            self::write($order, OrderMoneyEvent::TYPE_CASH_TO_MIDDO, OrderMoneyEvent::BUCKET_MIDDO_CASH, $amount, [
+            self::write($order, OrderMoneyEvent::TYPE_CASH_TO_KITCHEN, OrderMoneyEvent::BUCKET_KITCHEN_CASH, $amount, [
                 'channel' => 'cash',
-                'description' => "Cash handed to Middo (handover #{$handover->id})",
-                'middo_cash_balance_after' => $cashBalance,
+                'description' => "Cash handed to kitchen (handover #{$handover->id})",
                 'reference' => $handover,
-                'meta' => ['handover_id' => $handover->id, 'rider_id' => $handover->rider_id],
+                'meta' => [
+                    'handover_id' => $handover->id,
+                    'rider_id' => $handover->rider_id,
+                    'kitchen_id' => $kitchenUserId ?? $order->orderGroup?->kitchen_id,
+                    'kitchen_balance_after' => $kitchenBalance,
+                ],
             ]);
         }
+    }
+
+    /**
+     * On dispatch Middo owes the kitchen their share — credit kitchen wallet.
+     */
+    public static function accrueKitchenShareOnDispatch(Order $order): void
+    {
+        if (! Schema::hasTable('order_money_events')) {
+            return;
+        }
+
+        if (OrderMoneyEvent::query()
+            ->where('order_id', $order->id)
+            ->where('event_type', OrderMoneyEvent::TYPE_KITCHEN_SHARE)
+            ->exists()) {
+            return;
+        }
+
+        $order->loadMissing(['menuItem', 'orderGroup']);
+        $breakdown = self::computeBreakdown($order);
+        $order->forceFill([
+            'kitchen_share_amount' => $breakdown['kitchen_share_amount'],
+            'food_amount' => $breakdown['food_amount'],
+            'charges_amount' => $breakdown['charges_amount'],
+            'discount_amount' => $breakdown['discount_amount'],
+        ])->saveQuietly();
+
+        $kitchenAmount = (int) $breakdown['kitchen_share_amount'];
+        if ($kitchenAmount < 1) {
+            return;
+        }
+
+        $kitchenId = $order->orderGroup?->kitchen_id;
+        if (! $kitchenId) {
+            return;
+        }
+
+        self::write($order, OrderMoneyEvent::TYPE_KITCHEN_SHARE, OrderMoneyEvent::BUCKET_KITCHEN_PAYABLE, -1 * $kitchenAmount, [
+            'channel' => 'accrual',
+            'description' => 'Kitchen share accrued on dispatch (Middo owes kitchen)',
+            'meta' => ['kitchen_id' => $kitchenId],
+        ]);
+
+        self::upsertPayable(
+            $order,
+            PartnerPayable::ROLE_KITCHEN,
+            $kitchenId,
+            $kitchenAmount
+        );
+
+        $payable = PartnerPayable::query()
+            ->where('order_id', $order->id)
+            ->where('beneficiary_role', PartnerPayable::ROLE_KITCHEN)
+            ->first();
+
+        KitchenAccountLedger::credit(
+            (int) $kitchenId,
+            $kitchenAmount,
+            'share_accrued',
+            $payable ? PartnerPayable::class : null,
+            $payable?->id,
+            'Kitchen share for dispatched order #'.$order->id,
+            $order->updated_by
+        );
     }
 
     public static function accrueShares(Order $order): void
@@ -158,37 +243,8 @@ class OrderMoneyFlow
         $breakdown = self::computeBreakdown($order);
         $order->forceFill($breakdown)->saveQuietly();
 
-        if ((int) $breakdown['kitchen_share_amount'] > 0) {
-            self::write($order, OrderMoneyEvent::TYPE_KITCHEN_SHARE, OrderMoneyEvent::BUCKET_KITCHEN_PAYABLE, -1 * (int) $breakdown['kitchen_share_amount'], [
-                'channel' => 'accrual',
-                'description' => 'Kitchen share accrued (payable)',
-                'meta' => ['kitchen_id' => $order->orderGroup?->kitchen_id],
-            ]);
-            self::upsertPayable(
-                $order,
-                PartnerPayable::ROLE_KITCHEN,
-                $order->orderGroup?->kitchen_id,
-                (int) $breakdown['kitchen_share_amount']
-            );
-
-            $kitchenId = $order->orderGroup?->kitchen_id;
-            if ($kitchenId) {
-                $payable = PartnerPayable::query()
-                    ->where('order_id', $order->id)
-                    ->where('beneficiary_role', PartnerPayable::ROLE_KITCHEN)
-                    ->first();
-
-                KitchenAccountLedger::credit(
-                    (int) $kitchenId,
-                    (int) $breakdown['kitchen_share_amount'],
-                    'share_accrued',
-                    $payable ? PartnerPayable::class : null,
-                    $payable?->id,
-                    'Kitchen share accrued for order #'.$order->id,
-                    $order->updated_by
-                );
-            }
-        }
+        // Kitchen share is accrued on dispatch (see accrueKitchenShareOnDispatch).
+        // delivered_and_paid only settles delivery + Middo rest accounting.
 
         if ((int) $breakdown['delivery_share_amount'] > 0) {
             self::write($order, OrderMoneyEvent::TYPE_DELIVERY_SHARE, OrderMoneyEvent::BUCKET_DELIVERY_PAYABLE, -1 * (int) $breakdown['delivery_share_amount'], [
@@ -523,19 +579,15 @@ class OrderMoneyFlow
                 && $payable->beneficiary_user_id
                 && Schema::hasTable('kitchen_account_ledger')
             ) {
-                try {
-                    KitchenAccountLedger::debit(
-                        (int) $payable->beneficiary_user_id,
-                        (int) $payable->amount,
-                        'share_voided',
-                        PartnerPayable::class,
-                        $payable->id,
-                        'Kitchen share voided for cancelled order #'.$order->id,
-                        $order->updated_by
-                    );
-                } catch (\Throwable) {
-                    // Balance may already be withdrawn; void payable anyway.
-                }
+                KitchenAccountLedger::debit(
+                    (int) $payable->beneficiary_user_id,
+                    (int) $payable->amount,
+                    'share_voided',
+                    PartnerPayable::class,
+                    $payable->id,
+                    'Kitchen share voided for cancelled order #'.$order->id,
+                    $order->updated_by
+                );
             }
         }
 

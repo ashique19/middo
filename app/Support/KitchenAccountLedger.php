@@ -72,10 +72,9 @@ class KitchenAccountLedger
                 ->latest('id')
                 ->value('balance_after') ?? 0);
 
+            // Signed balance: positive = Middo owes kitchen; negative = kitchen owes Middo
+            // (e.g. cash received from riders exceeds dispatched kitchen share).
             $next = $current + $signedAmount;
-            if ($next < 0) {
-                throw new \RuntimeException('Kitchen receivable balance cannot go negative.');
-            }
 
             return KitchenAccountLedgerEntry::query()->create([
                 'kitchen_user_id' => $kitchenUserId,

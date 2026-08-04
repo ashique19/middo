@@ -17,6 +17,7 @@ use App\Models\OrderGroup;
 use App\Models\OrderMiddoBox;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\KitchenAccountLedger;
 use App\Support\MealOrderGrouper;
 use App\Support\MiddoCashLedger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -128,7 +129,7 @@ class OpsCycleCompletionTest extends TestCase
         $this->assertTrue($box->isAtKitchen($kitchen->id));
     }
 
-    public function test_cash_handover_credits_middo_ledger(): void
+    public function test_cash_handover_debits_kitchen_wallet(): void
     {
         $kitchenRole = Role::create(['name' => 'kitchen']);
         $deliveryRole = Role::create(['name' => 'delivery']);
@@ -203,7 +204,8 @@ class OpsCycleCompletionTest extends TestCase
             ->call('accept', $handover->id)
             ->assertSet('errorMessage', null);
 
-        $this->assertSame(250, MiddoCashLedger::balance());
+        $this->assertSame(0, MiddoCashLedger::balance());
+        $this->assertSame(-250, KitchenAccountLedger::balance($kitchen->id));
         $this->assertSame(250, (int) $rider->fresh()->balance);
         $this->assertSame('accepted', $handover->fresh()->status);
     }

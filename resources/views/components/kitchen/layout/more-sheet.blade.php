@@ -5,7 +5,7 @@
         ['title' => 'Prep shopping list', 'route' => 'kitchen.prep.shopping-list', 'hint' => 'Ingredients for accepted groups'],
         ['title' => 'Boxes at kitchen', 'route' => 'kitchen.middo-boxes.at-kitchen', 'hint' => 'Inventory with you'],
         ['title' => 'Incoming boxes', 'route' => 'kitchen.middo-boxes.incoming', 'hint' => 'Confirm rider returns'],
-        ['title' => 'Account', 'route' => 'kitchen.account', 'hint' => 'Receivable, withdraw, transfer'],
+        ['title' => 'Account', 'route' => 'kitchen.account', 'hint' => 'Wallet, withdraw, transfer'],
         ['title' => 'Cash handovers', 'route' => 'kitchen.cash-handovers', 'hint' => 'Accept rider cash'],
         ['title' => 'This month', 'route' => 'kitchen.orders.this-month', 'hint' => 'Order history'],
         ['title' => 'Last 3 months', 'route' => 'kitchen.orders.last-three-months', 'hint' => 'Longer history'],

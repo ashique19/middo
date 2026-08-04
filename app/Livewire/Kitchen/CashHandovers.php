@@ -4,7 +4,7 @@ namespace App\Livewire\Kitchen;
 
 use App\Models\CashHandover;
 use App\Models\User;
-use App\Support\MiddoCashLedger;
+use App\Support\KitchenAccountLedger;
 use App\Support\OrderMoneyFlow;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -49,12 +49,14 @@ class CashHandovers extends Component
 
                 $rider->decrement('balance', (int) $handover->amount);
 
-                MiddoCashLedger::credit(
+                // Kitchen received cash: debit wallet (Middo owes less / kitchen may owe Middo).
+                KitchenAccountLedger::debit(
+                    $kitchenId,
                     (int) $handover->amount,
-                    'cash_handover_accepted',
+                    'cash_received',
                     CashHandover::class,
                     $handover->id,
-                    "Cash handover #{$handover->id} accepted from rider #{$rider->id}",
+                    "Cash handover #{$handover->id} from rider #{$rider->id}",
                     $kitchenId,
                 );
 
@@ -64,10 +66,13 @@ class CashHandovers extends Component
                     'accepted_at' => now(),
                 ]);
 
-                OrderMoneyFlow::recordCashHandover($handover->fresh(['items.order']));
+                OrderMoneyFlow::recordCashHandover($handover->fresh(['items.order.orderGroup']), $kitchenId);
             });
 
-            $this->statusMessage = "Cash handover #{$handoverId} accepted. Middo cash ledger updated.";
+            $balance = KitchenAccountLedger::balance($kitchenId);
+            $this->statusMessage = $balance < 0
+                ? "Cash handover #{$handoverId} accepted. You now owe Middo ৳".number_format(abs($balance)).'.'
+                : "Cash handover #{$handoverId} accepted. Kitchen wallet balance ৳".number_format($balance).'.';
             $this->resetPage();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not accept cash handover.';
@@ -107,7 +112,7 @@ class CashHandovers extends Component
 
         return view('livewire.kitchen.cash-handovers', [
             'handovers' => $handovers,
-            'middoBalance' => MiddoCashLedger::balance(),
+            'walletBalance' => KitchenAccountLedger::balance($kitchenId),
         ])->layout('kitchen.layout.app', ['title' => 'Cash handovers']);
     }
 }

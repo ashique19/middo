@@ -114,7 +114,10 @@ class KitchenAccountK3Test extends TestCase
         ]);
         $group->orders()->attach($order->id);
 
-        $order->update(['order_status' => 'delivered_and_paid']);
+        $order->update([
+            'dispatched_at' => now(),
+            'order_status' => 'delivered_and_paid',
+        ]);
 
         $payable = PartnerPayable::query()
             ->where('order_id', $order->id)
@@ -128,10 +131,57 @@ class KitchenAccountK3Test extends TestCase
         return $payable;
     }
 
-    public function test_accrual_credits_kitchen_receivable_ledger(): void
+    public function test_dispatch_credits_kitchen_wallet(): void
     {
         $this->accrueKitchenShare(50);
         $this->assertSame(50, KitchenAccountLedger::balance($this->kitchen->id));
+    }
+
+    public function test_cash_handover_debits_kitchen_wallet_and_allows_negative(): void
+    {
+        $this->accrueKitchenShare(50);
+
+        $rider = User::create([
+            'first_name' => 'Rider',
+            'last_name' => 'Cash',
+            'mobile' => '01740000019',
+            'password' => 'password',
+            'role_id' => Role::where('name', 'delivery')->value('id'),
+            'status' => 'active',
+            'balance' => 500,
+        ]);
+
+        $order = Order::create([
+            'user_id' => $this->corporate->id,
+            'menu_item_id' => $this->menu->id,
+            'quantity' => 1,
+            'delivery_date' => now('Asia/Dhaka')->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 200,
+            'cash_collected' => 200,
+            'address' => 'A',
+            'order_status' => 'delivered_and_paid',
+            'payment_status' => 'paid',
+        ]);
+        OrderGroup::create([
+            'name' => 'GRP-SURPLUS',
+            'menu_id' => $this->menu->id,
+            'delivery_date' => now('Asia/Dhaka')->toDateString(),
+            'kitchen_id' => $this->kitchen->id,
+        ])->orders()->attach($order->id);
+
+        $handover = CashHandover::create(['rider_id' => $rider->id, 'amount' => 200, 'status' => 'pending']);
+        CashHandoverOrder::create(['cash_handover_id' => $handover->id, 'order_id' => $order->id, 'amount' => 200]);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(CashHandovers::class)
+            ->call('accept', $handover->id)
+            ->assertSet('errorMessage', null);
+
+        // 50 credit − 200 cash = kitchen owes Middo 150
+        $this->assertSame(-150, KitchenAccountLedger::balance($this->kitchen->id));
+        $this->assertSame(0, MiddoCashLedger::balance());
+        $this->assertSame(300, (int) $rider->fresh()->balance);
     }
 
     public function test_kitchen_can_request_and_admin_approves_withdrawal(): void
@@ -162,6 +212,10 @@ class KitchenAccountK3Test extends TestCase
 
     public function test_kitchen_can_submit_transfer_and_ops_confirms(): void
     {
+        // Simulate surplus cash already held (kitchen owes Middo).
+        KitchenAccountLedger::debit($this->kitchen->id, 120, 'cash_received', null, null, 'Seed surplus', $this->admin->id);
+        $this->assertSame(-120, KitchenAccountLedger::balance($this->kitchen->id));
+
         Livewire::actingAs($this->kitchen)
             ->test(Account::class)
             ->set('transferAmount', 120)
@@ -183,6 +237,7 @@ class KitchenAccountK3Test extends TestCase
             ->assertSet('errorMessage', '');
 
         $this->assertSame(120, MiddoCashLedger::balance());
+        $this->assertSame(0, KitchenAccountLedger::balance($this->kitchen->id));
         $this->assertSame(KitchenMiddoTransfer::STATUS_CONFIRMED, $transfer->fresh()->status);
     }
 
@@ -254,6 +309,7 @@ class KitchenAccountK3Test extends TestCase
             ->call('accept', $ownHandover->id)
             ->assertSet('errorMessage', null);
 
-        $this->assertSame(100, MiddoCashLedger::balance());
+        $this->assertSame(0, MiddoCashLedger::balance());
+        $this->assertSame(-100, KitchenAccountLedger::balance($this->kitchen->id));
     }
 }
