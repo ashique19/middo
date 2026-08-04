@@ -40,6 +40,6 @@ class Dashboard extends Component
     public function render()
     {
         return view('livewire.delivery.dashboard')
-            ->layout('layouts.private.app', ['title' => 'Delivery Dashboard']);
+            ->layout('delivery.layout.app', ['title' => 'Delivery Dashboard']);
     }
 }

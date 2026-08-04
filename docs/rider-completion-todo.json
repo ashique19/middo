@@ -404,7 +404,7 @@
       "id": "R5",
       "name": "Mobile-app-like rider shell (required)",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "depends_on": ["R0"],
       "goal": "Thumbs-first delivery UI with clear bottom/side nav — cleaner day-to-day UX and IA for a future native rider app.",
       "build_order": ["R5.1", "R5.2", "R5.3"],
@@ -412,21 +412,24 @@
         {
           "id": "R5.1",
           "title": "Delivery layout component (mirror kitchen.layout.app patterns)",
-          "status": "todo",
-          "notes": "Mobile bottom nav + desktop sidebar. Wire Livewire pages to delivery.layout.app."
+          "status": "done",
+          "notes": "delivery.layout.app + header; Livewire pages wired"
         },
         {
           "id": "R5.2",
-          "title": "Bottom nav IA: Home, Runs (lunch), Boxes, Cash, More (Account, handovers, profile)",
-          "status": "todo",
+          "title": "Bottom nav IA: Home, Runs (lunch), Boxes, Cash, More",
+          "status": "done",
           "notes": "Stable route names for later native app screens."
         },
         {
           "id": "R5.3",
           "title": "PWA manifest + service worker for delivery (installable web app)",
-          "status": "todo",
-          "notes": "Like kitchen PWA; bridge until native app ships."
+          "status": "done",
+          "notes": "manifest-delivery.webmanifest + sw-delivery.js"
         }
+      ],
+      "shipped_notes": [
+        "tests/Feature/Delivery/DeliveryMobileShellR5Test.php"
       ]
     },
     {

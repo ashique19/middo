@@ -128,6 +128,6 @@ class PendingBoxRuns extends Component
             'nodes' => $nodes,
             'statusMessage' => $this->statusMessage,
             'errorMessage' => $this->errorMessage,
-        ])->layout('layouts.private.app', ['title' => 'Middo Boxes Pending Run']);
+        ])->layout('delivery.layout.app', ['title' => 'Middo Boxes Pending Run']);
     }
 }

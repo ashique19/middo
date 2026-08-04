@@ -216,6 +216,6 @@ class KitchenDispatches extends Component
         return view('livewire.delivery.kitchen-dispatches', [
             'orders' => $orders,
             'nodes' => $nodes,
-        ])->layout('layouts.private.app', ['title' => 'Kitchen Dispatches']);
+        ])->layout('delivery.layout.app', ['title' => 'Kitchen Dispatches']);
     }
 }

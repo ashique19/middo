@@ -127,6 +127,6 @@ class CashHandovers extends Component
             'handovers' => $handovers,
             'selectedTotal' => (int) $selectedTotal,
             'riderBalance' => (int) Auth::user()?->balance,
-        ])->layout('layouts.private.app', ['title' => 'Cash handovers']);
+        ])->layout('delivery.layout.app', ['title' => 'Cash handovers']);
     }
 }

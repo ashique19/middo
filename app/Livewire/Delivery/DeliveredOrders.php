@@ -166,6 +166,6 @@ class DeliveredOrders extends Component
         return view('livewire.delivery.delivered-orders', [
             'orders' => $orders,
             'nodes' => $nodes,
-        ])->layout('layouts.private.app', ['title' => 'Delivered Orders']);
+        ])->layout('delivery.layout.app', ['title' => 'Delivered Orders']);
     }
 }
