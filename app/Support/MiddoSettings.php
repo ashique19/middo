@@ -19,6 +19,11 @@ class MiddoSettings
         return 'kitchen.tier_defaults.'.KitchenTier::normalize($tier).'.allowed_open_groups';
     }
 
+    protected static function deliveryCommissionKey(string $runType): string
+    {
+        return 'delivery.commission.'.$runType;
+    }
+
     public static function get(string $key, mixed $default = null): mixed
     {
         if (! self::tableReady()) {
@@ -95,7 +100,37 @@ class MiddoSettings
     }
 
     /**
-     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>}  $payload
+     * Default ৳ for a settings-backed delivery run type (not lunch/menu).
+     */
+    public static function deliveryCommissionDefault(string $runType): int
+    {
+        if (! DeliveryRunType::isSettingsBacked($runType)) {
+            return 0;
+        }
+
+        $configDefault = (int) config(
+            "middo.delivery_commission_defaults.{$runType}",
+            0
+        );
+
+        return max(0, (int) self::get(self::deliveryCommissionKey($runType), $configDefault));
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public static function deliveryCommissionDefaults(): array
+    {
+        $out = [];
+        foreach (DeliveryRunType::settingsBacked() as $type) {
+            $out[$type] = self::deliveryCommissionDefault($type);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>}  $payload
      */
     public static function updateMealAndKitchenDefaults(array $payload): void
     {
@@ -119,6 +154,18 @@ class MiddoSettings
                 self::set(
                     self::tierDefaultKey($tier),
                     max(0, (int) $payload['tier_defaults'][$tier])
+                );
+            }
+        }
+
+        if (isset($payload['delivery_commissions']) && is_array($payload['delivery_commissions'])) {
+            foreach (DeliveryRunType::settingsBacked() as $type) {
+                if (! array_key_exists($type, $payload['delivery_commissions'])) {
+                    continue;
+                }
+                self::set(
+                    self::deliveryCommissionKey($type),
+                    max(0, (int) $payload['delivery_commissions'][$type])
                 );
             }
         }

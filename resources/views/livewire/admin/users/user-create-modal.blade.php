@@ -39,7 +39,7 @@
                                 Role: {{ $lockedRole }}
                             </div>
                         @else
-                            <select wire:model="role_id" class="w-full border-gray-300 border rounded-xl p-3 text-sm">
+                            <select wire:model.live="role_id" class="w-full border-gray-300 border rounded-xl p-3 text-sm">
                                 @foreach($roles as $role) <option value="{{ $role->id }}">{{ $role->name }}</option> @endforeach
                             </select>
                         @endif
@@ -56,19 +56,52 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <select wire:model.live="selectedCity" class="w-full border-gray-300 border rounded-xl p-3 text-sm">
                                     <option value="">Select City</option>
-                                    @foreach($cities as $city) 
-                                        <option value="{{ $city->id }}">{{ $city->name }}</option> 
+                                    @foreach($cities as $city)
+                                        <option value="{{ $city->id }}">{{ $city->name }}</option>
                                     @endforeach
                                 </select>
 
-                                <select wire:model="area_id" class="w-full border-gray-300 border rounded-xl p-3 text-sm" @if(!$selectedCity) disabled @endif>
-                                    <option value="">Select Area</option>
-                                    @foreach($areas as $area) 
-                                        <option value="{{ $area->id }}" wire:key="area-{{ $area->id }}">{{ $area->name }}</option> 
-                                    @endforeach
-                                </select>
+                                @if($this->isDeliveryForm)
+                                    <div class="col-span-2 sm:col-span-1">
+                                        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Service areas</label>
+                                        <select wire:model="selectedAreaIds" multiple
+                                                class="w-full border-gray-300 border rounded-xl p-3 text-sm min-h-[6rem]"
+                                                @if(!$selectedCity) disabled @endif>
+                                            @foreach($areas as $area)
+                                                <option value="{{ $area->id }}" wire:key="area-{{ $area->id }}">{{ $area->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        <p class="text-[11px] text-gray-400 mt-1">Hold Ctrl/Cmd to select multiple areas.</p>
+                                        @error('selectedAreaIds') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                                    </div>
+                                @else
+                                    <select wire:model="area_id" class="w-full border-gray-300 border rounded-xl p-3 text-sm" @if(!$selectedCity) disabled @endif>
+                                        <option value="">Select Area</option>
+                                        @foreach($areas as $area)
+                                            <option value="{{ $area->id }}" wire:key="area-{{ $area->id }}">{{ $area->name }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
                             </div>
                             <textarea wire:model="address" class="w-full border-gray-300 border rounded-xl p-3 text-sm" placeholder="Full Address"></textarea>
+
+                            @if($this->isDeliveryForm)
+                                <div class="border-t border-gray-100 pt-4 space-y-3">
+                                    <div>
+                                        <p class="text-xs font-bold text-gray-500 uppercase tracking-widest">Commission overrides (optional)</p>
+                                        <p class="text-[11px] text-gray-400 mt-1">Leave blank to use menu (lunch) or Settings defaults. Absolute ৳ per order/run.</p>
+                                    </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        @foreach($runTypes as $type)
+                                            <div>
+                                                <label class="block text-[10px] font-semibold text-gray-500 uppercase mb-1">{{ \App\Support\DeliveryRunType::label($type) }}</label>
+                                                <input type="number" min="0" wire:model="commissionOverrides.{{ $type }}"
+                                                       class="w-full border-gray-300 border rounded-xl p-2.5 text-sm" placeholder="Default">
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>

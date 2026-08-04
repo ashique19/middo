@@ -1,6 +1,6 @@
 {
   "title": "Rider / delivery portal — completion backlog",
-  "version": 4,
+  "version": 5,
   "updated": "2026-08-04",
   "context": {
     "existing_delivery_livewire": [
@@ -245,34 +245,38 @@
       "id": "R0",
       "name": "Foundation: areas + settings + rider commission config",
       "priority": 1,
-      "status": "todo",
+      "status": "done",
       "goal": "Admin can set defaults for non-lunch run types, override per rider, assign multiple areas. Lunch stays menu-priced.",
       "build_order": ["R0.1", "R0.2", "R0.3", "R0.4"],
       "items": [
         {
           "id": "R0.1",
           "title": "Run-type enum + settings defaults for NON-lunch runs",
-          "status": "todo",
-          "notes": "Keys: delivery.commission.corporate_to_kitchen, kitchen_to_ops, ops_to_kitchen, custom_default. Do NOT add a settings lunch rate that stacks with menu."
+          "status": "done",
+          "notes": "DeliveryRunType + MiddoSettings delivery.commission.* + Admin Settings UI"
         },
         {
           "id": "R0.2",
           "title": "Per-rider commission overrides",
-          "status": "todo",
-          "notes": "Nullable overrides per settings run type + optional lunch override (replaces menu amount when set)."
+          "status": "done",
+          "notes": "users.rider_commission_overrides JSON + RiderCommission resolver (D3: null → default)"
         },
         {
           "id": "R0.3",
           "title": "Multi-area assignment for riders",
-          "status": "todo",
-          "notes": "Pivot rider↔areas; migrate users.area_id; admin UI multi-select."
+          "status": "done",
+          "notes": "area_user pivot; User::serviceAreaIds(); admin create/edit multi-select"
         },
         {
           "id": "R0.4",
           "title": "Lock hybrid commission matrix (C1/SI1/D1) in code comments + MiddoSettings",
-          "status": "todo",
-          "notes": "DECIDED: menu for lunch; settings for box/custom. Document in Settings UI copy."
+          "status": "done",
+          "notes": "DECIDED: menu for lunch; settings for box/custom. Documented in Settings UI copy."
         }
+      ],
+      "shipped_notes": [
+        "D2 per box, D3 silent defaults locked",
+        "tests/Feature/Delivery/RiderFoundationR0Test.php"
       ]
     },
     {
@@ -482,12 +486,16 @@
     {
       "id": "D2",
       "question": "Box runs: always per box, or allow per-assignment batch rate?",
-      "blocks": ["R2.3", "C10"]
+      "status": "decided",
+      "answer": "Per box (default).",
+      "blocks": []
     },
     {
       "id": "D3",
       "question": "If rider override is null, silently use menu/settings default — or must admin explicitly enable the rider?",
-      "blocks": ["R0.2", "C9", "R4.2"]
+      "status": "decided",
+      "answer": "Silently use menu/settings default. Show commission UI only when effective rate > 0.",
+      "blocks": []
     },
     {
       "id": "D4",

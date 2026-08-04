@@ -2,7 +2,8 @@
     <div>
         <h1 class="text-3xl font-bold text-middo-dark">Settings</h1>
         <p class="text-sm text-gray-500 mt-1">
-            Meal grouping, kitchen accept window, and default capacity by kitchen tier.
+            Meal grouping, kitchen capacity, and rider commission defaults for non-lunch runs.
+            Lunch kitchen→corporate commission stays on each menu item.
         </p>
     </div>
 
@@ -77,6 +78,42 @@
                     <input type="number" min="0" max="100" wire:model="tier_platinum"
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('tier_platinum') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+        </section>
+
+        <section class="space-y-4 border-t border-gray-100 pt-6">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Rider commissions (box & custom)</h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    Default ৳ per box / per run. Credited on run start. Per-rider overrides on the delivery user profile.
+                    Lunch deliveries use <span class="font-semibold text-middo-dark">menu delivery commission</span>, not these fields.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Corporate → kitchen (box)</label>
+                    <input type="number" min="0" wire:model="commission_corporate_to_kitchen"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    @error('commission_corporate_to_kitchen') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Kitchen → ops (box)</label>
+                    <input type="number" min="0" wire:model="commission_kitchen_to_ops"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    @error('commission_kitchen_to_ops') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Ops → kitchen (box)</label>
+                    <input type="number" min="0" wire:model="commission_ops_to_kitchen"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    @error('commission_ops_to_kitchen') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Custom point → point</label>
+                    <input type="number" min="0" wire:model="commission_custom"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    @error('commission_custom') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
             </div>
         </section>

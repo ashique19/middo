@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -29,6 +30,7 @@ use Laravel\Sanctum\HasApiTokens;
     'address',
     'city_id',
     'area_id',
+    'rider_commission_overrides',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -49,6 +51,7 @@ class User extends Authenticatable
             'is_mobile_verified' => 'boolean', // Ensures 0/1 becomes false/true
             'balance' => 'integer',
             'allowed_open_groups' => 'integer',
+            'rider_commission_overrides' => 'array',
         ];
     }
 
@@ -66,6 +69,47 @@ class User extends Authenticatable
     public function area(): BelongsTo
     {
         return $this->belongsTo(Area::class, 'area_id');
+    }
+
+    public function areas(): BelongsToMany
+    {
+        return $this->belongsToMany(Area::class)->withTimestamps();
+    }
+
+    public function isDelivery(): bool
+    {
+        return $this->role?->name === 'delivery';
+    }
+
+    /**
+     * Area IDs this user serves. Riders use the multi-area pivot (fallback to area_id).
+     *
+     * @return list<int>
+     */
+    public function serviceAreaIds(): array
+    {
+        if ($this->isDelivery()) {
+            if (\Illuminate\Support\Facades\Schema::hasTable('area_user')) {
+                $ids = $this->relationLoaded('areas')
+                    ? $this->areas->pluck('id')->all()
+                    : $this->areas()->pluck('areas.id')->all();
+
+                if ($ids !== []) {
+                    return array_map('intval', $ids);
+                }
+            }
+        }
+
+        return $this->area_id ? [(int) $this->area_id] : [];
+    }
+
+    public function servesArea(?int $areaId): bool
+    {
+        if ($areaId === null) {
+            return false;
+        }
+
+        return in_array((int) $areaId, $this->serviceAreaIds(), true);
     }
 
     public function getCityNameAttribute(): ?string

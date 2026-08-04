@@ -79,6 +79,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Delivery / rider commission defaults (non-lunch runs)
+    |--------------------------------------------------------------------------
+    |
+    | Lunch kitchen→corporate uses menu_items.delivery_commission.
+    | These defaults apply to box legs and custom runs (৳ per box / per run).
+    | Per-rider overrides live on users.rider_commission_overrides.
+    |
+    */
+
+    'delivery_commission_defaults' => [
+        'corporate_to_kitchen' => (int) env('DELIVERY_COMMISSION_CORPORATE_TO_KITCHEN', 30),
+        'kitchen_to_ops' => (int) env('DELIVERY_COMMISSION_KITCHEN_TO_OPS', 25),
+        'ops_to_kitchen' => (int) env('DELIVERY_COMMISSION_OPS_TO_KITCHEN', 25),
+        'custom' => (int) env('DELIVERY_COMMISSION_CUSTOM', 40),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Corporate Order Cutoff (place / edit / cancel)
     |--------------------------------------------------------------------------
     |

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Support\DeliveryRunType;
 use App\Support\KitchenTier;
 use App\Support\MiddoSettings;
 use Livewire\Component;
@@ -19,6 +20,14 @@ class SettingsPage extends Component
     public int $tier_gold = 2;
 
     public int $tier_platinum = 3;
+
+    public int $commission_corporate_to_kitchen = 30;
+
+    public int $commission_kitchen_to_ops = 25;
+
+    public int $commission_ops_to_kitchen = 25;
+
+    public int $commission_custom = 40;
 
     public string $statusMessage = '';
 
@@ -38,6 +47,12 @@ class SettingsPage extends Component
         $this->tier_silver = $defaults[KitchenTier::SILVER];
         $this->tier_gold = $defaults[KitchenTier::GOLD];
         $this->tier_platinum = $defaults[KitchenTier::PLATINUM];
+
+        $commissions = MiddoSettings::deliveryCommissionDefaults();
+        $this->commission_corporate_to_kitchen = $commissions[DeliveryRunType::CORPORATE_TO_KITCHEN];
+        $this->commission_kitchen_to_ops = $commissions[DeliveryRunType::KITCHEN_TO_OPS];
+        $this->commission_ops_to_kitchen = $commissions[DeliveryRunType::OPS_TO_KITCHEN];
+        $this->commission_custom = $commissions[DeliveryRunType::CUSTOM];
     }
 
     public function save(): void
@@ -52,6 +67,10 @@ class SettingsPage extends Component
             'tier_silver' => 'required|integer|min:0|max:100',
             'tier_gold' => 'required|integer|min:0|max:100',
             'tier_platinum' => 'required|integer|min:0|max:100',
+            'commission_corporate_to_kitchen' => 'required|integer|min:0|max:100000',
+            'commission_kitchen_to_ops' => 'required|integer|min:0|max:100000',
+            'commission_ops_to_kitchen' => 'required|integer|min:0|max:100000',
+            'commission_custom' => 'required|integer|min:0|max:100000',
         ]);
 
         MiddoSettings::updateMealAndKitchenDefaults([
@@ -62,6 +81,12 @@ class SettingsPage extends Component
                 KitchenTier::SILVER => $this->tier_silver,
                 KitchenTier::GOLD => $this->tier_gold,
                 KitchenTier::PLATINUM => $this->tier_platinum,
+            ],
+            'delivery_commissions' => [
+                DeliveryRunType::CORPORATE_TO_KITCHEN => $this->commission_corporate_to_kitchen,
+                DeliveryRunType::KITCHEN_TO_OPS => $this->commission_kitchen_to_ops,
+                DeliveryRunType::OPS_TO_KITCHEN => $this->commission_ops_to_kitchen,
+                DeliveryRunType::CUSTOM => $this->commission_custom,
             ],
         ]);
 
