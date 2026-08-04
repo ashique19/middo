@@ -1,11 +1,12 @@
 {
   "title": "Kitchen experience — completion backlog",
-  "version": 2,
+  "version": 3,
   "updated": "2026-08-04",
   "context": {
     "existing_kitchen_livewire": [
       "Dashboard",
-      "MealOrders (accept open groups, pack, dispatch)",
+      "MiddoOrderGroups (accept open groups + capacity slots)",
+      "ActiveOrders + DispatchOrderModal (pack + dispatch in one step today)",
       "Boxes (receive Middo boxes, send empty to ops)",
       "Accounts (cash handovers into Middo ledger)",
       "Recipes (menus assigned to kitchen)"
@@ -19,7 +20,17 @@
       "Ready (kitchen done) is separate from rider pickup / dispatch",
       "Kitchen can mark Middo box damaged before return to ops",
       "Kitchen ledger: receivable from Middo + withdrawal + send-money-to-Middo with proof"
-    ]
+    ],
+    "k0_shipped": {
+      "branch": "cursor/kitchen-tiers-capacity-e299",
+      "pr": 56,
+      "done": [
+        "settings table + Admin Settings UI",
+        "kitchen_tier + allowed_open_groups on users",
+        "activation copies tier default",
+        "KitchenCapacity gate on accept + ops assign"
+      ]
+    }
   },
   "phases": [
     {
@@ -28,85 +39,53 @@
       "priority": 1,
       "status": "done",
       "items": [
-        {
-          "id": "K0.1",
-          "title": "Admin Settings: grouping & accept window",
-          "status": "done",
-          "details": [
-            "UI under Admin → Settings (or Ops config) for: accept_window_minutes, auto_meal_group_quantity (default 10)",
-            "Persist in settings / config table (not only .env)",
-            "MealOrderGrouper and Kitchen MealOrders read these values"
-          ]
-        },
-        {
-          "id": "K0.2",
-          "title": "Kitchen tiers + default accept quantity by tier",
-          "status": "done",
-          "details": [
-            "Define kitchen tiers: silver, gold, platinum (extensible enum/config)",
-            "Admin Settings: default_allowed_open_groups (or accept quantity) PER TIER — e.g. silver=1, gold=2, platinum=3 (example only; admin-editable)",
-            "Kitchens table: tier column (silver|gold|platinum) + allowed_open_groups (nullable until activated / set)",
-            "Admin can change a kitchen's tier anytime; optionally offer 'reset allowed qty to tier default' action",
-            "Admin can always override allowed_open_groups for a specific kitchen without changing the tier default"
-          ]
-        },
-        {
-          "id": "K0.3",
-          "title": "On activation: auto-apply tier default quantity",
-          "status": "done",
-          "details": [
-            "When admin activates a kitchen (KitchenOnboarding::activate or equivalent), if allowed_open_groups is empty/null, copy from Settings default for that kitchen's tier",
-            "If kitchen has no tier set at activation, require selecting a tier first (or default to silver)",
-            "After activation, admin can still edit that kitchen's allowed_open_groups independently",
-            "Changing tier defaults in Settings does NOT retroactively overwrite existing kitchens' allowed_open_groups (only new activations / explicit reset)"
-          ]
-        },
-        {
-          "id": "K0.4",
-          "title": "Enforce capacity / open-group slots",
-          "status": "done",
-          "details": [
-            "At accept time: kitchen may only hold up to allowed_open_groups concurrent open groups (definition: accepted/preparing/ready — not yet dispatched or released)",
-            "Hide or disable Accept when at capacity; show remaining slots",
-            "Tests for tier default copy on activate + per-kitchen override + capacity gate"
-          ]
-        }
+        {"id": "K0.1", "title": "Admin Settings: grouping & accept window", "status": "done"},
+        {"id": "K0.2", "title": "Kitchen tiers + default accept quantity by tier", "status": "done"},
+        {"id": "K0.3", "title": "On activation: auto-apply tier default quantity", "status": "done"},
+        {"id": "K0.4", "title": "Enforce capacity / open-group slots", "status": "done"}
       ]
     },
     {
       "id": "K1",
       "name": "Accept / decline / release / ready vs pickup",
       "priority": 2,
-      "status": "todo",
+      "status": "next",
       "depends_on": ["K0"],
+      "goal": "Kitchen can safely accept within window & capacity, refuse/shortage/release groups back to Middo, and mark prep Ready without handing to rider yet.",
+      "build_order": ["K1.1", "K1.4", "K1.3", "K1.2"],
+      "build_order_rationale": [
+        "K1.1 finishes accept guards (window) on top of capacity already shipped",
+        "K1.4 Ready status unlocks a clean lifecycle before release/decline edge cases get messy",
+        "K1.3 Release needs clear 'not yet packed/dispatched' rules that Ready makes explicit",
+        "K1.2 Decline/shortage is pool-side refusal + ops visibility; can land after release share the same unassign helper"
+      ],
+      "shared_helpers_to_add": [
+        "App\\Support\\KitchenAcceptWindow — isGroupAcceptableNow(OrderGroup): bool; deadlineIso; uses MiddoSettings::acceptWindowMinutes()",
+        "App\\Support\\OrderGroupKitchenAssignment — assign / release / decline / shortage (single place for kitchen_id nulling, order status rewind, capacity, audit)",
+        "order_group_events or order_logs entries for decline/shortage/release (actor=kitchen, reason, optional shortage payload)"
+      ],
       "items": [
         {
           "id": "K1.1",
-          "title": "Accept window + capacity guards on Accept",
+          "title": "Accept window guard on Accept (capacity already done)",
           "status": "todo",
+          "partially_done": [
+            "Capacity reject + slots remaining UX already in MiddoOrderGroups / KitchenCapacity (K0.4)"
+          ],
           "details": [
-            "Reject accept if outside accept_window_minutes from schedule/group time",
-            "Reject accept if kitchen already at allowed_open_groups",
-            "Clear UX: countdown / slots remaining"
-          ]
-        },
-        {
-          "id": "K1.2",
-          "title": "Decline or report shortage → Middo reassign",
-          "status": "todo",
-          "details": [
-            "Kitchen: Decline with reason OR Report shortage (items/qty)",
-            "Unassign kitchen; group returns to open pool or ops queue",
-            "Notify Middo ops; audit log"
-          ]
-        },
-        {
-          "id": "K1.3",
-          "title": "Kitchen release before pack",
-          "status": "todo",
-          "details": [
-            "If accepted but not packed, kitchen can Release back to open pool",
-            "Clears one capacity slot; audit log"
+            "Define accept window relative to group schedule: use delivery_date + earliest order delivery_time in the group (Asia/Dhaka); window = [deadline - accept_window_minutes, deadline] OR [now..deadline] — pick: kitchen may accept only when now is within accept_window_minutes BEFORE the group's scheduled start (earliest delivery_time that day)",
+            "KitchenAcceptWindow::assertCanAccept(OrderGroup) throws if outside window",
+            "Wire into MiddoOrderGroups::acceptOrder (alongside KitchenCapacity::assertCanAccept)",
+            "UX on Middo order groups list: show countdown / 'opens in…' / 'window closed' per group; disable Accept when outside window or at capacity",
+            "Ops AssignKitchenModal: optionally warn or soft-skip window (ops override allowed) — document: ops may assign outside window; kitchen self-accept may not",
+            "Tests: reject before window opens; allow inside window; reject after deadline; capacity still blocks"
+          ],
+          "touchpoints": [
+            "app/Support/KitchenAcceptWindow.php (new)",
+            "app/Support/MiddoSettings.php (already has acceptWindowMinutes)",
+            "app/Livewire/Kitchen/MiddoOrderGroups.php",
+            "resources/views/livewire/kitchen/middo-order-groups.blade.php",
+            "tests/Feature/Kitchen/…"
           ]
         },
         {
@@ -114,12 +93,84 @@
           "title": "Split Ready vs Rider pickup / Dispatch",
           "status": "todo",
           "details": [
-            "New kitchen action: Mark ready (prep complete, waiting for rider)",
-            "Dispatch / hand to rider remains separate (existing or renamed)",
-            "Statuses/UI: Open → Accepted → Preparing → Ready → Dispatched",
-            "Dashboard counts Ready separately from in-prep"
+            "Today DispatchOrderModal moves processing → packed and sets dispatched_at in one action — split that",
+            "Add order_status value ready between processing and packed",
+            "OrderTransition: pending→processing (unchanged); processing→ready; ready→packed; packed→on_the_way_to_delivery (unchanged)",
+            "Kitchen ActiveOrders: new Mark ready action (group or per-order — prefer per-order to match dispatch, with optional Mark group ready)",
+            "Dispatch / hand to rider: only from ready; still attaches Middo boxes + sets dispatched_at + packed (existing DispatchOrderModal, gated on ready)",
+            "ACTIVE_STATUSES / KitchenCapacity open-slot definition: ready still counts as open (not dispatched)",
+            "Dashboard: add Ready count tile (or split active into Preparing vs Ready)",
+            "Push copy: ready → corporate 'Kitchen finished prep — waiting for rider'; packed stays pickup/dispatch messaging",
+            "SQLite + MySQL-safe migration for ENUM/check (follow prior order_status expand migrations; SQLite tests use string)",
+            "Tests: cannot dispatch from processing; can mark ready; can dispatch from ready; capacity still counts ready groups"
+          ],
+          "status_flow": {
+            "open_pool": "kitchen_id null, orders pending",
+            "accepted": "kitchen_id set, orders processing",
+            "ready": "orders ready (prep done, waiting rider)",
+            "dispatched": "orders packed + dispatched_at set",
+            "with_rider": "on_the_way_to_delivery"
+          },
+          "touchpoints": [
+            "database/migrations/*_add_ready_to_order_status.php",
+            "app/Support/OrderTransition.php",
+            "app/Models/Order.php (ACTIVE_STATUSES)",
+            "app/Livewire/Kitchen/ActiveOrders.php",
+            "app/Livewire/Kitchen/DispatchOrderModal.php",
+            "app/Support/OrderStatusPushCopy.php",
+            "app/Livewire/Kitchen/Dashboard.php",
+            "resources/views/livewire/kitchen/active-orders.blade.php"
+          ]
+        },
+        {
+          "id": "K1.3",
+          "title": "Kitchen release before pack / ready handoff",
+          "status": "todo",
+          "details": [
+            "Allowed only when group is assigned to this kitchen AND no order in group is ready/packed/dispatched (or: allow release while processing only; block once any order is ready — prefer block after any ready/packed/dispatched)",
+            "Action on ActiveOrders: Release group → kitchen_id=null; rewind member orders processing→pending; clear capacity slot; write audit log",
+            "Do not cancel corporate orders — only unassign kitchen",
+            "Confirm dialog: 'Release this group back to Middo pool?'",
+            "Tests: release frees slot so another accept works; cannot release after ready/dispatch"
+          ],
+          "touchpoints": [
+            "app/Support/OrderGroupKitchenAssignment.php (release)",
+            "app/Livewire/Kitchen/ActiveOrders.php",
+            "resources/views/livewire/kitchen/active-orders.blade.php"
+          ]
+        },
+        {
+          "id": "K1.2",
+          "title": "Decline or report shortage → Middo reassign",
+          "status": "todo",
+          "details": [
+            "On MiddoOrderGroups (unassigned pool): Decline — reason required (select + optional note); does NOT assign kitchen; marks group declined_by kitchen attempt OR writes event and hides from that kitchen briefly — prefer: group stays in pool for others; log kitchen decline for ops; optionally exclude this kitchen from seeing it again that day",
+            "Report shortage: available on assigned ActiveOrders while still processing (before ready) — reason + optional item/qty notes; then auto-release group back to pool (same as release) + flag shortage for ops",
+            "Ops visibility: badge/filter on ops active orders / kitchen assign UI for groups with recent shortage/decline events",
+            "Notify ops (in-app flash/queue event stub ok if push infra heavy; at minimum OrderLog / UserLog / new order_group_logs)",
+            "Tests: decline requires reason; shortage releases + frees capacity; ops can reassign"
+          ],
+          "touchpoints": [
+            "app/Support/OrderGroupKitchenAssignment.php (decline, shortage)",
+            "app/Livewire/Kitchen/MiddoOrderGroups.php",
+            "app/Livewire/Kitchen/ActiveOrders.php",
+            "ops Livewire list (lightweight badge)",
+            "migration for order_group_events if no suitable log table"
           ]
         }
+      ],
+      "acceptance_criteria": [
+        "Kitchen cannot self-accept outside accept_window_minutes or above allowed_open_groups",
+        "Kitchen can Mark ready without dispatching; rider pickup/dispatch only from ready",
+        "Kitchen can Release a processing-only group back to the open pool and free a capacity slot",
+        "Kitchen can Decline (pool) or Report shortage (assigned→pool) with reason; ops can see and reassign",
+        "Feature tests cover window, ready split, release, decline/shortage"
+      ],
+      "out_of_scope_in_k1": [
+        "Push/SMS for accept-window ending (K5)",
+        "Ingredient prep rollup (K4)",
+        "Box damage (K2)",
+        "Kitchen money (K3)"
       ]
     },
     {
@@ -128,25 +179,8 @@
       "priority": 3,
       "status": "todo",
       "items": [
-        {
-          "id": "K2.1",
-          "title": "Mark Middo box damaged (before send to ops)",
-          "status": "todo",
-          "details": [
-            "While box is with kitchen (empty/full as allowed by rules), Mark damaged + note/photo optional",
-            "Status/path so ops sees damaged boxes; do not treat as normal empty return",
-            "Audit + notify ops"
-          ]
-        },
-        {
-          "id": "K2.2",
-          "title": "Box list UX polish",
-          "status": "todo",
-          "details": [
-            "Clear filters: with me / sendable / damaged / history",
-            "Confirmations on receive / damage / send to Middo"
-          ]
-        }
+        {"id": "K2.1", "title": "Mark Middo box damaged (before send to ops)", "status": "todo"},
+        {"id": "K2.2", "title": "Box list UX polish", "status": "todo"}
       ]
     },
     {
@@ -155,42 +189,10 @@
       "priority": 4,
       "status": "todo",
       "items": [
-        {
-          "id": "K3.1",
-          "title": "Kitchen account: Middo receivable balance",
-          "status": "todo",
-          "details": [
-            "Show amount Middo owes kitchen (from settlement share rules)",
-            "Ledger / statement of earnings vs payouts"
-          ]
-        },
-        {
-          "id": "K3.2",
-          "title": "Kitchen withdrawal request",
-          "status": "todo",
-          "details": [
-            "Kitchen requests withdrawal of receivable",
-            "Admin/ops approve/pay; reduce receivable"
-          ]
-        },
-        {
-          "id": "K3.3",
-          "title": "Send money to Middo (with proof)",
-          "status": "todo",
-          "details": [
-            "Kitchen declares transfer to Middo + proof upload (bkash/bank ref)",
-            "Ops/admin confirm; reconcile against COD / dues"
-          ]
-        },
-        {
-          "id": "K3.4",
-          "title": "Cash handover scoped to this kitchen",
-          "status": "todo",
-          "details": [
-            "Handover UI only shows riders/deliveries tied to this kitchen",
-            "Align with Middo cash ledger confirmation"
-          ]
-        }
+        {"id": "K3.1", "title": "Kitchen account: Middo receivable balance", "status": "todo"},
+        {"id": "K3.2", "title": "Kitchen withdrawal request", "status": "todo"},
+        {"id": "K3.3", "title": "Send money to Middo (with proof)", "status": "todo"},
+        {"id": "K3.4", "title": "Cash handover scoped to this kitchen", "status": "todo"}
       ]
     },
     {
@@ -199,15 +201,7 @@
       "priority": 5,
       "status": "todo",
       "items": [
-        {
-          "id": "K4.1",
-          "title": "Accepted-groups ingredient rollup",
-          "status": "todo",
-          "details": [
-            "From recipes on menus in accepted/preparing groups, aggregate ingredients × qty",
-            "Printable / exportable prep sheet for the day"
-          ]
-        }
+        {"id": "K4.1", "title": "Accepted-groups ingredient rollup", "status": "todo"}
       ]
     },
     {
@@ -215,26 +209,10 @@
       "name": "Notifications & SLA",
       "priority": 6,
       "status": "todo",
+      "depends_on": ["K1"],
       "items": [
-        {
-          "id": "K5.1",
-          "title": "Kitchen alerts",
-          "status": "todo",
-          "details": [
-            "New open group in catchment",
-            "Accept window ending",
-            "Rider assigned / arrived for Ready orders",
-            "Box / money confirmation updates"
-          ]
-        },
-        {
-          "id": "K5.2",
-          "title": "SLA warn before accept window ends",
-          "status": "todo",
-          "details": [
-            "Dashboard badge / list highlight for groups nearing deadline"
-          ]
-        }
+        {"id": "K5.1", "title": "Kitchen alerts", "status": "todo"},
+        {"id": "K5.2", "title": "SLA warn before accept window ends", "status": "todo"}
       ]
     },
     {
@@ -243,30 +221,18 @@
       "priority": 7,
       "status": "todo",
       "items": [
-        {
-          "id": "K6.1",
-          "title": "Complaints visible to kitchen (scoped)",
-          "status": "todo"
-        },
-        {
-          "id": "K6.2",
-          "title": "Kitchen profile & hours edit",
-          "status": "todo"
-        },
-        {
-          "id": "K6.3",
-          "title": "Permission matrix cleanup for kitchen role",
-          "status": "todo"
-        }
+        {"id": "K6.1", "title": "Complaints visible to kitchen (scoped)", "status": "todo"},
+        {"id": "K6.2", "title": "Kitchen profile & hours edit", "status": "todo"},
+        {"id": "K6.3", "title": "Permission matrix cleanup for kitchen role", "status": "todo"}
       ]
     }
   ],
   "suggested_build_order": [
-    "K0.1 Settings: window + group size",
-    "K0.2 Tiers + default qty per tier + kitchen.tier + kitchen.allowed_open_groups",
-    "K0.3 Activation copies tier default → kitchen.allowed_open_groups",
-    "K0.4 Enforce slots on accept",
-    "K1.1–K1.4 Accept guards, decline/shortage, release, Ready vs Dispatch",
+    "K0 (done)",
+    "K1.1 Accept window (capacity already done)",
+    "K1.4 Ready vs Dispatch status split",
+    "K1.3 Release before ready/pack",
+    "K1.2 Decline + shortage → pool + ops visibility",
     "K2 Boxes damage",
     "K3 Money flows",
     "K4 Prep rollup",
@@ -277,24 +243,16 @@
     "settings_keys": [
       "meal.accept_window_minutes",
       "meal.auto_group_quantity",
-      "kitchen.tier_defaults.silver.allowed_open_groups",
-      "kitchen.tier_defaults.gold.allowed_open_groups",
-      "kitchen.tier_defaults.platinum.allowed_open_groups"
+      "kitchen.tier_defaults.*.allowed_open_groups"
     ],
     "kitchens_columns": [
-      "tier: string enum silver|gold|platinum",
-      "allowed_open_groups: unsigned int null — set on activate from tier default; admin-overridable"
+      "kitchen_tier",
+      "allowed_open_groups"
     ],
-    "activation_hook": "KitchenOnboarding::activate (and any other activate path) → resolve tier default → set allowed_open_groups if null"
-  },
-  "example_defaults_not_binding": {
-    "auto_meal_group_quantity": 10,
-    "tier_allowed_open_groups": {
-      "silver": 1,
-      "gold": 2,
-      "platinum": 3
-    },
-    "note": "Numbers are examples only; admin configures real defaults in Settings"
+    "k1_additions": {
+      "orders.order_status": "add ready between processing and packed",
+      "order_group_events": "optional table — group_id, kitchen_id, type(decline|shortage|release|accept), reason, meta JSON, created_by, timestamps"
+    }
   },
   "out_of_scope_unless_requested": [
     "Full WMS / inventory purchasing",
