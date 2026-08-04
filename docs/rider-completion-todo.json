@@ -1,6 +1,6 @@
 {
   "title": "Rider / delivery portal — completion backlog",
-  "version": 1,
+  "version": 2,
   "updated": "2026-08-04",
   "context": {
     "existing_delivery_livewire": [
@@ -13,14 +13,44 @@
     "product_rules_agreed": [
       "Middo P&L must account for ALL costs against revenue (kitchen share, rider commissions, direct costs, etc.) — rest = profit/loss",
       "Rider earns commission per ORDER or per RUN — never per Middo group",
-      "Default commissions live in admin Settings; each rider can be overridden manually",
-      "Four default run types: kitchen→corporate (lunch), corporate→kitchen (box), kitchen→ops (box), ops→kitchen (box)",
-      "Admin sets commission per run type; rider sees commission details only when a commission is configured for that rider (effective rate > 0 / explicitly set)",
+      "HYBRID commission sources (D1 decided): lunch/meal kitchen→corporate uses menu.delivery_commission; all other run types use admin Settings defaults (+ per-rider overrides)",
+      "Settings-backed run types (defaults): corporate→kitchen (box), kitchen→ops (box), ops→kitchen (box), plus future custom point X→Y",
+      "Do NOT stack menu.delivery_commission AND a settings lunch rate on the same order — one cost path per run",
+      "Admin sets commission per settings run type; rider overrides optional; rider sees commission details only when effective rate is set (> 0)",
       "Commission credited to rider wallet on RUN START → Middo owes rider",
       "Cash collected credited to rider wallet as rider owes Middo (commission already sitting as Middo-owes)",
       "Cash handover accepted by kitchen CLEARS rider owes-Middo for that cash (and kitchen wallet is debited — kitchen now holds Middo's cash)",
       "Rider may have multiple areas; parcel calls / notifications scoped to those areas"
     ],
+    "commission_source_matrix": {
+      "kitchen_to_corporate_lunch": {
+        "source": "menu_items.delivery_commission × quantity (snapshot at run start)",
+        "unit": "per order",
+        "rider_override": "optional absolute override on rider profile; if set, replaces menu amount for that rider's lunch runs",
+        "pnl": "order delivery_share / rider cost against that order's revenue"
+      },
+      "corporate_to_kitchen_box": {
+        "source": "settings delivery.commission.corporate_to_kitchen (+ rider override)",
+        "unit": "per box / per run",
+        "pnl": "Middo operating cost (no customer revenue line)"
+      },
+      "kitchen_to_ops_box": {
+        "source": "settings delivery.commission.kitchen_to_ops (+ rider override)",
+        "unit": "per box / per run",
+        "pnl": "Middo operating cost"
+      },
+      "ops_to_kitchen_box": {
+        "source": "settings delivery.commission.ops_to_kitchen (+ rider override)",
+        "unit": "per box / per run",
+        "pnl": "Middo operating cost"
+      },
+      "custom_point_to_point": {
+        "source": "settings template + amount set when creating the custom run (admin/ops)",
+        "unit": "per run",
+        "pnl": "Middo operating cost (or attach to order if linked)",
+        "status": "future — design in R0/R2, ship after core four types"
+      }
+    },
     "wallet_sign_convention": {
       "positive": "Middo owes rider (unpaid commissions net of settled cash debt)",
       "negative": "Rider owes Middo (cash held after commission already credited)",
@@ -39,9 +69,10 @@
   "scope_improvements": [
     {
       "id": "SI1",
-      "title": "Unify menu.delivery_commission into run commissions for P&L",
-      "why": "Today menu.delivery_commission accrues PartnerPayable on delivered_and_paid and never credits rider balance. Keeping both run commission AND menu delivery_commission double-counts Middo cost.",
-      "recommendation": "Deprecate menu.delivery_commission as the rider payout source. Either (a) remove it from middo_rest partner split and use run commissions only in P&L, or (b) treat menu.delivery_commission as the default rate for kitchen→corporate lunch runs only (snapshot at run start). Prefer (b) short-term if lunch rate should stay menu-priced; prefer (a) if all rates are settings-driven."
+      "title": "Hybrid commission sources (DECIDED)",
+      "status": "decided",
+      "why": "Menu-priced lunch delivery stays meal-economics; box/custom legs are ops costs with flat settings rates.",
+      "recommendation": "KEEP menu.delivery_commission for kitchen→corporate lunch only. Accrue once at RUN START into rider ledger + order money tree. Settings commissions for box legs and custom X→Y only. Never accrue menu delivery_share again on delivered_and_paid if already credited at start."
     },
     {
       "id": "SI2",
@@ -53,34 +84,41 @@
       "id": "SI3",
       "title": "Define run unit explicitly per type",
       "why": "Product says per order OR per run, not per group. Lunch accept is already per Order — good. Box legs are per MiddoBox today.",
-      "recommendation": "Serialize: lunch kitchen→corporate = 1 commission per Order at accept. Box corporate→kitchen / kitchen→ops / ops→kitchen = 1 commission per box (or per assignment batch if admin chooses — default per box). Never × group size."
+      "recommendation": "Serialize: lunch kitchen→corporate = menu.delivery_commission × qty per Order at accept. Box legs = settings rate per box. Custom = per run. Never × group size."
     },
     {
       "id": "SI4",
-      "title": "Box-run commissions are Middo cost with no order revenue line",
-      "why": "Box repositioning has no customer bill. P&L still needs the cost.",
-      "recommendation": "Write OrderMoneyEvent only when an order_id exists; otherwise write MiddoCostLedger / middo_cash memo / ops cost event so Accounts Hub still shows total rider cost."
+      "title": "Box/custom run commissions are Middo cost (often no order revenue)",
+      "why": "Box repositioning and custom X→Y usually have no customer bill. P&L still needs the cost.",
+      "recommendation": "Order-linked lunch → order money events. Box/custom → MiddoCost / ops cost ledger (or order event only if order_id attached)."
     },
     {
       "id": "SI5",
       "title": "Rider withdrawal / settlement path",
       "why": "Kitchen can withdraw when Middo owes them. Riders will accumulate positive commission balance after handovers.",
-      "recommendation": "Same pattern as kitchen: request withdrawal → ops/admin approve → debit Middo cash + debit rider ledger. Optional: settle against PartnerPayable-style open commission rows."
+      "recommendation": "Same pattern as kitchen: request withdrawal → ops/admin approve → debit Middo cash + debit rider ledger."
     },
     {
       "id": "SI6",
       "title": "Area-scoped claims race",
       "why": "Today any rider can accept any kitchen dispatch (first claim wins).",
       "recommendation": "Filter lists + StaffAlerts by rider areas; still first-claim among eligible riders."
+    },
+    {
+      "id": "SI7",
+      "title": "Custom run type (point X → point Y)",
+      "why": "Ops will need ad-hoc moves beyond the four defaults.",
+      "recommendation": "After core types: run entity with from/to labels (or location refs), commission amount (default from settings.custom or manual), credit on start, area scoping."
     }
   ],
   "conflicts_and_gaps": [
     {
       "id": "C1",
       "severity": "high",
-      "title": "Double cost: menu delivery_share vs run commission",
-      "detail": "OrderMoneyFlow::accrueShares writes TYPE_DELIVERY_SHARE + PartnerPayable ROLE_DELIVERY from menu.delivery_commission on delivered_and_paid. New run-start commission would also hit Middo P&L / rider wallet. Must pick one cost path before shipping R2.",
-      "resolution": "Decide SI1 before implementing accrual. If run commission wins, stop creating delivery PartnerPayable from menu (or convert menu field into lunch default only and accrue once at run start)."
+      "title": "Double cost: menu delivery_share vs settings lunch rate",
+      "status": "resolved",
+      "detail": "Hybrid decision: lunch uses menu.delivery_commission ONLY. Settings rates apply to non-lunch runs only. Still must move lunch accrual from delivered_and_paid → run start and credit rider ledger (today PartnerPayable never hits rider wallet).",
+      "resolution": "At KitchenDispatches::acceptOrder: credit rider ledger with menu.delivery_commission×qty (or rider lunch override). On delivered_and_paid: skip creating a second delivery_share if already accrued at start (idempotent). Box/custom: settings path only — never read menu.delivery_commission."
     },
     {
       "id": "C2",
@@ -101,14 +139,14 @@
       "severity": "medium",
       "title": "Accrual timing mismatch with kitchen",
       "detail": "Kitchen share credits on dispatch. Delivery share today on delivered_and_paid. Product wants rider credit on RUN START (accept / start box leg).",
-      "resolution": "Hook commission credit at KitchenDispatches::acceptOrder, PendingBoxRuns start/hand, ops→kitchen assign accept, kitchen→ops pickup start — not delivered_and_paid."
+      "resolution": "Lunch: credit at accept using menu commission. Box/custom: credit at run start using settings. delivered_and_paid must not double-accrue lunch."
     },
     {
       "id": "C5",
       "severity": "medium",
       "title": "PartnerPayable delivery settlement ignores rider wallet",
       "detail": "AccountsHub settlePayable debits Middo cash for delivery role but never credits rider balance. Parallel kitchen path uses KitchenAccountLedger.",
-      "resolution": "Either retire delivery PartnerPayable in favor of rider ledger + withdrawal, or settlePayable must debit Middo cash AND debit rider ledger (pay commission). Prefer ledger + withdrawal like kitchen."
+      "resolution": "Prefer rider ledger + withdrawal like kitchen. PartnerPayable for lunch can remain as P&L/open-payable mirror of ledger credit, settled via withdrawal not separate AccountsHub pay that skips ledger."
     },
     {
       "id": "C6",
@@ -135,8 +173,8 @@
       "id": "C9",
       "severity": "low",
       "title": "Commission visibility rule ambiguity",
-      "detail": "“Sees commission only if set for him” — unclear if unset means hide (use default silently) or no pay.",
-      "resolution": "Recommend: effective rate = rider override ?? settings default. Rider UI shows rate when effective > 0. If both unset/0, no credit and no commission UI line."
+      "detail": "Sees commission only if set for him — unclear if unset means hide (use default silently) or no pay.",
+      "resolution": "Lunch: show when menu.delivery_commission (or rider lunch override) > 0. Other runs: effective = rider override ?? settings default; show when effective > 0. If 0, no credit and no commission UI line."
     },
     {
       "id": "C10",
@@ -151,6 +189,13 @@
       "title": "TYPE_CASH_TO_MIDDO unused; cash_to_kitchen used on kitchen accept",
       "detail": "Order money tree historically expected cash_to_middo. Kitchen wallet change wrote cash_to_kitchen. Rider handover clear should add rider-side money events without resurrecting Middo cash credit.",
       "resolution": "Add rider money events (commission_credited, cash_held, cash_handed_to_kitchen) in order tree when order-linked."
+    },
+    {
+      "id": "C12",
+      "severity": "medium",
+      "title": "middo_rest formula still subtracts menu delivery_share",
+      "detail": "computeBreakdown caps kitchen+delivery against bill net. Lunch still uses menu.delivery_commission in order P&L. Box/custom commissions must NOT be stuffed into orders.delivery_share_amount or middo_rest will be wrong.",
+      "resolution": "Keep menu delivery_share on lunch orders only. Book box/custom rider cost outside order middo_rest (SI4)."
     }
   ],
   "phases": [
@@ -159,20 +204,20 @@
       "name": "Foundation: areas + settings + rider commission config",
       "priority": 1,
       "status": "todo",
-      "goal": "Admin can set default commissions per run type, override per rider, and assign multiple areas.",
+      "goal": "Admin can set defaults for non-lunch run types, override per rider, assign multiple areas. Lunch stays menu-priced.",
       "build_order": ["R0.1", "R0.2", "R0.3", "R0.4"],
       "items": [
         {
           "id": "R0.1",
-          "title": "Run-type enum + settings defaults",
+          "title": "Run-type enum + settings defaults for NON-lunch runs",
           "status": "todo",
-          "notes": "Keys e.g. delivery.commission.kitchen_to_corporate, corporate_to_kitchen, kitchen_to_ops, ops_to_kitchen. Admin SettingsPage section."
+          "notes": "Keys: delivery.commission.corporate_to_kitchen, kitchen_to_ops, ops_to_kitchen, custom_default. Do NOT add a settings lunch rate that stacks with menu."
         },
         {
           "id": "R0.2",
           "title": "Per-rider commission overrides",
           "status": "todo",
-          "notes": "Nullable overrides per run type on rider profile / admin user edit. Effective = override ?? default."
+          "notes": "Nullable overrides per settings run type + optional lunch override (replaces menu amount when set)."
         },
         {
           "id": "R0.3",
@@ -182,9 +227,9 @@
         },
         {
           "id": "R0.4",
-          "title": "Resolve menu.delivery_commission vs run commission (C1/SI1)",
+          "title": "Lock hybrid commission matrix (C1/SI1/D1) in code comments + MiddoSettings",
           "status": "todo",
-          "notes": "Product decision gate before R2 money writes. Document chosen path in this file."
+          "notes": "DECIDED: menu for lunch; settings for box/custom. Document in Settings UI copy."
         }
       ]
     },
@@ -215,7 +260,7 @@
       "priority": 3,
       "status": "todo",
       "depends_on": ["R0"],
-      "goal": "Commission credited at run start (Middo owes rider); P&L records the cost.",
+      "goal": "Commission credited at run start (Middo owes rider); P&L records the cost without double-counting.",
       "build_order": ["R2.1", "R2.2", "R2.3", "R2.4", "R2.5"],
       "items": [
         {
@@ -226,21 +271,21 @@
         },
         {
           "id": "R2.2",
-          "title": "Credit commission on lunch accept (per order)",
+          "title": "Credit lunch commission on accept from menu.delivery_commission (per order)",
           "status": "todo",
-          "notes": "KitchenDispatches::acceptOrder → effective kitchen_to_corporate rate. Idempotent per order+run_type."
+          "notes": "KitchenDispatches::acceptOrder. Amount = rider lunch override ?? (menu.delivery_commission × qty). Idempotent per order."
         },
         {
           "id": "R2.3",
-          "title": "Credit commission on box run starts (per box)",
+          "title": "Credit settings commissions on box run starts (per box)",
           "status": "todo",
-          "notes": "corporate→kitchen, kitchen→ops, ops→kitchen hooks."
+          "notes": "corporate→kitchen, kitchen→ops, ops→kitchen from settings (+ override)."
         },
         {
           "id": "R2.4",
-          "title": "Wire Middo P&L / order money tree for rider cost",
+          "title": "P&L wiring: lunch on order tree at start; box/custom as Middo cost",
           "status": "todo",
-          "notes": "Replace or relocate menu delivery_share (C1). Box runs without order → Middo cost memo (SI4)."
+          "notes": "Stop second delivery_share on delivered_and_paid if already accrued. Box/custom → SI4 cost memo. middo_rest keeps menu delivery for lunch only (C12)."
         },
         {
           "id": "R2.5",
@@ -324,6 +369,27 @@
       ]
     },
     {
+      "id": "R2b",
+      "name": "Custom point X → Y runs (after core)",
+      "priority": 5,
+      "status": "todo",
+      "depends_on": ["R2"],
+      "goal": "Ops can create ad-hoc runs with settings/manual commission.",
+      "items": [
+        {
+          "id": "R2b.1",
+          "title": "Custom run model + ops create UI (from/to, amount, area, rider)",
+          "status": "todo",
+          "notes": "SI7. Commission from settings.custom_default or manual amount on create."
+        },
+        {
+          "id": "R2b.2",
+          "title": "Credit rider wallet on custom run start; Middo cost memo",
+          "status": "todo"
+        }
+      ]
+    },
+    {
       "id": "R6",
       "name": "Tests + seeders + Accounts Hub cleanup",
       "priority": 7,
@@ -332,12 +398,12 @@
       "items": [
         {
           "id": "R6.1",
-          "title": "Feature tests: commission on start, cash, handover clear, negative wallet, void on cancel",
+          "title": "Feature tests: lunch menu commission, box settings commission, cash, handover clear, no double lunch accrual",
           "status": "todo"
         },
         {
           "id": "R6.2",
-          "title": "Update FlawHunt / OrderAccounts tests after C1 resolution",
+          "title": "Update FlawHunt / OrderAccounts tests for run-start lunch accrual",
           "status": "todo"
         },
         {
@@ -352,7 +418,9 @@
     {
       "id": "D1",
       "question": "Is lunch kitchen→corporate commission the settings default, or still menu.delivery_commission (per meal)?",
-      "blocks": ["R0.4", "R2.2", "R2.4"]
+      "status": "decided",
+      "answer": "Keep menu.delivery_commission for lunch. Settings commissions for box legs + custom X→Y only. No stacking.",
+      "blocks": []
     },
     {
       "id": "D2",
@@ -361,7 +429,7 @@
     },
     {
       "id": "D3",
-      "question": "If rider override is null, silently use settings default — or must admin explicitly enable the rider?",
+      "question": "If rider override is null, silently use menu/settings default — or must admin explicitly enable the rider?",
       "blocks": ["R0.2", "C9", "R4.2"]
     },
     {
@@ -370,10 +438,11 @@
       "blocks": ["R4.3", "SI5"]
     }
   ],
-  "suggested_ship_order": ["R0", "R1", "R2", "R3", "R4", "R6", "R5"],
+  "suggested_ship_order": ["R0", "R1", "R2", "R3", "R4", "R6", "R2b", "R5"],
   "non_goals_for_now": [
     "Changing kitchen wallet semantics (already shipped)",
     "Rider-to-rider cash transfer",
-    "GPS tracking / route optimization"
+    "GPS tracking / route optimization",
+    "Settings-based lunch rate that duplicates menu.delivery_commission"
   ]
 }
