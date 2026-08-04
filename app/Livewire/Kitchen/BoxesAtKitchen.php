@@ -4,8 +4,8 @@ namespace App\Livewire\Kitchen;
 
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
+use App\Support\MiddoBoxKitchenActions;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -13,66 +13,143 @@ class BoxesAtKitchen extends Component
 {
     use WithPagination;
 
+    public string $filter = 'inventory';
+
     public ?string $statusMessage = null;
 
     public ?string $errorMessage = null;
+
+    public ?int $damageBoxId = null;
+
+    public string $damageNotes = '';
+
+    public function updatingFilter(): void
+    {
+        $this->resetPage();
+        $this->cancelDamage();
+    }
+
+    public function openDamage(int $boxId): void
+    {
+        $this->errorMessage = null;
+        $this->damageBoxId = $boxId;
+        $this->damageNotes = '';
+    }
+
+    public function cancelDamage(): void
+    {
+        $this->damageBoxId = null;
+        $this->damageNotes = '';
+    }
+
+    public function confirmDamage(): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        if (! $this->damageBoxId) {
+            return;
+        }
+
+        try {
+            $this->validate([
+                'damageNotes' => 'nullable|string|max:1000',
+            ]);
+
+            $box = MiddoBox::query()->findOrFail($this->damageBoxId);
+            $damaged = MiddoBoxKitchenActions::markDamaged($box, (int) Auth::id(), $this->damageNotes);
+            $this->statusMessage = "{$damaged->qr_code_id} marked damaged. Send it to Middo on the damaged path — not as a normal return.";
+            $this->cancelDamage();
+            $this->filter = 'damaged';
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not mark box damaged.';
+        }
+    }
 
     public function sendToWarehouse(int $boxId): void
     {
         $this->statusMessage = null;
         $this->errorMessage = null;
 
-        $kitchenId = Auth::id();
-
         try {
-            $qr = DB::transaction(function () use ($boxId, $kitchenId) {
-                $box = MiddoBox::query()
-                    ->whereKey($boxId)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (! $box || ! $box->isAtKitchen($kitchenId)) {
-                    throw new \RuntimeException('This box is not in your kitchen inventory.');
-                }
-
-                if ($box->orderMiddoBoxes()->exists()) {
-                    throw new \RuntimeException('This box is reserved for a dispatched order.');
-                }
-
-                $box->update([
-                    'kitchen_id' => null,
-                    'held_by_user_id' => null,
-                    'asset_status' => 'at_middo_warehouse',
-                    'last_scanned_at' => now(),
-                ]);
-
-                MiddoBoxLog::create([
-                    'middo_box_id' => $box->id,
-                    'custody_status' => 'warehouse',
-                    'log_action' => 'returned_to_warehouse',
-                ]);
-
-                return $box->qr_code_id;
-            });
-
-            $this->statusMessage = "{$qr} sent to Middo warehouse.";
+            $box = MiddoBox::query()->findOrFail($boxId);
+            $sent = MiddoBoxKitchenActions::sendToWarehouse($box, (int) Auth::id());
+            $this->statusMessage = "{$sent->qr_code_id} sent to Middo warehouse.";
             $this->resetPage();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not send box to warehouse.';
         }
     }
 
+    public function sendDamagedToWarehouse(int $boxId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        try {
+            $box = MiddoBox::query()->findOrFail($boxId);
+            $sent = MiddoBoxKitchenActions::sendDamagedToWarehouse($box, (int) Auth::id());
+            $this->statusMessage = "{$sent->qr_code_id} sent to Middo as damaged. Ops will review — not restocked as normal inventory.";
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not send damaged box.';
+        }
+    }
+
     public function render()
     {
-        $kitchenId = Auth::id();
+        $kitchenId = (int) Auth::id();
 
-        $boxes = MiddoBox::query()
-            ->atKitchen($kitchenId)
-            ->orderBy('qr_code_id')
-            ->paginate(20);
+        $counts = [
+            'inventory' => MiddoBox::query()->atKitchen($kitchenId)->where('asset_status', '!=', 'damaged')->count(),
+            'sendable' => MiddoBox::query()->sendableAtKitchen($kitchenId)->count(),
+            'damaged' => MiddoBox::query()->damagedAtKitchen($kitchenId)->count(),
+            'history' => MiddoBoxLog::query()
+                ->where('performed_by', $kitchenId)
+                ->whereIn('log_action', [
+                    'returned_to_warehouse',
+                    'returned_damaged_to_warehouse',
+                    'marked_damaged_at_kitchen',
+                    'received_at_kitchen',
+                ])
+                ->count(),
+        ];
+
+        if ($this->filter === 'history') {
+            $history = MiddoBoxLog::query()
+                ->with(['middoBox', 'performedBy'])
+                ->where('performed_by', $kitchenId)
+                ->whereIn('log_action', [
+                    'returned_to_warehouse',
+                    'returned_damaged_to_warehouse',
+                    'marked_damaged_at_kitchen',
+                    'received_at_kitchen',
+                ])
+                ->latest('id')
+                ->paginate(20);
+
+            return view('livewire.kitchen.boxes-at-kitchen', [
+                'boxes' => null,
+                'history' => $history,
+                'counts' => $counts,
+            ])->layout('layouts.private.app', ['title' => 'Boxes at Kitchen']);
+        }
+
+        $boxesQuery = MiddoBox::query()->atKitchen($kitchenId)->withCount('orderMiddoBoxes');
+
+        $boxesQuery = match ($this->filter) {
+            'sendable' => $boxesQuery->where('asset_status', '!=', 'damaged')->whereDoesntHave('orderMiddoBoxes'),
+            'damaged' => $boxesQuery->where('asset_status', 'damaged'),
+            default => $boxesQuery->where('asset_status', '!=', 'damaged'),
+        };
+
+        $boxes = $boxesQuery->orderBy('qr_code_id')->paginate(20);
 
         return view('livewire.kitchen.boxes-at-kitchen', [
             'boxes' => $boxes,
+            'history' => null,
+            'counts' => $counts,
         ])->layout('layouts.private.app', ['title' => 'Boxes at Kitchen']);
     }
 }

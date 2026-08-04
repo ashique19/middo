@@ -27,6 +27,17 @@
                 >
             </div>
 
+            <select wire:model.live="statusFilter"
+                    class="rounded-xl border border-gray-200 py-2 px-3 text-sm shadow-sm focus:border-middo-orange focus:ring-middo-orange">
+                <option value="">All statuses</option>
+                <option value="damaged">Damaged{{ $damagedCount ? " ({$damagedCount})" : '' }}</option>
+                <option value="at_middo_warehouse">Warehouse</option>
+                <option value="active">Active</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="retired">Retired</option>
+                <option value="lost">Lost</option>
+            </select>
+
             <livewire:operation.generate-middo-boxes-modal />
         </div>
     </div>
@@ -129,14 +140,15 @@
                                         Log
                                     </button>
 
-                                    @if($box->asset_status === 'retired')
+                                    @if(in_array($box->asset_status, ['retired', 'damaged', 'maintenance', 'lost'], true))
                                         <button
                                             type="button"
                                             wire:click="reactivate({{ $box->id }})"
                                             wire:loading.attr="disabled"
                                             wire:target="reactivate({{ $box->id }})"
+                                            wire:confirm="Return {{ $box->qr_code_id }} to warehouse inventory?"
                                             class="inline-flex items-center px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition disabled:opacity-50">
-                                            Re-Activate
+                                            {{ $box->asset_status === 'damaged' ? 'Clear damage' : 'Re-Activate' }}
                                         </button>
                                     @else
                                         <button

@@ -46,6 +46,7 @@ class IncomingBoxes extends Component
                     'middo_box_id' => $box->id,
                     'custody_status' => 'assigned_at_kitchen',
                     'log_action' => 'received_at_kitchen',
+                    'performed_by' => $kitchenId,
                 ]);
 
                 return $box->qr_code_id;

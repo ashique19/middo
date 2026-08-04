@@ -13,12 +13,20 @@ class MiddoBoxes extends Component
 
     public string $search = '';
 
+    public string $statusFilter = '';
+
     /** @var int[] */
     public array $selectedBoxIds = [];
 
     public function updatingSearch(): void
     {
         $this->resetPage();
+    }
+
+    public function updatingStatusFilter(): void
+    {
+        $this->resetPage();
+        $this->selectedBoxIds = [];
     }
 
     #[On('middo-boxes-generated')]
@@ -71,7 +79,12 @@ class MiddoBoxes extends Component
     {
         MiddoBox::query()
             ->whereKey($boxId)
-            ->update(['asset_status' => 'at_middo_warehouse']);
+            ->whereIn('asset_status', ['damaged', 'retired', 'maintenance', 'lost'])
+            ->update([
+                'asset_status' => 'at_middo_warehouse',
+                'kitchen_id' => null,
+                'held_by_user_id' => null,
+            ]);
     }
 
     public function render()
@@ -85,11 +98,16 @@ class MiddoBoxes extends Component
                         ->orWhere('asset_status', 'like', '%'.$this->search.'%');
                 });
             })
+            ->when($this->statusFilter !== '', fn ($q) => $q->where('asset_status', $this->statusFilter))
+            ->orderByRaw("CASE WHEN asset_status = 'damaged' THEN 0 ELSE 1 END")
             ->orderBy('qr_code_id')
             ->paginate(20);
 
+        $damagedCount = MiddoBox::query()->where('asset_status', 'damaged')->count();
+
         return view('livewire.operation.middo-boxes', [
             'boxes' => $boxes,
+            'damagedCount' => $damagedCount,
         ])->layout('layouts.private.app', ['title' => 'Middo Boxes']);
     }
 }

@@ -43,6 +43,7 @@ class MiddoBoxLogsModal extends Component
                 'order_id' => $log->order_id,
                 'custody_status' => $log->custody_status,
                 'log_action' => $log->log_action,
+                'notes' => $log->notes,
                 'created_at' => $log->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i'),
             ])
             ->all();

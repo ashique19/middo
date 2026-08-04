@@ -100,10 +100,28 @@
       "id": "K2",
       "name": "Boxes — damage + UX",
       "priority": 3,
-      "status": "todo",
+      "status": "done",
       "items": [
-        {"id": "K2.1", "title": "Mark Middo box damaged (before send to ops)", "status": "todo"},
-        {"id": "K2.2", "title": "Box list UX polish", "status": "todo"}
+        {
+          "id": "K2.1",
+          "title": "Mark Middo box damaged (before send to ops)",
+          "status": "done",
+          "shipped": [
+            "Mark damaged at kitchen with optional note",
+            "Separate send-damaged-to-Middo path (asset_status stays damaged)",
+            "Excluded from dispatch inventory",
+            "Ops filter + Clear damage → warehouse"
+          ]
+        },
+        {
+          "id": "K2.2",
+          "title": "Box list UX polish",
+          "status": "done",
+          "shipped": [
+            "Filters: With me / Sendable / Damaged / History + Incoming link",
+            "Confirmations on receive / damage / send / send damaged"
+          ]
+        }
       ]
     },
     {

@@ -172,7 +172,8 @@ class KitchenMiddoBoxesTest extends TestCase
             ->get(route('kitchen.middo-boxes.at-kitchen'))
             ->assertOk()
             ->assertSee($box->qr_code_id)
-            ->assertSee('Send to Middo warehouse');
+            ->assertSee('Send to Middo warehouse')
+            ->assertSee('Mark damaged');
 
         Livewire::actingAs($this->kitchen)
             ->test(BoxesAtKitchen::class)
@@ -186,7 +187,80 @@ class KitchenMiddoBoxesTest extends TestCase
         $this->assertDatabaseHas('middo_box_logs', [
             'middo_box_id' => $box->id,
             'log_action' => 'returned_to_warehouse',
+            'performed_by' => $this->kitchen->id,
         ]);
+    }
+
+    public function test_kitchen_can_mark_box_damaged_and_send_on_damaged_path(): void
+    {
+        $box = $this->makeBox([
+            'kitchen_id' => $this->kitchen->id,
+            'held_by_user_id' => $this->kitchen->id,
+        ]);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->call('openDamage', $box->id)
+            ->set('damageNotes', 'Cracked lid')
+            ->call('confirmDamage')
+            ->assertSet('errorMessage', null)
+            ->assertSet('filter', 'damaged');
+
+        $box->refresh();
+        $this->assertSame('damaged', $box->asset_status);
+        $this->assertTrue($box->isAtKitchen($this->kitchen->id));
+        $this->assertDatabaseHas('middo_box_logs', [
+            'middo_box_id' => $box->id,
+            'log_action' => 'marked_damaged_at_kitchen',
+            'notes' => 'Cracked lid',
+            'performed_by' => $this->kitchen->id,
+        ]);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->call('sendToWarehouse', $box->id)
+            ->assertSet('errorMessage', fn ($msg) => is_string($msg) && str_contains($msg, 'Send damaged'));
+
+        Livewire::actingAs($this->kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->set('filter', 'damaged')
+            ->call('sendDamagedToWarehouse', $box->id)
+            ->assertSet('errorMessage', null);
+
+        $box->refresh();
+        $this->assertNull($box->kitchen_id);
+        $this->assertNull($box->held_by_user_id);
+        $this->assertSame('damaged', $box->asset_status);
+        $this->assertDatabaseHas('middo_box_logs', [
+            'middo_box_id' => $box->id,
+            'log_action' => 'returned_damaged_to_warehouse',
+        ]);
+    }
+
+    public function test_damaged_box_is_excluded_from_dispatch_inventory(): void
+    {
+        $order = $this->createAssignedOrder(1);
+        $good = $this->makeBox([
+            'kitchen_id' => $this->kitchen->id,
+            'held_by_user_id' => $this->kitchen->id,
+        ]);
+        $damaged = $this->makeBox([
+            'kitchen_id' => $this->kitchen->id,
+            'held_by_user_id' => $this->kitchen->id,
+            'asset_status' => 'damaged',
+        ]);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(ActiveOrders::class)
+            ->call('markReady', $order->id);
+
+        $modal = Livewire::actingAs($this->kitchen)
+            ->test(DispatchOrderModal::class)
+            ->call('openModal', $order->id);
+
+        $availableIds = collect($modal->get('availableBoxes'))->pluck('id')->all();
+        $this->assertContains($good->id, $availableIds);
+        $this->assertNotContains($damaged->id, $availableIds);
     }
 
     public function test_active_orders_show_box_low_and_dispatch_uses_selected_boxes(): void

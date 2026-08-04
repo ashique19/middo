@@ -56,8 +56,7 @@ class ActiveOrders extends Component
     protected function refreshBoxInventory(): void
     {
         $this->boxInventoryCount = MiddoBox::query()
-            ->atKitchen(Auth::id())
-            ->whereDoesntHave('orderMiddoBoxes')
+            ->sendableAtKitchen(Auth::id())
             ->count();
     }
 

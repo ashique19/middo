@@ -24,6 +24,7 @@
                                 <th class="p-3">Date</th>
                                 <th class="p-3">Custody Status</th>
                                 <th class="p-3">Log Action</th>
+                                <th class="p-3">Notes</th>
                                 <th class="p-3">Order</th>
                             </tr>
                         </thead>
@@ -39,13 +40,16 @@
                                     <td class="p-3 font-medium text-gray-800">
                                         {{ str($log['log_action'])->headline() }}
                                     </td>
+                                    <td class="p-3 text-gray-600 max-w-xs truncate" title="{{ $log['notes'] ?? '' }}">
+                                        {{ $log['notes'] ?: '—' }}
+                                    </td>
                                     <td class="p-3 font-mono text-gray-600">
                                         {{ $log['order_id'] ? '#'.$log['order_id'] : '—' }}
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="p-10 text-center text-sm font-semibold text-gray-400 italic">
+                                    <td colspan="5" class="p-10 text-center text-sm font-semibold text-gray-400 italic">
                                         No logs recorded for this box yet.
                                     </td>
                                 </tr>

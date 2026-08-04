@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\MiddoBox;
-use App\Models\Order;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -14,6 +12,8 @@ class MiddoBoxLog extends Model
         'middo_box_id',
         'custody_status',
         'log_action',
+        'notes',
+        'performed_by',
     ];
 
     public function order(): BelongsTo
@@ -24,5 +24,10 @@ class MiddoBoxLog extends Model
     public function middoBox(): BelongsTo
     {
         return $this->belongsTo(MiddoBox::class);
+    }
+
+    public function performedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'performed_by');
     }
 }

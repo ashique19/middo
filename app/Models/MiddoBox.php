@@ -56,6 +56,39 @@ class MiddoBox extends Model
             ->where('held_by_user_id', $kitchenId);
     }
 
+    public function scopeSendableAtKitchen(Builder $query, int $kitchenId): Builder
+    {
+        return $query
+            ->atKitchen($kitchenId)
+            ->where('asset_status', '!=', 'damaged')
+            ->whereDoesntHave('orderMiddoBoxes');
+    }
+
+    public function scopeDamagedAtKitchen(Builder $query, int $kitchenId): Builder
+    {
+        return $query
+            ->atKitchen($kitchenId)
+            ->where('asset_status', 'damaged');
+    }
+
+    public function isDamaged(): bool
+    {
+        return $this->asset_status === 'damaged';
+    }
+
+    public function isSendableFromKitchen(?int $kitchenId = null): bool
+    {
+        if (! $this->isAtKitchen($kitchenId)) {
+            return false;
+        }
+
+        if ($this->isDamaged()) {
+            return false;
+        }
+
+        return ! $this->orderMiddoBoxes()->exists();
+    }
+
     public function scopeIncomingToKitchen(Builder $query, int $kitchenId): Builder
     {
         return $query

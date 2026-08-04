@@ -73,8 +73,7 @@ class DispatchOrderModal extends Component
         $this->orderLabel = '#'.$order->id.' · '.($order->menuItem?->name ?? 'Order').' · Qty '.$order->quantity;
         $this->selectedBoxIds = [];
         $this->availableBoxes = MiddoBox::query()
-            ->atKitchen($kitchenId)
-            ->whereDoesntHave('orderMiddoBoxes')
+            ->sendableAtKitchen($kitchenId)
             ->orderBy('qr_code_id')
             ->get()
             ->map(fn (MiddoBox $box) => [
@@ -175,8 +174,8 @@ class DispatchOrderModal extends Component
                 }
 
                 foreach ($boxes as $box) {
-                    if (! $box->isAtKitchen($kitchenId)) {
-                        throw new \RuntimeException("{$box->qr_code_id} is not in your kitchen inventory.");
+                    if (! $box->isAtKitchen($kitchenId) || $box->isDamaged()) {
+                        throw new \RuntimeException("{$box->qr_code_id} is not available in your kitchen inventory.");
                     }
 
                     if (OrderMiddoBox::query()->where('middo_box_id', $box->id)->exists()) {
