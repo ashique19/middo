@@ -5,10 +5,15 @@ namespace App\Livewire\Operation;
 use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Order;
 use App\Models\OrderGroup;
+use App\Models\User;
+use App\Support\KitchenCapacity;
 use App\Support\MealOrderGrouper;
+use App\Support\OpsSlaBoard;
 use App\Support\OrderGroupManager;
+use App\Support\OrderKitchenAcceptance;
 use App\Support\OrdersExcelExport;
 use App\Support\PackageOrderPresenter;
+use App\Support\StaffAlerts;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -30,6 +35,18 @@ class ActiveOrders extends Component
     /** all|package|alacarte */
     public string $packageFilter = 'all';
 
+    /** all|pending|processing|ready|packed|on_the_way_to_delivery */
+    public string $statusFilter = 'all';
+
+    /** all|unassigned|{kitchen user id} */
+    public string $kitchenFilter = 'all';
+
+    public bool $awaitingRiderOnly = false;
+
+    public bool $lateOnly = false;
+
+    public ?int $bulkKitchenId = null;
+
     public function mount(): void
     {
         $this->loadOrders();
@@ -41,6 +58,31 @@ class ActiveOrders extends Component
             $this->packageFilter = 'all';
         }
 
+        $this->loadOrders();
+    }
+
+    public function updatedStatusFilter(): void
+    {
+        $allowed = ['all', 'pending', 'processing', 'ready', 'packed', 'on_the_way_to_delivery'];
+        if (! in_array($this->statusFilter, $allowed, true)) {
+            $this->statusFilter = 'all';
+        }
+
+        $this->loadOrders();
+    }
+
+    public function updatedKitchenFilter(): void
+    {
+        $this->loadOrders();
+    }
+
+    public function updatedAwaitingRiderOnly(): void
+    {
+        $this->loadOrders();
+    }
+
+    public function updatedLateOnly(): void
+    {
         $this->loadOrders();
     }
 
@@ -124,16 +166,95 @@ class ActiveOrders extends Component
         }
     }
 
+    /**
+     * Assign all currently visible unassigned groups to the selected kitchen.
+     */
+    public function bulkAssignUnassignedKitchen(): void
+    {
+        if (! $this->bulkKitchenId) {
+            $this->statusMessage = 'Select a kitchen first.';
+
+            return;
+        }
+
+        $kitchen = User::query()
+            ->whereKey($this->bulkKitchenId)
+            ->whereHas('role', fn ($q) => $q->where('name', 'kitchen'))
+            ->where('status', 'active')
+            ->first();
+
+        if (! $kitchen) {
+            $this->statusMessage = 'Kitchen not found.';
+
+            return;
+        }
+
+        $groupIds = collect($this->dateSections)
+            ->flatMap(fn (array $section) => $section['groups'])
+            ->filter(fn (array $group) => empty($group['kitchen_id']))
+            ->pluck('id')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($groupIds === []) {
+            $this->statusMessage = 'No unassigned groups in the current filter.';
+
+            return;
+        }
+
+        $assigned = 0;
+        $skipped = 0;
+
+        foreach ($groupIds as $groupId) {
+            $group = OrderGroup::with('orders')->find($groupId);
+            if (! $group || $group->kitchen_id !== null) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                KitchenCapacity::assertCanAccept($kitchen);
+            } catch (\RuntimeException $e) {
+                $this->statusMessage = "Assigned {$assigned} group(s). Stopped: ".$e->getMessage();
+                $this->loadOrders();
+
+                return;
+            }
+
+            $group->update([
+                'kitchen_id' => $kitchen->id,
+                'updated_by' => Auth::id(),
+            ]);
+
+            OrderKitchenAcceptance::markGroupOrdersProcessing($group, Auth::id());
+            StaffAlerts::notifyKitchenAssigned($group->fresh(['menuItem']), $kitchen);
+            $assigned++;
+        }
+
+        $this->bulkKitchenId = null;
+        $this->loadOrders();
+        $this->statusMessage = $assigned > 0
+            ? "Assigned {$assigned} unassigned group(s) to {$kitchen->name}."
+                .($skipped > 0 ? " Skipped {$skipped}." : '')
+            : 'No groups were assigned.';
+    }
+
     protected function loadOrders(): void
     {
-        $orders = Order::with(['menuItem', 'user', 'orderGroup', 'packageSubscription.package'])
-            ->future()
-            ->active()
-            ->when($this->packageFilter === 'package', fn ($q) => $q->whereNotNull('package_subscription_id'))
-            ->when($this->packageFilter === 'alacarte', fn ($q) => $q->whereNull('package_subscription_id'))
+        $lateIds = $this->lateOnly
+            ? OpsSlaBoard::lateToPack()->pluck('id')->all()
+            : null;
+
+        $orders = $this->baseOrderQuery()
+            ->with(['menuItem', 'user', 'orderGroup.kitchen', 'packageSubscription.package'])
             ->orderBy('delivery_date')
             ->orderBy('delivery_time')
-            ->get();
+            ->get()
+            ->when($lateIds !== null, fn (Collection $c) => $c->filter(
+                fn (Order $order) => in_array($order->id, $lateIds, true)
+            )->values());
 
         $this->dateSections = $orders
             ->groupBy(fn (Order $order) => $order->delivery_date->toDateString())
@@ -146,6 +267,34 @@ class ActiveOrders extends Component
         if ($this->expandedDates === [] && $this->dateSections !== []) {
             $this->expandedDates = [$this->dateSections[0]['date']];
         }
+    }
+
+    protected function baseOrderQuery()
+    {
+        return Order::query()
+            ->future()
+            ->active()
+            ->when($this->packageFilter === 'package', fn ($q) => $q->whereNotNull('package_subscription_id'))
+            ->when($this->packageFilter === 'alacarte', fn ($q) => $q->whereNull('package_subscription_id'))
+            ->when($this->statusFilter !== 'all', fn ($q) => $q->where('order_status', $this->statusFilter))
+            ->when($this->awaitingRiderOnly, function ($q) {
+                $q->where('order_status', 'packed')
+                    ->whereNotNull('dispatched_at')
+                    ->whereNull('delivery_rider_id');
+            })
+            ->when($this->kitchenFilter === 'unassigned', function ($q) {
+                $q->where(function ($inner) {
+                    $inner->whereDoesntHave('orderGroup')
+                        ->orWhereHas('orderGroup', fn ($g) => $g->whereNull('kitchen_id'));
+                });
+            })
+            ->when(
+                $this->kitchenFilter !== 'all' && $this->kitchenFilter !== 'unassigned',
+                function ($q) {
+                    $kitchenId = (int) $this->kitchenFilter;
+                    $q->whereHas('orderGroup', fn ($g) => $g->where('kitchen_id', $kitchenId));
+                }
+            );
     }
 
     protected function buildDateTree(string $date, Collection $dayOrders): array
@@ -190,6 +339,7 @@ class ActiveOrders extends Component
                     'id' => $group->id,
                     'name' => $group->name,
                     'menu_name' => $group->menuItem?->name ?? 'Unknown',
+                    'kitchen_id' => $group->kitchen_id,
                     'kitchen_label' => $group->kitchenDisplayName(),
                     'total_quantity' => $orders->sum('quantity'),
                     'color' => $colorPalette[$index % count($colorPalette)],
@@ -273,16 +423,40 @@ class ActiveOrders extends Component
         return $rows;
     }
 
+    public function getKitchenOptionsProperty(): array
+    {
+        return User::query()
+            ->whereHas('role', fn ($q) => $q->where('name', 'kitchen'))
+            ->where('status', 'active')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->map(fn (User $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+            ])
+            ->all();
+    }
+
+    public function getHasUnassignedGroupsProperty(): bool
+    {
+        return collect($this->dateSections)
+            ->flatMap(fn (array $s) => $s['groups'])
+            ->contains(fn (array $g) => empty($g['kitchen_id']));
+    }
+
     public function exportExcel(): StreamedResponse
     {
-        $orders = Order::with(['menuItem', 'user', 'orderGroup', 'packageSubscription.package'])
-            ->future()
-            ->active()
-            ->when($this->packageFilter === 'package', fn ($q) => $q->whereNotNull('package_subscription_id'))
-            ->when($this->packageFilter === 'alacarte', fn ($q) => $q->whereNull('package_subscription_id'))
+        $orders = $this->baseOrderQuery()
+            ->with(['menuItem', 'user', 'orderGroup', 'packageSubscription.package'])
             ->orderBy('delivery_date')
             ->orderBy('delivery_time')
             ->get();
+
+        if ($this->lateOnly) {
+            $lateIds = OpsSlaBoard::lateToPack()->pluck('id')->all();
+            $orders = $orders->filter(fn (Order $o) => in_array($o->id, $lateIds, true))->values();
+        }
 
         return OrdersExcelExport::download($orders, 'active-orders-'.now('Asia/Dhaka')->format('Y-m-d').'.csv');
     }
@@ -305,7 +479,9 @@ class ActiveOrders extends Component
 
     public function render()
     {
-        return view('livewire.operation.active-orders')
-            ->layout('layouts.private.app', ['title' => 'Active Orders']);
+        return view('livewire.operation.active-orders', [
+            'kitchenOptions' => $this->kitchenOptions,
+            'hasUnassignedGroups' => $this->hasUnassignedGroups,
+        ])->layout('layouts.private.app', ['title' => 'Active Orders']);
     }
 }

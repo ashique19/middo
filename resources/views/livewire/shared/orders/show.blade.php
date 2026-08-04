@@ -33,6 +33,59 @@
         </div>
     </div>
 
+    @if($this->canForceCancel() || $this->canReleaseRider() || $forceMessage || $forceError)
+        <div class="bg-white border border-amber-200 rounded-2xl p-5 shadow-sm space-y-3">
+            <div>
+                <h2 class="text-sm font-bold uppercase tracking-wider text-amber-800">Ops force tools</h2>
+                <p class="text-xs font-semibold text-gray-500 mt-0.5">Audited actions. Use only when the normal flow is stuck.</p>
+            </div>
+
+            @if($forceMessage)
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                    {{ $forceMessage }}
+                </div>
+            @endif
+            @if($forceError)
+                <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                    {{ $forceError }}
+                </div>
+            @endif
+
+            @if($this->canForceCancel() || $this->canReleaseRider())
+                <div>
+                    <label class="block text-[11px] font-bold uppercase text-gray-400 mb-1">Reason (optional)</label>
+                    <input
+                        type="text"
+                        wire:model="forceReason"
+                        maxlength="255"
+                        placeholder="Why are you intervening?"
+                        class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 font-semibold text-gray-800 focus:ring-middo-orange focus:border-middo-orange" />
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    @if($this->canForceCancel())
+                        <button
+                            type="button"
+                            wire:click="forceCancel"
+                            wire:confirm="Cancel this order before packed? Paid amount will be refunded to the corporate wallet."
+                            class="inline-flex items-center px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition">
+                            Cancel before packed
+                        </button>
+                    @endif
+                    @if($this->canReleaseRider())
+                        <button
+                            type="button"
+                            wire:click="releaseRider"
+                            wire:confirm="Release the rider and return this order to packed? Delivery share will be voided and boxes returned to kitchen."
+                            class="inline-flex items-center px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold transition">
+                            Release rider → packed
+                        </button>
+                    @endif
+                </div>
+            @endif
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         {{-- Corporate --}}
         <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">

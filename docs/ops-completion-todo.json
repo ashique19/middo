@@ -105,12 +105,12 @@
     {
       "id": "O5",
       "title": "Order force tools + filters",
-      "status": "pending",
+      "status": "done",
       "items": [
-        "Ops cancel / status override with audit log",
-        "Rider reassign / release stuck packed",
-        "ActiveOrders filters: status, kitchen, unassigned, late",
-        "Bulk kitchen reassign"
+        "Ops cancel / status override with audit log — done (OrderOpsForce + OrderShow)",
+        "Rider reassign / release stuck packed — done (release on_the_way → packed)",
+        "ActiveOrders filters: status, kitchen, unassigned, late — done",
+        "Bulk kitchen reassign — done (assign all visible unassigned groups)"
       ]
     },
     {

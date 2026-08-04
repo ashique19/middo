@@ -256,6 +256,7 @@ class CorporateApiPresenter
             'payment_status_changed' => 'Payment Updated',
             'quantity_changed' => 'Quantity Updated',
             'deleted' => 'Order Deleted',
+            'ops_force_status' => 'Ops Force Action',
             default => 'Order Updated',
         };
     }
@@ -287,6 +288,12 @@ class CorporateApiPresenter
                 $metadata['changes']['quantity']['to'] ?? 0,
             ),
             'deleted' => 'Order was removed from your schedule.',
+            'ops_force_status' => sprintf(
+                'Ops force: %s → %s%s',
+                ucfirst(str_replace('_', ' ', $metadata['from'] ?? 'unknown')),
+                ucfirst(str_replace('_', ' ', $metadata['to'] ?? 'unknown')),
+                ! empty($metadata['reason']) ? ' — '.$metadata['reason'] : '',
+            ),
             default => 'Order details were updated.',
         };
     }

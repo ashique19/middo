@@ -14,9 +14,59 @@
                 <option value="package">Package only</option>
                 <option value="alacarte">À la carte only</option>
             </select>
+            <select
+                wire:model.live="statusFilter"
+                class="text-sm border border-gray-200 rounded-xl px-3 py-2 font-semibold text-gray-700 focus:ring-middo-orange focus:border-middo-orange">
+                <option value="all">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="ready">Ready</option>
+                <option value="packed">Packed</option>
+                <option value="on_the_way_to_delivery">On the way</option>
+            </select>
+            <select
+                wire:model.live="kitchenFilter"
+                class="text-sm border border-gray-200 rounded-xl px-3 py-2 font-semibold text-gray-700 focus:ring-middo-orange focus:border-middo-orange">
+                <option value="all">All kitchens</option>
+                <option value="unassigned">Unassigned kitchen</option>
+                @foreach($kitchenOptions as $kitchen)
+                    <option value="{{ $kitchen['id'] }}">{{ $kitchen['name'] }}</option>
+                @endforeach
+            </select>
+            <label class="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
+                <input type="checkbox" wire:model.live="awaitingRiderOnly" class="rounded border-gray-300 text-middo-orange focus:ring-middo-orange" />
+                Awaiting rider
+            </label>
+            <label class="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
+                <input type="checkbox" wire:model.live="lateOnly" class="rounded border-gray-300 text-middo-orange focus:ring-middo-orange" />
+                Late to pack
+            </label>
             <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
         </div>
     </div>
+
+    @if($hasUnassignedGroups)
+        <div class="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 flex flex-wrap items-center gap-3">
+            <p class="text-sm font-semibold text-amber-900 flex-1 min-w-[12rem]">
+                Bulk assign unassigned groups in the current view
+            </p>
+            <select
+                wire:model="bulkKitchenId"
+                class="text-sm border border-amber-200 rounded-xl px-3 py-2 font-semibold text-gray-700 focus:ring-middo-orange focus:border-middo-orange bg-white">
+                <option value="">Select kitchen…</option>
+                @foreach($kitchenOptions as $kitchen)
+                    <option value="{{ $kitchen['id'] }}">{{ $kitchen['name'] }}</option>
+                @endforeach
+            </select>
+            <button
+                type="button"
+                wire:click="bulkAssignUnassignedKitchen"
+                wire:confirm="Assign all visible unassigned groups to the selected kitchen?"
+                class="inline-flex items-center px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition">
+                Assign all unassigned
+            </button>
+        </div>
+    @endif
 
     @if($statusMessage)
         <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
