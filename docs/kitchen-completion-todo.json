@@ -8,7 +8,7 @@
       "MiddoOrderGroups (accept open groups + capacity slots)",
       "ActiveOrders + DispatchOrderModal (pack + dispatch in one step today)",
       "Boxes (receive Middo boxes, send empty to ops)",
-      "Accounts (cash handovers into Middo ledger)",
+      "Accounts (cash handovers debit kitchen wallet)",
       "Recipes (menus assigned to kitchen)"
     ],
     "product_rules_agreed": [
@@ -19,7 +19,7 @@
       "Kitchen can release accepted group back to pool before pack",
       "Ready (kitchen done) is separate from rider pickup / dispatch",
       "Kitchen can mark Middo box damaged before return to ops",
-      "Kitchen ledger: receivable from Middo + withdrawal + send-money-to-Middo with proof"
+      "Kitchen wallet: dispatch credits (Middo owes kitchen); rider cash handover debits (negative = kitchen owes Middo); withdraw when positive; transfer to Middo settles surplus"
     ],
     "k0_shipped": {
       "branch": "cursor/kitchen-tiers-capacity-e299",
