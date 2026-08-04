@@ -1,6 +1,6 @@
 {
   "title": "Rider / delivery portal — completion backlog",
-  "version": 3,
+  "version": 4,
   "updated": "2026-08-04",
   "context": {
     "existing_delivery_livewire": [
@@ -20,8 +20,10 @@
       "Commission credited to rider wallet on RUN START → Middo owes rider",
       "Lunch delivery_share accrues once at run start from menu.delivery_commission — never a second time on delivered_and_paid",
       "Box/custom rider commissions book into a Middo cost ledger (outside order middo_rest) so profit still reflects all rider cost",
-      "Cash collected credited to rider wallet as rider owes Middo (commission already sitting as Middo-owes)",
-      "Cash handover accepted by kitchen CLEARS rider owes-Middo for that cash (and kitchen wallet is debited — kitchen now holds Middo's cash)",
+      "RIDER CASH UX (D5): after cash collect show Collection − Commission = Due to Middo; handover only the due amount (rider keeps commission from the cash bag)",
+      "Handover targets: kitchen or Middo/ops; accepting clears Due by that amount (kitchen ledger debit if kitchen; MiddoCashLedger if Middo/ops)",
+      "When cash covers commission, settle commission in-kind from the float — do NOT also leave that commission withdrawable",
+      "If no cash (or net Middo owes rider): show Wallet balance with Request payment / withdrawal",
       "Rider may have multiple areas; parcel calls / notifications scoped to those areas",
       "Rider portal needs a mobile-app-like UI (thumbs-first shell, bottom nav) — cleaner navigation now; foundation for a later native rider app"
     ],
@@ -54,18 +56,37 @@
         "status": "future — design in R0/R2, ship after core four types"
       }
     },
+    "rider_money_ui": {
+      "due_to_middo": {
+        "formula": "max(0, cash_held − commissions_settled_from_cash)",
+        "display": "Collection − Commission = Due to Middo",
+        "action": "Handover to kitchen or Middo (amount = due only)"
+      },
+      "wallet_middo_owes": {
+        "when": "No cash float / prepaid runs / cash < commission leftover",
+        "display": "Wallet balance — Middo owes you",
+        "action": "Request payment / withdrawal"
+      }
+    },
     "wallet_sign_convention": {
-      "positive": "Middo owes rider (unpaid commissions net of settled cash debt)",
-      "negative": "Rider owes Middo (cash held after commission already credited)",
-      "analogy": "Same signed model as kitchen_account_ledger"
+      "positive": "Middo owes rider (withdrawable commissions not settled from cash)",
+      "negative_or_due": "Rider owes Middo (due-to-Middo cash to hand over)",
+      "analogy": "Same signed ledger as kitchen; UI shows Due to Middo vs Wallet instead of raw negatives"
     },
     "ideal_cash_cod_example": {
       "steps": [
-        "Run start: +commission (Middo owes rider)",
-        "Collect cash C: −C (rider owes Middo / holds cash)",
-        "Net wallet after collect: commission − C",
-        "Handover C to kitchen: +C on rider wallet (clears cash debt); kitchen ledger −C",
-        "Final rider wallet: +commission (Middo still owes commission until withdrawal/settlement)"
+        "Run start: +commission ৳50 (Middo owes rider)",
+        "Collect cash ৳200: hold cash; settle commission in-kind from float",
+        "UI: Collection ৳200 − Commission ৳50 = Due to Middo ৳150",
+        "Handover ৳150 to kitchen/Middo: clears due",
+        "Final wallet: ৳0 (commission already kept in cash — no withdrawal)"
+      ]
+    },
+    "ideal_prepaid_example": {
+      "steps": [
+        "Run start: +commission ৳50",
+        "No cash collected",
+        "UI: Wallet ৳50 — Middo owes you → Request payment"
       ]
     }
   },
@@ -149,9 +170,10 @@
     {
       "id": "C3",
       "severity": "high",
-      "title": "Handover clears rider debt AND debits kitchen — both required",
-      "detail": "Today handover only decrements rider users.balance and debits kitchen ledger. Product: clearing rider owes-Middo is correct; kitchen debit (kitchen holds cash) stays. Risk: if MiddoCashLedger were also credited (old bug), triple-count. Current kitchen path is correct — do not re-credit Middo cash on handover.",
-      "resolution": "On accept: RiderLedger credit (clear cash debt) + KitchenLedger debit. Middo cash only when kitchen transfers surplus or Middo receives cash elsewhere."
+      "title": "Handover amount is Due to Middo, not full collection",
+      "status": "resolved",
+      "detail": "Old path handed full cash_collected and left commission on wallet. New UX: handover only (collection − commission); rider keeps commission cash.",
+      "resolution": "On cash collect: record cash held + settle open commission in-kind up to cash. Due = remaining cash debt. Handover credits rider due and debits kitchen (or credits Middo cash if target is Middo/ops). Never MiddoCashLedger on kitchen accept."
     },
     {
       "id": "C4",
@@ -316,28 +338,34 @@
     },
     {
       "id": "R3",
-      "name": "Cash collect + handover clears owes Middo",
+      "name": "Cash collect UI + due handover (keep commission)",
       "priority": 4,
       "status": "todo",
       "depends_on": ["R2"],
-      "goal": "Cash increases rider debt to Middo; kitchen handover clears it.",
-      "build_order": ["R3.1", "R3.2", "R3.3"],
+      "goal": "After collect: show Collection − Commission = Due to Middo; handover only due to kitchen or Middo; prepaid shows wallet + withdrawal.",
+      "build_order": ["R3.1", "R3.2", "R3.3", "R3.4"],
       "items": [
         {
           "id": "R3.1",
-          "title": "PaymentModal cash → rider ledger debit (owes Middo)",
+          "title": "PaymentModal cash → hold cash + settle commission in-kind from float",
           "status": "todo",
-          "notes": "Stop treating users.balance as SoT for riders (or sync denormalized)."
+          "notes": "UI breakdown: collection, commission, due. Ledger must not leave settled commission withdrawable."
         },
         {
           "id": "R3.2",
-          "title": "Kitchen CashHandovers accept → rider ledger credit (clear debt) + keep kitchen debit",
+          "title": "Handover create/accept for Due amount only (kitchen or Middo/ops)",
           "status": "todo",
-          "notes": "Do NOT MiddoCashLedger.credit. Align Delivery CashHandovers create gate with ledger balance."
+          "notes": "Kitchen accept → kitchen ledger debit. Middo/ops accept → MiddoCashLedger credit. Clear rider due by handed amount."
         },
         {
           "id": "R3.3",
-          "title": "Order money events for cash_held / cash_handed_to_kitchen from rider perspective",
+          "title": "Cash screen: Due to Middo vs Wallet (Middo owes) with correct CTA",
+          "status": "todo",
+          "notes": "Due > 0 → Handover. Wallet > 0 and due = 0 → Request payment."
+        },
+        {
+          "id": "R3.4",
+          "title": "Order money events for cash_held / commission_settled_from_cash / due_handed_over",
           "status": "todo"
         }
       ]
@@ -464,7 +492,16 @@
     {
       "id": "D4",
       "question": "Rider withdrawal: bKash/cash from Middo like kitchen, or net against future cash collections only?",
-      "blocks": ["R4.3", "SI5"]
+      "status": "decided",
+      "answer": "Withdrawal/request payment when Middo owes (typically no/insufficient cash). COD usually pays commission in-kind via Collection − Commission = Due handover.",
+      "blocks": []
+    },
+    {
+      "id": "D5",
+      "question": "Hand over full cash then withdraw commission, or hand over only Due (collection − commission)?",
+      "status": "decided",
+      "answer": "Hand over Due only; rider keeps commission from cash. UI: Collection − Commission = Due to Middo. Handover to kitchen or Middo.",
+      "blocks": []
     }
   ],
   "suggested_ship_order": ["R0", "R5", "R1", "R2", "R3", "R4", "R6", "R2b"],
