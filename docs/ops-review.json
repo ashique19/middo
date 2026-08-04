@@ -1,9 +1,10 @@
 {
   "title": "Operation role — detailed review (pre-todo)",
-  "version": 3,
+  "version": 4,
   "updated": "2026-08-04",
   "status": "review — not yet phased into build tickets",
   "changelog": [
+    "v4: Accounts role decided — todo after ops backlog clear (A0…An); no Middo login user",
     "v3: Ops intervene-anywhere decided; clarified Middo cash ≠ user account; accounts-role recommendation",
     "v2: Added O-ORDER-LENS — multi-level order view (corporate / kitchen / rider / Middo) as agreed need"
   ],
@@ -186,26 +187,36 @@
       "recommendation": "Keep MiddoCashLedger as SoT for cash; do NOT invent a loginable Middo user. If double-entry clarity is needed later, add a non-login system party / chart-of-accounts code, not a role=middo user."
     },
     "accounts_role_proposal": {
-      "status": "open — recommendation below",
+      "status": "decided 2026-08-04 — ship after ops backlog is clear",
       "question": "Introduce user role 'accounts' to manage all accounting?",
-      "recommendation": "Not yet as a full role — prefer permission scopes / Accounts Hub ownership first. Revisit when money surface grows (bank ledger, P&L, adjustments, dual-control).",
-      "why_not_now": [
-        "Money tools already shared admin|operation (AccountsHub, Middo cash, kitchen/rider money) — ops already does day cash; splitting role without splitting duties creates empty seats",
-        "Day ops (handover accept, approve withdrawal) often needs the same person who is firefighting orders — a pure accounts role can bottleneck",
-        "No chart-of-accounts / period close / bank ledger yet — an accounts role would mostly inherit today's thin pages"
+      "decision": "Yes — introduce role=accounts in the todo list, sequenced AFTER ops themes are cut and largely clear. Do not invent a Middo login user; MiddoCashLedger remains SoT for cash.",
+      "sequence": "O-* ops phases first → then A0…An accounts role (nav, gates, dual-control money ownership)",
+      "why_after_ops": [
+        "Day-ops money paths (handovers, approvals, recon, operating costs UI) should stabilize before splitting who owns them",
+        "Accounts role inherits mature Accounts Hub / cash / P&L surfaces rather than today's thin pages",
+        "Clearer dual-control split once ops intervention + money hardening exist"
       ],
-      "when_it_helps": [
-        "Dual control: ops accepts handovers / runs dispatch; accounts settles payables, cash adjustments, period P&L, bank recon",
-        "Segregation of duties for finance audit (ops cannot adjust Middo cash alone)",
-        "Dedicated nav: Accounts Hub, Middo cash, operating costs, COD recon, kitchen/rider money — strip those from day-ops sidebar"
-      ],
-      "lighter_alternative": "Add permission flags (e.g. manage-middo-cash, settle-payables, approve-partner-money, cash-adjust) grantable to operation and/or a future accounts role — same Livewire, different gates. Introduce role=accounts only when a real finance person exists.",
-      "if_shipped_later": {
+      "when_shipped": {
         "role": "accounts",
-        "owns": ["Accounts Hub", "Middo cash + adjustments", "Operating costs / P&L", "COD recon", "Kitchen + rider money approvals", "Corporate wallet adjustments"],
-        "does_not_own": ["Kitchen assign", "Box dispatch", "Active order regroup", "Custom runs create"],
-        "admin": "Still break-glass + settings + user admin"
-      }
+        "owns": [
+          "Accounts Hub",
+          "Middo cash + adjustments + day-end variance",
+          "Operating costs / period P&L",
+          "COD / Due recon reports",
+          "Kitchen + rider money approvals",
+          "Corporate wallet adjustments"
+        ],
+        "does_not_own": [
+          "Kitchen assign",
+          "Box dispatch",
+          "Active order regroup",
+          "Custom runs create",
+          "Order force / lens intervene (stays ops|admin)"
+        ],
+        "admin": "Break-glass + settings + user admin + grant accounts role",
+        "ops_retains": "Day handover accept may stay ops or move to accounts — decide at A0 design"
+      },
+      "lighter_bridge_optional": "Permission flags on operation/admin before A0 if needed; not a substitute for the eventual accounts role"
     },
     "middo_boxes": {
       "exists": [
@@ -451,13 +462,15 @@
     },
     {
       "theme": "O-ACCOUNTS-ROLE",
-      "title": "Accounts role vs permission scopes (policy)",
-      "priority_note": "Recommendation: permissions first; role=accounts later if finance segregation needed",
+      "title": "Accounts role (after ops clear)",
+      "priority_note": "DECIDED — sequence after O-* ops backlog is clear; MiddoCashLedger stays SoT (no Middo login user)",
       "candidates": [
-        "Document Middo money buckets in UI copy (cash ledger vs middo_rest vs operating costs)",
-        "Permission flags: manage-middo-cash, settle-payables, approve-partner-money, cash-adjust",
-        "Defer role=accounts until bank ledger / period P&L / dual-control exist",
-        "Do NOT create a loginable Middo user for cash — keep MiddoCashLedger as SoT"
+        "A0: Role + seeder + nav shell + middleware (role:accounts)",
+        "A1: Move money pages gates to accounts|admin (Hub, Middo cash, operating costs, COD recon, kitchen/rider money)",
+        "A2: Dual-control policy — which day-cash actions stay ops vs accounts only",
+        "A3: Cash adjust + day-end variance under accounts",
+        "A4: Period P&L / bank ledger ownership under accounts",
+        "Document Middo money buckets in UI (cash ledger vs middo_rest vs operating costs)"
       ]
     },
     {
@@ -517,13 +530,21 @@
     "3. Money: handover reject + COD recon + kitchen payout path policy",
     "4. Riders directory + packed-awaiting queue",
     "5. Order force tools (cancel/reassign) with audit",
-    "5b. Multi-level order lenses (O-ORDER-LENS) — pairs with force tools / support",
+    "5b. Multi-level order lenses (O-ORDER-LENS) — ops intervene at any level",
     "6. Boxes custody + inbound",
     "7. Complaints inbox",
-    "8. Operating costs + period P&L",
+    "8. Operating costs + period P&L (ops builds surfaces)",
     "9. Area/coverage tooling",
-    "10. Policy items (ops capacity edit, corporate wallet adjust, Hub settle)"
+    "10. Policy items (ops capacity edit, corporate wallet adjust, Hub settle)",
+    "AFTER OPS CLEAR → A0…An accounts role (money ownership + dual-control)"
   ],
+  "post_ops_backlog": {
+    "accounts_role": {
+      "status": "decided — queued after O-* clear",
+      "phases_sketch": ["A0", "A1", "A2", "A3", "A4"],
+      "see": "accounts_role_proposal + theme O-ACCOUNTS-ROLE"
+    }
+  },
   "out_of_scope_candidates_for_debate": [
     "GPS / live map",
     "Ops menu CRUD (keep admin)",
