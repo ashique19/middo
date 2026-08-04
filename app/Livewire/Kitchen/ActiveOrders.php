@@ -270,7 +270,7 @@ class ActiveOrders extends Component
             'groups' => $groups,
             'groupNodes' => $groupNodes,
             'flatOrders' => $flatOrders,
-        ])->layout('layouts.private.app', ['title' => 'My Active Orders']);
+        ])->layout('kitchen.layout.app', ['title' => 'My Active Orders']);
     }
 
     public function exportExcel(): StreamedResponse

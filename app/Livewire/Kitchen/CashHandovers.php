@@ -108,6 +108,6 @@ class CashHandovers extends Component
         return view('livewire.kitchen.cash-handovers', [
             'handovers' => $handovers,
             'middoBalance' => MiddoCashLedger::balance(),
-        ])->layout('layouts.private.app', ['title' => 'Cash handovers']);
+        ])->layout('kitchen.layout.app', ['title' => 'Cash handovers']);
     }
 }

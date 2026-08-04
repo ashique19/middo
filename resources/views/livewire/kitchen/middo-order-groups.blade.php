@@ -1,11 +1,11 @@
-<div class="max-w-7xl mx-auto py-10 px-6 space-y-6">
+<div class="max-w-7xl mx-auto py-5 md:py-10 px-4 sm:px-6 space-y-5 md:space-y-6">
     <div class="space-y-1">
-        <a href="{{ route('kitchen.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
-        <h1 class="text-3xl font-bold text-middo-dark">Middo Order Groups</h1>
-        <p class="text-sm font-semibold text-gray-500">
+        <a href="{{ route('kitchen.dashboard') }}" class="hidden md:inline text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
+        <h1 class="hidden md:block text-3xl font-bold text-middo-dark">Middo Order Groups</h1>
+        <p class="text-sm font-semibold text-[#635347] md:text-gray-500">
             Unassigned menu order groups. Accepting assigns the group to your kitchen.
         </p>
-        <p class="text-xs font-semibold text-gray-500">
+        <p class="text-xs font-semibold text-[#8A735C] md:text-gray-500">
             Capacity: {{ $openGroupCount }} / {{ $allowedOpenGroups }} open groups
             · {{ $remainingSlots }} slot(s) remaining
         </p>

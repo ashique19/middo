@@ -44,6 +44,6 @@ class MenuDetails extends Component
     public function render()
     {
         return view('livewire.kitchen.menu-details')
-            ->layout('layouts.private.app', ['title' => $this->menuItem->name.' — Menu']);
+            ->layout('kitchen.layout.app', ['title' => $this->menuItem->name.' — Menu']);
     }
 }

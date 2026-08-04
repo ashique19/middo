@@ -179,6 +179,6 @@ class Account extends Component
             'statement' => $statement,
             'withdrawals' => $withdrawals,
             'transfers' => $transfers,
-        ])->layout('layouts.private.app', ['title' => 'Kitchen Account']);
+        ])->layout('kitchen.layout.app', ['title' => 'Kitchen Account']);
     }
 }

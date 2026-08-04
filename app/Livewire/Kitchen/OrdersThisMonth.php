@@ -69,6 +69,6 @@ class OrdersThisMonth extends Component
             'groupNodes' => $groupNodes,
             'flatOrders' => $flatOrders,
             'monthLabel' => Carbon::now('Asia/Dhaka')->format('F Y'),
-        ])->layout('layouts.private.app', ['title' => 'My Orders This Month']);
+        ])->layout('kitchen.layout.app', ['title' => 'My Orders This Month']);
     }
 }

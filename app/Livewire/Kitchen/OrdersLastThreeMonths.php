@@ -71,6 +71,6 @@ class OrdersLastThreeMonths extends Component
             'rangeLabel' => Carbon::parse($threeMonthsStart, 'Asia/Dhaka')->format('M Y')
                 .' – '
                 .Carbon::now('Asia/Dhaka')->format('M Y'),
-        ])->layout('layouts.private.app', ['title' => 'Orders — Last 3 Months']);
+        ])->layout('kitchen.layout.app', ['title' => 'Orders — Last 3 Months']);
     }
 }

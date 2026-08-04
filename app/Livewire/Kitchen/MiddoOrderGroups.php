@@ -163,6 +163,6 @@ class MiddoOrderGroups extends Component
             'groups' => $groups,
             'groupNodes' => $groupNodes,
             'atCapacity' => $this->remainingSlots <= 0,
-        ])->layout('layouts.private.app', ['title' => 'Middo Order Groups']);
+        ])->layout('kitchen.layout.app', ['title' => 'Middo Order Groups']);
     }
 }

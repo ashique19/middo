@@ -67,7 +67,7 @@ class RecipeShow extends Component
     public function render()
     {
         return view('livewire.kitchen.recipe-show')
-            ->layout('layouts.private.app', [
+            ->layout('kitchen.layout.app', [
                 'title' => ($this->recipe['title'] ?? 'Recipe').' — '.$this->mealItem->name,
             ]);
     }

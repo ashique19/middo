@@ -32,6 +32,6 @@ class Complaints extends Component
 
         return view('livewire.kitchen.complaints', [
             'complaints' => $query->paginate(20),
-        ])->layout('layouts.private.app', ['title' => 'Complaints']);
+        ])->layout('kitchen.layout.app', ['title' => 'Complaints']);
     }
 }

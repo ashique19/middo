@@ -183,6 +183,6 @@ class Profile extends Component
             'tier' => Auth::user()?->kitchen_tier,
             'allowedOpenGroups' => Auth::user()?->allowed_open_groups,
             'status' => Auth::user()?->status,
-        ])->layout('layouts.private.app', ['title' => 'Kitchen profile']);
+        ])->layout('kitchen.layout.app', ['title' => 'Kitchen profile']);
     }
 }

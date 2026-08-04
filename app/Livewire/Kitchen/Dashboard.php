@@ -94,6 +94,6 @@ class Dashboard extends Component
     public function render()
     {
         return view('livewire.kitchen.dashboard')
-            ->layout('layouts.private.app', ['title' => 'Kitchen Dashboard']);
+            ->layout('kitchen.layout.app', ['title' => 'Kitchen Dashboard']);
     }
 }

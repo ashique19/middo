@@ -1,0 +1,69 @@
+@php
+    $items = [
+        ['title' => 'Alerts', 'route' => 'kitchen.alerts', 'hint' => 'Assignments & window warnings'],
+        ['title' => 'Complaints', 'route' => 'kitchen.complaints', 'hint' => 'Assigned-order feedback'],
+        ['title' => 'Prep shopping list', 'route' => 'kitchen.prep.shopping-list', 'hint' => 'Ingredients for accepted groups'],
+        ['title' => 'Boxes at kitchen', 'route' => 'kitchen.middo-boxes.at-kitchen', 'hint' => 'Inventory with you'],
+        ['title' => 'Incoming boxes', 'route' => 'kitchen.middo-boxes.incoming', 'hint' => 'Confirm rider returns'],
+        ['title' => 'Account', 'route' => 'kitchen.account', 'hint' => 'Receivable, withdraw, transfer'],
+        ['title' => 'Cash handovers', 'route' => 'kitchen.cash-handovers', 'hint' => 'Accept rider cash'],
+        ['title' => 'This month', 'route' => 'kitchen.orders.this-month', 'hint' => 'Order history'],
+        ['title' => 'Last 3 months', 'route' => 'kitchen.orders.last-three-months', 'hint' => 'Longer history'],
+        ['title' => 'Profile & hours', 'route' => 'kitchen.profile', 'hint' => 'Contact and weekly hours'],
+    ];
+@endphp
+
+<div x-show="moreOpen" x-cloak class="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="More kitchen tools">
+    <div class="absolute inset-0 bg-[#2B1A11]/45 backdrop-blur-[2px]" @click="moreOpen = false"></div>
+
+    <div class="absolute inset-x-0 bottom-0 rounded-t-[1.75rem] bg-[#FDFBF7] border border-[#E5DCC8] shadow-2xl max-h-[80dvh] flex flex-col pb-[env(safe-area-inset-bottom,0px)]"
+         x-show="moreOpen"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="translate-y-8 opacity-0"
+         x-transition:enter-end="translate-y-0 opacity-100"
+         @click.stop>
+        <div class="px-5 pt-3 pb-2 flex items-center justify-between border-b border-[#EFE7D8]">
+            <div>
+                <div class="mx-auto mb-2 h-1 w-10 rounded-full bg-[#D9CFBB] sm:mx-0"></div>
+                <h2 class="text-lg font-black text-[#2B1A11]">More</h2>
+                <p class="text-xs font-semibold text-[#8A735C]">Secondary kitchen tools</p>
+            </div>
+            <button type="button" @click="moreOpen = false"
+                    class="w-10 h-10 rounded-xl border border-[#E5DCC8] text-[#635347] grid place-items-center"
+                    aria-label="Close">
+                ✕
+            </button>
+        </div>
+
+        <div class="overflow-y-auto px-3 py-3 space-y-1">
+            @foreach($items as $item)
+                @if(Route::has($item['route']))
+                    <a href="{{ route($item['route']) }}"
+                       @click="moreOpen = false"
+                       @class([
+                           'flex items-start gap-3 rounded-2xl px-4 py-3.5 min-h-[3.25rem] transition',
+                           'bg-[#1E4630] text-white' => request()->routeIs($item['route']),
+                           'hover:bg-[#F4EFE4] text-[#2B1A11]' => ! request()->routeIs($item['route']),
+                       ])>
+                        <div class="min-w-0">
+                            <p class="text-sm font-bold">{{ $item['title'] }}</p>
+                            <p @class([
+                                'text-xs font-medium mt-0.5',
+                                'text-emerald-100/90' => request()->routeIs($item['route']),
+                                'text-[#8A735C]' => ! request()->routeIs($item['route']),
+                            ])>{{ $item['hint'] }}</p>
+                        </div>
+                    </a>
+                @endif
+            @endforeach
+
+            <form action="{{ route('logout') }}" method="POST" class="pt-2">
+                @csrf
+                <button type="submit"
+                        class="w-full text-left rounded-2xl px-4 py-3.5 text-sm font-bold text-red-700 hover:bg-red-50">
+                    Log out
+                </button>
+            </form>
+        </div>
+    </div>
+</div>

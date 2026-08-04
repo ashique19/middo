@@ -30,6 +30,6 @@ class ComplaintShow extends Component
         return view('livewire.kitchen.complaint-show', [
             'messages' => $messages,
             'order' => $this->complaint->order,
-        ])->layout('layouts.private.app', ['title' => 'Complaint #'.$this->complaint->id]);
+        ])->layout('kitchen.layout.app', ['title' => 'Complaint #'.$this->complaint->id]);
     }
 }

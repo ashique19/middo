@@ -21,6 +21,6 @@ class PrepShoppingList extends Component
 
         return view('livewire.kitchen.prep-shopping-list', [
             'rollup' => $rollup,
-        ])->layout('layouts.private.app', ['title' => 'Prep shopping list']);
+        ])->layout('kitchen.layout.app', ['title' => 'Prep shopping list']);
     }
 }

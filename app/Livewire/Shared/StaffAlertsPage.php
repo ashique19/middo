@@ -47,10 +47,11 @@ class StaffAlertsPage extends Component
             ->paginate(20);
 
         $title = $role === 'kitchen' ? 'Kitchen alerts' : 'Ops alerts';
+        $layout = $role === 'kitchen' ? 'kitchen.layout.app' : 'layouts.private.app';
 
         return view('livewire.shared.staff-alerts-page', [
             'alerts' => $alerts,
             'unreadCount' => StaffAlerts::unreadCount($userId),
-        ])->layout('layouts.private.app', ['title' => $title]);
+        ])->layout($layout, ['title' => $title]);
     }
 }

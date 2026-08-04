@@ -133,7 +133,7 @@ class BoxesAtKitchen extends Component
                 'boxes' => null,
                 'history' => $history,
                 'counts' => $counts,
-            ])->layout('layouts.private.app', ['title' => 'Boxes at Kitchen']);
+            ])->layout('kitchen.layout.app', ['title' => 'Boxes at Kitchen']);
         }
 
         $boxesQuery = MiddoBox::query()->atKitchen($kitchenId)->withCount('orderMiddoBoxes');
@@ -150,6 +150,6 @@ class BoxesAtKitchen extends Component
             'boxes' => $boxes,
             'history' => null,
             'counts' => $counts,
-        ])->layout('layouts.private.app', ['title' => 'Boxes at Kitchen']);
+        ])->layout('kitchen.layout.app', ['title' => 'Boxes at Kitchen']);
     }
 }

@@ -71,6 +71,6 @@ class IncomingBoxes extends Component
 
         return view('livewire.kitchen.incoming-boxes', [
             'boxes' => $boxes,
-        ])->layout('layouts.private.app', ['title' => 'Incoming Middo Boxes']);
+        ])->layout('kitchen.layout.app', ['title' => 'Incoming Middo Boxes']);
     }
 }

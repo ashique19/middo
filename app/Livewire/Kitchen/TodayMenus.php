@@ -49,6 +49,6 @@ class TodayMenus extends Component
         return view('livewire.kitchen.today-menus', [
             'menus' => $menus,
             'assignedGroupCount' => $assignedGroupCount,
-        ])->layout('layouts.private.app', ['title' => "Today's Menus"]);
+        ])->layout('kitchen.layout.app', ['title' => "Today's Menus"]);
     }
 }

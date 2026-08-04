@@ -1,9 +1,9 @@
-<div class="max-w-7xl mx-auto py-10 px-6 space-y-6">
+<div class="max-w-7xl mx-auto py-5 md:py-10 px-4 sm:px-6 space-y-5 md:space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="space-y-1">
-            <a href="{{ route('kitchen.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
-            <h1 class="text-3xl font-bold text-middo-dark">My Active Orders</h1>
-            <p class="text-sm font-semibold text-gray-500">
+            <a href="{{ route('kitchen.dashboard') }}" class="hidden md:inline text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
+            <h1 class="hidden md:block text-3xl font-bold text-middo-dark">My Active Orders</h1>
+            <p class="text-sm font-semibold text-[#635347] md:text-gray-500">
                 Mark prep Ready, then Dispatch to hand off to a rider. Release returns a group to Middo before ready.
             </p>
             <div class="pt-2">
