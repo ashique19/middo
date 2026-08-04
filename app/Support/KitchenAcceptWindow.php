@@ -42,6 +42,30 @@ class KitchenAcceptWindow
         return self::scheduledStart($group)->copy();
     }
 
+    public static function minutesUntilClose(OrderGroup $group, ?Carbon $now = null): int
+    {
+        $now = ($now ?? now('Asia/Dhaka'))->copy()->timezone('Asia/Dhaka');
+        $closeAt = self::windowCloseAt($group);
+
+        if ($now->gte($closeAt)) {
+            return 0;
+        }
+
+        return (int) max(0, $now->diffInMinutes($closeAt));
+    }
+
+    public static function isClosingSoon(OrderGroup $group, ?Carbon $now = null, ?int $warnMinutes = null): bool
+    {
+        $now = ($now ?? now('Asia/Dhaka'))->copy()->timezone('Asia/Dhaka');
+        $warnMinutes = $warnMinutes ?? MiddoSettings::acceptWindowWarnMinutes();
+
+        if (! self::isOpen($group, $now)) {
+            return false;
+        }
+
+        return self::minutesUntilClose($group, $now) <= $warnMinutes;
+    }
+
     public static function isOpen(OrderGroup $group, ?Carbon $now = null): bool
     {
         $now = ($now ?? now('Asia/Dhaka'))->copy()->timezone('Asia/Dhaka');
@@ -73,7 +97,15 @@ class KitchenAcceptWindow
     }
 
     /**
-     * @return array{is_open: bool, state: string, label: string, open_at_iso: string, close_at_iso: string}
+     * @return array{
+     *     is_open: bool,
+     *     state: string,
+     *     label: string,
+     *     open_at_iso: string,
+     *     close_at_iso: string,
+     *     closing_soon: bool,
+     *     minutes_remaining: int|null
+     * }
      */
     public static function statusPayload(OrderGroup $group, ?Carbon $now = null): array
     {
@@ -81,10 +113,14 @@ class KitchenAcceptWindow
         $openAt = self::windowOpenAt($group);
         $closeAt = self::windowCloseAt($group);
         $isOpen = $now->betweenIncluded($openAt, $closeAt);
+        $minutesRemaining = $isOpen ? self::minutesUntilClose($group, $now) : null;
+        $closingSoon = $isOpen && self::isClosingSoon($group, $now);
 
         if ($isOpen) {
             $state = 'open';
-            $label = 'Accept by '.$closeAt->format('g:i A');
+            $label = $closingSoon
+                ? 'Closing in '.$minutesRemaining.'m'
+                : 'Accept by '.$closeAt->format('g:i A');
         } elseif ($now->lt($openAt)) {
             $state = 'not_yet';
             $label = 'Opens '.$openAt->format('g:i A');
@@ -99,6 +135,8 @@ class KitchenAcceptWindow
             'label' => $label,
             'open_at_iso' => $openAt->toIso8601String(),
             'close_at_iso' => $closeAt->toIso8601String(),
+            'closing_soon' => $closingSoon,
+            'minutes_remaining' => $minutesRemaining,
         ];
     }
 }

@@ -7,6 +7,7 @@ use App\Models\OrderGroupEvent;
 use App\Models\User;
 use App\Support\KitchenCapacity;
 use App\Support\OrderKitchenAcceptance;
+use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -120,6 +121,13 @@ class AssignKitchenModal extends Component
         // First-time kitchen assignment advances pending orders to processing (push + UI).
         if ($nextKitchenId && ! $previousKitchenId) {
             OrderKitchenAcceptance::markGroupOrdersProcessing($group, Auth::id());
+        }
+
+        if ($nextKitchenId && $kitchenChanging) {
+            $kitchen = User::query()->find($nextKitchenId);
+            if ($kitchen) {
+                StaffAlerts::notifyKitchenAssigned($group->fresh(['menuItem']), $kitchen);
+            }
         }
 
         $this->dispatch('order-group-kitchen-changed');

@@ -21,6 +21,7 @@ use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
 use App\Livewire\Shared\PackageInsights;
 use App\Livewire\Shared\RecipeShow;
+use App\Livewire\Shared\StaffAlertsPage;
 use App\Livewire\Shared\StaffDashboard;
 use App\Livewire\Shared\StaffProfileShow;
 use App\Livewire\Shared\SubscriptionShow;
@@ -29,6 +30,7 @@ use Illuminate\Support\Facades\Route;
 // routes/web/admin.php
 Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/dashboard', StaffDashboard::class)->name('admin.dashboard');
+    Route::get('/alerts', StaffAlertsPage::class)->name('admin.alerts.index');
 
     Route::get('/kitchens/active', Kitchens::class)->name('admin.kitchens.active');
     Route::get('/kitchens/onboarding', KitchenOnboarding::class)->name('admin.kitchens.onboarding');

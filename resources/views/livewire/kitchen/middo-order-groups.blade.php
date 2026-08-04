@@ -67,12 +67,18 @@
                 <span class="text-xs text-gray-500">{{ count($group['orders']) }} order(s)</span>
                 <span @class([
                     'text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border',
-                    'bg-emerald-50 text-emerald-800 border-emerald-200' => ($group['accept_window']['state'] ?? '') === 'open',
+                    'bg-rose-50 text-rose-800 border-rose-200' => !empty($group['accept_window']['closing_soon']),
+                    'bg-emerald-50 text-emerald-800 border-emerald-200' => ($group['accept_window']['state'] ?? '') === 'open' && empty($group['accept_window']['closing_soon']),
                     'bg-amber-50 text-amber-800 border-amber-200' => ($group['accept_window']['state'] ?? '') === 'not_yet',
                     'bg-gray-100 text-gray-600 border-gray-200' => ($group['accept_window']['state'] ?? '') === 'closed',
                 ])>
                     {{ $group['accept_window']['label'] ?? '—' }}
                 </span>
+                @if(!empty($group['accept_window']['closing_soon']))
+                    <span class="text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border bg-rose-100 text-rose-900 border-rose-300">
+                        Closing soon
+                    </span>
+                @endif
                 @if(!empty($group['had_shortage']))
                     <span class="text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border bg-rose-50 text-rose-800 border-rose-200"
                           title="{{ $group['shortage_reason'] ?? 'Prior shortage' }}">

@@ -132,6 +132,7 @@ class KitchenTierCapacityTest extends TestCase
             ->set('tier_platinum', 6)
             ->set('auto_group_quantity', 12)
             ->set('accept_window_minutes', 90)
+            ->set('accept_window_warn_minutes', 20)
             ->call('save')
             ->assertHasNoErrors();
 
@@ -140,6 +141,7 @@ class KitchenTierCapacityTest extends TestCase
         $this->assertSame(6, MiddoSettings::defaultAllowedOpenGroupsForTier(KitchenTier::PLATINUM));
         $this->assertSame(12, MiddoSettings::autoGroupQuantity());
         $this->assertSame(90, MiddoSettings::acceptWindowMinutes());
+        $this->assertSame(20, MiddoSettings::acceptWindowWarnMinutes());
     }
 
     public function test_activation_copies_tier_default_allowed_open_groups(): void

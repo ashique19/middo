@@ -3,6 +3,7 @@
 namespace App\Livewire\Kitchen;
 
 use App\Models\OrderGroup;
+use App\Support\StaffAlerts;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -20,6 +21,11 @@ class Dashboard extends Component
         $threeMonthsStart = Carbon::now('Asia/Dhaka')->subMonths(2)->startOfMonth()->toDateString();
 
         $this->tiles = [
+            [
+                'label' => 'Alerts',
+                'count' => StaffAlerts::unreadCount((int) $kitchenId),
+                'route' => 'kitchen.alerts',
+            ],
             [
                 'label' => 'My Order this month',
                 'count' => OrderGroup::query()

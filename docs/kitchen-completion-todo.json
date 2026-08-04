@@ -197,11 +197,29 @@
       "id": "K5",
       "name": "Notifications & SLA",
       "priority": 6,
-      "status": "todo",
+      "status": "done",
       "depends_on": ["K1"],
       "items": [
-        {"id": "K5.1", "title": "Kitchen alerts", "status": "todo"},
-        {"id": "K5.2", "title": "SLA warn before accept window ends", "status": "todo"}
+        {
+          "id": "K5.1",
+          "title": "Kitchen alerts",
+          "status": "done",
+          "shipped": [
+            "staff_alerts table + StaffAlerts helper",
+            "Kitchen alert on ops assign; ops/admin alerts on decline/shortage/release",
+            "Shared StaffAlertsPage for kitchen/admin/operation + dashboard tile"
+          ]
+        },
+        {
+          "id": "K5.2",
+          "title": "SLA warn before accept window ends",
+          "status": "done",
+          "shipped": [
+            "meal.accept_window_warn_minutes setting (default 15)",
+            "Closing soon badge on Middo order groups",
+            "kitchen:warn-accept-windows command every 5 minutes (deduped)"
+          ]
+        }
       ]
     },
     {
@@ -222,7 +240,7 @@
     "K2 (done)",
     "K3 (done)",
     "K4 (done)",
-    "K5 Notifications",
+    "K5 (done)",
     "K6 Profile / complaints / perms"
   ],
   "data_model_sketch": {

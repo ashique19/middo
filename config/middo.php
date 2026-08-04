@@ -39,6 +39,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Accept Window SLA Warn
+    |--------------------------------------------------------------------------
+    |
+    | Minutes before window close when kitchens should be warned about open
+    | pool groups (in-app alerts + Middo order groups badge).
+    |
+    */
+
+    'accept_window_warn_minutes' => (int) env('ACCEPT_WINDOW_WARN_MINUTES', 15),
+
+    /*
+    |--------------------------------------------------------------------------
     | Kitchen Tier Defaults (allowed concurrent open groups)
     |--------------------------------------------------------------------------
     |

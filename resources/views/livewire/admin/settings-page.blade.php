@@ -38,7 +38,16 @@
                     <input type="number" min="1" max="10080" wire:model="accept_window_minutes"
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('accept_window_minutes') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                    <p class="text-xs text-gray-400 mt-1">Stored for kitchen accept-window enforcement.</p>
+                    <p class="text-xs text-gray-400 mt-1">How long before delivery kitchens may accept a group.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
+                        Accept window warn (minutes)
+                    </label>
+                    <input type="number" min="1" max="10080" wire:model="accept_window_warn_minutes"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    @error('accept_window_warn_minutes') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    <p class="text-xs text-gray-400 mt-1">Warn kitchens this many minutes before the accept window closes.</p>
                 </div>
             </div>
         </section>

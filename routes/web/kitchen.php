@@ -13,11 +13,13 @@ use App\Livewire\Kitchen\OrdersThisMonth;
 use App\Livewire\Kitchen\PrepShoppingList;
 use App\Livewire\Kitchen\RecipeShow;
 use App\Livewire\Kitchen\TodayMenus;
+use App\Livewire\Shared\StaffAlertsPage;
 use Illuminate\Support\Facades\Route;
 
 // routes/web/kitchen.php
 Route::middleware(['auth', 'role:kitchen'])->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('kitchen.dashboard');
+    Route::get('/alerts', StaffAlertsPage::class)->name('kitchen.alerts');
 
     Route::get('/orders/this-month', OrdersThisMonth::class)->name('kitchen.orders.this-month');
     Route::get('/orders/last-three-months', OrdersLastThreeMonths::class)->name('kitchen.orders.last-three-months');

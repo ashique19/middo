@@ -63,7 +63,7 @@ class OrderGroupKitchenAssignment
                 throw new \RuntimeException('This order group is already assigned. Use release or shortage instead.');
             }
 
-            return OrderGroupEvent::create([
+            $event = OrderGroupEvent::create([
                 'order_group_id' => $group->id,
                 'kitchen_id' => $kitchen->id,
                 'type' => OrderGroupEvent::TYPE_DECLINE,
@@ -71,6 +71,10 @@ class OrderGroupKitchenAssignment
                 'meta' => $meta,
                 'created_by' => $kitchen->id,
             ]);
+
+            StaffAlerts::notifyOpsNeedsReassignment($group, OrderGroupEvent::TYPE_DECLINE, $kitchen, $reason);
+
+            return $event;
         });
     }
 
@@ -118,6 +122,8 @@ class OrderGroupKitchenAssignment
                 'meta' => $meta,
                 'created_by' => $kitchen->id,
             ]);
+
+            StaffAlerts::notifyOpsNeedsReassignment($group->fresh(), $type, $kitchen, $reason);
 
             return $group->fresh();
         });

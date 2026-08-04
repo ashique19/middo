@@ -10,6 +10,8 @@ class MiddoSettings
 {
     public const KEY_ACCEPT_WINDOW_MINUTES = 'meal.accept_window_minutes';
 
+    public const KEY_ACCEPT_WINDOW_WARN_MINUTES = 'meal.accept_window_warn_minutes';
+
     public const KEY_AUTO_GROUP_QUANTITY = 'meal.auto_group_quantity';
 
     protected static function tierDefaultKey(string $tier): string
@@ -48,6 +50,17 @@ class MiddoSettings
         ));
     }
 
+    public static function acceptWindowWarnMinutes(): int
+    {
+        $window = self::acceptWindowMinutes();
+        $warn = max(1, (int) self::get(
+            self::KEY_ACCEPT_WINDOW_WARN_MINUTES,
+            config('middo.accept_window_warn_minutes', 15)
+        ));
+
+        return min($warn, $window);
+    }
+
     public static function autoGroupQuantity(): int
     {
         return max(1, (int) self::get(
@@ -82,12 +95,16 @@ class MiddoSettings
     }
 
     /**
-     * @param  array{accept_window_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>}  $payload
+     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>}  $payload
      */
     public static function updateMealAndKitchenDefaults(array $payload): void
     {
         if (array_key_exists('accept_window_minutes', $payload)) {
             self::set(self::KEY_ACCEPT_WINDOW_MINUTES, max(1, (int) $payload['accept_window_minutes']));
+        }
+
+        if (array_key_exists('accept_window_warn_minutes', $payload)) {
+            self::set(self::KEY_ACCEPT_WINDOW_WARN_MINUTES, max(1, (int) $payload['accept_window_warn_minutes']));
         }
 
         if (array_key_exists('auto_group_quantity', $payload)) {

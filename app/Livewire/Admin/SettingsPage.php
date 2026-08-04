@@ -10,6 +10,8 @@ class SettingsPage extends Component
 {
     public int $accept_window_minutes = 120;
 
+    public int $accept_window_warn_minutes = 15;
+
     public int $auto_group_quantity = 10;
 
     public int $tier_silver = 1;
@@ -30,6 +32,7 @@ class SettingsPage extends Component
     public function loadFromSettings(): void
     {
         $this->accept_window_minutes = MiddoSettings::acceptWindowMinutes();
+        $this->accept_window_warn_minutes = MiddoSettings::acceptWindowWarnMinutes();
         $this->auto_group_quantity = MiddoSettings::autoGroupQuantity();
         $defaults = MiddoSettings::tierDefaults();
         $this->tier_silver = $defaults[KitchenTier::SILVER];
@@ -44,6 +47,7 @@ class SettingsPage extends Component
 
         $this->validate([
             'accept_window_minutes' => 'required|integer|min:1|max:10080',
+            'accept_window_warn_minutes' => 'required|integer|min:1|max:10080',
             'auto_group_quantity' => 'required|integer|min:1|max:500',
             'tier_silver' => 'required|integer|min:0|max:100',
             'tier_gold' => 'required|integer|min:0|max:100',
@@ -52,6 +56,7 @@ class SettingsPage extends Component
 
         MiddoSettings::updateMealAndKitchenDefaults([
             'accept_window_minutes' => $this->accept_window_minutes,
+            'accept_window_warn_minutes' => $this->accept_window_warn_minutes,
             'auto_group_quantity' => $this->auto_group_quantity,
             'tier_defaults' => [
                 KitchenTier::SILVER => $this->tier_silver,

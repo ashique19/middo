@@ -19,6 +19,7 @@ use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
 use App\Livewire\Shared\PackageInsights;
 use App\Livewire\Shared\RecipeShow;
+use App\Livewire\Shared\StaffAlertsPage;
 use App\Livewire\Shared\StaffDashboard;
 use App\Livewire\Shared\StaffProfileShow;
 use App\Livewire\Shared\SubscriptionShow;
@@ -27,6 +28,7 @@ use Illuminate\Support\Facades\Route;
 // routes/web/operation.php
 Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/dashboard', StaffDashboard::class)->name('operation.dashboard');
+    Route::get('/alerts', StaffAlertsPage::class)->name('operation.alerts.index');
     Route::get('/corporates', CorporateTable::class)->name('operation.corporates.index');
     Route::get('/corporates/{corporate}', CorporateShow::class)->name('operation.corporates.show');
     Route::get('/kitchens', Kitchens::class)->name('operation.kitchens.index');
