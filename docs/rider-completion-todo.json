@@ -105,9 +105,17 @@
     },
     {
       "id": "SI5",
-      "title": "Rider withdrawal / settlement path",
-      "why": "Kitchen can withdraw when Middo owes them. Riders will accumulate positive commission balance after handovers.",
-      "recommendation": "Same pattern as kitchen: request withdrawal → ops/admin approve → debit Middo cash + debit rider ledger."
+      "title": "Rider withdrawal only when Middo owes (no cash net)",
+      "status": "decided",
+      "why": "With cash-minus-commission handover, COD riders are usually paid in-kind from the bag. Withdrawal is for prepaid / no-cash / shortfall cases.",
+      "recommendation": "Request payment when wallet (Middo owes) > 0. Handover UI when Due to Middo > 0. Targets: kitchen or Middo/ops."
+    },
+    {
+      "id": "SI9",
+      "title": "Cleaner cash UI: Collection − Commission = Due (DECIDED)",
+      "status": "decided",
+      "why": "Handing full collection then withdrawing commission is harder for riders to reason about.",
+      "recommendation": "Show Collection, Commission, Due to Middo. Handover amount defaults to Due only. Auto-settle commission from cash float so it is not also withdrawable."
     },
     {
       "id": "SI6",
