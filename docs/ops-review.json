@@ -83,20 +83,70 @@
       "exists": [
         "ActiveOrders — date accordion, drag regroup, auto-group, ungroup, kitchen assign, package filter, Excel",
         "OrderHistory, SearchOrder (id/name/mobile/menu/address, limit 50)",
-        "OrderShow — parties, kitchen/rider links, logs, money tree"
+        "OrderShow — admin/ops only; parties, kitchen/rider links, logs, money tree (staff 360, not role lenses)"
       ],
       "files": [
         "app/Livewire/Operation/ActiveOrders.php",
         "app/Livewire/Operation/OrderHistory.php",
         "app/Livewire/Operation/SearchOrder.php",
-        "app/Livewire/Shared/OrderShow.php"
+        "app/Livewire/Shared/OrderShow.php",
+        "resources/views/livewire/shared/orders/show.blade.php",
+        "app/Support/CorporateApiPresenter.php"
       ],
       "gaps": [
         "No ops cancel / force-status / re-dispatch (corporate cancel only; admin forceComplete for packages)",
         "No ops rider override / clear stuck packed awaiting rider",
         "Active filters thin — no status / kitchen / unassigned / late",
         "No bulk kitchen reassign across groups",
-        "Search lacks status/kitchen/rider/date-range"
+        "Search lacks status/kitchen/rider/date-range",
+        "MULTI-LEVEL ORDER VIEW (agreed need): cannot inspect the same order through corporate / kitchen / rider / Middo lenses — see O-ORDER-LENS"
+      ]
+    },
+    "order_multi_level_view": {
+      "status": "agreed need — not yet designed",
+      "problem": "Ops/admin (and each actor) need to see one order from different levels: what corporate sees, what kitchen sees, what rider sees, plus Middo money/ops truth.",
+      "today": {
+        "admin_ops": "Shared OrderShow — staff 360 with links out to corporate/kitchen/rider *profiles*, not their order experience",
+        "corporate": "List/cards + API track/support — no shared OrderShow; limited status narrative via CorporateApiPresenter",
+        "kitchen": "ActiveOrders / group tables + dispatch modal — no dedicated order detail page",
+        "delivery": "KitchenDispatches / DeliveredOrders / PaymentModal — action lists, no dedicated order detail page"
+      },
+      "desired": {
+        "summary": "One order, multiple lenses. From ops/admin OrderShow (or equivalent), switch perspective without leaving the order.",
+        "lenses": [
+          {
+            "id": "middo",
+            "actor": "admin|operation",
+            "shows": "Full truth: parties, group, status/payment, money tree, payables, logs, box custody, complaints, force tools"
+          },
+          {
+            "id": "corporate",
+            "actor": "corporate (native) + ops preview",
+            "shows": "Buyer-facing: menu/qty/when/where, payment, track timeline, support thread, cancel/edit eligibility — hide Middo P&L / partner shares"
+          },
+          {
+            "id": "kitchen",
+            "actor": "kitchen (native) + ops preview",
+            "shows": "Cook/dispatch-facing: group mates, accept/ready/pack/dispatch state, deadline, boxes assigned, kitchen share/cash context — hide corporate wallet internals"
+          },
+          {
+            "id": "rider",
+            "actor": "delivery (native) + ops preview",
+            "shows": "Run-facing: pickup→drop, COD collection / Due / commission, empty-box return, handover state — hide kitchen capacity / Middo rest"
+          }
+        ]
+      },
+      "design_notes": [
+        "Prefer one Order resource + lens tabs/query (?lens=corporate|kitchen|rider|middo) over four divergent pages that drift",
+        "Native role pages should reuse the same lens components so ops preview matches reality",
+        "AuthZ: ops/admin can open any lens; corporate/kitchen/rider only their own + scoped to their order",
+        "Deep-link from lists, alerts, complaints, money events into OrderShow with the right default lens",
+        "Overlaps O-ORDER force tools and parked rider who-holds-what — lens view is read/context; mutations stay role-gated"
+      ],
+      "open_questions": [
+        "Is ops preview read-only always, or can ops act while viewing a lens (e.g. reassign from rider lens)?",
+        "Include package-subscription / custom-run contexts as additional lenses later?",
+        "Corporate web vs mobile API — same presenter contract for lens parity?"
       ]
     },
     "middo_boxes": {
@@ -328,6 +378,19 @@
       ]
     },
     {
+      "theme": "O-ORDER-LENS",
+      "title": "Multi-level order view (corporate / kitchen / rider / Middo)",
+      "priority_note": "Agreed product need 2026-08-04 — fold into phased todos with O-ORDER",
+      "candidates": [
+        "Shared OrderShow lens switcher (middo | corporate | kitchen | rider) for admin/ops",
+        "Native kitchen order detail page reusing kitchen lens",
+        "Native rider order detail page reusing rider lens",
+        "Align corporate web/API track presenter with corporate lens",
+        "Deep-links from alerts, complaints, money, dashboards into order+lens",
+        "Tests: each lens hides out-of-scope money/PII; ops can open all lenses"
+      ]
+    },
+    {
       "theme": "O-RIDER-OPS",
       "title": "Rider visibility from ops (overlaps parked rider wave)",
       "candidates": [
@@ -384,6 +447,7 @@
     "3. Money: handover reject + COD recon + kitchen payout path policy",
     "4. Riders directory + packed-awaiting queue",
     "5. Order force tools (cancel/reassign) with audit",
+    "5b. Multi-level order lenses (O-ORDER-LENS) — pairs with force tools / support",
     "6. Boxes custody + inbound",
     "7. Complaints inbox",
     "8. Operating costs + period P&L",
