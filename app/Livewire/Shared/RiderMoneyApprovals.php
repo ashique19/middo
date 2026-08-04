@@ -5,6 +5,7 @@ namespace App\Livewire\Shared;
 use App\Models\RiderWithdrawalRequest;
 use App\Support\MiddoCashLedger;
 use App\Support\RiderMoneyService;
+use App\Support\StaffPortal;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -19,7 +20,7 @@ class RiderMoneyApprovals extends Component
 
     public function mount(): void
     {
-        abort_unless(in_array(Auth::user()?->role?->name, ['admin', 'operation'], true), 403);
+        abort_unless(StaffPortal::canAccessMoney(), 403);
     }
 
     public function approveWithdrawal(int $id): void

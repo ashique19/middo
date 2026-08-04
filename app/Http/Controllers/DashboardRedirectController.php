@@ -30,6 +30,7 @@ class DashboardRedirectController extends Controller
             'delivery' => redirect()->route('delivery.dashboard'),
             'operation' => redirect()->route('operation.dashboard'),
             'admin' => redirect()->route('admin.dashboard'),
+            'accounts' => redirect()->route('accounts.dashboard'),
             default => redirect('/'),
         };
     }

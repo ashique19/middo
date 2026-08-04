@@ -4,6 +4,7 @@ namespace App\Livewire\Shared;
 
 use App\Models\MiddoCashLedgerEntry;
 use App\Support\MiddoCashLedger;
+use App\Support\StaffPortal;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -29,7 +30,7 @@ class MiddoCashLedgerPage extends Component
 
     public function mount(): void
     {
-        abort_unless(in_array(Auth::user()?->role?->name, ['admin', 'operation'], true), 403);
+        abort_unless(StaffPortal::canAccessMoney(), 403);
     }
 
     public function updatingEntryFilter(): void

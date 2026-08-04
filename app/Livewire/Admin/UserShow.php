@@ -31,6 +31,7 @@ class UserShow extends Component
         return match ($role) {
             'admin' => route('admin.users.admin'),
             'operation' => route('admin.users.operation'),
+            'accounts' => route('admin.users.accounts'),
             'kitchen' => route('admin.users.kitchen'),
             'delivery' => route('admin.users.delivery'),
             'corporate' => route('admin.corporates.index'),
@@ -44,7 +45,7 @@ class UserShow extends Component
 
         return match ($role) {
             'corporate' => 'Corporates',
-            'admin', 'operation', 'kitchen', 'delivery' => ucfirst($role).' users',
+            'admin', 'operation', 'accounts', 'kitchen', 'delivery' => ucfirst($role).' users',
             default => 'Users',
         };
     }

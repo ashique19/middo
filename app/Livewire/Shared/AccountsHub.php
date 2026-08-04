@@ -6,7 +6,7 @@ use App\Models\Order;
 use App\Models\OrderMoneyEvent;
 use App\Models\PartnerPayable;
 use App\Support\MiddoCashLedger;
-use Illuminate\Support\Facades\Auth;
+use App\Support\StaffPortal;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -22,8 +22,7 @@ class AccountsHub extends Component
 
     public function mount(): void
     {
-        $role = Auth::user()?->role?->name;
-        abort_unless(in_array($role, ['admin', 'operation'], true), 403);
+        abort_unless(StaffPortal::canAccessMoney(), 403);
     }
 
     public function updatingPayableFilter(): void
@@ -38,16 +37,15 @@ class AccountsHub extends Component
 
         try {
             $payable = PartnerPayable::query()->findOrFail($id);
+            $prefix = StaffPortal::rolePrefix();
 
             if ($payable->beneficiary_role === PartnerPayable::ROLE_DELIVERY) {
-                $prefix = Auth::user()?->role?->name === 'admin' ? 'admin' : 'operation';
                 throw new \RuntimeException(
                     'Delivery payables are paid via Rider money withdrawals ('.$prefix.'.rider-money), not Accounts Hub settle — so the rider wallet stays correct.'
                 );
             }
 
             if ($payable->beneficiary_role === PartnerPayable::ROLE_KITCHEN) {
-                $prefix = Auth::user()?->role?->name === 'admin' ? 'admin' : 'operation';
                 throw new \RuntimeException(
                     'Kitchen payables are paid via Kitchen money withdrawals ('.$prefix.'.kitchen-money), not Accounts Hub settle — single FIFO payout path.'
                 );
@@ -95,7 +93,7 @@ class AccountsHub extends Component
             ->limit(12)
             ->get();
 
-        $prefix = Auth::user()?->role?->name === 'admin' ? 'admin' : 'operation';
+        $prefix = StaffPortal::rolePrefix();
 
         return view('livewire.shared.accounts-hub', [
             'middoCash' => MiddoCashLedger::balance(),

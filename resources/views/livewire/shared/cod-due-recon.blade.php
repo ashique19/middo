@@ -35,7 +35,11 @@
         <span>Variance (due − accepted − pending): ৳{{ number_format($report['totals']['variance']) }}</span>
         <span>Rider float now: ৳{{ number_format($report['rider_float_total']) }}</span>
         <span>Middo cash: ৳{{ number_format($report['middo_cash']) }}</span>
-        <a href="{{ route($routePrefix.'.cash-handovers') }}" class="text-middo-orange hover:underline">Cash handovers →</a>
+        @if(\Illuminate\Support\Facades\Route::has($routePrefix.'.cash-handovers'))
+            <a href="{{ route($routePrefix.'.cash-handovers') }}" class="text-middo-orange hover:underline">Cash handovers →</a>
+        @else
+            <span class="text-gray-400">Cash handovers stay with ops (dual-control A2)</span>
+        @endif
     </div>
 
     <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">

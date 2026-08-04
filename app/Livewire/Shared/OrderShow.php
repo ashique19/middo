@@ -189,6 +189,7 @@ class OrderShow extends Component
     {
         return match (Auth::user()?->role?->name) {
             'admin' => 'admin',
+            'accounts' => 'accounts',
             'kitchen' => 'kitchen',
             'delivery' => 'delivery',
             'corporate' => 'corporates',
@@ -207,6 +208,7 @@ class OrderShow extends Component
                 ? route('corporates.orders.scheduled')
                 : url('/'),
             'admin' => route('admin.orders.active'),
+            'accounts' => route('accounts.accounts.index'),
             default => route('operation.orders.active'),
         };
     }

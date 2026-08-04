@@ -51,6 +51,12 @@ class OrderLens
         return in_array($role, ['admin', 'operation'], true);
     }
 
+    /** Staff plus accounts (read money context; force tools stay isStaff). */
+    public static function canViewStaffLenses(?string $role): bool
+    {
+        return in_array($role, ['admin', 'operation', 'accounts'], true);
+    }
+
     /**
      * Lenses the actor may open for this order.
      *
@@ -60,7 +66,7 @@ class OrderLens
     {
         $role = $actor->role?->name ?? $actor->loadMissing('role')->role?->name;
 
-        if (self::isStaff($role)) {
+        if (self::canViewStaffLenses($role)) {
             return self::ALL;
         }
 

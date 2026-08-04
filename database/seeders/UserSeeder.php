@@ -153,5 +153,16 @@ class UserSeeder extends Seeder
             'status' => 'active',
             'is_mobile_verified' => true,
         ]);
+
+        User::create([
+            'first_name' => 'Accounts User',
+            'last_name' => 'Accounts',
+            'email' => 'accounts@middo.com',
+            'mobile' => '01310123462',
+            'password' => $password,
+            'role_id' => Role::where('name', 'accounts')->value('id'),
+            'status' => 'active',
+            'is_mobile_verified' => true,
+        ]);
     }
 }

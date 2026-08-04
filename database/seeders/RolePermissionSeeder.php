@@ -20,11 +20,13 @@ class RolePermissionSeeder extends Seeder
         $kitchen = Role::query()->firstOrCreate(['name' => 'kitchen'], ['id' => 3]);
         $delivery = Role::query()->firstOrCreate(['name' => 'delivery'], ['id' => 4]);
         $operations = Role::query()->firstOrCreate(['name' => 'operation'], ['id' => 5]);
+        $accounts = Role::query()->firstOrCreate(['name' => 'accounts'], ['id' => 6]);
 
         KitchenPermissions::syncKitchenRole($kitchen);
 
         $delivery->permissions()->syncWithoutDetaching([$acceptOrder->id]);
         $operations->permissions()->syncWithoutDetaching([$acceptOrder->id]);
+        $accounts->permissions()->syncWithoutDetaching([$viewAnalytics->id]);
         $admin->permissions()->syncWithoutDetaching([
             $editMenu->id,
             $acceptOrder->id,

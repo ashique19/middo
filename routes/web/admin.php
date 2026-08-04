@@ -93,6 +93,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     // User Management (one page per role)
     Route::get('/users/admin', fn () => view('admin.users.page', ['role' => 'admin']))->name('admin.users.admin');
     Route::get('/users/operation', fn () => view('admin.users.page', ['role' => 'operation']))->name('admin.users.operation');
+    Route::get('/users/accounts', fn () => view('admin.users.page', ['role' => 'accounts']))->name('admin.users.accounts');
     Route::get('/users/kitchen', fn () => view('admin.users.page', ['role' => 'kitchen']))->name('admin.users.kitchen');
     // Legacy corporates URL — same Livewire list (nav may still point here until migrated).
     Route::get('/users/corporate', CorporateTable::class)->name('admin.users.corporate');

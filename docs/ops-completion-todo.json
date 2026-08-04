@@ -149,17 +149,17 @@
     {
       "id": "O9",
       "title": "Ops clear gate + handoff to accounts role",
-      "status": "pending",
+      "status": "done",
       "items": [
-        "Checklist that O0–O8 money surfaces are stable",
-        "Kick off A0…An (see post_ops / O-ACCOUNTS-ROLE)"
+        "Checklist that O0–O8 money surfaces are stable — done (docs/ops-clear-gate.json + OpsClearGateO9Test)",
+        "Kick off A0…An — done (A0 shipped; see docs/accounts-completion-todo.json)"
       ]
     }
   ],
   "post_ops": {
     "accounts_role": {
       "phases": ["A0", "A1", "A2", "A3", "A4"],
-      "see": "docs/ops-review.json → accounts_role_proposal"
+      "see": "docs/accounts-completion-todo.json"
     }
   },
   "non_goals_for_now": [

@@ -3,7 +3,7 @@
 namespace App\Livewire\Shared;
 
 use App\Models\MiddoOperatingCost;
-use Illuminate\Support\Facades\Auth;
+use App\Support\StaffPortal;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -16,7 +16,7 @@ class OperatingCostsPage extends Component
 
     public function mount(): void
     {
-        abort_unless(in_array(Auth::user()?->role?->name, ['admin', 'operation'], true), 403);
+        abort_unless(StaffPortal::canAccessMoney(), 403);
     }
 
     public function updatingRunType(): void

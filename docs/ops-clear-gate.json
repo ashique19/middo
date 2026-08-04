@@ -1,0 +1,62 @@
+{
+  "title": "Ops clear gate (O9)",
+  "status": "cleared",
+  "cleared_at": "2026-08-04",
+  "note": "O0–O8 ops backlog marked done. Money surfaces verified via route smoke + Ops* feature tests. Accounts role A0…An starts in docs/accounts-completion-todo.json.",
+  "money_surfaces": [
+    {
+      "id": "O0",
+      "surface": "Rider cash handovers (accept Middo Due)",
+      "routes": ["operation.cash-handovers", "admin.cash-handovers"],
+      "tests": ["Tests\\Feature\\Ops\\OpsCashHandoversO0O1Test"],
+      "owner_after_accounts": "ops retains day accept until A2 dual-control"
+    },
+    {
+      "id": "O1",
+      "surface": "Handover reject + discoverability",
+      "routes": ["operation.cash-handovers", "operation.dashboard"],
+      "tests": ["Tests\\Feature\\Ops\\OpsCashHandoversO0O1Test"],
+      "owner_after_accounts": "ops day cash; accounts may co-own later"
+    },
+    {
+      "id": "O3",
+      "surface": "COD recon, operating costs, Accounts Hub, Middo cash adjust, kitchen/rider money",
+      "routes": [
+        "operation.cod-recon.index",
+        "operation.operating-costs.index",
+        "operation.accounts.index",
+        "operation.middo-cash",
+        "operation.kitchen-money.index",
+        "operation.rider-money.index"
+      ],
+      "tests": ["Tests\\Feature\\Ops\\OpsMoneyO3Test"],
+      "owner_after_accounts": "move primary ownership to accounts (A1)"
+    },
+    {
+      "id": "O4",
+      "surface": "Rider ops board (Due/wallet visibility)",
+      "routes": ["operation.riders.index"],
+      "tests": ["Tests\\Feature\\Ops\\OpsRidersBoardO4Test"],
+      "owner_after_accounts": "ops day visibility; accounts reads Due via recon"
+    },
+    {
+      "id": "O7",
+      "surface": "Kitchen money context + box custody (ops)",
+      "routes": ["operation.kitchens.index", "operation.middo-boxes.index"],
+      "tests": ["Tests\\Feature\\Ops\\OpsKitchenBoardO7Test"],
+      "owner_after_accounts": "ops operational; payouts via kitchen-money (accounts)"
+    },
+    {
+      "id": "O8",
+      "surface": "Corporate wallet adjust (policy)",
+      "routes": ["operation.corporates.show"],
+      "tests": ["Tests\\Feature\\Ops\\OpsCoveragePolicyO8Test"],
+      "owner_after_accounts": "accounts owns adjustments (A1+)"
+    }
+  ],
+  "handoff": {
+    "accounts_todo": "docs/accounts-completion-todo.json",
+    "proposal": "docs/ops-review.json → accounts_role_proposal",
+    "middo_cash_sot": "MiddoCashLedger (no Middo login user)"
+  }
+}
