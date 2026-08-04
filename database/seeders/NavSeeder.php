@@ -150,6 +150,22 @@ class NavSeeder extends Seeder
             'role_id' => $adminId,
         ]);
 
+        Nav::create([
+            'title' => 'Areas & cities',
+            'route_name' => 'admin.areas.index',
+            'icon' => '🗺️',
+            'order' => 16,
+            'role_id' => $adminId,
+        ]);
+
+        Nav::create([
+            'title' => 'Coverage',
+            'route_name' => 'admin.coverage.index',
+            'icon' => '📍',
+            'order' => 17,
+            'role_id' => $adminId,
+        ]);
+
         // ── Operation ────────────────────────────────────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'operation.dashboard', 'order' => 1, 'role_id' => $operationId]);
         Nav::create(['title' => 'Corporates', 'route_name' => 'operation.corporates.index', 'order' => 2, 'role_id' => $operationId, 'icon' => '🏢']);
@@ -249,6 +265,22 @@ class NavSeeder extends Seeder
             'route_name' => 'operation.complaints.index',
             'icon' => '💬',
             'order' => 14,
+            'role_id' => $operationId,
+        ]);
+
+        Nav::create([
+            'title' => 'Areas & cities',
+            'route_name' => 'operation.areas.index',
+            'icon' => '🗺️',
+            'order' => 15,
+            'role_id' => $operationId,
+        ]);
+
+        Nav::create([
+            'title' => 'Coverage',
+            'route_name' => 'operation.coverage.index',
+            'icon' => '📍',
+            'order' => 16,
             'role_id' => $operationId,
         ]);
 

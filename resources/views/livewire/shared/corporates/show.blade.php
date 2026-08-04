@@ -84,6 +84,40 @@
         </div>
 
         <div class="lg:col-span-2 space-y-6">
+            @if($this->canAdjustWallet())
+                <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
+                    <h2 class="text-lg font-bold text-middo-dark">Wallet adjustment</h2>
+                    <p class="text-sm text-gray-500">Credit goodwill / corrections or debit the corporate Middo Balance. Reason is required.</p>
+                    @if($statusMessage)
+                        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{{ $statusMessage }}</div>
+                    @endif
+                    @if($errorMessage)
+                        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $errorMessage }}</div>
+                    @endif
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" wire:click="$set('adjustDirection', 'credit')"
+                            @class(['px-3 py-1.5 rounded-xl text-xs font-bold border', 'bg-emerald-600 text-white border-emerald-600' => $adjustDirection === 'credit', 'bg-white border-gray-200' => $adjustDirection !== 'credit'])>
+                            Credit (+)
+                        </button>
+                        <button type="button" wire:click="$set('adjustDirection', 'debit')"
+                            @class(['px-3 py-1.5 rounded-xl text-xs font-bold border', 'bg-red-600 text-white border-red-600' => $adjustDirection === 'debit', 'bg-white border-gray-200' => $adjustDirection !== 'debit'])>
+                            Debit (−)
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input type="number" min="1" wire:model="adjustAmount" placeholder="Amount ৳"
+                               class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
+                        <input type="text" wire:model="adjustReason" maxlength="400" placeholder="Reason (required)"
+                               class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
+                    </div>
+                    <button type="button" wire:click="postWalletAdjustment"
+                            wire:confirm="Post wallet {{ $adjustDirection }} to this corporate?"
+                            class="inline-flex px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold">
+                        Post adjustment
+                    </button>
+                </div>
+            @endif
+
             <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
                     <h2 class="text-lg font-bold text-middo-dark">Wallet activity</h2>
@@ -91,6 +125,7 @@
                 </div>
                 <div class="divide-y divide-gray-100 max-h-80 overflow-y-auto">
                     @forelse($transactions as $tx)
+                        @php $isCredit = in_array($tx->type, ['topup', 'refund', 'adjustment'], true); @endphp
                         <div class="px-5 py-3.5 flex items-center justify-between gap-4">
                             <div class="min-w-0">
                                 <div class="text-sm font-bold text-gray-800 truncate">{{ $tx->description ?: ucfirst($tx->type) }}</div>
@@ -99,8 +134,8 @@
                                 </div>
                             </div>
                             <div class="text-right shrink-0">
-                                <div class="text-sm font-black font-mono {{ in_array($tx->type, ['topup', 'refund'], true) ? 'text-emerald-700' : 'text-middo-orange' }}">
-                                    {{ in_array($tx->type, ['topup', 'refund'], true) ? '+' : '−' }}৳{{ number_format($tx->amount) }}
+                                <div class="text-sm font-black font-mono {{ $isCredit ? 'text-emerald-700' : 'text-middo-orange' }}">
+                                    {{ $isCredit ? '+' : '−' }}৳{{ number_format($tx->amount) }}
                                 </div>
                                 <div class="text-[10px] font-bold text-gray-400 font-mono">Bal ৳{{ number_format($tx->balance_after) }}</div>
                             </div>

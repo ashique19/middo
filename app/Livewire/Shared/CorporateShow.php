@@ -7,6 +7,7 @@ use App\Models\PackageSubscription;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Support\PackageOrderPresenter;
+use App\Support\WalletLedger;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -16,6 +17,16 @@ class CorporateShow extends Component
     use WithPagination;
 
     public User $corporate;
+
+    public string $adjustDirection = 'credit';
+
+    public string $adjustAmount = '';
+
+    public string $adjustReason = '';
+
+    public string $statusMessage = '';
+
+    public string $errorMessage = '';
 
     public function mount(User $corporate): void
     {
@@ -40,6 +51,71 @@ class CorporateShow extends Component
         return Auth::user()?->role?->name === 'admin'
             ? route('admin.subscriptions.show', $subscriptionId)
             : route('operation.subscriptions.show', $subscriptionId);
+    }
+
+    public function canAdjustWallet(): bool
+    {
+        return in_array(Auth::user()?->role?->name, ['admin', 'operation'], true);
+    }
+
+    public function postWalletAdjustment(): void
+    {
+        abort_unless($this->canAdjustWallet(), 403);
+
+        $this->statusMessage = '';
+        $this->errorMessage = '';
+
+        $amount = (int) $this->adjustAmount;
+        $reason = trim($this->adjustReason);
+
+        if ($amount < 1) {
+            $this->errorMessage = 'Enter a positive adjustment amount.';
+
+            return;
+        }
+
+        if ($reason === '') {
+            $this->errorMessage = 'A reason is required for wallet adjustments.';
+
+            return;
+        }
+
+        if (! in_array($this->adjustDirection, ['credit', 'debit'], true)) {
+            $this->errorMessage = 'Choose credit or debit.';
+
+            return;
+        }
+
+        try {
+            $actor = Auth::user();
+            $actorLabel = $actor?->name ?: ('#'.Auth::id());
+            $description = 'Ops adjustment by '.$actorLabel.': '.$reason;
+
+            if ($this->adjustDirection === 'credit') {
+                WalletLedger::credit(
+                    $this->corporate,
+                    $amount,
+                    WalletTransaction::TYPE_ADJUSTMENT,
+                    $description,
+                    $actor
+                );
+            } else {
+                WalletLedger::debit(
+                    $this->corporate,
+                    $amount,
+                    $description,
+                    $actor
+                );
+            }
+
+            $this->corporate->refresh();
+            $this->statusMessage = ucfirst($this->adjustDirection).' ৳'.number_format($amount).' posted to wallet.';
+            $this->adjustAmount = '';
+            $this->adjustReason = '';
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not post wallet adjustment.';
+        }
     }
 
     /**

@@ -2,6 +2,9 @@
 
 namespace App\Livewire\Shared;
 
+use App\Models\Area;
+use App\Models\City;
+use App\Models\KitchenHour;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\KitchenActivation;
@@ -9,6 +12,8 @@ use App\Support\KitchenTier;
 use App\Support\MiddoSettings;
 use App\Support\PackageOrderPresenter;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -26,6 +31,20 @@ class StaffProfileShow extends Component
 
     public $edit_allowed_open_groups = 1;
 
+    /** @var array<int, array{is_closed: bool, opens_at: string, closes_at: string}> */
+    public array $hours = [];
+
+    /** @var array<int, string> */
+    public array $selectedAreaIds = [];
+
+    public string $hoursStatusMessage = '';
+
+    public string $hoursErrorMessage = '';
+
+    public string $areasStatusMessage = '';
+
+    public string $areasErrorMessage = '';
+
     public function mount(?User $kitchen = null, ?User $delivery = null): void
     {
         $viewerRole = Auth::user()?->role?->name;
@@ -35,12 +54,14 @@ class StaffProfileShow extends Component
         abort_unless($staff, 404);
 
         $expected = $kitchen ? 'kitchen' : 'delivery';
-        $staff->load(['role', 'city', 'area']);
+        $staff->load(['role', 'city', 'area', 'areas']);
         abort_unless($staff->role?->name === $expected, 404);
 
         $this->staff = $staff;
         $this->staffRole = $expected;
         $this->syncKitchenEditFields();
+        $this->loadHours();
+        $this->syncRiderAreaFields();
     }
 
     protected function syncKitchenEditFields(): void
@@ -54,6 +75,48 @@ class StaffProfileShow extends Component
             ?? MiddoSettings::defaultAllowedOpenGroupsForTier($this->edit_kitchen_tier);
     }
 
+    protected function syncRiderAreaFields(): void
+    {
+        if ($this->staffRole !== 'delivery') {
+            return;
+        }
+
+        $pivotIds = $this->staff->areas->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $this->selectedAreaIds = $pivotIds !== []
+            ? $pivotIds
+            : ($this->staff->area_id ? [(string) $this->staff->area_id] : []);
+    }
+
+    protected function loadHours(): void
+    {
+        if ($this->staffRole !== 'kitchen') {
+            return;
+        }
+
+        $existing = KitchenHour::query()
+            ->where('user_id', $this->staff->id)
+            ->get()
+            ->keyBy('day_of_week');
+
+        $this->hours = [];
+        foreach (KitchenHour::DAYS as $day => $_label) {
+            $row = $existing->get($day);
+            if ($row) {
+                $this->hours[$day] = [
+                    'is_closed' => (bool) $row->is_closed,
+                    'opens_at' => $row->opens_at ? substr((string) $row->opens_at, 0, 5) : '10:00',
+                    'closes_at' => $row->closes_at ? substr((string) $row->closes_at, 0, 5) : '22:00',
+                ];
+            } else {
+                $this->hours[$day] = [
+                    'is_closed' => false,
+                    'opens_at' => '10:00',
+                    'closes_at' => '22:00',
+                ];
+            }
+        }
+    }
+
     protected function rolePrefix(): string
     {
         return Auth::user()?->role?->name === 'admin' ? 'admin' : 'operation';
@@ -61,8 +124,8 @@ class StaffProfileShow extends Component
 
     public function backRoute(): string
     {
-        if ($this->staffRole !== 'kitchen') {
-            return route($this->rolePrefix().'.orders.active');
+        if ($this->staffRole === 'delivery') {
+            return route($this->rolePrefix().'.riders.index');
         }
 
         if ($this->rolePrefix() === 'admin' && $this->staff->status === 'pending') {
@@ -89,7 +152,20 @@ class StaffProfileShow extends Component
 
     public function canEditKitchenCapacity(): bool
     {
-        return $this->canManageKitchenStatus();
+        return $this->staffRole === 'kitchen'
+            && in_array(Auth::user()?->role?->name, ['admin', 'operation'], true);
+    }
+
+    public function canEditKitchenHours(): bool
+    {
+        return $this->canEditKitchenCapacity();
+    }
+
+    public function canEditRiderAreas(): bool
+    {
+        return $this->staffRole === 'delivery'
+            && in_array(Auth::user()?->role?->name, ['admin', 'operation'], true)
+            && Schema::hasTable('area_user');
     }
 
     public function activate(): void
@@ -146,6 +222,90 @@ class StaffProfileShow extends Component
         $this->syncKitchenEditFields();
 
         session()->flash('message', 'Allowed open groups reset to '.$this->edit_kitchen_tier.' tier default ('.$this->staff->allowed_open_groups.').');
+    }
+
+    public function saveKitchenHours(): void
+    {
+        abort_unless($this->canEditKitchenHours(), 403);
+        $this->hoursStatusMessage = '';
+        $this->hoursErrorMessage = '';
+
+        try {
+            $this->validate([
+                'hours' => 'required|array|size:7',
+                'hours.*.is_closed' => 'boolean',
+                'hours.*.opens_at' => 'nullable|date_format:H:i',
+                'hours.*.closes_at' => 'nullable|date_format:H:i',
+            ]);
+
+            foreach ($this->hours as $day => $row) {
+                if (! empty($row['is_closed'])) {
+                    continue;
+                }
+                if (empty($row['opens_at']) || empty($row['closes_at'])) {
+                    throw new \RuntimeException(KitchenHour::DAYS[(int) $day].': set open and close times, or mark closed.');
+                }
+                if ($row['opens_at'] >= $row['closes_at']) {
+                    throw new \RuntimeException(KitchenHour::DAYS[(int) $day].': open time must be before close time.');
+                }
+            }
+
+            DB::transaction(function () {
+                foreach ($this->hours as $day => $row) {
+                    $closed = (bool) ($row['is_closed'] ?? false);
+                    KitchenHour::query()->updateOrCreate(
+                        [
+                            'user_id' => $this->staff->id,
+                            'day_of_week' => (int) $day,
+                        ],
+                        [
+                            'is_closed' => $closed,
+                            'opens_at' => $closed ? null : ($row['opens_at'] ?: null),
+                            'closes_at' => $closed ? null : ($row['closes_at'] ?: null),
+                        ]
+                    );
+                }
+            });
+
+            $this->loadHours();
+            $this->hoursStatusMessage = 'Weekly hours saved.';
+        } catch (\Throwable $e) {
+            $this->hoursErrorMessage = $e->getMessage() ?: 'Could not save hours.';
+        }
+    }
+
+    public function saveRiderAreas(): void
+    {
+        abort_unless($this->canEditRiderAreas(), 403);
+        $this->areasStatusMessage = '';
+        $this->areasErrorMessage = '';
+
+        try {
+            $this->validate([
+                'selectedAreaIds' => 'nullable|array',
+                'selectedAreaIds.*' => 'integer|exists:areas,id',
+            ]);
+
+            $ids = array_values(array_unique(array_map('intval', $this->selectedAreaIds)));
+            $this->staff->areas()->sync($ids);
+
+            $primary = $ids[0] ?? null;
+            if ($primary) {
+                $area = Area::query()->find($primary);
+                $this->staff->update([
+                    'area_id' => $primary,
+                    'city_id' => $area?->city_id,
+                ]);
+            } else {
+                $this->staff->update(['area_id' => null]);
+            }
+
+            $this->staff->refresh()->load(['areas', 'area', 'city']);
+            $this->syncRiderAreaFields();
+            $this->areasStatusMessage = 'Service areas updated.';
+        } catch (\Throwable $e) {
+            $this->areasErrorMessage = $e->getMessage() ?: 'Could not save areas.';
+        }
     }
 
     /**
@@ -219,13 +379,19 @@ class StaffProfileShow extends Component
         $title = ($this->staff->name ?: trim($this->staff->first_name.' '.$this->staff->last_name))
             .' · '.ucfirst($this->staffRole);
 
+        $areaOptions = $this->canEditRiderAreas()
+            ? City::query()->with(['areas' => fn ($q) => $q->orderBy('name')])->orderBy('name')->get()
+            : collect();
+
         return view('livewire.shared.staff.profile', [
             'orders' => $orders,
             'orderRows' => $orderRows,
             'stats' => $stats,
             'kitchenHours' => $this->staffRole === 'kitchen'
-                ? $this->staff->kitchenHours()->get()
+                ? $this->staff->kitchenHours()->orderBy('day_of_week')->get()
                 : collect(),
+            'dayLabels' => KitchenHour::DAYS,
+            'areaOptions' => $areaOptions,
         ])->layout('layouts.private.app', ['title' => $title]);
     }
 }

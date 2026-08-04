@@ -121,21 +121,57 @@
     </div>
 
     @if($staffRole === 'kitchen')
-        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-            <h2 class="text-lg font-bold text-middo-dark mb-4">Weekly hours</h2>
-            @if($kitchenHours->isEmpty())
-                <p class="text-sm text-gray-400 italic">No hours set yet.</p>
-            @else
-                <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-                    @foreach($kitchenHours as $hour)
-                        <div>
-                            <dt class="text-[11px] font-bold uppercase tracking-wider text-gray-400">{{ $hour->dayLabel() }}</dt>
-                            <dd class="font-semibold text-gray-800 mt-0.5">{{ $hour->hoursLabel() }}</dd>
+        @if($this->canEditKitchenHours())
+            <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+                <div>
+                    <h2 class="text-lg font-bold text-middo-dark">Weekly hours</h2>
+                    <p class="text-sm text-gray-500 mt-1">Ops can update kitchen operating hours without waiting on the kitchen login.</p>
+                </div>
+                @if($hoursStatusMessage)
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{{ $hoursStatusMessage }}</div>
+                @endif
+                @if($hoursErrorMessage)
+                    <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $hoursErrorMessage }}</div>
+                @endif
+                <div class="space-y-2">
+                    @foreach($dayLabels as $day => $label)
+                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center text-sm">
+                            <div class="font-semibold text-gray-700">{{ $label }}</div>
+                            <label class="inline-flex items-center gap-2 text-xs font-semibold text-gray-500">
+                                <input type="checkbox" wire:model.live="hours.{{ $day }}.is_closed" class="rounded border-gray-300 text-middo-orange focus:ring-middo-orange">
+                                Closed
+                            </label>
+                            <input type="time" wire:model="hours.{{ $day }}.opens_at"
+                                   @disabled(!empty($hours[$day]['is_closed']))
+                                   class="rounded-xl border border-gray-200 px-3 py-2 text-sm disabled:opacity-40">
+                            <input type="time" wire:model="hours.{{ $day }}.closes_at"
+                                   @disabled(!empty($hours[$day]['is_closed']))
+                                   class="rounded-xl border border-gray-200 px-3 py-2 text-sm disabled:opacity-40">
                         </div>
                     @endforeach
-                </dl>
-            @endif
-        </div>
+                </div>
+                <button type="button" wire:click="saveKitchenHours"
+                        class="inline-flex px-4 py-2 rounded-xl bg-middo-orange text-white text-xs font-bold hover:bg-[#733614] transition">
+                    Save hours
+                </button>
+            </div>
+        @else
+            <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                <h2 class="text-lg font-bold text-middo-dark mb-4">Weekly hours</h2>
+                @if($kitchenHours->isEmpty())
+                    <p class="text-sm text-gray-400 italic">No hours set yet.</p>
+                @else
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                        @foreach($kitchenHours as $hour)
+                            <div>
+                                <dt class="text-[11px] font-bold uppercase tracking-wider text-gray-400">{{ $hour->dayLabel() }}</dt>
+                                <dd class="font-semibold text-gray-800 mt-0.5">{{ $hour->hoursLabel() }}</dd>
+                            </div>
+                        @endforeach
+                    </dl>
+                @endif
+            </div>
+        @endif
     @endif
 
     @if($staffRole === 'kitchen' && $this->canEditKitchenCapacity())
@@ -143,7 +179,7 @@
             <div>
                 <h2 class="text-lg font-bold text-middo-dark">Kitchen capacity</h2>
                 <p class="text-sm text-gray-500 mt-1">
-                    Tier defaults come from Settings on activation. You can override allowed open groups for this kitchen anytime.
+                    Tier defaults come from Settings on activation. Ops can override allowed open groups for this kitchen anytime.
                 </p>
             </div>
             <form wire:submit="saveKitchenCapacity" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
@@ -176,6 +212,45 @@
                     </button>
                 </div>
             </form>
+        </div>
+    @endif
+
+    @if($this->canEditRiderAreas())
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Service areas</h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    Attach areas this rider can serve. First selected area becomes the primary profile location.
+                </p>
+            </div>
+            @if($areasStatusMessage)
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{{ $areasStatusMessage }}</div>
+            @endif
+            @if($areasErrorMessage)
+                <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $areasErrorMessage }}</div>
+            @endif
+            <div class="space-y-4 max-h-80 overflow-y-auto">
+                @forelse($areaOptions as $city)
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">{{ $city->name }}</p>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($city->areas as $area)
+                                <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 text-sm cursor-pointer hover:border-middo-orange">
+                                    <input type="checkbox" value="{{ $area->id }}" wire:model="selectedAreaIds"
+                                           class="rounded border-gray-300 text-middo-orange focus:ring-middo-orange">
+                                    {{ $area->name }}
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-sm text-gray-400 italic">No areas configured yet.</p>
+                @endforelse
+            </div>
+            <button type="button" wire:click="saveRiderAreas"
+                    class="inline-flex px-4 py-2 rounded-xl bg-middo-orange text-white text-xs font-bold hover:bg-[#733614] transition">
+                Save service areas
+            </button>
         </div>
     @endif
 

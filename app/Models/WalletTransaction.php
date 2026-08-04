@@ -14,6 +14,9 @@ class WalletTransaction extends Model
 
     public const TYPE_REFUND = 'refund';
 
+    /** Ops/admin manual goodwill or correction credit (not a gateway top-up). */
+    public const TYPE_ADJUSTMENT = 'adjustment';
+
     protected $fillable = [
         'user_id',
         'type',

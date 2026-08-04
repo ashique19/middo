@@ -138,12 +138,12 @@
     {
       "id": "O8",
       "title": "Coverage + policy polish",
-      "status": "pending",
+      "status": "done",
       "items": [
-        "Area/City admin UI + ops attach rider areas",
-        "Coverage vs demand view",
-        "Policy: ops capacity/hours edit; corporate wallet adjust",
-        "Legacy cleanup Operation/Dashboard + unused Menu*"
+        "Area/City admin UI + ops attach rider areas — done",
+        "Coverage vs demand view — done",
+        "Policy: ops capacity/hours edit; corporate wallet adjust — done",
+        "Legacy cleanup Operation/Dashboard + unused Menu* — done"
       ]
     },
     {
