@@ -103,10 +103,18 @@ class NavSeeder extends Seeder
         ]);
 
         Nav::create([
+            'title' => 'Custom runs',
+            'route_name' => 'admin.custom-runs.index',
+            'icon' => '📍',
+            'order' => 10,
+            'role_id' => $adminId,
+        ]);
+
+        Nav::create([
             'title' => 'Alerts',
             'route_name' => 'admin.alerts.index',
             'icon' => '🔔',
-            'order' => 10,
+            'order' => 11,
             'role_id' => $adminId,
         ]);
 
@@ -165,10 +173,18 @@ class NavSeeder extends Seeder
         ]);
 
         Nav::create([
+            'title' => 'Custom runs',
+            'route_name' => 'operation.custom-runs.index',
+            'icon' => '📍',
+            'order' => 9,
+            'role_id' => $operationId,
+        ]);
+
+        Nav::create([
             'title' => 'Alerts',
             'route_name' => 'operation.alerts.index',
             'icon' => '🔔',
-            'order' => 9,
+            'order' => 10,
             'role_id' => $operationId,
         ]);
 

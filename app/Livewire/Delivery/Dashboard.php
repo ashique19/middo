@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Delivery;
 
+use App\Models\CustomRun;
 use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Support\DeliveryAreaScope;
@@ -25,6 +26,14 @@ class Dashboard extends Component
                     ->tap(fn ($q) => DeliveryAreaScope::applyKitchenDispatchedVisibleToRider($q, $rider))
                     ->count(),
                 'route' => 'delivery.kitchen-dispatches',
+            ],
+            [
+                'label' => 'Custom runs',
+                'count' => CustomRun::query()
+                    ->visibleToRider($rider)
+                    ->whereIn('status', [CustomRun::STATUS_PENDING, CustomRun::STATUS_STARTED])
+                    ->count(),
+                'route' => 'delivery.custom-runs',
             ],
             [
                 'label' => 'Middo boxes pending run',

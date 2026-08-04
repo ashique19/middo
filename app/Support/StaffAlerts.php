@@ -148,6 +148,50 @@ class StaffAlerts
         return $created;
     }
 
+    /**
+     * Parcel call: ops created a custom point→point run.
+     *
+     * @return int number of alerts created
+     */
+    public static function notifyRidersCustomRun(\App\Models\CustomRun $run): int
+    {
+        $run->loadMissing(['rider', 'area']);
+        $riders = [];
+
+        if ($run->rider_user_id && $run->rider) {
+            $riders = [$run->rider];
+        } elseif ($run->area_id) {
+            $riders = DeliveryAreaScope::ridersForArea((int) $run->area_id);
+        } else {
+            return 0;
+        }
+
+        $title = 'Custom run #'.$run->id;
+        $body = $run->label().($run->commission_amount > 0 ? ' · ৳'.$run->commission_amount : '');
+        $created = 0;
+
+        foreach ($riders as $rider) {
+            $alert = self::createOnce(
+                (int) $rider->id,
+                StaffAlert::TYPE_CUSTOM_RUN,
+                $title,
+                $body,
+                null,
+                [
+                    'custom_run_id' => $run->id,
+                    'area_id' => $run->area_id,
+                    'run_type' => DeliveryRunType::CUSTOM,
+                ],
+                'custom_run:'.$run->id.':'.$rider->id
+            );
+            if ($alert) {
+                $created++;
+            }
+        }
+
+        return $created;
+    }
+
     public static function unreadCount(int $userId): int
     {
         if (! self::tableReady()) {

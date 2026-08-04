@@ -15,6 +15,8 @@ class StaffAlert extends Model
 
     public const TYPE_LUNCH_DISPATCH = 'lunch_dispatch';
 
+    public const TYPE_CUSTOM_RUN = 'custom_run';
+
     protected $fillable = [
         'user_id',
         'type',

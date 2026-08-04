@@ -14,6 +14,7 @@ use App\Livewire\Shared\CorporateShow;
 use App\Livewire\Shared\CorporateTable;
 use App\Livewire\Shared\KitchenMoneyApprovals;
 use App\Livewire\Shared\RiderMoneyApprovals;
+use App\Livewire\Operation\CustomRuns;
 use App\Livewire\Shared\MealItemShow;
 use App\Livewire\Shared\MenuShow;
 use App\Livewire\Shared\MiddoCashLedgerPage;
@@ -66,6 +67,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/accounts', AccountsHub::class)->name('admin.accounts.index');
     Route::get('/kitchen-money', KitchenMoneyApprovals::class)->name('admin.kitchen-money.index');
     Route::get('/rider-money', RiderMoneyApprovals::class)->name('admin.rider-money.index');
+    Route::get('/custom-runs', CustomRuns::class)->name('admin.custom-runs.index');
 
     Route::get('/corporates', CorporateTable::class)->name('admin.corporates.index');
     Route::get('/corporates/{corporate}', CorporateShow::class)->name('admin.corporates.show');

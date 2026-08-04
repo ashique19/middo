@@ -1,6 +1,7 @@
 @php
     $items = [
         ['title' => 'Account', 'route' => 'delivery.account', 'hint' => 'Wallet & request payment'],
+        ['title' => 'Custom runs', 'route' => 'delivery.custom-runs', 'hint' => 'Point → point jobs'],
         ['title' => 'Alerts', 'route' => 'delivery.alerts', 'hint' => 'Parcel calls in your areas'],
         ['title' => 'Delivered orders', 'route' => 'delivery.orders.delivered', 'hint' => 'Collect payment & receive boxes'],
         ['title' => 'Cash handovers', 'route' => 'delivery.cash-handovers', 'hint' => 'Due to Middo / hand over'],

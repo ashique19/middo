@@ -1,6 +1,6 @@
 {
   "title": "Rider / delivery portal — completion backlog",
-  "version": 9,
+  "version": 10,
   "updated": "2026-08-04",
   "context": {
     "existing_delivery_livewire": [
@@ -457,21 +457,25 @@
       "id": "R2b",
       "name": "Custom point X → Y runs (after core)",
       "priority": 5,
-      "status": "todo",
+      "status": "done",
       "depends_on": ["R2"],
       "goal": "Ops can create ad-hoc runs with settings/manual commission.",
       "items": [
         {
           "id": "R2b.1",
           "title": "Custom run model + ops create UI (from/to, amount, area, rider)",
-          "status": "todo",
-          "notes": "SI7. Commission from settings.custom_default or manual amount on create."
+          "status": "done",
+          "notes": "custom_runs table; admin/operation.custom-runs.index; area + optional rider; commission snapshot."
         },
         {
           "id": "R2b.2",
           "title": "Credit rider wallet on custom run start; Middo cost memo",
-          "status": "todo"
+          "status": "done",
+          "notes": "Delivery CustomRuns startRun → MiddoOperatingCosts; completeRun; StaffAlerts TYPE_CUSTOM_RUN."
         }
+      ],
+      "shipped_notes": [
+        "tests/Feature/Delivery/CustomRunsR2bTest.php"
       ]
     },
     {
