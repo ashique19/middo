@@ -1,0 +1,379 @@
+{
+  "title": "Rider / delivery portal — completion backlog",
+  "version": 1,
+  "updated": "2026-08-04",
+  "context": {
+    "existing_delivery_livewire": [
+      "Dashboard",
+      "KitchenDispatches (accept lunch run kitchen→corporate, deliver)",
+      "DeliveredOrders + PaymentModal (cash / online residual)",
+      "PendingBoxRuns (corporate→kitchen box handoff)",
+      "CashHandovers (submit float to kitchen)"
+    ],
+    "product_rules_agreed": [
+      "Middo P&L must account for ALL costs against revenue (kitchen share, rider commissions, direct costs, etc.) — rest = profit/loss",
+      "Rider earns commission per ORDER or per RUN — never per Middo group",
+      "Default commissions live in admin Settings; each rider can be overridden manually",
+      "Four default run types: kitchen→corporate (lunch), corporate→kitchen (box), kitchen→ops (box), ops→kitchen (box)",
+      "Admin sets commission per run type; rider sees commission details only when a commission is configured for that rider (effective rate > 0 / explicitly set)",
+      "Commission credited to rider wallet on RUN START → Middo owes rider",
+      "Cash collected credited to rider wallet as rider owes Middo (commission already sitting as Middo-owes)",
+      "Cash handover accepted by kitchen CLEARS rider owes-Middo for that cash (and kitchen wallet is debited — kitchen now holds Middo's cash)",
+      "Rider may have multiple areas; parcel calls / notifications scoped to those areas"
+    ],
+    "wallet_sign_convention": {
+      "positive": "Middo owes rider (unpaid commissions net of settled cash debt)",
+      "negative": "Rider owes Middo (cash held after commission already credited)",
+      "analogy": "Same signed model as kitchen_account_ledger"
+    },
+    "ideal_cash_cod_example": {
+      "steps": [
+        "Run start: +commission (Middo owes rider)",
+        "Collect cash C: −C (rider owes Middo / holds cash)",
+        "Net wallet after collect: commission − C",
+        "Handover C to kitchen: +C on rider wallet (clears cash debt); kitchen ledger −C",
+        "Final rider wallet: +commission (Middo still owes commission until withdrawal/settlement)"
+      ]
+    }
+  },
+  "scope_improvements": [
+    {
+      "id": "SI1",
+      "title": "Unify menu.delivery_commission into run commissions for P&L",
+      "why": "Today menu.delivery_commission accrues PartnerPayable on delivered_and_paid and never credits rider balance. Keeping both run commission AND menu delivery_commission double-counts Middo cost.",
+      "recommendation": "Deprecate menu.delivery_commission as the rider payout source. Either (a) remove it from middo_rest partner split and use run commissions only in P&L, or (b) treat menu.delivery_commission as the default rate for kitchen→corporate lunch runs only (snapshot at run start). Prefer (b) short-term if lunch rate should stay menu-priced; prefer (a) if all rates are settings-driven."
+    },
+    {
+      "id": "SI2",
+      "title": "Dedicated rider_account_ledger (do not overload users.balance)",
+      "why": "users.balance is already corporate wallet + rider cash float. Mixing signed Middo-owes/owes-Middo with corporate WalletLedger is conflict-prone.",
+      "recommendation": "Mirror KitchenAccountLedger: rider_account_ledger as SoT. Keep users.balance as denormalized cache OR stop using it for riders and read ledger only."
+    },
+    {
+      "id": "SI3",
+      "title": "Define run unit explicitly per type",
+      "why": "Product says per order OR per run, not per group. Lunch accept is already per Order — good. Box legs are per MiddoBox today.",
+      "recommendation": "Serialize: lunch kitchen→corporate = 1 commission per Order at accept. Box corporate→kitchen / kitchen→ops / ops→kitchen = 1 commission per box (or per assignment batch if admin chooses — default per box). Never × group size."
+    },
+    {
+      "id": "SI4",
+      "title": "Box-run commissions are Middo cost with no order revenue line",
+      "why": "Box repositioning has no customer bill. P&L still needs the cost.",
+      "recommendation": "Write OrderMoneyEvent only when an order_id exists; otherwise write MiddoCostLedger / middo_cash memo / ops cost event so Accounts Hub still shows total rider cost."
+    },
+    {
+      "id": "SI5",
+      "title": "Rider withdrawal / settlement path",
+      "why": "Kitchen can withdraw when Middo owes them. Riders will accumulate positive commission balance after handovers.",
+      "recommendation": "Same pattern as kitchen: request withdrawal → ops/admin approve → debit Middo cash + debit rider ledger. Optional: settle against PartnerPayable-style open commission rows."
+    },
+    {
+      "id": "SI6",
+      "title": "Area-scoped claims race",
+      "why": "Today any rider can accept any kitchen dispatch (first claim wins).",
+      "recommendation": "Filter lists + StaffAlerts by rider areas; still first-claim among eligible riders."
+    }
+  ],
+  "conflicts_and_gaps": [
+    {
+      "id": "C1",
+      "severity": "high",
+      "title": "Double cost: menu delivery_share vs run commission",
+      "detail": "OrderMoneyFlow::accrueShares writes TYPE_DELIVERY_SHARE + PartnerPayable ROLE_DELIVERY from menu.delivery_commission on delivered_and_paid. New run-start commission would also hit Middo P&L / rider wallet. Must pick one cost path before shipping R2.",
+      "resolution": "Decide SI1 before implementing accrual. If run commission wins, stop creating delivery PartnerPayable from menu (or convert menu field into lunch default only and accrue once at run start)."
+    },
+    {
+      "id": "C2",
+      "severity": "high",
+      "title": "users.balance semantic collision",
+      "detail": "PaymentModal increments users.balance by full cash. Kitchen handover decrements it. Corporate WalletLedger also uses users.balance. No signed ledger; cannot represent Middo-owes commission and owes-Middo cash cleanly.",
+      "resolution": "SI2 — rider_account_ledger; migrate cash float entries into ledger (cash_collected debit, handover credit)."
+    },
+    {
+      "id": "C3",
+      "severity": "high",
+      "title": "Handover clears rider debt AND debits kitchen — both required",
+      "detail": "Today handover only decrements rider users.balance and debits kitchen ledger. Product: clearing rider owes-Middo is correct; kitchen debit (kitchen holds cash) stays. Risk: if MiddoCashLedger were also credited (old bug), triple-count. Current kitchen path is correct — do not re-credit Middo cash on handover.",
+      "resolution": "On accept: RiderLedger credit (clear cash debt) + KitchenLedger debit. Middo cash only when kitchen transfers surplus or Middo receives cash elsewhere."
+    },
+    {
+      "id": "C4",
+      "severity": "medium",
+      "title": "Accrual timing mismatch with kitchen",
+      "detail": "Kitchen share credits on dispatch. Delivery share today on delivered_and_paid. Product wants rider credit on RUN START (accept / start box leg).",
+      "resolution": "Hook commission credit at KitchenDispatches::acceptOrder, PendingBoxRuns start/hand, ops→kitchen assign accept, kitchen→ops pickup start — not delivered_and_paid."
+    },
+    {
+      "id": "C5",
+      "severity": "medium",
+      "title": "PartnerPayable delivery settlement ignores rider wallet",
+      "detail": "AccountsHub settlePayable debits Middo cash for delivery role but never credits rider balance. Parallel kitchen path uses KitchenAccountLedger.",
+      "resolution": "Either retire delivery PartnerPayable in favor of rider ledger + withdrawal, or settlePayable must debit Middo cash AND debit rider ledger (pay commission). Prefer ledger + withdrawal like kitchen."
+    },
+    {
+      "id": "C6",
+      "severity": "medium",
+      "title": "Cancel / fail after run start",
+      "detail": "If order cancelled after rider accepted, open kitchen payable is voided and kitchen ledger debited. Delivery PartnerPayable void does not touch rider balance (none today). After R2, must void/reverse rider commission credit.",
+      "resolution": "On cancel/reassign: RiderLedger debit share_voided if commission was credited; mark commission row void."
+    },
+    {
+      "id": "C7",
+      "severity": "medium",
+      "title": "Prepaid / online orders: commission without cash",
+      "detail": "Rider may complete lunch run with zero cash_collected. Wallet stays +commission only. Correct. Ensure PaymentModal does not invent cash float for gateway residuals (already guarded).",
+      "resolution": "Keep; document in rider Account UI."
+    },
+    {
+      "id": "C8",
+      "severity": "medium",
+      "title": "Single area_id vs multi-area",
+      "detail": "User has one area_id. Delivery lists ignore area. No parcel-call / StaffAlerts for delivery role.",
+      "resolution": "R0: area_user pivot (or rider_areas); migrate area_id → pivot; filter KitchenDispatches / box runs; delivery StaffAlerts."
+    },
+    {
+      "id": "C9",
+      "severity": "low",
+      "title": "Commission visibility rule ambiguity",
+      "detail": "“Sees commission only if set for him” — unclear if unset means hide (use default silently) or no pay.",
+      "resolution": "Recommend: effective rate = rider override ?? settings default. Rider UI shows rate when effective > 0. If both unset/0, no credit and no commission UI line."
+    },
+    {
+      "id": "C10",
+      "severity": "low",
+      "title": "Ops→kitchen assign may bundle many boxes",
+      "detail": "AssignMiddoBoxesModal can assign multiple boxes to one rider. Per-box vs per-assignment commission affects cost.",
+      "resolution": "Default per box at assignment accept/start (SI3). Document if ops wants batch rate later."
+    },
+    {
+      "id": "C11",
+      "severity": "low",
+      "title": "TYPE_CASH_TO_MIDDO unused; cash_to_kitchen used on kitchen accept",
+      "detail": "Order money tree historically expected cash_to_middo. Kitchen wallet change wrote cash_to_kitchen. Rider handover clear should add rider-side money events without resurrecting Middo cash credit.",
+      "resolution": "Add rider money events (commission_credited, cash_held, cash_handed_to_kitchen) in order tree when order-linked."
+    }
+  ],
+  "phases": [
+    {
+      "id": "R0",
+      "name": "Foundation: areas + settings + rider commission config",
+      "priority": 1,
+      "status": "todo",
+      "goal": "Admin can set default commissions per run type, override per rider, and assign multiple areas.",
+      "build_order": ["R0.1", "R0.2", "R0.3", "R0.4"],
+      "items": [
+        {
+          "id": "R0.1",
+          "title": "Run-type enum + settings defaults",
+          "status": "todo",
+          "notes": "Keys e.g. delivery.commission.kitchen_to_corporate, corporate_to_kitchen, kitchen_to_ops, ops_to_kitchen. Admin SettingsPage section."
+        },
+        {
+          "id": "R0.2",
+          "title": "Per-rider commission overrides",
+          "status": "todo",
+          "notes": "Nullable overrides per run type on rider profile / admin user edit. Effective = override ?? default."
+        },
+        {
+          "id": "R0.3",
+          "title": "Multi-area assignment for riders",
+          "status": "todo",
+          "notes": "Pivot rider↔areas; migrate users.area_id; admin UI multi-select."
+        },
+        {
+          "id": "R0.4",
+          "title": "Resolve menu.delivery_commission vs run commission (C1/SI1)",
+          "status": "todo",
+          "notes": "Product decision gate before R2 money writes. Document chosen path in this file."
+        }
+      ]
+    },
+    {
+      "id": "R1",
+      "name": "Area-scoped portal + parcel calls",
+      "priority": 2,
+      "status": "todo",
+      "depends_on": ["R0"],
+      "goal": "Rider only sees / is notified for work in their areas.",
+      "build_order": ["R1.1", "R1.2"],
+      "items": [
+        {
+          "id": "R1.1",
+          "title": "Filter KitchenDispatches, DeliveredOrders, PendingBoxRuns, ops assigns by rider areas",
+          "status": "todo"
+        },
+        {
+          "id": "R1.2",
+          "title": "Delivery StaffAlerts / parcel-call notifications for new runs in areas",
+          "status": "todo"
+        }
+      ]
+    },
+    {
+      "id": "R2",
+      "name": "Rider signed wallet + credit on run start",
+      "priority": 3,
+      "status": "todo",
+      "depends_on": ["R0"],
+      "goal": "Commission credited at run start (Middo owes rider); P&L records the cost.",
+      "build_order": ["R2.1", "R2.2", "R2.3", "R2.4", "R2.5"],
+      "items": [
+        {
+          "id": "R2.1",
+          "title": "rider_account_ledger (+ optional RiderMoneyService)",
+          "status": "todo",
+          "notes": "Allow negative balances. Entry types: commission_accrued, cash_collected, cash_handed_over, share_voided, withdrawal_paid."
+        },
+        {
+          "id": "R2.2",
+          "title": "Credit commission on lunch accept (per order)",
+          "status": "todo",
+          "notes": "KitchenDispatches::acceptOrder → effective kitchen_to_corporate rate. Idempotent per order+run_type."
+        },
+        {
+          "id": "R2.3",
+          "title": "Credit commission on box run starts (per box)",
+          "status": "todo",
+          "notes": "corporate→kitchen, kitchen→ops, ops→kitchen hooks."
+        },
+        {
+          "id": "R2.4",
+          "title": "Wire Middo P&L / order money tree for rider cost",
+          "status": "todo",
+          "notes": "Replace or relocate menu delivery_share (C1). Box runs without order → Middo cost memo (SI4)."
+        },
+        {
+          "id": "R2.5",
+          "title": "Void commission on cancel/reassign after start (C6)",
+          "status": "todo"
+        }
+      ]
+    },
+    {
+      "id": "R3",
+      "name": "Cash collect + handover clears owes Middo",
+      "priority": 4,
+      "status": "todo",
+      "depends_on": ["R2"],
+      "goal": "Cash increases rider debt to Middo; kitchen handover clears it.",
+      "build_order": ["R3.1", "R3.2", "R3.3"],
+      "items": [
+        {
+          "id": "R3.1",
+          "title": "PaymentModal cash → rider ledger debit (owes Middo)",
+          "status": "todo",
+          "notes": "Stop treating users.balance as SoT for riders (or sync denormalized)."
+        },
+        {
+          "id": "R3.2",
+          "title": "Kitchen CashHandovers accept → rider ledger credit (clear debt) + keep kitchen debit",
+          "status": "todo",
+          "notes": "Do NOT MiddoCashLedger.credit. Align Delivery CashHandovers create gate with ledger balance."
+        },
+        {
+          "id": "R3.3",
+          "title": "Order money events for cash_held / cash_handed_to_kitchen from rider perspective",
+          "status": "todo"
+        }
+      ]
+    },
+    {
+      "id": "R4",
+      "name": "Rider Account UI + withdrawals",
+      "priority": 5,
+      "status": "todo",
+      "depends_on": ["R2", "R3"],
+      "goal": "Rider sees signed wallet; commission lines only when rate set; can request withdrawal when Middo owes them.",
+      "build_order": ["R4.1", "R4.2", "R4.3"],
+      "items": [
+        {
+          "id": "R4.1",
+          "title": "Delivery Account page (statement, Middo owes you / You owe Middo)",
+          "status": "todo"
+        },
+        {
+          "id": "R4.2",
+          "title": "Show per-run commission details only when effective commission configured",
+          "status": "todo"
+        },
+        {
+          "id": "R4.3",
+          "title": "Withdrawal request + admin/ops approval (SI5)",
+          "status": "todo"
+        }
+      ]
+    },
+    {
+      "id": "R5",
+      "name": "Portal UX polish (mobile shell parity optional)",
+      "priority": 6,
+      "status": "todo",
+      "depends_on": ["R1", "R4"],
+      "goal": "Thumbs-first delivery app shell similar to kitchen if needed.",
+      "items": [
+        {
+          "id": "R5.1",
+          "title": "Delivery layout / bottom nav (Home, Runs, Boxes, Cash, More)",
+          "status": "todo"
+        },
+        {
+          "id": "R5.2",
+          "title": "PWA manifest for delivery (optional)",
+          "status": "todo"
+        }
+      ]
+    },
+    {
+      "id": "R6",
+      "name": "Tests + seeders + Accounts Hub cleanup",
+      "priority": 7,
+      "status": "todo",
+      "depends_on": ["R2", "R3", "R4"],
+      "items": [
+        {
+          "id": "R6.1",
+          "title": "Feature tests: commission on start, cash, handover clear, negative wallet, void on cancel",
+          "status": "todo"
+        },
+        {
+          "id": "R6.2",
+          "title": "Update FlawHunt / OrderAccounts tests after C1 resolution",
+          "status": "todo"
+        },
+        {
+          "id": "R6.3",
+          "title": "DeliveryFeaturesTestSeeder + docs sync",
+          "status": "todo"
+        }
+      ]
+    }
+  ],
+  "open_product_decisions": [
+    {
+      "id": "D1",
+      "question": "Is lunch kitchen→corporate commission the settings default, or still menu.delivery_commission (per meal)?",
+      "blocks": ["R0.4", "R2.2", "R2.4"]
+    },
+    {
+      "id": "D2",
+      "question": "Box runs: always per box, or allow per-assignment batch rate?",
+      "blocks": ["R2.3", "C10"]
+    },
+    {
+      "id": "D3",
+      "question": "If rider override is null, silently use settings default — or must admin explicitly enable the rider?",
+      "blocks": ["R0.2", "C9", "R4.2"]
+    },
+    {
+      "id": "D4",
+      "question": "Rider withdrawal: bKash/cash from Middo like kitchen, or net against future cash collections only?",
+      "blocks": ["R4.3", "SI5"]
+    }
+  ],
+  "suggested_ship_order": ["R0", "R1", "R2", "R3", "R4", "R6", "R5"],
+  "non_goals_for_now": [
+    "Changing kitchen wallet semantics (already shipped)",
+    "Rider-to-rider cash transfer",
+    "GPS tracking / route optimization"
+  ]
+}
