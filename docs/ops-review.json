@@ -1,8 +1,11 @@
 {
   "title": "Operation role — detailed review (pre-todo)",
-  "version": 1,
+  "version": 2,
   "updated": "2026-08-04",
   "status": "review — not yet phased into build tickets",
+  "changelog": [
+    "v2: Added O-ORDER-LENS — multi-level order view (corporate / kitchen / rider / Middo) as agreed need"
+  ],
   "purpose": "Evidence-based map of what ops can do today vs gaps, so we can cut a detailed todo backlog next.",
   "related": {
     "parked_rider_next_wave": "docs/rider-completion-todo.json → parked_next_wave_agreed_2026_08_04",
