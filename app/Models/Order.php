@@ -344,6 +344,7 @@ class Order extends Model
     public const ACTIVE_STATUSES = [
         'pending',
         'processing',
+        'ready',
         'packed',
         'on_the_way_to_delivery',
     ];

@@ -13,7 +13,9 @@ use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\MiddoSettings;
 use App\Support\OrderTransition;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -22,6 +24,26 @@ use Tests\TestCase;
 class OrderStatusLifecyclePushTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Carbon::setTestNow(Carbon::parse(
+            now('Asia/Dhaka')->toDateString().' 11:00 AM',
+            'Asia/Dhaka'
+        ));
+
+        MiddoSettings::updateMealAndKitchenDefaults([
+            'accept_window_minutes' => 120,
+        ]);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
 
     public function test_full_lifecycle_dispatches_push_for_each_status_change(): void
     {
@@ -38,6 +60,8 @@ class OrderStatusLifecyclePushTest extends TestCase
             'password' => 'password',
             'role_id' => $kitchenRole->id,
             'status' => 'active',
+            'kitchen_tier' => 'gold',
+            'allowed_open_groups' => 5,
         ]);
         $rider = User::create([
             'first_name' => 'Rider',
@@ -113,7 +137,14 @@ class OrderStatusLifecyclePushTest extends TestCase
         $this->assertSame('processing', $order->fresh()->order_status);
         Queue::assertPushed(SendOrderStatusPush::class, fn ($job) => $job->status === 'processing');
 
-        // 2) Kitchen pack → packed
+        // 2) Kitchen mark ready
+        OrderTransition::apply($order->fresh(), OrderTransition::READY, [
+            'updated_by' => $kitchen->id,
+        ]);
+        $this->assertSame('ready', $order->fresh()->order_status);
+        Queue::assertPushed(SendOrderStatusPush::class, fn ($job) => $job->status === 'ready');
+
+        // 3) Kitchen pack / dispatch → packed
         Livewire::actingAs($kitchen)
             ->test(DispatchOrderModal::class)
             ->call('openModal', $order->id)
@@ -123,7 +154,7 @@ class OrderStatusLifecyclePushTest extends TestCase
         $this->assertSame('packed', $order->fresh()->order_status);
         Queue::assertPushed(SendOrderStatusPush::class, fn ($job) => $job->status === 'packed');
 
-        // 3) Rider accept → on_the_way_to_delivery
+        // 4) Rider accept → on_the_way_to_delivery
         Livewire::actingAs($rider)
             ->test(KitchenDispatches::class)
             ->call('acceptOrder', $order->id);
@@ -131,7 +162,7 @@ class OrderStatusLifecyclePushTest extends TestCase
         $this->assertSame('on_the_way_to_delivery', $order->fresh()->order_status);
         Queue::assertPushed(SendOrderStatusPush::class, fn ($job) => $job->status === 'on_the_way_to_delivery');
 
-        // 4) Prepaid deliver → delivered_and_paid (skip plain delivered)
+        // 5) Prepaid deliver → delivered_and_paid (skip plain delivered)
         Livewire::actingAs($rider)
             ->test(KitchenDispatches::class)
             ->call('deliverToConsumer', $order->id);
@@ -157,6 +188,8 @@ class OrderStatusLifecyclePushTest extends TestCase
             'password' => 'password',
             'role_id' => $kitchenRole->id,
             'status' => 'active',
+            'kitchen_tier' => 'gold',
+            'allowed_open_groups' => 5,
         ]);
         $rider = User::create([
             'first_name' => 'Rider',
@@ -226,6 +259,10 @@ class OrderStatusLifecyclePushTest extends TestCase
         Livewire::actingAs($kitchen)
             ->test(MiddoOrderGroups::class)
             ->call('acceptOrder', $group->id);
+
+        OrderTransition::apply($order->fresh(), OrderTransition::READY, [
+            'updated_by' => $kitchen->id,
+        ]);
 
         Livewire::actingAs($kitchen)
             ->test(DispatchOrderModal::class)

@@ -59,6 +59,11 @@ class OrderGroup extends Model
             ->withTimestamps();
     }
 
+    public function events(): HasMany
+    {
+        return $this->hasMany(OrderGroupEvent::class);
+    }
+
     public function kitchenDisplayName(): string
     {
         if (! $this->kitchen_id || ! $this->kitchen) {

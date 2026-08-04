@@ -40,6 +40,12 @@
                         Current assignment: <span class="font-semibold text-gray-700">{{ $kitchenLabel }}</span>
                     </p>
 
+                    @if($groupAlert)
+                        <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+                            Recent kitchen event — {{ $groupAlert }}
+                        </div>
+                    @endif
+
                     <div class="flex items-center justify-end gap-3 pt-2">
                         <button
                             type="button"

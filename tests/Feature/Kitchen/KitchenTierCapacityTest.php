@@ -15,6 +15,7 @@ use App\Support\KitchenActivation;
 use App\Support\KitchenCapacity;
 use App\Support\KitchenTier;
 use App\Support\MiddoSettings;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -36,6 +37,15 @@ class KitchenTierCapacityTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Carbon::setTestNow(Carbon::parse(
+            now('Asia/Dhaka')->toDateString().' 11:00 AM',
+            'Asia/Dhaka'
+        ));
+
+        MiddoSettings::updateMealAndKitchenDefaults([
+            'accept_window_minutes' => 120,
+        ]);
 
         $this->kitchenRole = Role::create(['name' => 'kitchen']);
         $this->adminRole = Role::create(['name' => 'admin']);
@@ -66,6 +76,12 @@ class KitchenTierCapacityTest extends TestCase
             'price' => 250,
             'kitchen_commission' => 50,
         ]);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
     }
 
     protected function makeKitchen(array $overrides = []): User

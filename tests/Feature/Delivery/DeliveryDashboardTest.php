@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\OrderTransition;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
@@ -108,17 +109,23 @@ class DeliveryDashboardTest extends TestCase
         ]);
         $group->orders()->attach($order->id);
 
+        OrderTransition::apply($order->fresh(), OrderTransition::PROCESSING);
+        OrderTransition::apply($order->fresh(), OrderTransition::READY);
+
         $boxes = [];
         for ($i = 1; $i <= $quantity; $i++) {
             $boxes[] = $this->makeBoxAtKitchen('MB-D'.str_pad((string) $i, 5, '0', STR_PAD_LEFT))->id;
         }
 
-        Livewire::actingAs($this->kitchen)
+        $modal = Livewire::actingAs($this->kitchen)
             ->test(DispatchOrderModal::class)
-            ->call('openModal', $order->id)
-            ->call('toggleBox', $boxes[0])
-            ->call('toggleBox', $boxes[1] ?? $boxes[0])
-            ->call('dispatchOrder');
+            ->call('openModal', $order->id);
+
+        foreach ($boxes as $boxId) {
+            $modal->call('toggleBox', $boxId);
+        }
+
+        $modal->call('dispatchOrder');
 
         return $order->fresh(['middoBoxes', 'orderGroup']);
     }

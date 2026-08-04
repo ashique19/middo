@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Kitchen;
 
+use App\Livewire\Kitchen\ActiveOrders;
 use App\Livewire\Kitchen\BoxesAtKitchen;
 use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Livewire\Kitchen\IncomingBoxes;
+use App\Livewire\Operation\AssignMiddoBoxesModal;
+use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
-use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\Role;
@@ -101,7 +103,7 @@ class KitchenMiddoBoxesTest extends TestCase
             'delivery_time' => '12:00 PM',
             'total_amount' => 250 * $quantity,
             'address' => 'Test Address',
-            'order_status' => 'pending',
+            'order_status' => 'processing',
             'payment_status' => 'paid',
         ]);
 
@@ -205,7 +207,7 @@ class KitchenMiddoBoxesTest extends TestCase
             ->get(route('kitchen.orders.active'))
             ->assertOk()
             ->assertSee('Dispatch deadline')
-            ->assertSee('Dispatch')
+            ->assertSee('Mark ready')
             ->assertDontSee('Box Low');
 
         // Create another order needing more boxes than available after we only keep inventory at 2
@@ -217,7 +219,7 @@ class KitchenMiddoBoxesTest extends TestCase
             'delivery_time' => '12:00 PM',
             'total_amount' => 1250,
             'address' => 'Test Address',
-            'order_status' => 'pending',
+            'order_status' => 'processing',
             'payment_status' => 'paid',
         ]);
         $order->orderGroup->orders()->attach($lowOrder->id);
@@ -226,6 +228,10 @@ class KitchenMiddoBoxesTest extends TestCase
             ->get(route('kitchen.orders.active'))
             ->assertOk()
             ->assertSee('Box Low');
+
+        Livewire::actingAs($this->kitchen)
+            ->test(ActiveOrders::class)
+            ->call('markReady', $order->id);
 
         Livewire::actingAs($this->kitchen)
             ->test(DispatchOrderModal::class)
@@ -274,7 +280,7 @@ class KitchenMiddoBoxesTest extends TestCase
         ]);
 
         Livewire::actingAs($operator)
-            ->test(\App\Livewire\Operation\AssignMiddoBoxesModal::class)
+            ->test(AssignMiddoBoxesModal::class)
             ->call('openModal', ['boxIds' => [$box->id]])
             ->set('selectedRiderId', $this->rider->id)
             ->set('selectedKitchenId', $this->kitchen->id)

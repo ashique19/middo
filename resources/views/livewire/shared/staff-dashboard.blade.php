@@ -5,7 +5,7 @@
         'emerald' => 'border-emerald-200 bg-emerald-50 text-emerald-950',
         'rose' => 'border-rose-200 bg-rose-50 text-rose-950',
     ];
-    $statusOrder = ['pending', 'processing', 'packed', 'on_the_way_to_delivery', 'delivered', 'delivered_and_paid'];
+    $statusOrder = ['pending', 'processing', 'ready', 'packed', 'on_the_way_to_delivery', 'delivered', 'delivered_and_paid'];
 @endphp
 
 <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 space-y-6">

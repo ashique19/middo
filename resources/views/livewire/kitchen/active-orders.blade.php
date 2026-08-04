@@ -4,7 +4,7 @@
             <a href="{{ route('kitchen.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
             <h1 class="text-3xl font-bold text-middo-dark">My Active Orders</h1>
             <p class="text-sm font-semibold text-gray-500">
-                Active order groups assigned to your kitchen. Open Menu for meal items and recipes.
+                Mark prep Ready, then Dispatch to hand off to a rider. Release returns a group to Middo before ready.
             </p>
             <div class="pt-2">
                 <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
@@ -48,6 +48,33 @@
         </div>
     @endif
 
+    @if($errorMessage)
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+            {{ $errorMessage }}
+        </div>
+    @endif
+
+    @if($shortageGroupId)
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+            <h2 class="text-lg font-bold text-middo-dark">Report shortage</h2>
+            <p class="text-sm text-gray-500">This releases the group back to the Middo pool for reassignment.</p>
+            <textarea wire:model="shortageReason" rows="3"
+                      class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange"
+                      placeholder="What is short / unavailable…"></textarea>
+            @error('shortageReason') <p class="text-red-500 text-xs">{{ $message }}</p> @enderror
+            <div class="flex flex-wrap gap-2">
+                <button type="button" wire:click="confirmShortage"
+                        class="inline-flex px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700">
+                    Report & release
+                </button>
+                <button type="button" wire:click="cancelShortage"
+                        class="inline-flex px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    @endif
+
     <livewire:kitchen.dispatch-order-modal />
 
     @if($viewMode === 'list')
@@ -75,6 +102,31 @@
                 <span class="text-xs font-medium text-gray-500">{{ $group['date_label'] }}</span>
                 <span class="text-xs font-bold text-middo-orange">Qty {{ $group['total_quantity'] }}</span>
                 <span class="text-xs text-gray-500">{{ count($group['orders']) }} order(s)</span>
+                <div class="ml-auto flex flex-wrap gap-2">
+                    @if(!empty($group['can_mark_group_ready']))
+                        <button type="button"
+                                wire:click="markGroupReady({{ $group['id'] }})"
+                                wire:confirm="Mark all processing orders in this group ready?"
+                                class="inline-flex px-3 py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold hover:bg-sky-50">
+                            Mark group ready
+                        </button>
+                    @endif
+                    @if(!empty($group['can_report_shortage']))
+                        <button type="button"
+                                wire:click="openShortage({{ $group['id'] }})"
+                                class="inline-flex px-3 py-1.5 rounded-xl border border-amber-200 text-amber-800 text-xs font-bold hover:bg-amber-50">
+                            Shortage
+                        </button>
+                    @endif
+                    @if(!empty($group['can_release']))
+                        <button type="button"
+                                wire:click="releaseGroup({{ $group['id'] }})"
+                                wire:confirm="Release this group back to the Middo pool?"
+                                class="inline-flex px-3 py-1.5 rounded-xl border border-gray-300 text-gray-700 text-xs font-bold hover:bg-gray-50">
+                            Release
+                        </button>
+                    @endif
+                </div>
             </div>
 
             @if(count($group['orders']) > 0)
@@ -114,13 +166,24 @@
                                     <span class="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                         Dispatched
                                     </span>
-                                @elseif($order['can_dispatch'])
+                                @elseif(!empty($order['can_mark_ready']))
+                                    <button
+                                        type="button"
+                                        wire:click="markReady({{ $order['id'] }})"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-xl border border-sky-300 text-sky-800 text-xs font-bold hover:bg-sky-50 transition">
+                                        Mark ready
+                                    </button>
+                                @elseif(!empty($order['can_dispatch']))
                                     <button
                                         type="button"
                                         wire:click="$dispatch('open-dispatch-order-modal', { orderId: {{ $order['id'] }} })"
                                         class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition">
                                         Dispatch
                                     </button>
+                                @elseif(!empty($order['is_ready']))
+                                    <span class="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                                        Ready
+                                    </span>
                                 @endif
                             </div>
                         </li>

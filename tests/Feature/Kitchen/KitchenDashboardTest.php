@@ -10,6 +10,8 @@ use App\Models\OrderGroup;
 use App\Models\Recipe;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\MiddoSettings;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -30,6 +32,15 @@ class KitchenDashboardTest extends TestCase
     {
         parent::setUp();
 
+        Carbon::setTestNow(Carbon::parse(
+            now('Asia/Dhaka')->toDateString().' 11:00 AM',
+            'Asia/Dhaka'
+        ));
+
+        MiddoSettings::updateMealAndKitchenDefaults([
+            'accept_window_minutes' => 120,
+        ]);
+
         $this->kitchenRole = Role::create(['name' => 'kitchen']);
         Role::create(['name' => 'corporate']);
 
@@ -40,6 +51,8 @@ class KitchenDashboardTest extends TestCase
             'password' => 'password',
             'role_id' => $this->kitchenRole->id,
             'status' => 'active',
+            'kitchen_tier' => 'silver',
+            'allowed_open_groups' => 3,
         ]);
 
         $corporateRole = Role::where('name', 'corporate')->first();
@@ -59,6 +72,12 @@ class KitchenDashboardTest extends TestCase
             'price' => 250,
             'kitchen_commission' => 50,
         ]);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
     }
 
     protected function createOrderGroup(?int $kitchenId, string $deliveryDate, string $name = 'GRP-TEST-001'): OrderGroup

@@ -9,6 +9,8 @@ class OrderTransition
 {
     public const PROCESSING = 'processing';
 
+    public const READY = 'ready';
+
     public const PACKED = 'packed';
 
     public const ON_THE_WAY_TO_DELIVERY = 'on_the_way_to_delivery';
@@ -25,10 +27,12 @@ class OrderTransition
     private const ALLOWED = [
         'pending' => [
             self::PROCESSING,
-            self::PACKED,
             self::CANCELLED,
         ],
         self::PROCESSING => [
+            self::READY,
+        ],
+        self::READY => [
             self::PACKED,
         ],
         self::PACKED => [

@@ -53,7 +53,9 @@ class DispatchOrderModal extends Component
         }
 
         if (! OrderTransition::can($order, OrderTransition::PACKED) || $order->dispatched_at !== null) {
-            $this->errorMessage = 'This order can no longer be dispatched.';
+            $this->errorMessage = $order->order_status === OrderTransition::PROCESSING
+                ? 'Mark this order ready before dispatching to a rider.'
+                : 'This order can no longer be dispatched.';
             $this->showModal = true;
             $this->orderId = $order->id;
             $this->orderLabel = '#'.$order->id;
@@ -152,7 +154,11 @@ class DispatchOrderModal extends Component
                 }
 
                 if (! OrderTransition::can($order, OrderTransition::PACKED)) {
-                    throw new \RuntimeException('This order is no longer active.');
+                    throw new \RuntimeException(
+                        $order->order_status === OrderTransition::PROCESSING
+                            ? 'Mark this order ready before dispatching to a rider.'
+                            : 'This order is no longer active.'
+                    );
                 }
 
                 if ($order->dispatched_at !== null) {

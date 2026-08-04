@@ -3,6 +3,7 @@
 namespace App\Livewire\Operation;
 
 use App\Models\OrderGroup;
+use App\Models\OrderGroupEvent;
 use App\Models\User;
 use App\Support\KitchenCapacity;
 use App\Support\OrderKitchenAcceptance;
@@ -23,6 +24,8 @@ class AssignKitchenModal extends Component
     public ?int $selectedKitchenId = null;
 
     public array $kitchens = [];
+
+    public ?string $groupAlert = null;
 
     #[On('open-assign-kitchen-modal')]
     public function openModal($orderGroupId = null): void
@@ -47,6 +50,7 @@ class AssignKitchenModal extends Component
         $this->kitchenLabel = $group->kitchenDisplayName();
         $this->selectedKitchenId = $group->kitchen_id;
         $this->kitchens = $this->fetchKitchens($group->kitchen_id);
+        $this->groupAlert = $this->recentGroupAlert($group->id);
         $this->showModal = true;
     }
 
@@ -57,6 +61,7 @@ class AssignKitchenModal extends Component
         $this->groupName = '';
         $this->kitchenLabel = 'Unassigned';
         $this->selectedKitchenId = null;
+        $this->groupAlert = null;
     }
 
     public function save(): void
@@ -78,7 +83,7 @@ class AssignKitchenModal extends Component
         $kitchenChanging = (int) ($previousKitchenId ?? 0) !== (int) ($nextKitchenId ?? 0);
 
         if ($kitchenChanging) {
-            $lockedStatuses = ['packed', 'on_the_way_to_delivery', 'delivered', 'delivered_and_paid'];
+            $lockedStatuses = ['ready', 'packed', 'on_the_way_to_delivery', 'delivered', 'delivered_and_paid'];
             $hasLockedOrders = $group->orders->contains(function ($order) use ($lockedStatuses) {
                 return in_array($order->order_status, $lockedStatuses, true)
                     || $order->dispatched_at !== null;
@@ -150,6 +155,29 @@ class AssignKitchenModal extends Component
                 ];
             })
             ->all();
+    }
+
+    protected function recentGroupAlert(int $groupId): ?string
+    {
+        $event = OrderGroupEvent::query()
+            ->where('order_group_id', $groupId)
+            ->whereIn('type', [OrderGroupEvent::TYPE_SHORTAGE, OrderGroupEvent::TYPE_DECLINE, OrderGroupEvent::TYPE_RELEASE])
+            ->latest('id')
+            ->first();
+
+        if (! $event) {
+            return null;
+        }
+
+        $label = match ($event->type) {
+            OrderGroupEvent::TYPE_SHORTAGE => 'Shortage',
+            OrderGroupEvent::TYPE_DECLINE => 'Decline',
+            default => 'Release',
+        };
+
+        $reason = $event->reason ? ': '.$event->reason : '';
+
+        return "{$label}{$reason}";
     }
 
     public function render()

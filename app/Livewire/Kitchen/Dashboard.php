@@ -37,6 +37,20 @@ class Dashboard extends Component
                 'route' => 'kitchen.orders.last-three-months',
             ],
             [
+                'label' => 'Preparing',
+                'count' => $this->activeOrdersQuery($kitchenId, $today)
+                    ->whereHas('orders', fn ($q) => $q->where('order_status', 'processing'))
+                    ->count(),
+                'route' => 'kitchen.orders.active',
+            ],
+            [
+                'label' => 'Ready for pickup',
+                'count' => $this->activeOrdersQuery($kitchenId, $today)
+                    ->whereHas('orders', fn ($q) => $q->where('order_status', 'ready'))
+                    ->count(),
+                'route' => 'kitchen.orders.active',
+            ],
+            [
                 'label' => 'My active orders',
                 'count' => $this->activeOrdersQuery($kitchenId, $today)->count(),
                 'route' => 'kitchen.orders.active',

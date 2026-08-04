@@ -49,115 +49,38 @@
       "id": "K1",
       "name": "Accept / decline / release / ready vs pickup",
       "priority": 2,
-      "status": "next",
+      "status": "done",
       "depends_on": ["K0"],
       "goal": "Kitchen can safely accept within window & capacity, refuse/shortage/release groups back to Middo, and mark prep Ready without handing to rider yet.",
       "build_order": ["K1.1", "K1.4", "K1.3", "K1.2"],
-      "build_order_rationale": [
-        "K1.1 finishes accept guards (window) on top of capacity already shipped",
-        "K1.4 Ready status unlocks a clean lifecycle before release/decline edge cases get messy",
-        "K1.3 Release needs clear 'not yet packed/dispatched' rules that Ready makes explicit",
-        "K1.2 Decline/shortage is pool-side refusal + ops visibility; can land after release share the same unassign helper"
-      ],
-      "shared_helpers_to_add": [
-        "App\\Support\\KitchenAcceptWindow — isGroupAcceptableNow(OrderGroup): bool; deadlineIso; uses MiddoSettings::acceptWindowMinutes()",
-        "App\\Support\\OrderGroupKitchenAssignment — assign / release / decline / shortage (single place for kitchen_id nulling, order status rewind, capacity, audit)",
-        "order_group_events or order_logs entries for decline/shortage/release (actor=kitchen, reason, optional shortage payload)"
-      ],
       "items": [
         {
           "id": "K1.1",
           "title": "Accept window guard on Accept (capacity already done)",
-          "status": "todo",
-          "partially_done": [
-            "Capacity reject + slots remaining UX already in MiddoOrderGroups / KitchenCapacity (K0.4)"
-          ],
-          "details": [
-            "Define accept window relative to group schedule: use delivery_date + earliest order delivery_time in the group (Asia/Dhaka); window = [deadline - accept_window_minutes, deadline] OR [now..deadline] — pick: kitchen may accept only when now is within accept_window_minutes BEFORE the group's scheduled start (earliest delivery_time that day)",
-            "KitchenAcceptWindow::assertCanAccept(OrderGroup) throws if outside window",
-            "Wire into MiddoOrderGroups::acceptOrder (alongside KitchenCapacity::assertCanAccept)",
-            "UX on Middo order groups list: show countdown / 'opens in…' / 'window closed' per group; disable Accept when outside window or at capacity",
-            "Ops AssignKitchenModal: optionally warn or soft-skip window (ops override allowed) — document: ops may assign outside window; kitchen self-accept may not",
-            "Tests: reject before window opens; allow inside window; reject after deadline; capacity still blocks"
-          ],
-          "touchpoints": [
-            "app/Support/KitchenAcceptWindow.php (new)",
-            "app/Support/MiddoSettings.php (already has acceptWindowMinutes)",
-            "app/Livewire/Kitchen/MiddoOrderGroups.php",
-            "resources/views/livewire/kitchen/middo-order-groups.blade.php",
-            "tests/Feature/Kitchen/…"
-          ]
+          "status": "done"
         },
         {
           "id": "K1.4",
           "title": "Split Ready vs Rider pickup / Dispatch",
-          "status": "todo",
-          "details": [
-            "Today DispatchOrderModal moves processing → packed and sets dispatched_at in one action — split that",
-            "Add order_status value ready between processing and packed",
-            "OrderTransition: pending→processing (unchanged); processing→ready; ready→packed; packed→on_the_way_to_delivery (unchanged)",
-            "Kitchen ActiveOrders: new Mark ready action (group or per-order — prefer per-order to match dispatch, with optional Mark group ready)",
-            "Dispatch / hand to rider: only from ready; still attaches Middo boxes + sets dispatched_at + packed (existing DispatchOrderModal, gated on ready)",
-            "ACTIVE_STATUSES / KitchenCapacity open-slot definition: ready still counts as open (not dispatched)",
-            "Dashboard: add Ready count tile (or split active into Preparing vs Ready)",
-            "Push copy: ready → corporate 'Kitchen finished prep — waiting for rider'; packed stays pickup/dispatch messaging",
-            "SQLite + MySQL-safe migration for ENUM/check (follow prior order_status expand migrations; SQLite tests use string)",
-            "Tests: cannot dispatch from processing; can mark ready; can dispatch from ready; capacity still counts ready groups"
-          ],
-          "status_flow": {
-            "open_pool": "kitchen_id null, orders pending",
-            "accepted": "kitchen_id set, orders processing",
-            "ready": "orders ready (prep done, waiting rider)",
-            "dispatched": "orders packed + dispatched_at set",
-            "with_rider": "on_the_way_to_delivery"
-          },
-          "touchpoints": [
-            "database/migrations/*_add_ready_to_order_status.php",
-            "app/Support/OrderTransition.php",
-            "app/Models/Order.php (ACTIVE_STATUSES)",
-            "app/Livewire/Kitchen/ActiveOrders.php",
-            "app/Livewire/Kitchen/DispatchOrderModal.php",
-            "app/Support/OrderStatusPushCopy.php",
-            "app/Livewire/Kitchen/Dashboard.php",
-            "resources/views/livewire/kitchen/active-orders.blade.php"
-          ]
+          "status": "done"
         },
         {
           "id": "K1.3",
           "title": "Kitchen release before pack / ready handoff",
-          "status": "todo",
-          "details": [
-            "Allowed only when group is assigned to this kitchen AND no order in group is ready/packed/dispatched (or: allow release while processing only; block once any order is ready — prefer block after any ready/packed/dispatched)",
-            "Action on ActiveOrders: Release group → kitchen_id=null; rewind member orders processing→pending; clear capacity slot; write audit log",
-            "Do not cancel corporate orders — only unassign kitchen",
-            "Confirm dialog: 'Release this group back to Middo pool?'",
-            "Tests: release frees slot so another accept works; cannot release after ready/dispatch"
-          ],
-          "touchpoints": [
-            "app/Support/OrderGroupKitchenAssignment.php (release)",
-            "app/Livewire/Kitchen/ActiveOrders.php",
-            "resources/views/livewire/kitchen/active-orders.blade.php"
-          ]
+          "status": "done"
         },
         {
           "id": "K1.2",
           "title": "Decline or report shortage → Middo reassign",
-          "status": "todo",
-          "details": [
-            "On MiddoOrderGroups (unassigned pool): Decline — reason required (select + optional note); does NOT assign kitchen; marks group declined_by kitchen attempt OR writes event and hides from that kitchen briefly — prefer: group stays in pool for others; log kitchen decline for ops; optionally exclude this kitchen from seeing it again that day",
-            "Report shortage: available on assigned ActiveOrders while still processing (before ready) — reason + optional item/qty notes; then auto-release group back to pool (same as release) + flag shortage for ops",
-            "Ops visibility: badge/filter on ops active orders / kitchen assign UI for groups with recent shortage/decline events",
-            "Notify ops (in-app flash/queue event stub ok if push infra heavy; at minimum OrderLog / UserLog / new order_group_logs)",
-            "Tests: decline requires reason; shortage releases + frees capacity; ops can reassign"
-          ],
-          "touchpoints": [
-            "app/Support/OrderGroupKitchenAssignment.php (decline, shortage)",
-            "app/Livewire/Kitchen/MiddoOrderGroups.php",
-            "app/Livewire/Kitchen/ActiveOrders.php",
-            "ops Livewire list (lightweight badge)",
-            "migration for order_group_events if no suitable log table"
-          ]
+          "status": "done"
         }
+      ],
+      "shipped_notes": [
+        "KitchenAcceptWindow + MiddoSettings accept_window_minutes",
+        "order_status ready; processing→ready→packed",
+        "OrderGroupKitchenAssignment accept/decline/release/shortage",
+        "order_group_events audit table",
+        "Ops assign modal shows recent decline/shortage/release alert"
       ],
       "acceptance_criteria": [
         "Kitchen cannot self-accept outside accept_window_minutes or above allowed_open_groups",
