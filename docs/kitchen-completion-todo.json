@@ -178,9 +178,19 @@
       "id": "K4",
       "name": "Prep intelligence (recipes → shopping list)",
       "priority": 5,
-      "status": "todo",
+      "status": "done",
       "items": [
-        {"id": "K4.1", "title": "Accepted-groups ingredient rollup", "status": "todo"}
+        {
+          "id": "K4.1",
+          "title": "Accepted-groups ingredient rollup",
+          "status": "done",
+          "shipped": [
+            "KitchenIngredientRollup: accepted groups × active recipes × plate qty",
+            "Merge by normalized name+unit; warn on missing active recipes",
+            "Kitchen Prep shopping list page + nav + link from Today’s menus",
+            "Feature tests: KitchenIngredientRollupTest"
+          ]
+        }
       ]
     },
     {
@@ -211,7 +221,7 @@
     "K1 (done)",
     "K2 (done)",
     "K3 (done)",
-    "K4 Prep rollup",
+    "K4 (done)",
     "K5 Notifications",
     "K6 Profile / complaints / perms"
   ],

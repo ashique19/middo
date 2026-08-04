@@ -10,6 +10,7 @@ use App\Livewire\Kitchen\MenuDetails;
 use App\Livewire\Kitchen\MiddoOrderGroups;
 use App\Livewire\Kitchen\OrdersLastThreeMonths;
 use App\Livewire\Kitchen\OrdersThisMonth;
+use App\Livewire\Kitchen\PrepShoppingList;
 use App\Livewire\Kitchen\RecipeShow;
 use App\Livewire\Kitchen\TodayMenus;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +23,7 @@ Route::middleware(['auth', 'role:kitchen'])->group(function () {
     Route::get('/orders/last-three-months', OrdersLastThreeMonths::class)->name('kitchen.orders.last-three-months');
     Route::get('/orders/active', ActiveOrders::class)->name('kitchen.orders.active');
     Route::get('/menus/today', TodayMenus::class)->name('kitchen.menus.today');
+    Route::get('/prep/shopping-list', PrepShoppingList::class)->name('kitchen.prep.shopping-list');
 
     Route::get('/order-groups/middo', MiddoOrderGroups::class)->name('kitchen.order-groups.middo');
 

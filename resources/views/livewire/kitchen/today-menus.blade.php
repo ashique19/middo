@@ -5,6 +5,7 @@
         <p class="text-sm font-semibold text-gray-500">
             Menus ordered for the selected day, including package-sourced meals. Your kitchen has
             <span class="text-middo-orange">{{ $assignedGroupCount }}</span> assigned group(s) on this date.
+            <a href="{{ route('kitchen.prep.shopping-list') }}" class="ml-2 text-middo-orange hover:underline">Prep shopping list →</a>
         </p>
     </div>
 

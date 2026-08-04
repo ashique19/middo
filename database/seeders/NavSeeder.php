@@ -150,20 +150,21 @@ class NavSeeder extends Seeder
         Nav::create(['title' => 'Middo order groups', 'route_name' => 'kitchen.order-groups.middo', 'order' => 2, 'role_id' => $kitchenId]);
         Nav::create(['title' => 'My active orders', 'route_name' => 'kitchen.orders.active', 'order' => 3, 'role_id' => $kitchenId]);
         Nav::create(['title' => "Today's menus", 'route_name' => 'kitchen.menus.today', 'order' => 4, 'role_id' => $kitchenId]);
-        Nav::create(['title' => 'My orders this month', 'route_name' => 'kitchen.orders.this-month', 'order' => 5, 'role_id' => $kitchenId]);
-        Nav::create(['title' => 'Last 3 months', 'route_name' => 'kitchen.orders.last-three-months', 'order' => 6, 'role_id' => $kitchenId]);
+        Nav::create(['title' => 'Prep shopping list', 'route_name' => 'kitchen.prep.shopping-list', 'order' => 5, 'role_id' => $kitchenId]);
+        Nav::create(['title' => 'My orders this month', 'route_name' => 'kitchen.orders.this-month', 'order' => 6, 'role_id' => $kitchenId]);
+        Nav::create(['title' => 'Last 3 months', 'route_name' => 'kitchen.orders.last-three-months', 'order' => 7, 'role_id' => $kitchenId]);
 
         $kitchenBoxesNav = Nav::create([
             'title' => 'Middo boxes',
             'route_name' => null,
             'icon' => '📦',
-            'order' => 7,
+            'order' => 8,
             'role_id' => $kitchenId,
         ]);
         Nav::create(['title' => 'Boxes at kitchen', 'route_name' => 'kitchen.middo-boxes.at-kitchen', 'order' => 1, 'role_id' => $kitchenId, 'parent_id' => $kitchenBoxesNav->id]);
         Nav::create(['title' => 'Incoming', 'route_name' => 'kitchen.middo-boxes.incoming', 'order' => 2, 'role_id' => $kitchenId, 'parent_id' => $kitchenBoxesNav->id]);
-        Nav::create(['title' => 'Account', 'route_name' => 'kitchen.account', 'order' => 8, 'role_id' => $kitchenId]);
-        Nav::create(['title' => 'Cash handovers', 'route_name' => 'kitchen.cash-handovers', 'order' => 9, 'role_id' => $kitchenId]);
+        Nav::create(['title' => 'Account', 'route_name' => 'kitchen.account', 'order' => 9, 'role_id' => $kitchenId]);
+        Nav::create(['title' => 'Cash handovers', 'route_name' => 'kitchen.cash-handovers', 'order' => 10, 'role_id' => $kitchenId]);
 
         Nav::create(['title' => 'Dashboard', 'route_name' => 'delivery.dashboard', 'order' => 1, 'role_id' => $deliveryId]);
         Nav::create(['title' => 'Kitchen dispatches', 'route_name' => 'delivery.kitchen-dispatches', 'order' => 2, 'role_id' => $deliveryId]);
