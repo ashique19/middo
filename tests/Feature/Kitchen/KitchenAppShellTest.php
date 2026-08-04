@@ -34,7 +34,9 @@ class KitchenAppShellTest extends TestCase
             ->assertSee('Orders', false)
             ->assertSee('Groups', false)
             ->assertSee('Prep', false)
-            ->assertSee('More', false);
+            ->assertSee('More', false)
+            ->assertSee('manifest-kitchen.webmanifest', false)
+            ->assertSee('apple-mobile-web-app-capable', false);
 
         Livewire::actingAs($kitchen)
             ->test(Dashboard::class)

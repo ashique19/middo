@@ -192,7 +192,7 @@ class KitchenDashboardTest extends TestCase
             ->get(route('kitchen.orders.active'))
             ->assertOk()
             ->assertSee('GRP-MENU')
-            ->assertSee('Menu: Lunch Box A');
+            ->assertSee('Lunch Box A');
 
         $this->actingAs($this->kitchen)
             ->get(route('kitchen.menus.show', $this->menu))

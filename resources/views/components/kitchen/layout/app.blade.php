@@ -7,11 +7,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#1E4630">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Middo Kitchen">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
     <title>{{ $title }} | Middo Kitchen</title>
     <link rel="icon" type="image/x-icon" href="{{ asset('img/settings/favicon.ico') }}">
+    <link rel="apple-touch-icon" href="{{ asset('img/settings/logo.png') }}">
+    <link rel="manifest" href="{{ asset('manifest-kitchen.webmanifest') }}">
 </head>
 <body class="kitchen-shell text-middo-dark font-sans overflow-x-hidden antialiased"
       x-data="{ moreOpen: false }">
@@ -56,5 +60,13 @@
     @endauth
 
     @livewireScripts
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register(@json(asset('sw-kitchen.js')), { scope: '/kitchen/' }).catch(() => {});
+            });
+        }
+    </script>
 </body>
 </html>

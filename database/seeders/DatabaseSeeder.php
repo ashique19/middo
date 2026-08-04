@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             OrderSeeder::class,
             TestOrderSeeder::class,
             KitchenDeliveryDashboardSeeder::class,
+            KitchenFeaturesTestSeeder::class,
             OrderLogSeeder::class,
             OrderComplaintSeeder::class,
         ]);

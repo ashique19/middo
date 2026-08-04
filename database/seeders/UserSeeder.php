@@ -60,7 +60,19 @@ class UserSeeder extends Seeder
             ['first_name' => 'Dhanmondi', 'last_name' => 'Kitchen', 'email' => 'kitchen5@middo.com', 'mobile' => '01310123459', 'area_id' => $mirpurId, 'address' => 'Road 27, Dhanmondi'],
         ];
 
-        foreach ($activeKitchens as $kitchen) {
+        foreach ($activeKitchens as $index => $kitchen) {
+            $tier = match ($index) {
+                0 => 'gold',
+                1 => 'silver',
+                2 => 'platinum',
+                default => 'silver',
+            };
+            $slots = match ($tier) {
+                'gold' => 2,
+                'platinum' => 3,
+                default => 1,
+            };
+
             User::create([
                 'first_name' => $kitchen['first_name'],
                 'last_name' => $kitchen['last_name'],
@@ -73,6 +85,8 @@ class UserSeeder extends Seeder
                 'address' => $kitchen['address'],
                 'city_id' => $dhakaId,
                 'area_id' => $kitchen['area_id'],
+                'kitchen_tier' => $tier,
+                'allowed_open_groups' => $slots,
             ]);
         }
 
