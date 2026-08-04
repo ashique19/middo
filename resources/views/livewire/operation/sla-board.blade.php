@@ -104,7 +104,7 @@
                         @forelse($late as $row)
                             <tr class="bg-orange-50/30">
                                 <td class="p-4">
-                                    <a href="{{ route($rolePrefix.'.orders.show', $row['id']) }}" class="font-mono font-bold text-middo-orange hover:underline">#{{ $row['id'] }}</a>
+                                    <a href="{{ \App\Support\StaffOrderRoutes::show($row['id'], 'kitchen') }}" class="font-mono font-bold text-middo-orange hover:underline">#{{ $row['id'] }}</a>
                                     <div class="text-xs text-gray-500">{{ $row['menu'] }} · qty {{ $row['qty'] }}</div>
                                 </td>
                                 <td class="p-4">

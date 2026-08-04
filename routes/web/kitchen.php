@@ -32,6 +32,7 @@ Route::middleware(['auth', 'role:kitchen'])->group(function () {
         Route::get('/orders/this-month', OrdersThisMonth::class)->name('kitchen.orders.this-month');
         Route::get('/orders/last-three-months', OrdersLastThreeMonths::class)->name('kitchen.orders.last-three-months');
         Route::get('/orders/active', ActiveOrders::class)->name('kitchen.orders.active');
+        Route::get('/orders/{order}', \App\Livewire\Shared\OrderShow::class)->name('kitchen.orders.show');
     });
 
     Route::middleware('permission:'.KitchenPermissions::MENUS)->group(function () {

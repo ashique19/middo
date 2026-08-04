@@ -1,9 +1,10 @@
 @props([
     'orderId',
+    'lens' => null,
 ])
 
 @php
-    $href = \App\Support\StaffOrderRoutes::show((int) $orderId);
+    $href = \App\Support\StaffOrderRoutes::show((int) $orderId, $lens);
 @endphp
 
 <a

@@ -257,6 +257,7 @@ class CorporateApiPresenter
             'quantity_changed' => 'Quantity Updated',
             'deleted' => 'Order Deleted',
             'ops_force_status' => 'Ops Force Action',
+            'ops_intervene' => 'Ops Intervention',
             default => 'Order Updated',
         };
     }
@@ -293,6 +294,11 @@ class CorporateApiPresenter
                 ucfirst(str_replace('_', ' ', $metadata['from'] ?? 'unknown')),
                 ucfirst(str_replace('_', ' ', $metadata['to'] ?? 'unknown')),
                 ! empty($metadata['reason']) ? ' — '.$metadata['reason'] : '',
+            ),
+            'ops_intervene' => sprintf(
+                'Ops intervened (%s)%s',
+                str_replace('_', ' ', $metadata['action'] ?? 'action'),
+                ! empty($metadata['lens']) ? ' via '.$metadata['lens'].' lens' : '',
             ),
             default => 'Order details were updated.',
         };

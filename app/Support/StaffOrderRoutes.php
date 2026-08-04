@@ -12,8 +12,14 @@ class StaffOrderRoutes
         return Auth::user()?->role?->name === 'admin' ? 'admin' : 'operation';
     }
 
-    public static function show(Order|int $order): string
+    public static function show(Order|int $order, ?string $lens = null): string
     {
-        return route(self::prefix().'.orders.show', $order);
+        $url = route(self::prefix().'.orders.show', $order);
+
+        if ($lens !== null && $lens !== '') {
+            $url .= '?lens='.urlencode(OrderLens::normalize($lens));
+        }
+
+        return $url;
     }
 }

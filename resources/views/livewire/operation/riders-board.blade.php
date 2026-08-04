@@ -110,7 +110,7 @@
                         @forelse($awaiting as $row)
                             <tr>
                                 <td class="p-3">
-                                    <a href="{{ route($rolePrefix.'.orders.show', $row['id']) }}" class="font-mono font-bold text-middo-orange hover:underline">#{{ $row['id'] }}</a>
+                                    <a href="{{ \App\Support\StaffOrderRoutes::show($row['id'], 'rider') }}" class="font-mono font-bold text-middo-orange hover:underline">#{{ $row['id'] }}</a>
                                     <div class="text-xs text-gray-500">{{ $row['menu'] }} · qty {{ $row['qty'] }}</div>
                                 </td>
                                 <td class="p-3">
@@ -145,7 +145,7 @@
                         @forelse($onTheWay as $row)
                             <tr>
                                 <td class="p-3">
-                                    <a href="{{ route($rolePrefix.'.orders.show', $row['id']) }}" class="font-mono font-bold text-middo-orange hover:underline">#{{ $row['id'] }}</a>
+                                    <a href="{{ \App\Support\StaffOrderRoutes::show($row['id'], 'rider') }}" class="font-mono font-bold text-middo-orange hover:underline">#{{ $row['id'] }}</a>
                                     <div class="text-xs text-gray-500">{{ $row['menu'] }} · qty {{ $row['qty'] }}</div>
                                 </td>
                                 <td class="p-3">

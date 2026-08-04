@@ -116,12 +116,12 @@
     {
       "id": "O6",
       "title": "Multi-level order lenses (O-ORDER-LENS)",
-      "status": "pending",
+      "status": "done",
       "items": [
-        "OrderShow lens switcher middo|corporate|kitchen|rider",
-        "Ops intervene on any lens with audit",
-        "Native kitchen + rider order detail reusing lenses",
-        "Corporate presenter parity; deep-links into order+lens"
+        "OrderShow lens switcher middo|corporate|kitchen|rider — done (?lens= + tabs)",
+        "Ops intervene on any lens with audit — done (cancel/mark ready/release)",
+        "Native kitchen + rider order detail reusing lenses — done",
+        "Corporate presenter parity; deep-links into order+lens — done (SLA/riders boards)"
       ]
     },
     {
