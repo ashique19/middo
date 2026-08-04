@@ -1,0 +1,400 @@
+{
+  "title": "Operation role — detailed review (pre-todo)",
+  "version": 1,
+  "updated": "2026-08-04",
+  "status": "review — not yet phased into build tickets",
+  "purpose": "Evidence-based map of what ops can do today vs gaps, so we can cut a detailed todo backlog next.",
+  "related": {
+    "parked_rider_next_wave": "docs/rider-completion-todo.json → parked_next_wave_agreed_2026_08_04",
+    "process": "docs/middo-process-flow.json",
+    "routes": "routes/web/operation.php"
+  },
+  "ops_charter_vs_reality": {
+    "doc_says": [
+      "Day-to-day ops",
+      "Assign kitchens to order groups",
+      "Manage corporates, menus, packages, active orders, Middo boxes, cash/accounts"
+    ],
+    "reality": {
+      "strong": [
+        "Group / auto-group / assign kitchen (ActiveOrders + AssignKitchenModal)",
+        "Middo box warehouse generate / assign via rider / print / logs",
+        "Packages draft create-edit, subscriptions schedule/skip/cancel, demand/insights",
+        "Kitchen + rider money approval queues",
+        "Accounts Hub + Middo cash ledger (shared with admin)",
+        "Custom runs create/cancel pending",
+        "Staff alerts + dashboard attention strip"
+      ],
+      "read_mostly": [
+        "Corporates browse/show (no create/edit/status/password)",
+        "Menu / meal / recipe browse (writes are admin)",
+        "Kitchen/rider StaffProfileShow",
+        "OrderShow (no ops force status)"
+      ],
+      "admin_owns": [
+        "Kitchen onboarding / activate / capacity-tier edit",
+        "Users, Settings, Coupons, Charges, System navs",
+        "Package publish + subscription forceComplete",
+        "Menu/meal/recipe CRUD"
+      ]
+    }
+  },
+  "current_surface_map": {
+    "dashboard_alerts": {
+      "exists": [
+        "StaffDashboard + OpsDashboardMetrics (today/tomorrow, pipeline, money tiles, attention, quick links)",
+        "StaffAlertsPage — reassignment, kitchen assigned, accept-window (kitchen), lunch/custom rider alerts"
+      ],
+      "files": [
+        "app/Livewire/Shared/StaffDashboard.php",
+        "app/Support/OpsDashboardMetrics.php",
+        "app/Livewire/Shared/StaffAlertsPage.php",
+        "app/Support/StaffAlerts.php"
+      ],
+      "gaps": [
+        "Pending cash handovers attention has route:null and hint 'kitchen accept' — Middo-target ops path orphaned",
+        "Open complaints counted but no ops inbox / route (kitchen has Complaints; admin has none)",
+        "No live SLA board (accept-window closed unassigned, past DispatchDeadline)",
+        "No unread alert badge in chrome"
+      ]
+    },
+    "kitchens": {
+      "exists": [
+        "Kitchens load board (active kitchens + assigned groups)",
+        "KitchenAllOrders + StaffProfileShow (hours read-only)",
+        "AssignKitchenModal — assign/reassign/unassign with KitchenCapacity gate; block after packed/dispatched"
+      ],
+      "files": [
+        "app/Livewire/Operation/Kitchens.php",
+        "app/Livewire/Operation/AssignKitchenModal.php",
+        "app/Support/KitchenCapacity.php",
+        "app/Support/KitchenAcceptWindow.php",
+        "app/Support/DispatchDeadline.php"
+      ],
+      "gaps": [
+        "No ops unassigned-group pool UI (kitchen has MiddoOrderGroups)",
+        "No capacity remaining / tier / area columns on kitchens list",
+        "Ops cannot edit capacity or hours (admin / kitchen own)",
+        "Ops assign bypasses accept-window (intentional override) but window status not shown",
+        "Pending kitchen onboarding hidden from ops dashboard"
+      ]
+    },
+    "order_pipeline": {
+      "exists": [
+        "ActiveOrders — date accordion, drag regroup, auto-group, ungroup, kitchen assign, package filter, Excel",
+        "OrderHistory, SearchOrder (id/name/mobile/menu/address, limit 50)",
+        "OrderShow — parties, kitchen/rider links, logs, money tree"
+      ],
+      "files": [
+        "app/Livewire/Operation/ActiveOrders.php",
+        "app/Livewire/Operation/OrderHistory.php",
+        "app/Livewire/Operation/SearchOrder.php",
+        "app/Livewire/Shared/OrderShow.php"
+      ],
+      "gaps": [
+        "No ops cancel / force-status / re-dispatch (corporate cancel only; admin forceComplete for packages)",
+        "No ops rider override / clear stuck packed awaiting rider",
+        "Active filters thin — no status / kitchen / unassigned / late",
+        "No bulk kitchen reassign across groups",
+        "Search lacks status/kitchen/rider/date-range"
+      ]
+    },
+    "middo_boxes": {
+      "exists": [
+        "Inventory search/filter, generate, retire/reactivate",
+        "Assign warehouse→kitchen via rider (OPS_TO_KITCHEN commission + area filter)",
+        "Print + logs modal",
+        "Kitchen receive / return-to-warehouse (kitchen side)"
+      ],
+      "files": [
+        "app/Livewire/Operation/MiddoBoxes.php",
+        "app/Livewire/Operation/AssignMiddoBoxesModal.php",
+        "app/Livewire/Operation/GenerateMiddoBoxesModal.php",
+        "app/Support/MiddoBoxKitchenActions.php"
+      ],
+      "gaps": [
+        "No dedicated warehouse inbound / acknowledge-returns queue",
+        "No custody summary board (at kitchen / in transit / at corporate)",
+        "Damage: kitchen marks; ops only Clear damage — no full damage lifecycle",
+        "kitchen→ops rider leg deferred (direct sendToWarehouse)",
+        "Admin has no Middo boxes routes (ops-only)"
+      ]
+    },
+    "custom_runs": {
+      "exists": [
+        "Ops/admin create + cancel pending; area + rider; commission settings/override; alerts"
+      ],
+      "files": ["app/Livewire/Operation/CustomRuns.php"],
+      "gaps": [
+        "No reassign after create / force-complete / fail stuck started runs",
+        "Free-text from/to (no entity pickers)",
+        "No ops live pending vs in-progress board"
+      ]
+    },
+    "catalog_packages_subscriptions": {
+      "exists": [
+        "Menu/meal/recipe browse",
+        "Package draft create/edit (publish admin)",
+        "PackageDemand + PackageInsights",
+        "Subscriptions schedule/skip/swap/cancel remaining / bulk holiday skip"
+      ],
+      "gaps": [
+        "Draft→publish handoff UX unclear for ops",
+        "forceComplete admin-only",
+        "Coupons/charges admin-only",
+        "Legacy Operation/Menu* components unused by operation.menu.page (Shared MenuTable)"
+      ]
+    },
+    "corporates": {
+      "exists": ["CorporateTable/Show — orders, wallet txs read, subscriptions, stats"],
+      "gaps": [
+        "No create/edit/status/password from ops",
+        "No manual wallet adjust / goodwill credit",
+        "Refunds only via subscription skip/cancel paths"
+      ]
+    },
+    "riders_visibility": {
+      "exists": [
+        "Deep-link StaffProfileShow via operation.deliveries.show",
+        "Rider pickers in AssignMiddoBoxes + CustomRuns",
+        "Rider money approvals + dashboard rider float sum"
+      ],
+      "gaps": [
+        "No riders directory / nav",
+        "No packed-awaiting-rider queue",
+        "No ops reassign delivery rider",
+        "Profile back-nav goes to active orders, not a riders list",
+        "(Parked rider next-wave overlaps: who-holds-what, COD recon, alerts)"
+      ]
+    },
+    "area_coverage": {
+      "exists": ["Areas used as filters on custom runs / box rider picker / auto-group"],
+      "gaps": [
+        "No Area/City CRUD under ops or admin UI",
+        "No coverage map (kitchens/riders per area vs demand)",
+        "No ops tool to attach rider↔area without admin user edit"
+      ]
+    },
+    "sla_deadlines": {
+      "exists": [
+        "DispatchDeadline engine + kitchen countdown UI",
+        "KitchenAcceptWindow + AcceptWindowSla cron → kitchen alerts",
+        "OrderCutoff for corporate cancel"
+      ],
+      "gaps": [
+        "Ops has status counts only — no past-deadline / late-to-pack list",
+        "No ops board for accept-window closed still unassigned",
+        "SLA not shown on kitchens list or active order group headers"
+      ]
+    }
+  },
+  "money_domains": {
+    "rider_due_handovers_to_middo": {
+      "today": "Ops accept-only: debit rider users.balance, credit MiddoCashLedger, cash_to_middo events",
+      "files": [
+        "app/Livewire/Operation/CashHandovers.php",
+        "routes/web/operation.php (operation.cash-handovers)"
+      ],
+      "gaps": [
+        "H1 No reject (schema allows rejected; never set)",
+        "H2 No ops nav entry for cash-handovers (route exists)",
+        "H3 Admin has no Middo handover accept route",
+        "H4 Dashboard attention route:null + wrong kitchen-accept hint",
+        "H5 Pending-only list; no accepted history UI",
+        "H6 No COD recon report"
+      ]
+    },
+    "rider_withdrawals": {
+      "today": "Approve/reject; block if Due>0; FIFO lunch payables; full wallet debit incl. box commissions",
+      "files": [
+        "app/Livewire/Shared/RiderMoneyApprovals.php",
+        "app/Support/RiderMoneyService.php"
+      ],
+      "gaps": [
+        "Approval UI thin (no Due/wallet/payables/box split)",
+        "Hard-coded reject notes",
+        "No ops rider ledger drill-down"
+      ]
+    },
+    "kitchen_money": {
+      "today": "Withdrawals approve/reject; transfers confirm/reject; FIFO whole open payables",
+      "files": [
+        "app/Livewire/Shared/KitchenMoneyApprovals.php",
+        "app/Support/KitchenMoneyService.php"
+      ],
+      "gaps": [
+        "K1 Awkward FIFO whole-row amounts",
+        "K2 Parallel path: Accounts Hub can settle kitchen payables one-by-one",
+        "No kitchen money overview beyond pending queues"
+      ]
+    },
+    "accounts_hub": {
+      "today": "KPI Middo cash + open payables; settle kitchen open only; delivery settle blocked → rider money",
+      "files": ["app/Livewire/Shared/AccountsHub.php"],
+      "gaps": [
+        "Double kitchen payout path vs Kitchen money",
+        "No period filters/export",
+        "UI roadmap admits missing period P&L, bank ledger, batch settlement"
+      ]
+    },
+    "middo_cash_ledger": {
+      "today": "Read-only ledger + balance; package substring filter",
+      "files": [
+        "app/Livewire/Shared/MiddoCashLedgerPage.php",
+        "app/Support/MiddoCashLedger.php"
+      ],
+      "gaps": [
+        "No manual adjustment UI (schema mentions adjustment)",
+        "No day-end physical-vs-system variance",
+        "Weak filters (type/date/actor)"
+      ]
+    },
+    "operating_costs": {
+      "today": "Written on box/custom rider commissions via MiddoOperatingCosts — no UI anywhere",
+      "files": ["app/Support/MiddoOperatingCosts.php"],
+      "gaps": [
+        "Ops books costs on AssignMiddoBoxes but cannot report them",
+        "Box commissions pay from Middo cash on withdrawal without Hub visibility",
+        "No P&L roll-up vs middo_rest"
+      ]
+    },
+    "day_end_recon": {
+      "today": "Dashboard money strip only",
+      "gaps": [
+        "No COD/Due recon pack",
+        "No rider float vs handovers vs Middo credits tie-out",
+        "No kitchen cash held vs wallet vs transfers",
+        "Pending handovers mix kitchen + Middo targets in one metric"
+      ]
+    },
+    "corporate_wallet_from_ops": {
+      "today": "Read wallet on CorporateShow; automatic refunds on skip/cancel remaining",
+      "gaps": [
+        "No manual adjust / standalone refund tool — policy decision needed"
+      ]
+    }
+  },
+  "discoverability_bugs": [
+    {
+      "id": "NAV-1",
+      "issue": "operation.cash-handovers routed but no nav seed/migration",
+      "fix": "Add ops nav 'Rider cash handovers'"
+    },
+    {
+      "id": "DASH-1",
+      "issue": "Pending cash handovers attention route:null + kitchen-accept hint",
+      "fix": "Split Middo vs kitchen targets; deep-link operation.cash-handovers for Middo"
+    },
+    {
+      "id": "DASH-2",
+      "issue": "Open complaints attention route:null — no ops/admin complaints inbox",
+      "fix": "Ops (or shared) complaints inbox + deep link"
+    },
+    {
+      "id": "LEGACY-1",
+      "issue": "Dead Operation/Dashboard.php; unused Operation/Menu* vs Shared menu page",
+      "fix": "Clean or wire deliberately"
+    }
+  ],
+  "candidate_todo_themes": [
+    {
+      "theme": "O-SITUATION",
+      "title": "Situational awareness & SLA",
+      "candidates": [
+        "Unassigned groups board with accept-window + dispatch-deadline state",
+        "Late-to-pack / past-deadline list",
+        "Wire dashboard attention deep-links (handovers, complaints)",
+        "Alert unread badge"
+      ]
+    },
+    {
+      "theme": "O-KITCHEN",
+      "title": "Kitchen ops board",
+      "candidates": [
+        "Capacity remaining / tier / area on kitchens list",
+        "Ops unassigned pool UI",
+        "Show accept-window status in AssignKitchenModal",
+        "Policy: ops edit capacity/hours vs admin-only"
+      ]
+    },
+    {
+      "theme": "O-ORDER",
+      "title": "Order force tools & filters",
+      "candidates": [
+        "Ops cancel / status override with audit",
+        "Rider reassign / release stuck packed",
+        "ActiveOrders filters: status, kitchen, unassigned, late",
+        "Bulk kitchen reassign"
+      ]
+    },
+    {
+      "theme": "O-RIDER-OPS",
+      "title": "Rider visibility from ops (overlaps parked rider wave)",
+      "candidates": [
+        "Riders directory (area, Due, wallet, active runs)",
+        "Packed-awaiting-rider queue",
+        "Who-holds-what live board",
+        "Custom run stuck-run force tools"
+      ]
+    },
+    {
+      "theme": "O-BOX",
+      "title": "Box custody & warehouse",
+      "candidates": [
+        "Custody summary (kitchen / transit / corporate)",
+        "Inbound returns acknowledge queue",
+        "Damage/lost lifecycle from ops",
+        "kitchen→ops rider leg when product wants it"
+      ]
+    },
+    {
+      "theme": "O-MONEY",
+      "title": "Money ops hardening",
+      "candidates": [
+        "Handover reject + nav + dashboard link",
+        "COD/Due day-end recon report",
+        "Single kitchen payout policy (Hub settle vs withdrawals)",
+        "Operating costs report + Accounts Hub surface",
+        "Middo cash adjustment + day-end variance",
+        "Richer kitchen/rider approval detail UX"
+      ]
+    },
+    {
+      "theme": "O-SUPPORT",
+      "title": "Complaints & corporate support",
+      "candidates": [
+        "Ops complaints inbox + reply",
+        "Policy on ops corporate wallet adjust / goodwill",
+        "Draft package → admin publish handoff clarity"
+      ]
+    },
+    {
+      "theme": "O-COVERAGE",
+      "title": "Area & coverage",
+      "candidates": [
+        "Area/City admin UI",
+        "Coverage vs demand view",
+        "Ops attach rider areas without full user admin"
+      ]
+    }
+  ],
+  "suggested_priority_discussion": [
+    "1. Discoverability fixes (NAV-1, DASH-1) — cheap, unblocks Middo cash accept",
+    "2. Unassigned + SLA board — day-of-ops firefighting",
+    "3. Money: handover reject + COD recon + kitchen payout path policy",
+    "4. Riders directory + packed-awaiting queue",
+    "5. Order force tools (cancel/reassign) with audit",
+    "6. Boxes custody + inbound",
+    "7. Complaints inbox",
+    "8. Operating costs + period P&L",
+    "9. Area/coverage tooling",
+    "10. Policy items (ops capacity edit, corporate wallet adjust, Hub settle)"
+  ],
+  "out_of_scope_candidates_for_debate": [
+    "GPS / live map",
+    "Ops menu CRUD (keep admin)",
+    "Full finance bank ledger / VAT (Accounts Hub roadmap)",
+    "Native apps"
+  ],
+  "next_step": "Agree which candidate_todo_themes to keep, cut, or merge with parked rider next-wave; then write phased build tickets (O0…On) like rider R0…R2b."
+}

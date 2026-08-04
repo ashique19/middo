@@ -554,5 +554,34 @@
     "GPS tracking / route optimization",
     "Settings-based lunch rate that duplicates menu.delivery_commission",
     "Native iOS/Android rider app (later — reuse R5 IA)"
-  ]
+  ],
+  "parked_next_wave_agreed_2026_08_04": {
+    "status": "parked — revisit after ops review / backlog",
+    "deferred_product": [
+      "R2.3 kitchen→ops box rider leg (settings rate ready; kitchen sendToWarehouse is direct today)",
+      "Native rider app (reuse R5 IA)"
+    ],
+    "worth_building_next": [
+      "Failed delivery / reassign / release after accept (commission accrued at start; unwind only on cancel today)",
+      "Aging unclaimed lunch dispatches + coverage gaps (no rider SLA mirror of kitchen deadlines)",
+      "COD reconciliation report (day × rider × collected / Due / handed / accepted)",
+      "Box/ops run StaffAlerts (ops→kitchen assign, empty-box pickup — lunch/custom only today)",
+      "Partial / short cash collection (confirmCashPayment is full amountDue only)",
+      "Handover reject / amount dispute (kitchen or Middo — accept-only today)",
+      "Ops live who-holds-what board (lunch in transit + box custody + custom started)"
+    ],
+    "nice_to_have": [
+      "POD / photo / delivery OTP",
+      "Rider shifts / availability",
+      "Corporate-facing rider name + ETA",
+      "Post-hoc commission adjustments",
+      "Richer offline than PWA passthrough"
+    ],
+    "out_of_scope_or_deferred": [
+      "GPS / route optimization",
+      "Rider↔rider cash",
+      "Insurance / float deposits (unless finance mandates)",
+      "Kitchen-style capacity slots for riders"
+    ]
+  }
 }
