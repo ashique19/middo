@@ -288,7 +288,7 @@ class KitchenFeaturesTestSeeder extends Seeder
         MiddoBoxLog::create([
             'middo_box_id' => $box->id,
             'custody_status' => 'assigned_at_kitchen',
-            'log_action' => 'marked_damaged',
+            'log_action' => 'marked_damaged_at_kitchen',
             'notes' => 'Demo damaged lid hinge (KitchenFeaturesTestSeeder)',
             'performed_by' => $kitchen->id,
         ]);
