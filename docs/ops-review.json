@@ -551,5 +551,5 @@
     "Full finance bank ledger / VAT (Accounts Hub roadmap)",
     "Native apps"
   ],
-  "next_step": "Agree which candidate_todo_themes to keep, cut, or merge with parked rider next-wave; then write phased build tickets (O0…On) like rider R0…R2b."
+  "next_step": "Phased backlog in docs/ops-completion-todo.json. O0+O1 shipped; next O2 situational awareness / SLA board.",
 }

@@ -45,13 +45,20 @@
                                 {{ $handover->items->pluck('order_id')->map(fn ($id) => '#'.$id)->implode(', ') }}
                             </td>
                             <td class="p-4 text-right font-semibold">৳{{ number_format($handover->amount) }}</td>
-                            <td class="p-4 text-right">
+                            <td class="p-4 text-right space-x-2 whitespace-nowrap">
                                 <button
                                     type="button"
                                     wire:click="accept({{ $handover->id }})"
                                     wire:confirm="Accept this cash? Your kitchen wallet will be debited."
                                     class="inline-flex px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">
                                     Accept cash
+                                </button>
+                                <button
+                                    type="button"
+                                    wire:click="reject({{ $handover->id }})"
+                                    wire:confirm="Reject this handover? Rider can re-submit the orders."
+                                    class="inline-flex px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-red-700 text-xs font-bold">
+                                    Reject
                                 </button>
                             </td>
                         </tr>

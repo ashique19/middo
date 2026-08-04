@@ -136,10 +136,17 @@
                     <dd class="font-mono font-bold text-gray-900">৳{{ number_format($data['money']['rider_cash_float']) }}</dd>
                 </div>
                 <div class="flex justify-between gap-3">
-                    <dt class="text-gray-500">Pending handovers</dt>
+                    <dt class="text-gray-500">Pending Middo Due</dt>
                     <dd class="font-mono font-bold text-gray-900">
-                        {{ number_format($data['money']['pending_handovers']) }}
-                        <span class="text-gray-400 text-xs">· ৳{{ number_format($data['money']['pending_handover_amount']) }}</span>
+                        {{ number_format($data['money']['pending_middo_handovers'] ?? 0) }}
+                        <span class="text-gray-400 text-xs">· ৳{{ number_format($data['money']['pending_middo_handover_amount'] ?? 0) }}</span>
+                    </dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                    <dt class="text-gray-500">Pending kitchen handovers</dt>
+                    <dd class="font-mono font-bold text-gray-900">
+                        {{ number_format($data['money']['pending_kitchen_handovers'] ?? 0) }}
+                        <span class="text-gray-400 text-xs">· ৳{{ number_format($data['money']['pending_kitchen_handover_amount'] ?? 0) }}</span>
                     </dd>
                 </div>
                 @if($data['money']['has_accounts'])

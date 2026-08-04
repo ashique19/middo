@@ -4,6 +4,7 @@ namespace App\Livewire\Kitchen;
 
 use App\Models\CashHandover;
 use App\Models\User;
+use App\Support\CashHandoverActions;
 use App\Support\KitchenAccountLedger;
 use App\Support\OrderMoneyFlow;
 use Illuminate\Support\Facades\Auth;
@@ -80,6 +81,38 @@ class CashHandovers extends Component
             $this->resetPage();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not accept cash handover.';
+        }
+    }
+
+    public function reject(int $handoverId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+        $kitchenId = (int) Auth::id();
+
+        try {
+            $handover = CashHandover::query()
+                ->with('items.order.orderGroup')
+                ->whereKey($handoverId)
+                ->first();
+
+            if (! $handover || ! $handover->isPending()) {
+                throw new \RuntimeException('This cash handover is no longer pending.');
+            }
+
+            if (! $handover->isKitchenTarget()) {
+                throw new \RuntimeException('This handover is for Middo/ops, not kitchen.');
+            }
+
+            if (! $this->handoverBelongsToKitchen($handover, $kitchenId)) {
+                throw new \RuntimeException('This cash handover is not linked to your kitchen’s orders.');
+            }
+
+            CashHandoverActions::reject($handover, $kitchenId, 'Rejected by kitchen');
+            $this->statusMessage = "Cash handover #{$handoverId} rejected. Rider can re-submit those orders.";
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not reject cash handover.';
         }
     }
 

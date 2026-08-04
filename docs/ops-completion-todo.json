@@ -1,0 +1,171 @@
+{
+  "title": "Operation role — completion backlog",
+  "version": 1,
+  "updated": "2026-08-05",
+  "source": "docs/ops-review.json v4",
+  "decided": [
+    "Ops can intervene at any order/operation level (audit required)",
+    "Multi-level order lenses: middo | corporate | kitchen | rider",
+    "MiddoCashLedger is cash SoT — no Middo login user",
+    "role=accounts (A0…An) AFTER O-* ops backlog is clear"
+  ],
+  "parked_rider_overlap": "docs/rider-completion-todo.json → parked_next_wave_agreed_2026_08_04",
+  "suggested_ship_order": ["O0", "O1", "O2", "O3", "O4", "O5", "O6", "O7", "O8", "O9"],
+  "phases": [
+    {
+      "id": "O0",
+      "title": "Discoverability — cash handovers nav + dashboard links",
+      "status": "done",
+      "items": [
+        {
+          "id": "O0.1",
+          "title": "Ops (+ admin) nav for Rider cash handovers → cash-handovers",
+          "status": "done"
+        },
+        {
+          "id": "O0.2",
+          "title": "Admin route for Middo Due handovers (reuse Operation\\CashHandovers)",
+          "status": "done"
+        },
+        {
+          "id": "O0.3",
+          "title": "Dashboard attention: split Middo vs kitchen pending handovers; deep-link Middo",
+          "status": "done"
+        },
+        {
+          "id": "O0.4",
+          "title": "Quick link + money snapshot fields for Middo handovers",
+          "status": "done"
+        },
+        {
+          "id": "O0.5",
+          "title": "Tests for metrics routes + nav migration",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "O1",
+      "title": "Handover reject (ops Middo + kitchen)",
+      "status": "done",
+      "items": [
+        {
+          "id": "O1.1",
+          "title": "Reject pending handover with optional reason; free orders for re-handover",
+          "status": "done"
+        },
+        {
+          "id": "O1.2",
+          "title": "Ops + kitchen UI Reject buttons; accepted/rejected history (ops)",
+          "status": "done"
+        },
+        {
+          "id": "O1.3",
+          "title": "Feature tests reject + re-submit",
+          "status": "done"
+        }
+      ]
+    },
+    {
+      "id": "O2",
+      "title": "Situational awareness — unassigned + SLA board",
+      "status": "pending",
+      "items": [
+        "Unassigned groups board with KitchenAcceptWindow + DispatchDeadline state",
+        "Late-to-pack / past-deadline list on ops dashboard or dedicated page",
+        "Accept-window status in AssignKitchenModal",
+        "Optional: unread alert badge"
+      ]
+    },
+    {
+      "id": "O3",
+      "title": "Money hardening (ops surfaces)",
+      "status": "pending",
+      "items": [
+        "COD/Due day-end recon report (day × rider × collected / Due / handed / accepted)",
+        "Kitchen payout path policy (Hub settle vs withdrawals) — document + enforce",
+        "Operating costs report + Accounts Hub / dashboard surface",
+        "Richer kitchen/rider approval detail (Due, wallet, payables)",
+        "Middo cash adjustment + day-end variance (may hand to accounts later)"
+      ]
+    },
+    {
+      "id": "O4",
+      "title": "Rider visibility from ops",
+      "status": "pending",
+      "notes": "Overlaps parked rider next-wave; build ops side here",
+      "items": [
+        "Riders directory (area, Due, wallet, active runs)",
+        "Packed-awaiting-rider queue",
+        "Who-holds-what live board",
+        "Custom run force cancel/reassign for stuck started runs"
+      ]
+    },
+    {
+      "id": "O5",
+      "title": "Order force tools + filters",
+      "status": "pending",
+      "items": [
+        "Ops cancel / status override with audit log",
+        "Rider reassign / release stuck packed",
+        "ActiveOrders filters: status, kitchen, unassigned, late",
+        "Bulk kitchen reassign"
+      ]
+    },
+    {
+      "id": "O6",
+      "title": "Multi-level order lenses (O-ORDER-LENS)",
+      "status": "pending",
+      "items": [
+        "OrderShow lens switcher middo|corporate|kitchen|rider",
+        "Ops intervene on any lens with audit",
+        "Native kitchen + rider order detail reusing lenses",
+        "Corporate presenter parity; deep-links into order+lens"
+      ]
+    },
+    {
+      "id": "O7",
+      "title": "Kitchen board + boxes + complaints",
+      "status": "pending",
+      "items": [
+        "Kitchens list: capacity remaining / tier / area",
+        "Ops unassigned pool UI",
+        "Boxes custody summary + inbound returns ack",
+        "Ops complaints inbox + dashboard deep-link (DASH-2)"
+      ]
+    },
+    {
+      "id": "O8",
+      "title": "Coverage + policy polish",
+      "status": "pending",
+      "items": [
+        "Area/City admin UI + ops attach rider areas",
+        "Coverage vs demand view",
+        "Policy: ops capacity/hours edit; corporate wallet adjust",
+        "Legacy cleanup Operation/Dashboard + unused Menu*"
+      ]
+    },
+    {
+      "id": "O9",
+      "title": "Ops clear gate + handoff to accounts role",
+      "status": "pending",
+      "items": [
+        "Checklist that O0–O8 money surfaces are stable",
+        "Kick off A0…An (see post_ops / O-ACCOUNTS-ROLE)"
+      ]
+    }
+  ],
+  "post_ops": {
+    "accounts_role": {
+      "phases": ["A0", "A1", "A2", "A3", "A4"],
+      "see": "docs/ops-review.json → accounts_role_proposal"
+    }
+  },
+  "non_goals_for_now": [
+    "GPS / live map",
+    "Ops menu CRUD (admin)",
+    "Full bank ledger / VAT",
+    "Native apps",
+    "Middo login user"
+  ]
+}

@@ -50,13 +50,40 @@ class OpsDashboardMetrics
         $activePackages = PackageSubscription::query()->active()->count();
         $prepaidRevenue = (int) PackageSubscription::query()->sum('amount_paid');
 
-        $pendingHandovers = Schema::hasTable('cash_handovers')
-            ? CashHandover::query()->where('status', 'pending')->count()
-            : 0;
+        $pendingHandovers = 0;
+        $pendingHandoverAmount = 0;
+        $pendingMiddoHandovers = 0;
+        $pendingMiddoHandoverAmount = 0;
+        $pendingKitchenHandovers = 0;
+        $pendingKitchenHandoverAmount = 0;
+        if (Schema::hasTable('cash_handovers')) {
+            $pendingHandovers = CashHandover::query()->where('status', 'pending')->count();
+            $pendingHandoverAmount = (int) CashHandover::query()->where('status', 'pending')->sum('amount');
 
-        $pendingHandoverAmount = Schema::hasTable('cash_handovers')
-            ? (int) CashHandover::query()->where('status', 'pending')->sum('amount')
-            : 0;
+            $pendingMiddoHandovers = CashHandover::query()
+                ->where('status', 'pending')
+                ->where('target', CashHandover::TARGET_MIDDO)
+                ->count();
+            $pendingMiddoHandoverAmount = (int) CashHandover::query()
+                ->where('status', 'pending')
+                ->where('target', CashHandover::TARGET_MIDDO)
+                ->sum('amount');
+
+            $pendingKitchenHandovers = CashHandover::query()
+                ->where('status', 'pending')
+                ->where(function ($q) {
+                    $q->where('target', CashHandover::TARGET_KITCHEN)
+                        ->orWhereNull('target');
+                })
+                ->count();
+            $pendingKitchenHandoverAmount = (int) CashHandover::query()
+                ->where('status', 'pending')
+                ->where(function ($q) {
+                    $q->where('target', CashHandover::TARGET_KITCHEN)
+                        ->orWhereNull('target');
+                })
+                ->sum('amount');
+        }
 
         $openComplaints = 0;
         if (Schema::hasTable('order_complaints')) {
@@ -140,10 +167,18 @@ class OpsDashboardMetrics
                 'route' => $role.'.subscriptions.index',
                 'hint' => 'Corporate prepaid — assign delivery dates',
             ] : null,
-            $pendingHandovers > 0 ? [
-                'label' => 'Pending cash handovers',
-                'value' => $pendingHandovers,
-                'amount' => $pendingHandoverAmount,
+            $pendingMiddoHandovers > 0 ? [
+                'label' => 'Pending Middo Due handovers',
+                'value' => $pendingMiddoHandovers,
+                'amount' => $pendingMiddoHandoverAmount,
+                'tone' => 'emerald',
+                'route' => $role.'.cash-handovers',
+                'hint' => 'Rider Due waiting Middo/ops accept',
+            ] : null,
+            $pendingKitchenHandovers > 0 ? [
+                'label' => 'Pending kitchen cash handovers',
+                'value' => $pendingKitchenHandovers,
+                'amount' => $pendingKitchenHandoverAmount,
                 'tone' => 'emerald',
                 'route' => null,
                 'hint' => 'Rider cash waiting kitchen accept',
@@ -215,6 +250,10 @@ class OpsDashboardMetrics
                 'rider_cash_float' => $riderCashFloat,
                 'pending_handovers' => $pendingHandovers,
                 'pending_handover_amount' => $pendingHandoverAmount,
+                'pending_middo_handovers' => $pendingMiddoHandovers,
+                'pending_middo_handover_amount' => $pendingMiddoHandoverAmount,
+                'pending_kitchen_handovers' => $pendingKitchenHandovers,
+                'pending_kitchen_handover_amount' => $pendingKitchenHandoverAmount,
                 'open_kitchen_payables' => $openKitchenPayables,
                 'open_delivery_payables' => $openDeliveryPayables,
                 'has_accounts' => $hasPayables,
@@ -290,6 +329,7 @@ class OpsDashboardMetrics
             ['label' => 'Package demand', 'route' => $role.'.packages.demand', 'hint' => 'Tomorrow’s volume'],
             ['label' => 'Package insights', 'route' => $role.'.packages.insights', 'hint' => 'Prepaid & refunds'],
             ['label' => 'Middo cash', 'route' => $role.'.middo-cash', 'hint' => 'Cash ledger'],
+            ['label' => 'Rider cash handovers', 'route' => $role.'.cash-handovers', 'hint' => 'Accept Middo Due'],
         ];
 
         if ($role === 'operation') {
@@ -311,6 +351,8 @@ class OpsDashboardMetrics
             ]]);
         }
 
-        return $links;
+        return array_values(array_filter($links, function (array $link) {
+            return \Illuminate\Support\Facades\Route::has($link['route']);
+        }));
     }
 }

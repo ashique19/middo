@@ -4,6 +4,7 @@ namespace App\Livewire\Operation;
 
 use App\Models\CashHandover;
 use App\Models\User;
+use App\Support\CashHandoverActions;
 use App\Support\MiddoCashLedger;
 use App\Support\OrderMoneyFlow;
 use Illuminate\Support\Facades\Auth;
@@ -15,9 +16,18 @@ class CashHandovers extends Component
 {
     use WithPagination;
 
+    public string $filter = 'pending';
+
+    public ?string $rejectReason = null;
+
     public ?string $statusMessage = null;
 
     public ?string $errorMessage = null;
+
+    public function updatingFilter(): void
+    {
+        $this->resetPage();
+    }
 
     public function accept(int $handoverId): void
     {
@@ -74,18 +84,49 @@ class CashHandovers extends Component
         }
     }
 
+    public function reject(int $handoverId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+        $actorId = (int) Auth::id();
+
+        try {
+            $handover = CashHandover::query()->whereKey($handoverId)->first();
+            if (! $handover || ! $handover->isPending()) {
+                throw new \RuntimeException('This cash handover is no longer pending.');
+            }
+            if (! $handover->isMiddoTarget()) {
+                throw new \RuntimeException('This handover is for kitchen, not Middo/ops.');
+            }
+
+            CashHandoverActions::reject($handover, $actorId, $this->rejectReason);
+            $this->rejectReason = null;
+            $this->statusMessage = "Due handover #{$handoverId} rejected. Rider can re-submit those orders.";
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not reject cash handover.';
+        }
+    }
+
     public function render()
     {
-        $handovers = CashHandover::query()
-            ->with(['rider', 'items.order'])
-            ->where('status', 'pending')
+        $filter = in_array($this->filter, ['pending', 'accepted', 'rejected', 'all'], true)
+            ? $this->filter
+            : 'pending';
+
+        $query = CashHandover::query()
+            ->with(['rider', 'items.order', 'acceptedBy'])
             ->where('target', CashHandover::TARGET_MIDDO)
-            ->orderBy('id')
-            ->paginate(20);
+            ->orderByDesc('id');
+
+        if ($filter !== 'all') {
+            $query->where('status', $filter);
+        }
 
         return view('livewire.operation.cash-handovers', [
-            'handovers' => $handovers,
+            'handovers' => $query->paginate(20),
             'middoCashBalance' => MiddoCashLedger::balance(),
+            'filter' => $filter,
         ])->layout('layouts.private.app', ['title' => 'Rider cash handovers']);
     }
 }
