@@ -392,7 +392,7 @@
       "id": "R4",
       "name": "Rider Account UI + withdrawals",
       "priority": 5,
-      "status": "todo",
+      "status": "done",
       "depends_on": ["R2", "R3"],
       "goal": "Rider sees signed wallet; commission lines only when rate set; can request withdrawal when Middo owes them.",
       "build_order": ["R4.1", "R4.2", "R4.3"],
@@ -400,18 +400,24 @@
         {
           "id": "R4.1",
           "title": "Delivery Account page (statement, Middo owes you / You owe Middo)",
-          "status": "todo"
+          "status": "done",
+          "notes": "delivery.account: Due float vs RiderAccountLedger wallet; statement + commissions + withdraw tabs."
         },
         {
           "id": "R4.2",
           "title": "Show per-run commission details only when effective commission configured",
-          "status": "todo"
+          "status": "done",
+          "notes": "KitchenDispatches shows Commission only when RiderCommission::shouldShow; Account commissions tab filters 0."
         },
         {
           "id": "R4.3",
           "title": "Withdrawal request + admin/ops approval (SI5)",
-          "status": "todo"
+          "status": "done",
+          "notes": "RiderMoneyService; blocked while Due > 0; admin/operation.rider-money.index approvals."
         }
+      ],
+      "shipped_notes": [
+        "tests/Feature/Delivery/RiderAccountR4Test.php"
       ]
     },
     {
