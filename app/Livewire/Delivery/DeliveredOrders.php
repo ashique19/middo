@@ -3,8 +3,13 @@
 namespace App\Livewire\Delivery;
 
 use App\Livewire\Concerns\WithOrdersListView;
+use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Models\Order;
+use App\Models\User;
+use App\Support\DeliveryRunType;
+use App\Support\MiddoOperatingCosts;
+use App\Support\RiderCommission;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -84,6 +89,22 @@ class DeliveredOrders extends Component
                         'custody_status' => 'collected_by_rider',
                         'log_action' => 'picked_from_corporate_by_delivery',
                     ]);
+                }
+
+                $rider = User::query()->find($riderId);
+                if ($rider) {
+                    $perBox = RiderCommission::forSettingsRun($rider, DeliveryRunType::CORPORATE_TO_KITCHEN);
+                    foreach ($boxes as $box) {
+                        MiddoOperatingCosts::bookRiderCommission(
+                            $rider,
+                            DeliveryRunType::CORPORATE_TO_KITCHEN,
+                            $perBox,
+                            MiddoBox::class,
+                            (int) $box->id,
+                            'Corporate→kitchen box #'.$box->qr_code_id,
+                            $riderId
+                        );
+                    }
                 }
 
                 return '#'.$order->id;

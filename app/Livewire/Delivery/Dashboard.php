@@ -4,6 +4,7 @@ namespace App\Livewire\Delivery;
 
 use App\Models\MiddoBox;
 use App\Models\Order;
+use App\Support\DeliveryAreaScope;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -13,12 +14,16 @@ class Dashboard extends Component
 
     public function mount(): void
     {
-        $riderId = Auth::id();
+        $rider = Auth::user();
+        $riderId = (int) $rider->id;
 
         $this->tiles = [
             [
                 'label' => 'Kitchen dispatches',
-                'count' => Order::query()->kitchenDispatched()->count(),
+                'count' => Order::query()
+                    ->kitchenDispatched()
+                    ->tap(fn ($q) => DeliveryAreaScope::applyKitchenDispatchedVisibleToRider($q, $rider))
+                    ->count(),
                 'route' => 'delivery.kitchen-dispatches',
             ],
             [

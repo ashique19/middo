@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\OrderGroupEvent;
 use App\Models\Role;
@@ -99,6 +100,52 @@ class StaffAlerts
             ],
             'accept_warn:'.$group->id.':'.$kitchen->id.':'.$closeAt->toDateString()
         );
+    }
+
+    /**
+     * Parcel call: kitchen dispatched a lunch order — notify riders serving that area.
+     *
+     * @return int number of alerts created
+     */
+    public static function notifyRidersLunchDispatch(Order $order): int
+    {
+        $order->loadMissing(['menuItem', 'orderGroup']);
+        $areaId = DeliveryAreaScope::orderAreaId($order);
+        $riders = DeliveryAreaScope::ridersForArea($areaId);
+        if ($riders === []) {
+            return 0;
+        }
+
+        $menu = $order->menuItem?->name ?? 'Order';
+        $title = 'New lunch run #'.$order->id;
+        $body = sprintf(
+            '%s is packed and ready for pickup (qty %d).',
+            $menu,
+            (int) $order->quantity
+        );
+        $groupId = $order->orderGroup?->id;
+        $created = 0;
+
+        foreach ($riders as $rider) {
+            $alert = self::createOnce(
+                (int) $rider->id,
+                StaffAlert::TYPE_LUNCH_DISPATCH,
+                $title,
+                $body,
+                $groupId ? (int) $groupId : null,
+                [
+                    'order_id' => $order->id,
+                    'area_id' => $areaId,
+                    'run_type' => DeliveryRunType::KITCHEN_TO_CORPORATE,
+                ],
+                'lunch_dispatch:'.$order->id.':'.$rider->id
+            );
+            if ($alert) {
+                $created++;
+            }
+        }
+
+        return $created;
     }
 
     public static function unreadCount(int $userId): int

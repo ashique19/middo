@@ -13,6 +13,8 @@ class StaffAlert extends Model
 
     public const TYPE_NEEDS_REASSIGNMENT = 'needs_reassignment';
 
+    public const TYPE_LUNCH_DISPATCH = 'lunch_dispatch';
+
     protected $fillable = [
         'user_id',
         'type',

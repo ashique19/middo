@@ -196,6 +196,8 @@ class DispatchOrderModal extends Component
                     'dispatched_at' => now(),
                     'updated_by' => $kitchenId,
                 ]);
+
+                \App\Support\StaffAlerts::notifyRidersLunchDispatch($order->fresh(['menuItem', 'orderGroup']));
             });
 
             $this->dispatch('order-dispatched');

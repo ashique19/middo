@@ -1,5 +1,6 @@
 @php
     $items = [
+        ['title' => 'Alerts', 'route' => 'delivery.alerts', 'hint' => 'Parcel calls in your areas'],
         ['title' => 'Delivered orders', 'route' => 'delivery.orders.delivered', 'hint' => 'Collect payment & receive boxes'],
         ['title' => 'Cash handovers', 'route' => 'delivery.cash-handovers', 'hint' => 'Due to Middo / hand over'],
         ['title' => 'Kitchen dispatches', 'route' => 'delivery.kitchen-dispatches', 'hint' => 'Lunch runs to accept'],

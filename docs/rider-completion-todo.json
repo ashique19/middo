@@ -1,6 +1,6 @@
 {
   "title": "Rider / delivery portal — completion backlog",
-  "version": 5,
+  "version": 6,
   "updated": "2026-08-04",
   "context": {
     "existing_delivery_livewire": [
@@ -283,7 +283,7 @@
       "id": "R1",
       "name": "Area-scoped portal + parcel calls",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "depends_on": ["R0"],
       "goal": "Rider only sees / is notified for work in their areas.",
       "build_order": ["R1.1", "R1.2"],
@@ -291,20 +291,26 @@
         {
           "id": "R1.1",
           "title": "Filter KitchenDispatches, DeliveredOrders, PendingBoxRuns, ops assigns by rider areas",
-          "status": "todo"
+          "status": "done",
+          "notes": "DeliveryAreaScope on KitchenDispatches + Dashboard; ops AssignMiddoBoxesModal filters by kitchen area. PendingBoxRuns is custody-scoped (already rider-owned)."
         },
         {
           "id": "R1.2",
           "title": "Delivery StaffAlerts / parcel-call notifications for new runs in areas",
-          "status": "todo"
+          "status": "done",
+          "notes": "TYPE_LUNCH_DISPATCH + notifyRidersLunchDispatch on pack; delivery.alerts route + shell badge"
         }
+      ],
+      "shipped_notes": [
+        "Unscoped orders (no area) stay first-claim open pool",
+        "tests/Feature/Delivery/DeliveryAreaAlertsR1Test.php"
       ]
     },
     {
       "id": "R2",
       "name": "Rider signed wallet + credit on run start",
       "priority": 3,
-      "status": "todo",
+      "status": "in_progress",
       "depends_on": ["R0"],
       "goal": "Commission credited at run start (Middo owes rider); P&L records the cost without double-counting.",
       "build_order": ["R2.1", "R2.2", "R2.3", "R2.4", "R2.5"],
@@ -312,31 +318,32 @@
         {
           "id": "R2.1",
           "title": "rider_account_ledger (+ optional RiderMoneyService)",
-          "status": "todo",
-          "notes": "Allow negative balances. Entry types: commission_accrued, cash_collected, cash_handed_over, share_voided, withdrawal_paid."
+          "status": "done",
+          "notes": "rider_account_ledger + middo_operating_costs + rider_withdrawal_requests tables; RiderAccountLedger helper."
         },
         {
           "id": "R2.2",
           "title": "Credit lunch commission on accept from menu.delivery_commission (per order)",
-          "status": "todo",
-          "notes": "KitchenDispatches::acceptOrder. Amount = rider lunch override ?? (menu.delivery_commission × qty). Idempotent per order."
+          "status": "done",
+          "notes": "OrderMoneyFlow::accrueDeliveryShareOnRunStart from KitchenDispatches::acceptOrder."
         },
         {
           "id": "R2.3",
           "title": "Credit settings commissions on box run starts (per box)",
-          "status": "todo",
-          "notes": "corporate→kitchen, kitchen→ops, ops→kitchen from settings (+ override)."
+          "status": "partial",
+          "notes": "corporate→kitchen (DeliveredOrders::receiveBoxes) + ops→kitchen (AssignMiddoBoxesModal) done. kitchen→ops deferred until a rider-mediated kitchen→warehouse leg exists (kitchen sendToWarehouse is direct today)."
         },
         {
           "id": "R2.4",
           "title": "P&L wiring: lunch on order tree at start; box/custom as Middo cost",
-          "status": "todo",
-          "notes": "Stop second delivery_share on delivered_and_paid if already accrued. Box/custom → SI4 cost memo. middo_rest keeps menu delivery for lunch only (C12)."
+          "status": "done",
+          "notes": "accrueShares skips second delivery_share; MiddoOperatingCosts for box legs."
         },
         {
           "id": "R2.5",
           "title": "Void commission on cancel/reassign after start (C6)",
-          "status": "todo"
+          "status": "done",
+          "notes": "voidOpenPayables debits rider_account_ledger share_voided for open delivery PartnerPayable."
         }
       ]
     },

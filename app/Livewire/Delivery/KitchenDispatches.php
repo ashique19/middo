@@ -4,6 +4,9 @@ namespace App\Livewire\Delivery;
 
 use App\Models\MiddoBoxLog;
 use App\Models\Order;
+use App\Models\User;
+use App\Support\DeliveryAreaScope;
+use App\Support\OrderMoneyFlow;
 use App\Support\OrderTransition;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -35,6 +38,11 @@ class KitchenDispatches extends Component
 
                 if (! $order || ! $order->isAwaitingRiderAccept()) {
                     throw new \RuntimeException('This kitchen dispatch is no longer available to accept.');
+                }
+
+                $rider = User::query()->find($riderId);
+                if (! $rider || ! DeliveryAreaScope::riderMayAccept($order, $rider)) {
+                    throw new \RuntimeException('This run is outside your service areas.');
                 }
 
                 $boxes = $order->middoBoxes()->lockForUpdate()->get();
@@ -73,6 +81,8 @@ class KitchenDispatches extends Component
                     'delivery_rider_id' => $riderId,
                     'updated_by' => $riderId,
                 ]);
+
+                OrderMoneyFlow::accrueDeliveryShareOnRunStart($order->fresh(['menuItem', 'orderGroup']), $rider);
 
                 return '#'.$order->id;
             });
@@ -165,10 +175,12 @@ class KitchenDispatches extends Component
 
     public function render()
     {
-        $riderId = Auth::id();
+        $rider = Auth::user();
+        $riderId = (int) $rider->id;
 
         $orders = Order::query()
             ->kitchenDispatched()
+            ->tap(fn ($q) => DeliveryAreaScope::applyKitchenDispatchedVisibleToRider($q, $rider))
             ->with([
                 'menuItem',
                 'user',

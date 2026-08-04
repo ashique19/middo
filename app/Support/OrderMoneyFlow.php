@@ -7,6 +7,7 @@ use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderMoneyEvent;
 use App\Models\PartnerPayable;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -230,6 +231,74 @@ class OrderMoneyFlow
         );
     }
 
+    /**
+     * On lunch run start (rider accept): Middo owes rider menu.delivery_commission × qty
+     * (or rider lunch override). Credits rider wallet once.
+     */
+    public static function accrueDeliveryShareOnRunStart(Order $order, User $rider): void
+    {
+        if (! Schema::hasTable('order_money_events')) {
+            return;
+        }
+
+        if (OrderMoneyEvent::query()
+            ->where('order_id', $order->id)
+            ->where('event_type', OrderMoneyEvent::TYPE_DELIVERY_SHARE)
+            ->exists()) {
+            return;
+        }
+
+        $amount = RiderCommission::forLunchOrder($rider, $order);
+        if ($amount < 1) {
+            return;
+        }
+
+        $order->loadMissing(['menuItem', 'orderGroup']);
+        $breakdown = self::computeBreakdown($order);
+        // Prefer effective rider amount (may be override) over raw menu breakdown.
+        $order->forceFill([
+            'delivery_share_amount' => $amount,
+            'food_amount' => $breakdown['food_amount'],
+            'charges_amount' => $breakdown['charges_amount'],
+            'discount_amount' => $breakdown['discount_amount'],
+            'kitchen_share_amount' => $breakdown['kitchen_share_amount'],
+        ])->saveQuietly();
+
+        self::write($order, OrderMoneyEvent::TYPE_DELIVERY_SHARE, OrderMoneyEvent::BUCKET_DELIVERY_PAYABLE, -1 * $amount, [
+            'channel' => 'accrual',
+            'description' => 'Delivery share accrued on run start (Middo owes rider)',
+            'meta' => [
+                'rider_id' => $rider->id,
+                'run_type' => DeliveryRunType::KITCHEN_TO_CORPORATE,
+                'source' => 'menu_or_override',
+            ],
+        ]);
+
+        self::upsertPayable(
+            $order,
+            PartnerPayable::ROLE_DELIVERY,
+            $rider->id,
+            $amount
+        );
+
+        $payable = PartnerPayable::query()
+            ->where('order_id', $order->id)
+            ->where('beneficiary_role', PartnerPayable::ROLE_DELIVERY)
+            ->first();
+
+        if (Schema::hasTable('rider_account_ledger')) {
+            RiderAccountLedger::credit(
+                (int) $rider->id,
+                $amount,
+                'commission_accrued',
+                $payable ? PartnerPayable::class : Order::class,
+                $payable?->id ?? $order->id,
+                'Lunch run commission for order #'.$order->id,
+                $rider->id
+            );
+        }
+    }
+
     public static function accrueShares(Order $order): void
     {
         if (OrderMoneyEvent::query()
@@ -244,9 +313,14 @@ class OrderMoneyFlow
         $order->forceFill($breakdown)->saveQuietly();
 
         // Kitchen share is accrued on dispatch (see accrueKitchenShareOnDispatch).
-        // delivered_and_paid only settles delivery + Middo rest accounting.
+        // Delivery lunch share is accrued on rider accept (see accrueDeliveryShareOnRunStart).
 
-        if ((int) $breakdown['delivery_share_amount'] > 0) {
+        $deliveryAlreadyAccrued = OrderMoneyEvent::query()
+            ->where('order_id', $order->id)
+            ->where('event_type', OrderMoneyEvent::TYPE_DELIVERY_SHARE)
+            ->exists();
+
+        if (! $deliveryAlreadyAccrued && (int) $breakdown['delivery_share_amount'] > 0) {
             self::write($order, OrderMoneyEvent::TYPE_DELIVERY_SHARE, OrderMoneyEvent::BUCKET_DELIVERY_PAYABLE, -1 * (int) $breakdown['delivery_share_amount'], [
                 'channel' => 'accrual',
                 'description' => 'Delivery share accrued (payable)',
@@ -586,6 +660,22 @@ class OrderMoneyFlow
                     PartnerPayable::class,
                     $payable->id,
                     'Kitchen share voided for cancelled order #'.$order->id,
+                    $order->updated_by
+                );
+            }
+
+            if (
+                $payable->beneficiary_role === PartnerPayable::ROLE_DELIVERY
+                && $payable->beneficiary_user_id
+                && Schema::hasTable('rider_account_ledger')
+            ) {
+                RiderAccountLedger::debit(
+                    (int) $payable->beneficiary_user_id,
+                    (int) $payable->amount,
+                    'share_voided',
+                    PartnerPayable::class,
+                    $payable->id,
+                    'Delivery share voided for cancelled order #'.$order->id,
                     $order->updated_by
                 );
             }

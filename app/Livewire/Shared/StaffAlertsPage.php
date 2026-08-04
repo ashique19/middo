@@ -16,7 +16,7 @@ class StaffAlertsPage extends Component
 
     public function mount(): void
     {
-        abort_unless(in_array(Auth::user()?->role?->name, ['kitchen', 'admin', 'operation'], true), 403);
+        abort_unless(in_array(Auth::user()?->role?->name, ['kitchen', 'admin', 'operation', 'delivery'], true), 403);
     }
 
     public function markRead(int $id): void
@@ -46,8 +46,16 @@ class StaffAlertsPage extends Component
             ->orderByDesc('id')
             ->paginate(20);
 
-        $title = $role === 'kitchen' ? 'Kitchen alerts' : 'Ops alerts';
-        $layout = $role === 'kitchen' ? 'kitchen.layout.app' : 'layouts.private.app';
+        $title = match ($role) {
+            'kitchen' => 'Kitchen alerts',
+            'delivery' => 'Rider alerts',
+            default => 'Ops alerts',
+        };
+        $layout = match ($role) {
+            'kitchen' => 'kitchen.layout.app',
+            'delivery' => 'delivery.layout.app',
+            default => 'layouts.private.app',
+        };
 
         return view('livewire.shared.staff-alerts-page', [
             'alerts' => $alerts,
