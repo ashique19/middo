@@ -3,6 +3,8 @@
 namespace App\Livewire\Operation;
 
 use App\Models\MiddoBox;
+use App\Support\OpsBoxCustody;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -15,8 +17,13 @@ class MiddoBoxes extends Component
 
     public string $statusFilter = '';
 
+    /** all|returns */
+    public string $custodyFilter = 'all';
+
     /** @var int[] */
     public array $selectedBoxIds = [];
+
+    public ?string $statusMessage = null;
 
     public function updatingSearch(): void
     {
@@ -24,6 +31,12 @@ class MiddoBoxes extends Component
     }
 
     public function updatingStatusFilter(): void
+    {
+        $this->resetPage();
+        $this->selectedBoxIds = [];
+    }
+
+    public function updatingCustodyFilter(): void
     {
         $this->resetPage();
         $this->selectedBoxIds = [];
@@ -87,13 +100,35 @@ class MiddoBoxes extends Component
             ]);
     }
 
+    public function ackReturn(int $boxId): void
+    {
+        $box = MiddoBox::query()->find($boxId);
+        if (! $box) {
+            return;
+        }
+
+        OpsBoxCustody::ackReturn($box, Auth::id());
+        $this->statusMessage = "Acknowledged return for {$box->qr_code_id}.";
+        $this->selectedBoxIds = array_values(array_filter(
+            $this->selectedBoxIds,
+            fn (int $id) => $id !== $boxId
+        ));
+    }
+
     public function render()
     {
-        $boxes = MiddoBox::query()
-            ->with('heldByUser')
-            ->when($this->search !== '', function ($query) {
-                $query->where(function ($query) {
-                    $query->where('qr_code_id', 'like', '%'.$this->search.'%')
+        $summary = OpsBoxCustody::summary();
+
+        $query = MiddoBox::query()->with('heldByUser');
+
+        if ($this->custodyFilter === 'returns') {
+            $query = OpsBoxCustody::returnsQuery()->with('heldByUser');
+        }
+
+        $boxes = $query
+            ->when($this->search !== '', function ($q) {
+                $q->where(function ($inner) {
+                    $inner->where('qr_code_id', 'like', '%'.$this->search.'%')
                         ->orWhere('box_model_type', 'like', '%'.$this->search.'%')
                         ->orWhere('asset_status', 'like', '%'.$this->search.'%');
                 });
@@ -103,11 +138,10 @@ class MiddoBoxes extends Component
             ->orderBy('qr_code_id')
             ->paginate(20);
 
-        $damagedCount = MiddoBox::query()->where('asset_status', 'damaged')->count();
-
         return view('livewire.operation.middo-boxes', [
             'boxes' => $boxes,
-            'damagedCount' => $damagedCount,
+            'damagedCount' => $summary['damaged'],
+            'custody' => $summary,
         ])->layout('layouts.private.app', ['title' => 'Middo Boxes']);
     }
 }

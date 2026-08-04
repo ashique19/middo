@@ -219,7 +219,7 @@ class OpsDashboardMetrics
                 'label' => 'Open complaints',
                 'value' => $openComplaints,
                 'tone' => 'rose',
-                'route' => null,
+                'route' => $role === 'admin' ? 'admin.complaints.index' : 'operation.complaints.index',
                 'hint' => 'Customer issues logged on orders',
             ] : null,
         ]));

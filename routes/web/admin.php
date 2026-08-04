@@ -16,6 +16,8 @@ use App\Livewire\Shared\CorporateTable;
 use App\Livewire\Shared\KitchenMoneyApprovals;
 use App\Livewire\Shared\RiderMoneyApprovals;
 use App\Livewire\Operation\CashHandovers;
+use App\Livewire\Operation\ComplaintShow;
+use App\Livewire\Operation\Complaints;
 use App\Livewire\Operation\CustomRuns;
 use App\Livewire\Operation\RidersBoard;
 use App\Livewire\Operation\SlaBoard;
@@ -72,6 +74,8 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/cash-handovers', CashHandovers::class)->name('admin.cash-handovers');
     Route::get('/sla', SlaBoard::class)->name('admin.sla.index');
     Route::get('/riders', RidersBoard::class)->name('admin.riders.index');
+    Route::get('/complaints', Complaints::class)->name('admin.complaints.index');
+    Route::get('/complaints/{complaint}', ComplaintShow::class)->name('admin.complaints.show');
     Route::get('/accounts', AccountsHub::class)->name('admin.accounts.index');
     Route::get('/cod-recon', CodDueReconPage::class)->name('admin.cod-recon.index');
     Route::get('/operating-costs', OperatingCostsPage::class)->name('admin.operating-costs.index');

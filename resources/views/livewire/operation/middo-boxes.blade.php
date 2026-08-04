@@ -42,6 +42,51 @@
         </div>
     </div>
 
+    @if($statusMessage)
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+            {{ $statusMessage }}
+        </div>
+    @endif
+
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        @php
+            $tiles = [
+                ['key' => 'warehouse', 'label' => 'Warehouse', 'classes' => 'border-sky-100 bg-sky-50', 'labelClass' => 'text-sky-700', 'valueClass' => 'text-sky-900'],
+                ['key' => 'at_kitchen', 'label' => 'At kitchen', 'classes' => 'border-emerald-100 bg-emerald-50', 'labelClass' => 'text-emerald-700', 'valueClass' => 'text-emerald-900'],
+                ['key' => 'to_kitchen', 'label' => 'To kitchen', 'classes' => 'border-amber-100 bg-amber-50', 'labelClass' => 'text-amber-700', 'valueClass' => 'text-amber-900'],
+                ['key' => 'with_rider', 'label' => 'With rider', 'classes' => 'border-violet-100 bg-violet-50', 'labelClass' => 'text-violet-700', 'valueClass' => 'text-violet-900'],
+                ['key' => 'damaged', 'label' => 'Damaged', 'classes' => 'border-orange-100 bg-orange-50', 'labelClass' => 'text-orange-700', 'valueClass' => 'text-orange-900'],
+                ['key' => 'returns', 'label' => 'Inbound returns', 'classes' => 'border-rose-100 bg-rose-50', 'labelClass' => 'text-rose-700', 'valueClass' => 'text-rose-900'],
+            ];
+        @endphp
+        @foreach($tiles as $tile)
+            <button
+                type="button"
+                @if($tile['key'] === 'returns')
+                    wire:click="$set('custodyFilter', '{{ $custodyFilter === 'returns' ? 'all' : 'returns' }}')"
+                @elseif($tile['key'] === 'damaged')
+                    wire:click="$set('statusFilter', '{{ $statusFilter === 'damaged' ? '' : 'damaged' }}')"
+                @elseif($tile['key'] === 'warehouse')
+                    wire:click="$set('statusFilter', '{{ $statusFilter === 'at_middo_warehouse' ? '' : 'at_middo_warehouse' }}')"
+                @endif
+                class="rounded-2xl border p-4 text-left {{ $tile['classes'] }} {{ in_array($tile['key'], ['returns', 'damaged', 'warehouse'], true) ? 'hover:opacity-90 transition' : 'cursor-default' }}">
+                <p class="text-[11px] font-bold uppercase {{ $tile['labelClass'] }}">{{ $tile['label'] }}</p>
+                <p class="text-2xl font-black mt-1 {{ $tile['valueClass'] }}">{{ $custody[$tile['key']] ?? 0 }}</p>
+            </button>
+        @endforeach
+    </div>
+
+    @if($custodyFilter === 'returns')
+        <div class="rounded-xl border border-rose-200 bg-rose-50/70 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm font-semibold text-rose-900">
+                Showing inbound kitchen returns awaiting ops ack ({{ $custody['returns'] ?? 0 }}).
+            </p>
+            <button type="button" wire:click="$set('custodyFilter', 'all')" class="text-xs font-bold text-rose-800 hover:underline">
+                Clear returns filter
+            </button>
+        </div>
+    @endif
+
     <livewire:operation.assign-middo-boxes-modal />
     <livewire:operation.middo-box-logs-modal />
 
@@ -139,6 +184,16 @@
                                         class="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-xs font-bold text-gray-700 hover:border-middo-orange hover:bg-orange-50 hover:text-middo-orange transition">
                                         Log
                                     </button>
+
+                                    @if($custodyFilter === 'returns')
+                                        <button
+                                            type="button"
+                                            wire:click="ackReturn({{ $box->id }})"
+                                            wire:confirm="Acknowledge inbound return for {{ $box->qr_code_id }} into warehouse?"
+                                            class="inline-flex items-center px-3 py-1.5 rounded-lg border border-rose-300 bg-rose-50 text-xs font-bold text-rose-800 hover:bg-rose-100 transition">
+                                            Ack return
+                                        </button>
+                                    @endif
 
                                     @if(in_array($box->asset_status, ['retired', 'damaged', 'maintenance', 'lost'], true))
                                         <button

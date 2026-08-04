@@ -35,6 +35,22 @@
                                class="block text-base font-black text-middo-dark truncate hover:text-middo-orange transition">
                                 {{ $section['name'] }}
                             </a>
+                            <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-gray-500">
+                                <span class="inline-flex px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-900 uppercase">
+                                    {{ $section['tier_label'] ?? 'Silver' }}
+                                </span>
+                                <span @class([
+                                    'inline-flex px-2 py-0.5 rounded-full border',
+                                    'border-rose-200 bg-rose-50 text-rose-800' => !empty($section['at_capacity']),
+                                    'border-emerald-200 bg-emerald-50 text-emerald-800' => empty($section['at_capacity']),
+                                ])>
+                                    {{ $section['remaining_slots'] ?? 0 }} slot(s) left
+                                    <span class="text-gray-400 font-medium">· {{ $section['open_groups'] ?? 0 }}/{{ $section['allowed_open_groups'] ?? 0 }} open</span>
+                                </span>
+                                <span class="text-gray-500">
+                                    {{ $section['area_name'] ?? 'No area' }}@if(!empty($section['city_name'])), {{ $section['city_name'] }}@endif
+                                </span>
+                            </div>
                             <a href="{{ route($routePrefix.'.kitchens.show', $section['key']) }}"
                                class="text-[11px] font-semibold text-middo-orange hover:underline">
                                 View details →

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Order;
 use App\Models\OrderGroup;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -23,6 +24,7 @@ class OpsSlaBoard
             ->with([
                 'menuItem',
                 'orders' => fn ($q) => $q
+                    ->with('area.city')
                     ->where('order_status', '!=', 'cancelled')
                     ->orderBy('delivery_time'),
             ])
@@ -33,9 +35,12 @@ class OpsSlaBoard
             ->orderBy('name')
             ->get();
 
-        return $groups->map(function (OrderGroup $group) use ($now) {
+        $kitchenHints = self::kitchenCapacityHints();
+
+        return $groups->map(function (OrderGroup $group) use ($now, $kitchenHints) {
             $window = KitchenAcceptWindow::statusPayload($group, $now);
             $qty = (int) $group->orders->sum('quantity');
+            $area = $group->orders->first()?->area;
 
             return [
                 'id' => $group->id,
@@ -44,7 +49,10 @@ class OpsSlaBoard
                 'menu' => $group->menuItem?->name ?? '—',
                 'order_count' => $group->orders->count(),
                 'qty' => $qty,
+                'area_name' => $area?->name,
+                'city_name' => $area?->city?->name,
                 'accept_window' => $window,
+                'kitchen_hints' => $kitchenHints,
                 'severity' => match ($window['state']) {
                     'closed' => 0,
                     'open' => $window['closing_soon'] ? 1 : 2,
@@ -56,6 +64,31 @@ class OpsSlaBoard
             ['delivery_date', 'asc'],
             ['name', 'asc'],
         ])->values();
+    }
+
+    /**
+     * Top kitchens with remaining capacity for pool UI hints.
+     *
+     * @return list<array{id:int,name:string,remaining:int,tier:string}>
+     */
+    public static function kitchenCapacityHints(int $limit = 3): array
+    {
+        return User::query()
+            ->whereHas('role', fn ($q) => $q->where('name', 'kitchen'))
+            ->where('status', 'active')
+            ->orderBy('first_name')
+            ->get()
+            ->map(fn (User $k) => [
+                'id' => $k->id,
+                'name' => $k->name,
+                'remaining' => KitchenCapacity::remainingSlots($k),
+                'tier' => KitchenTier::label(KitchenTier::normalize($k->kitchen_tier)),
+            ])
+            ->filter(fn (array $row) => $row['remaining'] > 0)
+            ->sortByDesc('remaining')
+            ->take($limit)
+            ->values()
+            ->all();
     }
 
     /**

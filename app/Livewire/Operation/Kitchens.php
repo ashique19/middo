@@ -4,6 +4,8 @@ namespace App\Livewire\Operation;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Support\KitchenCapacity;
+use App\Support\KitchenTier;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\On;
@@ -61,11 +63,35 @@ class Kitchens extends Component
                     fn (Order $order) => $order->orderGroup?->kitchen_id === $kitchen->id
                 );
 
-                return $this->buildKitchenSection(
+                $section = $this->buildKitchenSection(
                     (string) $kitchen->id,
                     $kitchen->name,
                     $kitchenOrders
                 );
+
+                $tier = KitchenTier::normalize($kitchen->kitchen_tier);
+                $remaining = KitchenCapacity::remainingSlots($kitchen);
+                $allowed = KitchenCapacity::effectiveAllowedOpenGroups($kitchen);
+                $open = KitchenCapacity::openGroupCount((int) $kitchen->id);
+
+                $areaName = null;
+                $cityName = null;
+                if ($kitchen->area_id) {
+                    $area = \App\Models\Area::query()->with('city')->find($kitchen->area_id);
+                    $areaName = $area?->name;
+                    $cityName = $area?->city?->name;
+                }
+
+                return array_merge($section, [
+                    'tier' => $tier,
+                    'tier_label' => KitchenTier::label($tier),
+                    'remaining_slots' => $remaining,
+                    'open_groups' => $open,
+                    'allowed_open_groups' => $allowed,
+                    'area_name' => $areaName,
+                    'city_name' => $cityName,
+                    'at_capacity' => $remaining <= 0,
+                ]);
             })
             ->all();
 

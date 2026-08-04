@@ -41,13 +41,59 @@
     </div>
 
     @if($tab === 'unassigned')
+        @if(($kitchenHints ?? []) !== [])
+            <div class="rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-sm font-semibold text-emerald-900">
+                Capacity available:
+                @foreach($kitchenHints as $hint)
+                    <span class="inline-flex mx-1 px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-xs">
+                        {{ $hint['name'] }} · {{ $hint['tier'] }} · {{ $hint['remaining'] }} left
+                    </span>
+                @endforeach
+            </div>
+        @endif
+
+        @if(($unassigned ?? collect())->isNotEmpty())
+            <div class="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 flex flex-wrap items-center gap-3">
+                <p class="text-sm font-semibold text-amber-900 flex-1 min-w-[12rem]">
+                    Bulk assign selected unassigned groups
+                    @if(count($selectedGroupIds) > 0)
+                        ({{ count($selectedGroupIds) }})
+                    @endif
+                </p>
+                <select wire:model="bulkKitchenId" class="text-sm border border-amber-200 rounded-xl px-3 py-2 font-semibold bg-white">
+                    <option value="">Select kitchen…</option>
+                    @foreach($kitchenOptions as $kitchen)
+                        <option value="{{ $kitchen['id'] }}" @disabled($kitchen['remaining'] <= 0)>
+                            {{ $kitchen['name'] }} · {{ $kitchen['remaining'] }} slot(s)
+                        </option>
+                    @endforeach
+                </select>
+                <button
+                    type="button"
+                    wire:click="bulkAssignKitchen"
+                    wire:confirm="Assign selected groups to the kitchen?"
+                    class="inline-flex items-center px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-50"
+                    @disabled(count($selectedGroupIds) === 0 || ! $bulkKitchenId)>
+                    Assign selected
+                </button>
+            </div>
+        @endif
+
+        @if($statusMessage)
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                {{ $statusMessage }}
+            </div>
+        @endif
+
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full text-left min-w-[800px] text-sm">
+                <table class="w-full text-left min-w-[900px] text-sm">
                     <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
                         <tr>
+                            <th class="p-4 w-10"></th>
                             <th class="p-4">Group</th>
                             <th class="p-4">Date</th>
+                            <th class="p-4">Area</th>
                             <th class="p-4">Menu</th>
                             <th class="p-4">Orders</th>
                             <th class="p-4">Accept window</th>
@@ -57,8 +103,18 @@
                     <tbody class="divide-y divide-gray-100">
                         @forelse($unassigned as $row)
                             <tr @class(['bg-rose-50/40' => $row['accept_window']['state'] === 'closed'])>
+                                <td class="p-4">
+                                    <input
+                                        type="checkbox"
+                                        wire:click="toggleGroup({{ $row['id'] }})"
+                                        @checked(in_array($row['id'], $selectedGroupIds, true))
+                                        class="rounded border-gray-300 text-middo-orange focus:ring-middo-orange" />
+                                </td>
                                 <td class="p-4 font-bold text-middo-dark">{{ $row['name'] }}</td>
                                 <td class="p-4 font-mono text-xs">{{ $row['delivery_date'] }}</td>
+                                <td class="p-4 text-xs text-gray-600">
+                                    {{ $row['area_name'] ?? '—' }}@if(!empty($row['city_name'])), {{ $row['city_name'] }}@endif
+                                </td>
                                 <td class="p-4">{{ $row['menu'] }}</td>
                                 <td class="p-4">{{ $row['order_count'] }} <span class="text-gray-400">· {{ $row['qty'] }} meals</span></td>
                                 <td class="p-4">
@@ -80,7 +136,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="p-10 text-center text-gray-400 italic">No unassigned groups.</td></tr>
+                            <tr><td colspan="8" class="p-10 text-center text-gray-400 italic">No unassigned groups.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

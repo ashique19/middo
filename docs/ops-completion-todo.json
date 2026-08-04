@@ -127,12 +127,12 @@
     {
       "id": "O7",
       "title": "Kitchen board + boxes + complaints",
-      "status": "pending",
+      "status": "done",
       "items": [
-        "Kitchens list: capacity remaining / tier / area",
-        "Ops unassigned pool UI",
-        "Boxes custody summary + inbound returns ack",
-        "Ops complaints inbox + dashboard deep-link (DASH-2)"
+        "Kitchens list: capacity remaining / tier / area — done",
+        "Ops unassigned pool UI — done (SlaBoard bulk + area + capacity hints)",
+        "Boxes custody summary + inbound returns ack — done",
+        "Ops complaints inbox + dashboard deep-link (DASH-2) — done"
       ]
     },
     {

@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Operation\MiddoBoxPrintController;
 use App\Livewire\Operation\CashHandovers;
+use App\Livewire\Operation\ComplaintShow;
+use App\Livewire\Operation\Complaints;
 use App\Livewire\Operation\CustomRuns;
 use App\Livewire\Operation\ActiveOrders;
 use App\Livewire\Operation\KitchenAllOrders;
@@ -73,6 +75,8 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/cash-handovers', CashHandovers::class)->name('operation.cash-handovers');
     Route::get('/sla', SlaBoard::class)->name('operation.sla.index');
     Route::get('/riders', RidersBoard::class)->name('operation.riders.index');
+    Route::get('/complaints', Complaints::class)->name('operation.complaints.index');
+    Route::get('/complaints/{complaint}', ComplaintShow::class)->name('operation.complaints.show');
     Route::get('/accounts', AccountsHub::class)->name('operation.accounts.index');
     Route::get('/cod-recon', CodDueReconPage::class)->name('operation.cod-recon.index');
     Route::get('/operating-costs', OperatingCostsPage::class)->name('operation.operating-costs.index');
