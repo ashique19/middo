@@ -3,6 +3,7 @@
 namespace Tests\Feature\Delivery;
 
 use App\Models\CashHandover;
+use App\Models\CustomRun;
 use App\Models\RiderWithdrawalRequest;
 use App\Models\StaffAlert;
 use App\Models\User;
@@ -62,6 +63,31 @@ class DeliveryFeaturesTestSeederTest extends TestCase
         $this->assertGreaterThan(
             0,
             (int) \App\Models\MenuItem::query()->where('name', 'Vegetable Khichdi Thali')->value('delivery_commission')
+        );
+
+        $this->assertDatabaseHas('custom_runs', [
+            'from_label' => 'Middo Warehouse',
+            'to_label' => 'Gulshan Kitchen',
+            'status' => CustomRun::STATUS_PENDING,
+        ]);
+        $this->assertDatabaseHas('custom_runs', [
+            'from_label' => 'Ops Hub',
+            'to_label' => 'Corporate HQ',
+            'status' => CustomRun::STATUS_STARTED,
+            'rider_user_id' => $rider->id,
+        ]);
+        $this->assertDatabaseHas('custom_runs', [
+            'status' => CustomRun::STATUS_COMPLETED,
+        ]);
+        $this->assertDatabaseHas('middo_operating_costs', [
+            'rider_user_id' => $rider->id,
+            'run_type' => 'custom',
+        ]);
+        $this->assertTrue(
+            StaffAlert::query()
+                ->where('user_id', $rider->id)
+                ->where('type', StaffAlert::TYPE_CUSTOM_RUN)
+                ->exists()
         );
     }
 }

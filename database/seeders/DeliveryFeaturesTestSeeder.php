@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Area;
 use App\Models\CashHandover;
 use App\Models\CashHandoverOrder;
+use App\Models\CustomRun;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\Order;
@@ -20,11 +21,12 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Demo fixtures for rider portal features (R0–R4).
+ * Demo fixtures for rider portal features (R0–R6 + R2b).
  *
  *   php artisan db:seed --class=DeliveryFeaturesTestSeeder
  *
  * Login: delivery@middo.com / 01310123454 / 12345678
+ * Ops: operations@middo.com / 01310123455 / 12345678
  */
 class DeliveryFeaturesTestSeeder extends Seeder
 {
@@ -35,10 +37,11 @@ class DeliveryFeaturesTestSeeder extends Seeder
         $kitchen = User::query()->where('email', 'kitchen@middo.com')->orWhere('mobile', '01310123453')->first();
         $corporate = User::query()->where('email', 'corporate@middo.com')->orWhere('mobile', '01310123452')->first();
         $admin = User::query()->where('email', 'admin@middo.com')->orWhere('mobile', '01310123451')->first();
+        $ops = User::query()->where('email', 'operations@middo.com')->orWhere('mobile', '01310123455')->first();
         $menus = MenuItem::query()->orderBy('id')->get();
 
         if (! $rider || ! $kitchen || ! $corporate || $menus->isEmpty()) {
-            $this->command?->warn('DeliveryFeaturesTestSeeder skipped: need delivery, kitchen, corporate, menus.');
+            $this->command?->warn('DeliveryFeaturesTestSeeder skipped: need delivery, kitchen, corporate, and menus.');
 
             return;
         }
@@ -48,6 +51,7 @@ class DeliveryFeaturesTestSeeder extends Seeder
                 DeliveryRunType::CORPORATE_TO_KITCHEN => 15,
                 DeliveryRunType::KITCHEN_TO_OPS => 20,
                 DeliveryRunType::OPS_TO_KITCHEN => 25,
+                DeliveryRunType::CUSTOM => 40,
             ],
         ]);
 
@@ -56,8 +60,11 @@ class DeliveryFeaturesTestSeeder extends Seeder
         $this->seedWalletAndDue($rider, $kitchen, $corporate, $menus->first(), $admin);
         $this->seedOpsBoxCommission($rider);
         $this->seedLunchDispatchAlert($rider, $kitchen, $corporate, $menus->first());
+        $this->seedCustomRuns($rider, $rider2, $ops ?? $admin);
 
-        $this->command?->info('DeliveryFeaturesTestSeeder: areas, commissions, Due, wallet, withdrawal, alerts ready for Rahim rider.');
+        $this->command?->info('DeliveryFeaturesTestSeeder: areas, commissions, Due, wallet, withdrawal, alerts, custom runs ready.');
+        $this->command?->info('  Rider: delivery@middo.com / 01310123454 / 12345678');
+        $this->command?->info('  Ops:   operations@middo.com / 01310123455 / 12345678');
     }
 
     protected function seedMenuCommissions($menus): void
@@ -240,5 +247,106 @@ class DeliveryFeaturesTestSeeder extends Seeder
         $group->orders()->syncWithoutDetaching([$order->id]);
 
         StaffAlerts::notifyRidersLunchDispatch($order->fresh(['menuItem', 'orderGroup']));
+    }
+
+    protected function seedCustomRuns(User $rider, ?User $rider2, ?User $creator): void
+    {
+        if (! Schema::hasTable('custom_runs')) {
+            return;
+        }
+
+        $areaId = $rider->area_id;
+        $createdBy = $creator?->id ?? $rider->id;
+
+        $openPool = CustomRun::query()->firstOrCreate(
+            [
+                'from_label' => 'Middo Warehouse',
+                'to_label' => 'Gulshan Kitchen',
+                'status' => CustomRun::STATUS_PENDING,
+            ],
+            [
+                'area_id' => $areaId,
+                'rider_user_id' => null,
+                'commission_amount' => 40,
+                'notes' => 'Demo open-pool custom run (start from rider Custom runs)',
+                'created_by' => $createdBy,
+            ]
+        );
+        StaffAlerts::notifyRidersCustomRun($openPool->fresh(['rider', 'area']));
+
+        CustomRun::query()->firstOrCreate(
+            [
+                'from_label' => 'Banani Office',
+                'to_label' => 'Baridhara Drop',
+                'status' => CustomRun::STATUS_PENDING,
+                'rider_user_id' => $rider->id,
+            ],
+            [
+                'area_id' => $areaId,
+                'commission_amount' => 55,
+                'notes' => 'Demo assigned custom run for Rahim',
+                'created_by' => $createdBy,
+            ]
+        );
+
+        $started = CustomRun::query()->firstOrCreate(
+            [
+                'from_label' => 'Ops Hub',
+                'to_label' => 'Corporate HQ',
+                'status' => CustomRun::STATUS_STARTED,
+                'rider_user_id' => $rider->id,
+            ],
+            [
+                'area_id' => $areaId,
+                'commission_amount' => 35,
+                'notes' => 'Demo in-progress custom run',
+                'created_by' => $createdBy,
+                'started_at' => now()->subHour(),
+            ]
+        );
+
+        MiddoOperatingCosts::bookRiderCommission(
+            $rider,
+            DeliveryRunType::CUSTOM,
+            (int) $started->commission_amount,
+            CustomRun::class,
+            (int) $started->id,
+            'Demo custom run #'.$started->id.': '.$started->label(),
+            $createdBy
+        );
+
+        if ($rider2) {
+            CustomRun::query()->firstOrCreate(
+                [
+                    'from_label' => 'Mirpur Store',
+                    'to_label' => 'Uttara Kitchen',
+                    'status' => CustomRun::STATUS_PENDING,
+                ],
+                [
+                    'area_id' => $rider2->area_id,
+                    'rider_user_id' => null,
+                    'commission_amount' => 30,
+                    'notes' => 'Demo pool for second rider area',
+                    'created_by' => $createdBy,
+                ]
+            );
+        }
+
+        CustomRun::query()->firstOrCreate(
+            [
+                'from_label' => 'Completed Sample',
+                'to_label' => 'Archive',
+                'status' => CustomRun::STATUS_COMPLETED,
+            ],
+            [
+                'area_id' => $areaId,
+                'rider_user_id' => $rider->id,
+                'commission_amount' => 20,
+                'notes' => 'Demo completed custom run',
+                'created_by' => $createdBy,
+                'started_at' => now()->subDay(),
+                'completed_at' => now()->subHours(20),
+            ]
+        );
     }
 }
