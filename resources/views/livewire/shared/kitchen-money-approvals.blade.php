@@ -2,7 +2,7 @@
     <div>
         <h1 class="text-3xl font-bold text-middo-dark">Kitchen money</h1>
         <p class="text-sm text-gray-500 mt-1">
-            Approve kitchen withdrawals and confirm transfers into Middo cash.
+            Approve kitchen withdrawals (cash till or bank float) and confirm transfers into Middo cash.
             Middo cash: <span class="font-bold text-middo-dark">৳{{ number_format($middoCash) }}</span>
         </p>
     </div>
@@ -26,57 +26,81 @@
     </div>
 
     @if($tab === 'withdrawals')
-        <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-            <table class="w-full text-sm min-w-[720px]">
-                <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
-                    <tr>
-                        <th class="p-3 text-left">Request</th>
-                        <th class="p-3 text-left">Kitchen</th>
-                        <th class="p-3 text-right">Amount</th>
-                        <th class="p-3 text-left">Notes</th>
-                        <th class="p-3 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    @forelse($withdrawals as $w)
-                        @php($preview = $previews[$w->id] ?? null)
-                        <tr>
-                            <td class="p-3 font-mono align-top">#{{ $w->id }}</td>
-                            <td class="p-3 align-top">
-                                <div class="font-semibold">{{ $w->kitchen?->name }}</div>
-                                <div class="text-xs text-gray-500">{{ $w->kitchen?->mobile }}</div>
-                                @if($preview)
-                                    <div class="mt-2 text-[11px] text-gray-500 space-y-0.5">
-                                        <div>Wallet ৳{{ number_format($preview['wallet']) }} · Open payables ৳{{ number_format($preview['open_payables_total']) }}</div>
-                                        <div>FIFO fit ৳{{ number_format($preview['fifo_fit_total']) }}
-                                            @unless($preview['fifo_ok'])
-                                                <span class="text-amber-700 font-semibold">— amount may not match whole payables</span>
-                                            @endunless
-                                        </div>
-                                    </div>
-                                @endif
-                            </td>
-                            <td class="p-3 text-right font-bold align-top">৳{{ number_format($w->amount) }}</td>
-                            <td class="p-3 text-gray-600 align-top">{{ $w->notes ?: '—' }}</td>
-                            <td class="p-3 text-right whitespace-nowrap align-top">
-                                @if($w->status === 'pending' && $canWriteMoney)
-                                    <button type="button" wire:click="approveWithdrawal({{ $w->id }})"
-                                            wire:confirm="Approve withdrawal #{{ $w->id }} and pay from Middo cash?"
-                                            class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold">Approve</button>
-                                    <button type="button" wire:click="rejectWithdrawal({{ $w->id }})"
-                                            class="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 text-xs font-bold">Reject</button>
-                                @elseif($w->status === 'pending')
-                                    <span class="text-xs font-semibold text-gray-400">Awaiting accounts</span>
-                                @else
-                                    <span class="capitalize text-xs font-bold">{{ $w->status }}</span>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="5" class="p-10 text-center text-gray-400 italic">No pending withdrawals.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+        <div class="space-y-4">
+            @forelse($withdrawals as $w)
+                @php
+                    $preview = $previews[$w->id] ?? null;
+                    $channel = (string) ($w->payout_channel ?: \App\Support\PayoutChannel::CASH);
+                    $needsBank = \App\Support\PayoutChannel::usesBankFloat($channel);
+                @endphp
+                <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 space-y-3">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p class="font-mono text-xs text-gray-400">#{{ $w->id }}</p>
+                            <p class="font-bold text-middo-dark">{{ $w->kitchen?->name }}</p>
+                            <p class="text-xs text-gray-500">{{ $w->kitchen?->mobile }}</p>
+                            <p class="mt-2 text-sm">
+                                <span class="font-semibold">{{ $w->payoutChannelLabel() }}</span>
+                                <span class="text-gray-500">· {{ $w->payoutDetailsSummary() }}</span>
+                            </p>
+                            @if($w->notes)
+                                <p class="text-xs text-gray-500 mt-1">{{ $w->notes }}</p>
+                            @endif
+                        </div>
+                        <div class="text-right">
+                            <p class="text-2xl font-black text-middo-dark">৳{{ number_format($w->amount) }}</p>
+                        </div>
+                    </div>
+                    @if($preview)
+                        <div class="text-[11px] text-gray-500 space-y-0.5">
+                            <div>Wallet ৳{{ number_format($preview['wallet']) }} · Open payables ৳{{ number_format($preview['open_payables_total']) }}</div>
+                            <div>FIFO fit ৳{{ number_format($preview['fifo_fit_total']) }}
+                                @unless($preview['fifo_ok'])
+                                    <span class="text-amber-700 font-semibold">— amount may not match whole payables</span>
+                                @endunless
+                            </div>
+                        </div>
+                    @endif
+                    @if($w->status === 'pending' && $canWriteMoney)
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-gray-50">
+                            @if($needsBank)
+                                <div>
+                                    <label class="block text-[10px] font-bold uppercase text-gray-400 mb-1">Pay from bank</label>
+                                    <select wire:model="approveBankAccountId.{{ $w->id }}" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                                        <option value="">Select account…</option>
+                                        @foreach($banks as $bank)
+                                            <option value="{{ $bank->id }}">{{ $bank->label() }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('approveBankAccountId.'.$w->id) <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                                </div>
+                            @endif
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-gray-400 mb-1">Review notes</label>
+                                <input type="text" wire:model="approveReviewNotes.{{ $w->id }}" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="Optional">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-gray-400 mb-1">Proof (optional)</label>
+                                <input type="file" wire:model="approveAttachment.{{ $w->id }}" accept="image/*,.pdf" class="block w-full text-xs">
+                                <div wire:loading wire:target="approveAttachment.{{ $w->id }}" class="text-xs text-gray-500 mt-1">Uploading…</div>
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2">
+                            <button type="button" wire:click="approveWithdrawal({{ $w->id }})"
+                                    wire:confirm="Approve withdrawal #{{ $w->id }}?"
+                                    class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold">Approve</button>
+                            <button type="button" wire:click="rejectWithdrawal({{ $w->id }})"
+                                    class="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 text-xs font-bold">Reject</button>
+                        </div>
+                    @elseif($w->status === 'pending')
+                        <span class="text-xs font-semibold text-gray-400">Awaiting accounts</span>
+                    @else
+                        <span class="capitalize text-xs font-bold">{{ $w->status }}</span>
+                    @endif
+                </div>
+            @empty
+                <div class="bg-white border border-gray-100 rounded-2xl p-10 text-center text-gray-400 italic">No pending withdrawals.</div>
+            @endforelse
             @if($withdrawals->hasPages()) <div class="p-3">{{ $withdrawals->links() }}</div> @endif
         </div>
     @endif

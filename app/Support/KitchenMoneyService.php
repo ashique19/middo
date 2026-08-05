@@ -5,17 +5,24 @@ namespace App\Support;
 use App\Models\KitchenMiddoTransfer;
 use App\Models\KitchenWithdrawalRequest;
 use App\Models\PartnerPayable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 class KitchenMoneyService
 {
     /**
      * Approve a kitchen withdrawal: settle FIFO open payables (whole rows),
-     * debit Middo cash once, debit kitchen receivable ledger once.
+     * debit Middo cash or bank once, debit kitchen receivable ledger once.
+     *
+     * @param  array{bank_account_id?: ?int, attachment?: ?UploadedFile}  $options
      */
-    public static function approveWithdrawal(KitchenWithdrawalRequest $request, int $actorId, ?string $reviewNotes = null): KitchenWithdrawalRequest
-    {
-        return DB::transaction(function () use ($request, $actorId, $reviewNotes) {
+    public static function approveWithdrawal(
+        KitchenWithdrawalRequest $request,
+        int $actorId,
+        ?string $reviewNotes = null,
+        array $options = [],
+    ): KitchenWithdrawalRequest {
+        return DB::transaction(function () use ($request, $actorId, $reviewNotes, $options) {
             /** @var KitchenWithdrawalRequest $locked */
             $locked = KitchenWithdrawalRequest::query()->whereKey($request->id)->lockForUpdate()->firstOrFail();
             if (! $locked->isPending()) {
@@ -61,13 +68,17 @@ class KitchenMoneyService
                 ]);
             }
 
-            $middoEntry = MiddoCashLedger::debit(
+            $channel = (string) ($locked->payout_channel ?: PayoutChannel::CASH);
+            $payout = WithdrawalPayout::debitMiddoFloat(
+                $channel,
                 $paid,
-                'kitchen_withdrawal_paid',
                 KitchenWithdrawalRequest::class,
-                $locked->id,
+                (int) $locked->id,
                 "Kitchen withdrawal #{$locked->id} paid",
-                $actorId
+                $actorId,
+                isset($options['bank_account_id']) ? (int) $options['bank_account_id'] : null,
+                $options['attachment'] ?? null,
+                'kitchen_withdrawal_paid',
             );
 
             $kitchenEntry = KitchenAccountLedger::debit(
@@ -86,8 +97,11 @@ class KitchenMoneyService
                 'reviewed_by' => $actorId,
                 'reviewed_at' => now(),
                 'review_notes' => $reviewNotes,
+                'attachment_path' => $payout['attachment_path'],
                 'kitchen_ledger_entry_id' => $kitchenEntry->id,
-                'middo_cash_ledger_entry_id' => $middoEntry->id,
+                'middo_cash_ledger_entry_id' => $payout['cash_entry_id'],
+                'middo_bank_account_id' => $payout['bank_account_id'],
+                'middo_bank_ledger_entry_id' => $payout['bank_entry_id'],
             ]);
 
             return $locked->fresh();

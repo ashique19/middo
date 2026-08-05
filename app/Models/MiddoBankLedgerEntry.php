@@ -14,6 +14,8 @@ class MiddoBankLedgerEntry extends Model
 
     public const TYPE_TRANSFER = 'transfer';
 
+    public const TYPE_WITHDRAWAL_PAID = 'withdrawal_paid';
+
     protected $table = 'middo_bank_ledger';
 
     protected $fillable = [
