@@ -149,6 +149,9 @@ class Dashboard extends Component
     {
         // Fetches completed individual tracking rows with loaded dish relationships
         $this->recentLunches = Order::with('menuItem')
+            ->withExists([
+                'complaints as has_complaint' => fn ($q) => $q->whereNull('parent_id'),
+            ])
             ->where('user_id', Auth::id())
             ->where('delivery_date', '<', now('Asia/Dhaka')->toDateString())
             ->orderBy('delivery_date', 'desc')
@@ -162,6 +165,9 @@ class Dashboard extends Component
     {
         // Fetches individual items in a straight chronological timeline sequence
         $this->upcomingEvents = Order::with('menuItem')
+            ->withExists([
+                'complaints as has_complaint' => fn ($q) => $q->whereNull('parent_id'),
+            ])
             ->where('user_id', Auth::id())
             ->where('delivery_date', '>=', now('Asia/Dhaka')->toDateString())
             ->where('order_status', '!=', 'cancelled')
@@ -179,6 +185,7 @@ class Dashboard extends Component
         $party = $order->partyPayload();
         $row['payment_method'] = $party['payment_method'];
         $row['payment_method_label'] = $party['payment_method_label'];
+        $row['has_complaint'] = (bool) ($order->has_complaint ?? false);
 
         return $row;
     }

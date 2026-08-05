@@ -18,6 +18,18 @@
             <div class="absolute top-2.5 right-2.5 bg-middo-orange text-white text-[11px] font-black font-mono px-2 py-0.5 rounded-full shadow-sm">
                 Qty: {{ $order['quantity'] ?? 1 }}
             </div>
+
+            @if(!empty($order['has_complaint']))
+                <div
+                    class="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm"
+                    title="A complaint or support request was raised on this order"
+                >
+                    <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                    </svg>
+                    <span>Complaint</span>
+                </div>
+            @endif
     </div>
 
     {{-- Metadata Ledger Content Box --}}
@@ -148,11 +160,15 @@
             <button
                 type="button"
                 @click="$dispatch('open-complaint-support-modal', { orderId: {{ $order['id'] }} })"
-                class="w-full text-xs font-bold text-[#8A441B] bg-amber-50 hover:bg-amber-100 py-2.5 px-1 rounded-xl transition flex items-center justify-center gap-1.5 border border-amber-200/80 shadow-sm active:scale-[0.98]">
+                @class([
+                    'w-full text-xs font-bold py-2.5 px-1 rounded-xl transition flex items-center justify-center gap-1.5 border shadow-sm active:scale-[0.98]',
+                    'text-rose-800 bg-rose-50 hover:bg-rose-100 border-rose-200' => !empty($order['has_complaint']),
+                    'text-[#8A441B] bg-amber-50 hover:bg-amber-100 border-amber-200/80' => empty($order['has_complaint']),
+                ])>
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8Z" />
                 </svg>
-                <span>Complaint / Support</span>
+                <span>{{ !empty($order['has_complaint']) ? 'Complaint raised — view' : 'Complaint / Support' }}</span>
             </button>
         </div>
         @endif

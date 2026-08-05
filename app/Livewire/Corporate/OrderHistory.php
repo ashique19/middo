@@ -28,6 +28,9 @@ class OrderHistory extends Component
     protected function loadOrders(): void
     {
         $this->orders = Order::with('menuItem')
+            ->withExists([
+                'complaints as has_complaint' => fn ($q) => $q->whereNull('parent_id'),
+            ])
             ->where('user_id', Auth::id())
             ->where('delivery_date', '<', now()->setTimezone('Asia/Dhaka')->toDateString())
             ->orderBy('delivery_date', 'desc')
@@ -38,6 +41,7 @@ class OrderHistory extends Component
                 $party = $order->partyPayload();
                 $row['payment_method'] = $party['payment_method'];
                 $row['payment_method_label'] = $party['payment_method_label'];
+                $row['has_complaint'] = (bool) ($order->has_complaint ?? false);
 
                 return $row;
             })

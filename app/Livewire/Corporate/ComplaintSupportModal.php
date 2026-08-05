@@ -106,6 +106,7 @@ class ComplaintSupportModal extends Component
         $this->message = '';
         $this->attachment = null;
         $this->loadThread();
+        $this->dispatch('corporate-orders-changed');
     }
 
     public function categoryLabel(?string $category): string
