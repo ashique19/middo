@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\RiderShift;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 
 // Updated the Fillable attribute
@@ -18,9 +20,11 @@ use Laravel\Sanctum\HasApiTokens;
     'first_name',
     'last_name',
     'company_name',
+    'company_id',
     'full_name',
     'balance',
     'mobile',
+    'email',
     'password',
     'role_id',
     'status',
@@ -72,6 +76,11 @@ class User extends Authenticatable
         return $this->belongsTo(Area::class, 'area_id');
     }
 
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class, 'company_id');
+    }
+
     public function areas(): BelongsToMany
     {
         return $this->belongsToMany(Area::class)->withTimestamps();
@@ -84,12 +93,12 @@ class User extends Authenticatable
 
     public function riderShiftStatus(): string
     {
-        return \App\Support\RiderShift::normalize($this->rider_shift_status ?? null);
+        return RiderShift::normalize($this->rider_shift_status ?? null);
     }
 
     public function canAcceptNewRuns(): bool
     {
-        return $this->isDelivery() && \App\Support\RiderShift::canAcceptNewRuns($this->rider_shift_status ?? null);
+        return $this->isDelivery() && RiderShift::canAcceptNewRuns($this->rider_shift_status ?? null);
     }
 
     /**
@@ -100,7 +109,7 @@ class User extends Authenticatable
     public function serviceAreaIds(): array
     {
         if ($this->isDelivery()) {
-            if (\Illuminate\Support\Facades\Schema::hasTable('area_user')) {
+            if (Schema::hasTable('area_user')) {
                 $ids = $this->relationLoaded('areas')
                     ? $this->areas->pluck('id')->all()
                     : $this->areas()->pluck('areas.id')->all();

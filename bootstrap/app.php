@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             Route::prefix('delivery')->middleware('web')->group(base_path('routes/web/deliveryman.php'));
             Route::prefix('operation')->middleware('web')->group(base_path('routes/web/operation.php'));
             Route::prefix('accounts')->middleware('web')->group(base_path('routes/web/accounts.php'));
+            Route::prefix('marketing')->middleware('web')->group(base_path('routes/web/marketing.php'));
 
             // Corporate Flutter mobile API stubs
             Route::prefix('api')->middleware('api')->group(base_path('routes/api/corporate.php'));

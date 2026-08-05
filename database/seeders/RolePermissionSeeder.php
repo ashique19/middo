@@ -21,6 +21,7 @@ class RolePermissionSeeder extends Seeder
         $delivery = Role::query()->firstOrCreate(['name' => 'delivery'], ['id' => 4]);
         $operations = Role::query()->firstOrCreate(['name' => 'operation'], ['id' => 5]);
         $accounts = Role::query()->firstOrCreate(['name' => 'accounts'], ['id' => 6]);
+        Role::query()->firstOrCreate(['name' => 'ground_marketing'], ['id' => 7]);
 
         KitchenPermissions::syncKitchenRole($kitchen);
 

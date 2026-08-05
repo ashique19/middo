@@ -293,6 +293,25 @@
         "kitchen_settlement_batches + items; accounts create/approve/reject on Kitchen money Batches tab",
         "Settle many payables + one Middo float debit + one kitchen ledger debit; reserved from withdrawal FIFO"
       ]
+    },
+    {
+      "id": "GM0",
+      "title": "Ground Marketing — companies + OTP field signup",
+      "status": "shipped",
+      "updated_at": "2026-08-05",
+      "priority": "product",
+      "owner_hint": "ground_marketing",
+      "decision_checklist": "docs/ground-marketing-decisions.json",
+      "why": "Company is a lead/org record (not a user type). Marketers book HR visits and OTP-verify employee signups under a company (address copied).",
+      "shipped": [
+        "Role ground_marketing + /marketing portal (dashboard, companies, company show)",
+        "companies + company_appointments; users.company_id",
+        "Field signup: select company → name/mobile → SignupOtp → corporate user with company address",
+        "Admin Users → Ground marketing roster; seeded marketing@middo.com / 01310123463"
+      ],
+      "later": [
+        "GM2 — group parcels by company for same-rider assignment"
+      ]
     }
   ],
   "nice_to_have": [
@@ -311,5 +330,5 @@
     "Full bank ledger / VAT until docs/f0-finance-decisions.json is answered"
   ],
   "buildable_complete": true,
-  "recommended_start": "Manual/QA pass on F0–F2 with AccountsFinanceTestSeeder fixtures — F1 native apps stay deferred until that pass finds no immediate web changes"
+  "recommended_start": "Manual/QA pass on F0–F2; Ground Marketing GM0 shipped (companies + OTP field signup) — F1 native apps stay deferred; GM2 parcel-by-company later"
 }
