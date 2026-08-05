@@ -20,6 +20,7 @@ use App\Livewire\Operation\SearchOrder;
 use App\Livewire\Operation\SlaBoard;
 use App\Livewire\Shared\AccountsHub;
 use App\Livewire\Shared\AreasAdmin;
+use App\Livewire\Shared\CashPositionsBoard;
 use App\Livewire\Shared\CodDueReconPage;
 use App\Livewire\Shared\CorporateShow;
 use App\Livewire\Shared\CorporateTable;
@@ -76,6 +77,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/navs-roles', [NavRoleController::class, 'index'])->name('admin.navrole.index');
     Route::get('/settings', SettingsPage::class)->name('admin.settings.index');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('admin.middo-cash');
+    Route::get('/cash-positions', CashPositionsBoard::class)->name('admin.cash-positions');
     Route::get('/bank-accounts', BankAccountsPage::class)->name('admin.bank-accounts.index');
     Route::get('/bank-ledger', MiddoBankLedgerPage::class)->name('admin.bank-ledger');
     Route::get('/cash-handovers', CashHandovers::class)->name('admin.cash-handovers');

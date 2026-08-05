@@ -1,12 +1,12 @@
 <?php
 
 use App\Http\Controllers\Operation\MiddoBoxPrintController;
+use App\Livewire\Operation\ActiveOrders;
 use App\Livewire\Operation\CashHandovers;
-use App\Livewire\Operation\ComplaintShow;
 use App\Livewire\Operation\Complaints;
+use App\Livewire\Operation\ComplaintShow;
 use App\Livewire\Operation\CoverageBoard;
 use App\Livewire\Operation\CustomRuns;
-use App\Livewire\Operation\ActiveOrders;
 use App\Livewire\Operation\KitchenAllOrders;
 use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\MiddoBoxes;
@@ -18,11 +18,11 @@ use App\Livewire\Operation\SearchOrder;
 use App\Livewire\Operation\SlaBoard;
 use App\Livewire\Shared\AccountsHub;
 use App\Livewire\Shared\AreasAdmin;
+use App\Livewire\Shared\CashPositionsBoard;
 use App\Livewire\Shared\CodDueReconPage;
 use App\Livewire\Shared\CorporateShow;
 use App\Livewire\Shared\CorporateTable;
 use App\Livewire\Shared\KitchenMoneyApprovals;
-use App\Livewire\Shared\RiderMoneyApprovals;
 use App\Livewire\Shared\MealItemShow;
 use App\Livewire\Shared\MenuShow;
 use App\Livewire\Shared\MiddoCashLedgerPage;
@@ -32,6 +32,7 @@ use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
 use App\Livewire\Shared\PackageInsights;
 use App\Livewire\Shared\RecipeShow;
+use App\Livewire\Shared\RiderMoneyApprovals;
 use App\Livewire\Shared\StaffAlertsPage;
 use App\Livewire\Shared\StaffDashboard;
 use App\Livewire\Shared\StaffProfileShow;
@@ -77,6 +78,7 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/middo-boxes/{middoBox}', MiddoBoxShow::class)->name('operation.middo-boxes.show');
     Route::get('/middo-boxes/{middoBox}/print', MiddoBoxPrintController::class)->name('operation.middo-boxes.print');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('operation.middo-cash');
+    Route::get('/cash-positions', CashPositionsBoard::class)->name('operation.cash-positions');
     Route::get('/cash-handovers', CashHandovers::class)->name('operation.cash-handovers');
     Route::get('/sla', SlaBoard::class)->name('operation.sla.index');
     Route::get('/riders', RidersBoard::class)->name('operation.riders.index');

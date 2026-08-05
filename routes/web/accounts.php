@@ -3,6 +3,7 @@
 use App\Livewire\Accounts\Dashboard;
 use App\Livewire\Operation\CashHandovers;
 use App\Livewire\Shared\AccountsHub;
+use App\Livewire\Shared\CashPositionsBoard;
 use App\Livewire\Shared\CodDueReconPage;
 use App\Livewire\Shared\CorporateShow;
 use App\Livewire\Shared\CorporateTable;
@@ -19,6 +20,7 @@ Route::middleware(['auth', 'role:accounts'])->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('accounts.dashboard');
     Route::get('/accounts', AccountsHub::class)->name('accounts.accounts.index');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('accounts.middo-cash');
+    Route::get('/cash-positions', CashPositionsBoard::class)->name('accounts.cash-positions');
     Route::get('/bank-ledger', MiddoBankLedgerPage::class)->name('accounts.bank-ledger');
     Route::get('/cash-handovers', CashHandovers::class)->name('accounts.cash-handovers');
     Route::get('/cod-recon', CodDueReconPage::class)->name('accounts.cod-recon.index');

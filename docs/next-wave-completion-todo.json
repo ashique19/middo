@@ -250,7 +250,8 @@
         "F0a: finance.vat_rate_pct Settings (default 5%); orders.vat_rate_pct + vat_amount snapshot",
         "F0a: inclusive food VAT unbundled; middo_rest uses food ex-VAT; money tree + VAT event",
         "F0b: middo_bank_accounts + middo_bank_ledger; admin CRUD; accounts/admin bank ledger page",
-        "F0b: EPS fee % by sub-gateway (Settings); postEpsPayment net credit on EPS success (idempotent)"
+        "F0b: EPS fee % by sub-gateway (Settings); postEpsPayment net credit on EPS success (idempotent)",
+        "F0c: CashPositions board — kitchen recv / rider Due / till + EPS note; till→bank deposit; nav"
       ],
       "items": [
         "VAT 5% inclusive on food — Settings-editable; per-order snapshot; accounts unbundle",

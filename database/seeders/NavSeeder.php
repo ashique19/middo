@@ -335,6 +335,13 @@ class NavSeeder extends Seeder
             'role_id' => $accountsId,
         ]);
         Nav::create([
+            'title' => 'Cash positions',
+            'route_name' => 'accounts.cash-positions',
+            'icon' => '💰',
+            'order' => 3,
+            'role_id' => $accountsId,
+        ]);
+        Nav::create([
             'title' => 'Bank ledger',
             'route_name' => 'accounts.bank-ledger',
             'icon' => '🏦',

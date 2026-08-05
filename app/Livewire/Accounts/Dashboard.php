@@ -44,6 +44,12 @@ class Dashboard extends Component
                 'route' => $prefix.'.bank-ledger',
                 'stat' => null,
             ] : null,
+            Route::has($prefix.'.cash-positions') ? [
+                'label' => 'Cash positions',
+                'hint' => 'EPS · kitchen · riders · till',
+                'route' => $prefix.'.cash-positions',
+                'stat' => null,
+            ] : null,
             [
                 'label' => 'Cash handovers',
                 'hint' => 'Accept Due · confirm reject proposals',

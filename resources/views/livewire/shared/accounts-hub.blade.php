@@ -213,7 +213,7 @@
         <p class="font-bold text-gray-800 pt-2">Also manage here (roadmap)</p>
         <ul class="list-disc pl-5 space-y-1 text-xs">
             <li>Bank / EPS ledger — F0b: multi bank accounts + EPS net credits (fee % by sub-gateway in Settings)</li>
-            <li>VAT/tax lines — F0a: {{ number_format(\App\Support\MiddoSettings::vatRatePct(), 2) }}% inclusive on food (Settings); bank/EPS and period P&amp;L follow in F0b–F0e</li>
+            <li>Cash positions — F0c: EPS / kitchen recv / rider Due / till board + till→bank deposit</li>
             <li>Period P&amp;L (day/week/month) and kitchen settlement batches</li>
             <li>Coupon &amp; discount audit tied to each order’s billing branch</li>
             <li>Supplier / packaging purchase costs; corporate credit / invoice aging</li>
