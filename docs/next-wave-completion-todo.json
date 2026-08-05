@@ -112,9 +112,17 @@
     {
       "id": "N3",
       "title": "Partial / short cash collection",
-      "status": "pending",
+      "status": "done",
+      "done_at": "2026-08-05",
       "priority": "medium",
       "owner_hint": "rider + accounts",
+      "shipped": [
+        "PaymentModal cashCollectAmount (1..due); short requires reason; residual stays delivered",
+        "amount_paid += cash; cash_collected accumulates; cash_due_to_middo accumulates; second collect closes",
+        "OrderLog cash_short_collect; settleDeliveryCommissionFromCash already partial-capable",
+        "CodDueRecon shortfall totals + short_orders table; Accounts Hub short collections list",
+        "No peer Due transfer; handover still only fully paid Due"
+      ],
       "items": [
         "confirmCashPayment today is full amountDue only",
         "Partial collect + residual Due / dispute path",
@@ -182,5 +190,5 @@
     "Insurance / float deposits (unless finance mandates)",
     "Kitchen-style capacity slots for riders"
   ],
-  "recommended_start": "N3 (partial / short cash collection) — N0–N2 done"
+  "recommended_start": "N4 (StaffAlerts for box/ops runs) — N0–N3 done"
 }

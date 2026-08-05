@@ -215,6 +215,23 @@ class Order extends Model
         return max(0, $this->netTotalAmount() - $this->amountPaidValue());
     }
 
+    /**
+     * Customer still owes after a short cash collect (cash taken but bill not closed).
+     */
+    public function customerCashShortfallAmount(): int
+    {
+        if ($this->cashCollectedAmount() < 1) {
+            return 0;
+        }
+
+        return $this->amountDue();
+    }
+
+    public function hasCustomerCashShortfall(): bool
+    {
+        return $this->customerCashShortfallAmount() > 0;
+    }
+
     public function paymentMethodKey(): ?string
     {
         return OrderPaymentMethod::resolve($this);

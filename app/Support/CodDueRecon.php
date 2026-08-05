@@ -17,13 +17,16 @@ class CodDueRecon
      * @return array{
      *   date: string,
      *   rows: list<array<string,mixed>>,
-     *   totals: array<string,int>
+     *   totals: array<string,int>,
+     *   short_orders: list<array<string,mixed>>,
+     *   rider_float_total: int,
+     *   middo_cash: int
      * }
      */
     public static function forDate(string $date): array
     {
         $orders = Order::query()
-            ->with('deliveryRider')
+            ->with(['deliveryRider', 'menuItem', 'user'])
             ->whereDate('delivery_date', $date)
             ->whereNotNull('delivery_rider_id')
             ->where(function ($q) {
@@ -33,6 +36,8 @@ class CodDueRecon
             ->get();
 
         $byRider = [];
+        $shortOrders = [];
+
         foreach ($orders as $order) {
             $riderId = (int) $order->delivery_rider_id;
             if (! isset($byRider[$riderId])) {
@@ -45,6 +50,8 @@ class CodDueRecon
                     'commission' => 0,
                     'due' => 0,
                     'open_due' => 0,
+                    'short_count' => 0,
+                    'shortfall' => 0,
                 ];
             }
             $byRider[$riderId]['order_count']++;
@@ -55,6 +62,26 @@ class CodDueRecon
                 : $order->cashCollectedAmount();
             $byRider[$riderId]['due'] += $snapshotDue;
             $byRider[$riderId]['open_due'] += $order->dueToMiddoAmount();
+
+            $shortfall = $order->customerCashShortfallAmount();
+            if ($shortfall > 0) {
+                $byRider[$riderId]['short_count']++;
+                $byRider[$riderId]['shortfall'] += $shortfall;
+                $shortOrders[] = [
+                    'id' => $order->id,
+                    'rider_id' => $riderId,
+                    'rider_name' => $order->deliveryRider?->name ?? 'Rider #'.$riderId,
+                    'menu' => $order->menuItem?->name ?? '—',
+                    'corporate' => $order->user?->company_name
+                        ?: trim(($order->user?->first_name ?? '').' '.($order->user?->last_name ?? '')),
+                    'bill' => $order->netTotalAmount(),
+                    'paid' => $order->amountPaidValue(),
+                    'collected' => $order->cashCollectedAmount(),
+                    'shortfall' => $shortfall,
+                    'due_to_middo' => $order->dueToMiddoAmount(),
+                    'status' => $order->order_status,
+                ];
+            }
         }
 
         $handoverRows = collect();
@@ -86,6 +113,8 @@ class CodDueRecon
                     'commission' => 0,
                     'due' => 0,
                     'open_due' => 0,
+                    'short_count' => 0,
+                    'shortfall' => 0,
                 ];
             }
             $byRider[$riderId]['handed'] = ($byRider[$riderId]['handed'] ?? 0) + (int) $row->amount;
@@ -104,6 +133,8 @@ class CodDueRecon
                 $row['accepted'] = (int) ($row['accepted'] ?? 0);
                 $row['pending_handover'] = (int) ($row['pending_handover'] ?? 0);
                 $row['rejected_handover'] = (int) ($row['rejected_handover'] ?? 0);
+                $row['short_count'] = (int) ($row['short_count'] ?? 0);
+                $row['shortfall'] = (int) ($row['shortfall'] ?? 0);
                 $row['variance'] = $row['due'] - $row['accepted'] - $row['pending_handover'];
 
                 return $row;
@@ -111,6 +142,8 @@ class CodDueRecon
             ->sortBy('rider_name')
             ->values()
             ->all();
+
+        usort($shortOrders, fn (array $a, array $b) => $b['shortfall'] <=> $a['shortfall']);
 
         $totals = [
             'order_count' => (int) collect($rows)->sum('order_count'),
@@ -122,15 +155,49 @@ class CodDueRecon
             'accepted' => (int) collect($rows)->sum('accepted'),
             'pending_handover' => (int) collect($rows)->sum('pending_handover'),
             'variance' => (int) collect($rows)->sum('variance'),
+            'short_count' => count($shortOrders),
+            'shortfall' => (int) collect($shortOrders)->sum('shortfall'),
         ];
 
         return [
             'date' => $date,
             'rows' => $rows,
             'totals' => $totals,
+            'short_orders' => $shortOrders,
             'rider_float_total' => self::riderFloatTotal(),
             'middo_cash' => MiddoCashLedger::balance(),
         ];
+    }
+
+    /**
+     * Open short-collect orders (any delivery date) for Accounts Hub.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public static function openShortCollections(int $limit = 12): array
+    {
+        return Order::query()
+            ->with(['deliveryRider', 'menuItem', 'user'])
+            ->where('cash_collected', '>', 0)
+            ->where('payment_status', '!=', 'paid')
+            ->where('order_status', '!=', 'delivered_and_paid')
+            ->orderByDesc('id')
+            ->limit(max($limit * 3, 36))
+            ->get()
+            ->map(fn (Order $order) => [
+                'id' => $order->id,
+                'rider' => $order->deliveryRider?->name ?? '—',
+                'menu' => $order->menuItem?->name ?? '—',
+                'corporate' => $order->user?->company_name
+                    ?: trim(($order->user?->first_name ?? '').' '.($order->user?->last_name ?? '')),
+                'collected' => $order->cashCollectedAmount(),
+                'shortfall' => $order->customerCashShortfallAmount(),
+                'delivery_date' => $order->delivery_date?->toDateString(),
+            ])
+            ->filter(fn (array $row) => $row['shortfall'] > 0)
+            ->take($limit)
+            ->values()
+            ->all();
     }
 
     public static function riderFloatTotal(): int

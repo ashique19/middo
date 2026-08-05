@@ -609,14 +609,13 @@
     "Native iOS/Android rider app (later — reuse R5 IA)"
   ],
   "parked_next_wave_agreed_2026_08_04": {
-    "status": "partially cleared — N0–N2 shipped; remainder in next-wave N3+",
+    "status": "partially cleared — N0–N3 shipped; remainder in next-wave N4+",
     "deferred_product": [
       "R2.3 kitchen→ops box rider leg (settings rate ready; kitchen sendToWarehouse is direct today)",
       "Native rider app (reuse R5 IA)"
     ],
     "worth_building_next": [
-      "Box/ops run StaffAlerts (ops→kitchen assign, empty-box pickup — lunch/custom only today) — next-wave N4",
-      "Partial / short cash collection (confirmCashPayment is full amountDue only) — next-wave N3"
+      "Box/ops run StaffAlerts (ops→kitchen assign, empty-box pickup — lunch/custom only today) — next-wave N4"
     ],
     "closed_by_n0": [
       "COD reconciliation report → O3 CodDueReconPage + accounts portal",
@@ -631,6 +630,10 @@
     "shipped_n2": [
       "Aging unclaimed packed list + RiderAcceptSla on RidersBoard",
       "Coverage board unclaimed/aging + on-shift rider columns"
+    ],
+    "shipped_n3": [
+      "Partial / short cash collection with residual customer due",
+      "Accounts CodDueRecon + Hub shortfall visibility"
     ],
     "nice_to_have": [
       "POD / photo / delivery OTP",
