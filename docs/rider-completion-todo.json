@@ -614,7 +614,7 @@
       "Native rider app (reuse R5 IA)"
     ],
     "worth_building_next": [
-      "Accounts finance stretch (F0) when mandated — bank ledger / VAT"
+      "Accounts finance stretch (F0) — scoped deferred; see docs/f0-finance-decisions.json"
     ],
     "closed_by_n0": [
       "COD reconciliation report → O3 CodDueReconPage + accounts portal",

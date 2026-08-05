@@ -239,9 +239,12 @@
     {
       "id": "F0",
       "title": "Accounts finance stretch — bank ledger / VAT",
-      "status": "pending",
+      "status": "scoped_deferred",
+      "deferred_at": "2026-08-05",
       "priority": "low-until-mandated",
       "owner_hint": "accounts",
+      "decision_checklist": "docs/f0-finance-decisions.json",
+      "why": "No VAT rate/settings, no bank schema; EPS/online is wallet/order paid today — not bank SoT. Do not half-build.",
       "items": [
         "Bank ledger alongside MiddoCashLedger (cash SoT stays MiddoCashLedger)",
         "VAT / tax reporting surfaces",
@@ -251,9 +254,11 @@
     {
       "id": "F1",
       "title": "Native apps (rider / corporate)",
-      "status": "pending",
+      "status": "deferred",
+      "deferred_at": "2026-08-05",
       "priority": "deferred",
       "owner_hint": "product",
+      "why": "Productize when native clients are mandated; corporate Flutter API already stubbed; rider reuses R5 IA.",
       "items": [
         "Native rider app (reuse R5 IA)",
         "Corporate Flutter API already stubbed — productize when ready"
@@ -272,7 +277,9 @@
     "Middo login user",
     "Rider↔rider cash (peer transfer) — Due custody moves only via ops/accounts ledger",
     "Insurance / float deposits (unless finance mandates)",
-    "Kitchen-style capacity slots for riders"
+    "Kitchen-style capacity slots for riders",
+    "Full bank ledger / VAT until docs/f0-finance-decisions.json is answered"
   ],
-  "recommended_start": "F0 (Accounts finance stretch) or stop — N0–N5, BOX1/BOX2, OPS-DAY done; F1 deferred"
+  "buildable_complete": true,
+  "recommended_start": "Stop — N0–N5, BOX1/BOX2, OPS-DAY shipped; F0 scoped deferred (docs/f0-finance-decisions.json); F1 deferred"
 }

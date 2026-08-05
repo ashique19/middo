@@ -71,6 +71,6 @@
   "non_goals": [
     "Kitchen assign / box dispatch / order force (stays ops|admin)",
     "Middo login user",
-    "Full bank ledger / VAT"
+    "Full bank ledger / VAT (F0 scoped deferred — docs/f0-finance-decisions.json)"
   ]
 }

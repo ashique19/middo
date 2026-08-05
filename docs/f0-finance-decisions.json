@@ -1,0 +1,49 @@
+{
+  "title": "F0 finance stretch — decisions required before build",
+  "updated": "2026-08-05",
+  "status": "scoped_deferred",
+  "why_deferred": "No VAT rate/settings, no bank_* schema, and EPS/online money today posts to wallet/order paid — not a bank SoT. Half-building a MiddoBankLedger or VAT-from-guessed-totals would invent finance truth.",
+  "invariants": [
+    "MiddoCashLedger remains cash SoT",
+    "Do not invent a Middo login user",
+    "Cash till and bank float stay distinct until product defines cash↔bank posts"
+  ],
+  "today": {
+    "cash_sot": "App\\Support\\MiddoCashLedger + MiddoCashLedgerPage",
+    "eps_online": "CorporateWalletTopUp / order amount_paid — no bank mirror",
+    "accounts_a4": "Operating costs + money buckets + order flow (not period P&L / bank / VAT)",
+    "hub_roadmap": "resources/views/livewire/shared/accounts-hub.blade.php roadmap list"
+  },
+  "decisions_before_code": [
+    {
+      "id": "vat",
+      "ask": "Statutory VAT/tax rate(s)? Inclusive vs exclusive? On food vs charges? Effective date? Stored per order line vs report-time compute?"
+    },
+    {
+      "id": "bank_sot",
+      "ask": "One Middo bank float vs multi-account? What posts: EPS paid sessions, wallet top-ups, cash→bank deposits, partner payouts from bank?"
+    },
+    {
+      "id": "cash_bank",
+      "ask": "Does till deposit debit MiddoCashLedger and credit bank (double-entry)? Who may post (accounts|admin)?"
+    },
+    {
+      "id": "withdrawals",
+      "ask": "Kitchen/rider withdrawals stay Middo cash debit, or move to bank when bank SoT exists?"
+    },
+    {
+      "id": "pnl_batches",
+      "ask": "Period P&L / kitchen settlement batches in F0 or a later F2?"
+    },
+    {
+      "id": "mandate",
+      "ask": "Who mandates (finance/audit), and what filing or export is required?"
+    }
+  ],
+  "ship_only_after": "All of vat + bank_sot + cash_bank answered; then 1–2 surfaces max (e.g. MiddoBankLedger + VAT report).",
+  "related": [
+    "docs/next-wave-completion-todo.json → F0",
+    "docs/accounts-completion-todo.json → non_goals",
+    "docs/ops-review.json → accounts hub gaps"
+  ]
+}

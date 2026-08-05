@@ -212,11 +212,11 @@
         </ul>
         <p class="font-bold text-gray-800 pt-2">Also manage here (roadmap)</p>
         <ul class="list-disc pl-5 space-y-1 text-xs">
-            <li>Bank / EPS ledger separate from Middo cash (online collections, top-ups, payouts)</li>
-            <li>Coupon & discount audit tied to each order’s billing branch</li>
+            <li>Bank / EPS ledger separate from Middo cash — deferred until finance decisions (see docs/f0-finance-decisions.json)</li>
+            <li>VAT/tax lines — deferred until rate/inclusion rules are set (F0 checklist)</li>
             <li>Period P&amp;L (day/week/month) and kitchen settlement batches</li>
-            <li>VAT/tax lines and supplier / packaging purchase costs</li>
-            <li>Corporate credit / invoice aging for billed accounts</li>
+            <li>Coupon &amp; discount audit tied to each order’s billing branch</li>
+            <li>Supplier / packaging purchase costs; corporate credit / invoice aging</li>
         </ul>
     </div>
 </div>
