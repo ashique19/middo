@@ -1,0 +1,43 @@
+{
+  "title": "Ground Marketing — decisions",
+  "updated": "2026-08-05",
+  "status": "decisions_locked",
+  "decided": {
+    "company": {
+      "nature": "Lead / org record — not a login role or user type",
+      "purpose": [
+        "Field marketers create companies to generate leads",
+        "Book HR appointments and visit later",
+        "Field-signup employees under a selected company (address copied)",
+        "Future: group parcels by company for same-rider assignment"
+      ]
+    },
+    "role": {
+      "name": "ground_marketing",
+      "portal_prefix": "marketing",
+      "can": [
+        "CRUD companies (leads)",
+        "Schedule / record appointments",
+        "Field-signup corporate users under a company with mobile OTP"
+      ]
+    },
+    "field_signup": {
+      "inputs": ["company_id", "first_name", "last_name", "mobile", "otp", "password"],
+      "copied_from_company": ["address", "city_id", "area_id", "company_name snapshot"],
+      "otp": "Required — SignupOtp to the employee mobile before account create (anti fake-entry)",
+      "user_role": "corporate",
+      "link": "users.company_id FK + users.company_name snapshot"
+    },
+    "company_status": ["lead", "appointment_set", "visited", "active"]
+  },
+  "suggested_ship_slices": [
+    "GM0 — Role + companies + appointments + field signup OTP",
+    "GM1 — Admin roster for marketers; company list for ops",
+    "GM2 — Parcel grouping by company (later)"
+  ],
+  "non_goals": [
+    "Company as a login user type",
+    "Native apps",
+    "Same-rider parcel grouping (later)"
+  ]
+}

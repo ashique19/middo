@@ -19,6 +19,7 @@ class NavSeeder extends Seeder
         $deliveryId = Role::where('name', 'delivery')->value('id') ?? 4;
         $operationId = Role::where('name', 'operation')->value('id') ?? 5;
         $accountsId = Role::where('name', 'accounts')->value('id') ?? 6;
+        $marketingId = Role::where('name', 'ground_marketing')->value('id') ?? 7;
 
         // ── Admin ────────────────────────────────────────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'admin.dashboard', 'order' => 1, 'role_id' => $adminId]);
@@ -71,6 +72,7 @@ class NavSeeder extends Seeder
         Nav::create(['title' => 'Kitchens', 'route_name' => 'admin.users.kitchen', 'order' => 4, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
         Nav::create(['title' => 'Corporates', 'route_name' => 'admin.corporates.index', 'order' => 5, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
         Nav::create(['title' => 'Delivery', 'route_name' => 'admin.users.delivery', 'order' => 6, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
+        Nav::create(['title' => 'Ground marketing', 'route_name' => 'admin.users.ground_marketing', 'order' => 7, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
 
         Nav::create([
             'title' => 'System Navs',
@@ -439,5 +441,15 @@ class NavSeeder extends Seeder
         Nav::create(['title' => 'Kitchen dispatches', 'route_name' => 'delivery.kitchen-dispatches', 'order' => 2, 'role_id' => $deliveryId]);
         Nav::create(['title' => 'Middo boxes pending run', 'route_name' => 'delivery.middo-boxes.pending-run', 'order' => 3, 'role_id' => $deliveryId]);
         Nav::create(['title' => 'Delivered orders', 'route_name' => 'delivery.orders.delivered', 'order' => 4, 'role_id' => $deliveryId]);
+
+        // ── Ground marketing ──────────────────────────────────────────────────
+        Nav::create(['title' => 'Dashboard', 'route_name' => 'marketing.dashboard', 'order' => 1, 'role_id' => $marketingId]);
+        Nav::create([
+            'title' => 'Companies',
+            'route_name' => 'marketing.companies.index',
+            'icon' => '🏢',
+            'order' => 2,
+            'role_id' => $marketingId,
+        ]);
     }
 }

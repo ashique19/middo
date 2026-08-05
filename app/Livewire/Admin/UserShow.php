@@ -34,6 +34,7 @@ class UserShow extends Component
             'accounts' => route('admin.users.accounts'),
             'kitchen' => route('admin.users.kitchen'),
             'delivery' => route('admin.users.delivery'),
+            'ground_marketing' => route('admin.users.ground_marketing'),
             'corporate' => route('admin.corporates.index'),
             default => route('admin.users.index'),
         };
