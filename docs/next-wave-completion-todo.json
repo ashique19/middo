@@ -145,9 +145,16 @@
     {
       "id": "N4",
       "title": "StaffAlerts for box/ops runs",
-      "status": "pending",
+      "status": "done",
+      "done_at": "2026-08-05",
       "priority": "medium",
       "owner_hint": "ops",
+      "shipped": [
+        "TYPE_OPS_TO_KITCHEN_BOX + TYPE_EMPTY_BOX_PICKUP",
+        "StaffAlerts::notifyOpsToKitchenBoxes — rider + kitchen on AssignMiddoBoxesModal::save",
+        "StaffAlerts::notifyRidersEmptyBoxPickup — area riders on corporate mark-ready (Livewire + mobile API)",
+        "Alerts page subtitle covers lunch/boxes/custom"
+      ],
       "items": [
         "Alerts today lean lunch/custom",
         "ops→kitchen assign alerts",
@@ -259,5 +266,5 @@
     "Insurance / float deposits (unless finance mandates)",
     "Kitchen-style capacity slots for riders"
   ],
-  "recommended_start": "N4 (StaffAlerts for box/ops runs) — N0–N3, BOX1/BOX2, OPS-DAY done"
+  "recommended_start": "N5 (Kitchen→ops box rider leg) — N0–N4, BOX1/BOX2, OPS-DAY done"
 }

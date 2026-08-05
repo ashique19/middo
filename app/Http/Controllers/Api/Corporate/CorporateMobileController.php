@@ -32,6 +32,7 @@ use App\Support\PackageBilling;
 use App\Support\PackageSubscriptionService;
 use App\Support\PasswordResetOtp;
 use App\Support\SignupOtp;
+use App\Support\StaffAlerts;
 use App\Support\UserAudit;
 use App\Support\WalletLedger;
 use Illuminate\Http\JsonResponse;
@@ -1166,10 +1167,16 @@ class CorporateMobileController extends Controller
             return response()->json(['message' => 'Box not found or not in your custody.'], 404);
         }
 
+        $wasReady = (bool) $box->ready_for_pickup;
+
         $box->update([
             'ready_for_pickup' => true,
             'ready_for_pickup_at' => now(),
         ]);
+
+        if (! $wasReady) {
+            StaffAlerts::notifyRidersEmptyBoxPickup($box->fresh());
+        }
 
         return response()->json([
             'message' => 'Box marked as ready for pickup. A rider will collect it on the next run.',

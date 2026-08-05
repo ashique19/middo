@@ -2,12 +2,15 @@
 
 namespace App\Support;
 
+use App\Models\CustomRun;
+use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\OrderGroupEvent;
 use App\Models\Role;
 use App\Models\StaffAlert;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
 class StaffAlerts
@@ -153,7 +156,7 @@ class StaffAlerts
      *
      * @return int number of alerts created
      */
-    public static function notifyRidersCustomRun(\App\Models\CustomRun $run): int
+    public static function notifyRidersCustomRun(CustomRun $run): int
     {
         $run->loadMissing(['rider', 'area']);
         $riders = [];
@@ -183,6 +186,115 @@ class StaffAlerts
                     'run_type' => DeliveryRunType::CUSTOM,
                 ],
                 'custom_run:'.$run->id.':'.$rider->id
+            );
+            if ($alert) {
+                $created++;
+            }
+        }
+
+        return $created;
+    }
+
+    /**
+     * Ops assigned warehouse Middo boxes to a rider bound for a kitchen.
+     *
+     * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
+     * @return int number of alerts created (rider + kitchen)
+     */
+    public static function notifyOpsToKitchenBoxes(User $rider, User $kitchen, Collection|array $boxes): int
+    {
+        $boxes = collect($boxes)->filter()->values();
+        if ($boxes->isEmpty()) {
+            return 0;
+        }
+
+        $boxIds = $boxes->map(fn (MiddoBox $b) => (int) $b->id)->sort()->values()->all();
+        $labels = $boxes->map(fn (MiddoBox $b) => $b->qr_code_id ?: '#'.$b->id)->all();
+        $count = $boxes->count();
+        $boxList = implode(', ', array_slice($labels, 0, 5)).($count > 5 ? '…' : '');
+        $dedupeBase = 'ops_kitchen:'.$rider->id.':'.$kitchen->id.':'.implode('-', $boxIds);
+        $created = 0;
+
+        $riderAlert = self::createOnce(
+            (int) $rider->id,
+            StaffAlert::TYPE_OPS_TO_KITCHEN_BOX,
+            $count === 1 ? 'Ops→kitchen box run' : "Ops→kitchen box run ({$count})",
+            sprintf(
+                'Deliver %s to %s.',
+                $boxList,
+                $kitchen->name
+            ),
+            null,
+            [
+                'box_ids' => $boxIds,
+                'kitchen_id' => $kitchen->id,
+                'run_type' => DeliveryRunType::OPS_TO_KITCHEN,
+            ],
+            $dedupeBase.':rider'
+        );
+        if ($riderAlert) {
+            $created++;
+        }
+
+        $kitchenAlert = self::createOnce(
+            (int) $kitchen->id,
+            StaffAlert::TYPE_OPS_TO_KITCHEN_BOX,
+            $count === 1 ? 'Incoming Middo box' : "Incoming Middo boxes ({$count})",
+            sprintf(
+                '%s is bringing %s from warehouse.',
+                $rider->name,
+                $boxList
+            ),
+            null,
+            [
+                'box_ids' => $boxIds,
+                'rider_id' => $rider->id,
+                'run_type' => DeliveryRunType::OPS_TO_KITCHEN,
+            ],
+            $dedupeBase.':kitchen'
+        );
+        if ($kitchenAlert) {
+            $created++;
+        }
+
+        return $created;
+    }
+
+    /**
+     * Corporate marked an empty Middo box ready for pickup — notify riders serving that area.
+     *
+     * @return int number of alerts created
+     */
+    public static function notifyRidersEmptyBoxPickup(MiddoBox $box): int
+    {
+        $box->loadMissing('heldByUser');
+        $holder = $box->heldByUser;
+        $areaId = $holder?->area_id !== null ? (int) $holder->area_id : null;
+        $riders = DeliveryAreaScope::ridersForArea($areaId);
+        if ($riders === []) {
+            return 0;
+        }
+
+        $qr = $box->qr_code_id ?: '#'.$box->id;
+        $place = $holder?->name ?? 'corporate';
+        $title = 'Empty box pickup '.$qr;
+        $body = sprintf('%s is ready for pickup at %s.', $qr, $place);
+        $created = 0;
+
+        foreach ($riders as $rider) {
+            $alert = self::createOnce(
+                (int) $rider->id,
+                StaffAlert::TYPE_EMPTY_BOX_PICKUP,
+                $title,
+                $body,
+                null,
+                [
+                    'box_id' => $box->id,
+                    'area_id' => $areaId,
+                    'corporate_user_id' => $holder?->id,
+                    'run_type' => DeliveryRunType::CORPORATE_TO_KITCHEN,
+                ],
+                'empty_box_pickup:'.$box->id.':'.$rider->id
             );
             if ($alert) {
                 $created++;

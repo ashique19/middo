@@ -17,6 +17,12 @@ class StaffAlert extends Model
 
     public const TYPE_CUSTOM_RUN = 'custom_run';
 
+    /** Ops assigned warehouse boxes to a rider for kitchen delivery. */
+    public const TYPE_OPS_TO_KITCHEN_BOX = 'ops_to_kitchen_box';
+
+    /** Corporate marked empty Middo box ready for rider pickup. */
+    public const TYPE_EMPTY_BOX_PICKUP = 'empty_box_pickup';
+
     protected $fillable = [
         'user_id',
         'type',
