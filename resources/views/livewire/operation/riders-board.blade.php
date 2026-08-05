@@ -13,7 +13,7 @@
         <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $errorMessage }}</div>
     @endif
 
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <p class="text-[11px] font-bold uppercase text-gray-400">Riders</p>
             <p class="text-2xl font-black text-middo-dark mt-1">{{ $counts['riders'] }}</p>
@@ -21,6 +21,10 @@
         <div class="rounded-2xl border border-amber-100 bg-amber-50 p-4">
             <p class="text-[11px] font-bold uppercase text-amber-700">Awaiting accept</p>
             <p class="text-2xl font-black text-amber-900 mt-1">{{ $counts['awaiting'] }}</p>
+        </div>
+        <div class="rounded-2xl border {{ ($counts['awaiting_aging'] ?? 0) > 0 ? 'border-rose-200 bg-rose-50' : 'border-gray-100 bg-white' }} p-4">
+            <p class="text-[11px] font-bold uppercase {{ ($counts['awaiting_aging'] ?? 0) > 0 ? 'text-rose-700' : 'text-gray-400' }}">Aging / overdue</p>
+            <p class="text-2xl font-black {{ ($counts['awaiting_aging'] ?? 0) > 0 ? 'text-rose-900' : 'text-middo-dark' }} mt-1">{{ $counts['awaiting_aging'] ?? 0 }}</p>
         </div>
         <div class="rounded-2xl border border-sky-100 bg-sky-50 p-4">
             <p class="text-[11px] font-bold uppercase text-sky-700">On the way</p>
@@ -104,8 +108,12 @@
         </div>
     @elseif($tab === 'awaiting')
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+            <div class="px-5 py-3 border-b border-gray-50 flex flex-wrap justify-between gap-2 items-center">
+                <p class="text-xs text-gray-500 font-semibold">Packed + kitchen-dispatched, no rider yet. Sorted by SLA pressure (overdue first).</p>
+                <a href="{{ route($rolePrefix.'.coverage.index') }}" class="text-xs font-bold text-middo-orange hover:underline">Coverage board →</a>
+            </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-sm min-w-[800px]">
+                <table class="w-full text-sm min-w-[960px]">
                     <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
                         <tr>
                             <th class="p-3 text-left">Order</th>
@@ -113,11 +121,15 @@
                             <th class="p-3 text-left">When</th>
                             <th class="p-3 text-left">Area</th>
                             <th class="p-3 text-left">Corporate</th>
+                            <th class="p-3 text-left">Age / SLA</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y">
                         @forelse($awaiting as $row)
-                            <tr>
+                            <tr @class([
+                                'bg-rose-50/40' => ($row['sla']['state'] ?? '') === 'overdue',
+                                'bg-amber-50/40' => in_array($row['sla']['state'] ?? '', ['closing_soon', 'aging'], true),
+                            ])>
                                 <td class="p-3">
                                     <a href="{{ \App\Support\StaffOrderRoutes::show($row['id'], 'rider') }}" class="font-mono font-bold text-middo-orange hover:underline">#{{ $row['id'] }}</a>
                                     <div class="text-xs text-gray-500">{{ $row['menu'] }} · qty {{ $row['qty'] }}</div>
@@ -129,9 +141,18 @@
                                 <td class="p-3 font-mono text-xs">{{ $row['delivery_date'] }} · {{ $row['delivery_time'] }}</td>
                                 <td class="p-3">{{ $row['area'] }}</td>
                                 <td class="p-3">{{ $row['corporate'] }}</td>
+                                <td class="p-3">
+                                    <span @class([
+                                        'inline-flex px-2 py-0.5 rounded-lg text-[11px] font-bold border',
+                                        'bg-rose-50 text-rose-800 border-rose-200' => ($row['sla']['state'] ?? '') === 'overdue',
+                                        'bg-amber-50 text-amber-800 border-amber-200' => in_array($row['sla']['state'] ?? '', ['closing_soon', 'aging'], true),
+                                        'bg-emerald-50 text-emerald-800 border-emerald-200' => ($row['sla']['state'] ?? '') === 'ok',
+                                    ])>{{ $row['sla']['label'] ?? '—' }}</span>
+                                    <div class="text-[10px] text-gray-400 mt-1 font-mono">{{ $row['sla']['minutes_waiting'] ?? 0 }}m since dispatch</div>
+                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="p-10 text-center text-gray-400 italic">No packed orders awaiting rider accept.</td></tr>
+                            <tr><td colspan="6" class="p-10 text-center text-gray-400 italic">No packed orders awaiting rider accept.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -91,9 +91,18 @@
     {
       "id": "N2",
       "title": "Aging unclaimed lunch dispatches + rider coverage SLA",
-      "status": "pending",
+      "status": "done",
+      "done_at": "2026-08-05",
       "priority": "high",
       "owner_hint": "ops (+ coverage board)",
+      "shipped": [
+        "RiderAcceptSla — age from dispatched_at; claim-by = delivery wall-clock; on-the-way-by = DispatchDeadline",
+        "OpsRiderBoard::awaitingAccept enriched + sorted by SLA; aging/overdue counts",
+        "RidersBoard awaiting tab Age/SLA column + aging tile",
+        "OpsAreaCoverage: unclaimed_packed, aging_unclaimed, riders_on_shift + gap reasons",
+        "Coverage board aging tile + columns; dashboard hint when aging",
+        "config middo.rider_unclaimed_age_warn_minutes (default 30)"
+      ],
       "items": [
         "Unclaimed packed / awaiting-accept aging list",
         "Rider-side SLA mirror of kitchen accept/dispatch deadlines",
@@ -173,5 +182,5 @@
     "Insurance / float deposits (unless finance mandates)",
     "Kitchen-style capacity slots for riders"
   ],
-  "recommended_start": "N2 (aging unclaimed + coverage SLA) — N0/N1 done"
+  "recommended_start": "N3 (partial / short cash collection) — N0–N2 done"
 }

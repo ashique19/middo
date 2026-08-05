@@ -16,6 +16,8 @@ class MiddoSettings
 
     public const KEY_MID_RUN_RESCUE = 'delivery.commission.mid_run_rescue';
 
+    public const KEY_RIDER_UNCLAIMED_AGE_WARN_MINUTES = 'delivery.rider_unclaimed_age_warn_minutes';
+
     protected static function tierDefaultKey(string $tier): string
     {
         return 'kitchen.tier_defaults.'.KitchenTier::normalize($tier).'.allowed_open_groups';
@@ -66,6 +68,17 @@ class MiddoSettings
         ));
 
         return min($warn, $window);
+    }
+
+    /**
+     * Minutes since kitchen dispatch before an unclaimed packed order is "aging".
+     */
+    public static function riderUnclaimedAgeWarnMinutes(): int
+    {
+        return max(1, (int) self::get(
+            self::KEY_RIDER_UNCLAIMED_AGE_WARN_MINUTES,
+            config('middo.rider_unclaimed_age_warn_minutes', 30)
+        ));
     }
 
     public static function autoGroupQuantity(): int

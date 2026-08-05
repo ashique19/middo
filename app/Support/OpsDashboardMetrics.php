@@ -204,9 +204,13 @@ class OpsDashboardMetrics
             $riderCounts['awaiting'] > 0 ? [
                 'label' => 'Packed awaiting rider',
                 'value' => $riderCounts['awaiting'],
-                'tone' => 'amber',
+                'tone' => ($riderCounts['awaiting_aging'] ?? 0) > 0 ? 'rose' : 'amber',
                 'route' => $role.'.riders.index',
-                'hint' => 'Kitchen dispatched — no rider yet',
+                'hint' => ($riderCounts['awaiting_overdue'] ?? 0) > 0
+                    ? ($riderCounts['awaiting_overdue'].' past delivery time — no rider')
+                    : (($riderCounts['awaiting_aging'] ?? 0) > 0
+                        ? ($riderCounts['awaiting_aging'].' aging unclaimed')
+                        : 'Kitchen dispatched — no rider yet'),
             ] : null,
             $role === 'admin' && $pendingKitchens > 0 ? [
                 'label' => 'Kitchens pending onboarding',

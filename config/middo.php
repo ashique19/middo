@@ -51,6 +51,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Rider unclaimed age warn
+    |--------------------------------------------------------------------------
+    |
+    | Minutes since kitchen dispatch before a packed order with no rider is
+    | treated as aging on the Riders / Coverage boards (N2).
+    |
+    */
+
+    'rider_unclaimed_age_warn_minutes' => (int) env('RIDER_UNCLAIMED_AGE_WARN_MINUTES', 30),
+
+    /*
+    |--------------------------------------------------------------------------
     | Kitchen Tier Defaults (allowed concurrent open groups)
     |--------------------------------------------------------------------------
     |

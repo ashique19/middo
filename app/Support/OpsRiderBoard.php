@@ -16,6 +16,8 @@ class OpsRiderBoard
      * @return array{
      *   riders:int,
      *   awaiting:int,
+     *   awaiting_aging:int,
+     *   awaiting_overdue:int,
      *   on_the_way:int,
      *   box_custody:int,
      *   custom_started:int
@@ -23,9 +25,13 @@ class OpsRiderBoard
      */
     public static function counts(): array
     {
+        $awaiting = self::awaitingAccept();
+
         return [
             'riders' => self::riders()->count(),
-            'awaiting' => self::awaitingAccept()->count(),
+            'awaiting' => $awaiting->count(),
+            'awaiting_aging' => $awaiting->filter(fn (array $row) => (bool) ($row['sla']['aging'] ?? false))->count(),
+            'awaiting_overdue' => $awaiting->filter(fn (array $row) => (bool) ($row['sla']['overdue'] ?? false))->count(),
             'on_the_way' => self::onTheWay()->count(),
             'box_custody' => self::boxCustody()->count(),
             'custom_started' => CustomRun::query()->where('status', CustomRun::STATUS_STARTED)->count(),
@@ -88,12 +94,14 @@ class OpsRiderBoard
     }
 
     /**
-     * Packed kitchen-dispatched orders with no rider yet.
+     * Packed kitchen-dispatched orders with no rider yet (aging / SLA enriched).
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public static function awaitingAccept(): Collection
+    public static function awaitingAccept(?\Carbon\Carbon $now = null): Collection
     {
+        $now = ($now ?? now('Asia/Dhaka'))->copy()->timezone('Asia/Dhaka');
+
         return Order::query()
             ->with(['menuItem', 'orderGroup.kitchen', 'user', 'area'])
             ->where('order_status', 'packed')
@@ -103,17 +111,30 @@ class OpsRiderBoard
             ->orderBy('delivery_time')
             ->limit(100)
             ->get()
-            ->map(fn (Order $order) => [
-                'id' => $order->id,
-                'menu' => $order->menuItem?->name ?? '—',
-                'qty' => (int) $order->quantity,
-                'delivery_date' => $order->delivery_date?->toDateString(),
-                'delivery_time' => $order->delivery_time,
-                'kitchen' => $order->orderGroup?->kitchenDisplayName() ?? '—',
-                'group_name' => $order->orderGroup?->name,
-                'area' => $order->area?->name ?? $order->orderGroup?->area?->name ?? '—',
-                'corporate' => $order->user?->company_name
-                    ?: trim(($order->user?->first_name ?? '').' '.($order->user?->last_name ?? '')),
+            ->map(function (Order $order) use ($now) {
+                $sla = RiderAcceptSla::statusPayload($order, $now);
+
+                return [
+                    'id' => $order->id,
+                    'menu' => $order->menuItem?->name ?? '—',
+                    'qty' => (int) $order->quantity,
+                    'delivery_date' => $order->delivery_date?->toDateString(),
+                    'delivery_time' => $order->delivery_time,
+                    'dispatched_at' => $order->dispatched_at?->toIso8601String(),
+                    'kitchen' => $order->orderGroup?->kitchenDisplayName() ?? '—',
+                    'group_name' => $order->orderGroup?->name,
+                    'area' => $order->area?->name ?? $order->orderGroup?->area?->name ?? '—',
+                    'area_id' => $order->area_id ?? $order->orderGroup?->area_id,
+                    'corporate' => $order->user?->company_name
+                        ?: trim(($order->user?->first_name ?? '').' '.($order->user?->last_name ?? '')),
+                    'sla' => $sla,
+                    'priority' => $sla['priority'],
+                ];
+            })
+            ->sortBy([
+                ['priority', 'asc'],
+                ['delivery_date', 'asc'],
+                ['delivery_time', 'asc'],
             ])
             ->values();
     }
