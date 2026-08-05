@@ -28,7 +28,20 @@
     },
     "one_liner": "Emergency mid-run transfer = ops reassigns parcels; commission stays with the starter; Due/cash never peer-transfers — only Middo/ops-mediated custody."
   },
-  "suggested_ship_order": ["N0", "N1", "N2", "N3", "N4", "N5", "F0", "F1"],
+  "suggested_ship_order": ["N0", "N1", "N2", "N3", "BOX1", "BOX2", "OPS-DAY", "N4", "N5", "F0", "F1"],
+  "ops_day_status_checklist_2026_08_05": {
+    "note": "Actor flows exist; ops lacks a single date-filtered day checklist. PARTIAL = live queues without delivery_date lens.",
+    "items": [
+      {"id": "a", "label": "Kitchen → Delivery (lunch dispatch accept)", "status": "partial", "surfaces": "RidersBoard awaiting/on_the_way", "gap": "no date picker"},
+      {"id": "b", "label": "Delivery → Customer (delivered)", "status": "partial", "surfaces": "Rider deliver; StaffDashboard today breakdown", "gap": "no ops delivered-today checklist"},
+      {"id": "c", "label": "Box collect Customer → Delivery", "status": "partial", "surfaces": "DeliveredOrders receiveBoxes; RidersBoard box custody", "gap": "no date-wise pending-collect queue"},
+      {"id": "d", "label": "Box Delivery → Kitchen", "status": "partial", "surfaces": "PendingBoxRuns; IncomingBoxes; MiddoBoxes to_kitchen", "gap": "split across roles; no date filter"},
+      {"id": "e", "label": "Box Kitchen → Operation WH", "status": "partial", "surfaces": "Kitchen sendToWarehouse; MiddoBoxes inbound returns + ack", "gap": "not date-wise"},
+      {"id": "f", "label": "Operation WH → Kitchen", "status": "done_action_partial_view", "surfaces": "AssignMiddoBoxesModal", "gap": "inventory action exists; not delivery-date checklist"},
+      {"id": "g", "label": "COD Customer → Delivery", "status": "partial", "surfaces": "PaymentModal; CodDueRecon (has date)", "gap": "recon is money rollup not per-order collect checklist"},
+      {"id": "h", "label": "Cash Delivery → Kitchen", "status": "partial", "surfaces": "Delivery/Kitchen CashHandovers; ops dashboard count", "gap": "ops has Middo handovers; kitchen-target board thin"}
+    ]
+  },
   "phases": [
     {
       "id": "N0",
@@ -142,6 +155,56 @@
       ]
     },
     {
+      "id": "BOX1",
+      "title": "Middo boxes list + generate UX",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "priority": "high",
+      "owner_hint": "ops",
+      "shipped": [
+        "List default order latest-first (id DESC; damaged still pinned)",
+        "Generate modal lists new QR IDs with Details/Print links",
+        "Retire/reactivate write lifecycle MiddoBoxLog actions"
+      ],
+      "items": [
+        "Latest-first ordering on /operation/middo-boxes",
+        "Generate modal shows newly generated box IDs"
+      ]
+    },
+    {
+      "id": "BOX2",
+      "title": "Middo box details page (timeline + lifespan)",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "priority": "high",
+      "owner_hint": "ops",
+      "shipped": [
+        "operation.middo-boxes.show + MiddoBoxShow",
+        "Created / damaged / retired timestamps; runs; days; runs/day",
+        "Optional unit_cost_bdt → cost/run",
+        "Tracking tree latest-first (MiddoBoxLifecycle)"
+      ],
+      "items": [
+        "Details page: created/retired/damaged, runs, tracking tree",
+        "Lifespan / cost / efficiency analytics"
+      ]
+    },
+    {
+      "id": "OPS-DAY",
+      "title": "Ops date-wise food / box / cash status board",
+      "status": "pending",
+      "priority": "high",
+      "owner_hint": "ops",
+      "covers": ["a", "b", "c", "d", "e", "f", "g", "h"],
+      "note": "see ops_day_status_checklist_2026_08_05 — all PARTIAL except WH→kitchen action DONE",
+      "items": [
+        "Date lens: kitchen→rider accept + delivered (a, b)",
+        "Date lens: box handoffs customer↔rider↔kitchen↔WH (c–f)",
+        "Date lens: COD collect + kitchen/Middo cash handovers (g, h)",
+        "Reuse RidersBoard / MiddoBoxes / CodDueRecon patterns with deliveryDate picker"
+      ]
+    },
+    {
       "id": "N5",
       "title": "Kitchen→ops box rider leg (R2.3)",
       "status": "pending",
@@ -190,5 +253,5 @@
     "Insurance / float deposits (unless finance mandates)",
     "Kitchen-style capacity slots for riders"
   ],
-  "recommended_start": "N4 (StaffAlerts for box/ops runs) — N0–N3 done"
+  "recommended_start": "OPS-DAY (date-wise a–h board) then N4 StaffAlerts — BOX1/BOX2 done"
 }

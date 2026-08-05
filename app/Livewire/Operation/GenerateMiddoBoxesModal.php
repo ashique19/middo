@@ -11,6 +11,9 @@ class GenerateMiddoBoxesModal extends Component
 
     public int $quantity = 1;
 
+    /** @var list<array{id:int,qr:string}> */
+    public array $generatedBoxes = [];
+
     protected function rules(): array
     {
         return [
@@ -22,6 +25,7 @@ class GenerateMiddoBoxesModal extends Component
     {
         $this->resetErrorBag();
         $this->quantity = 1;
+        $this->generatedBoxes = [];
         $this->showModal = true;
     }
 
@@ -29,6 +33,7 @@ class GenerateMiddoBoxesModal extends Component
     {
         $this->showModal = false;
         $this->quantity = 1;
+        $this->generatedBoxes = [];
         $this->resetErrorBag();
     }
 
@@ -36,10 +41,21 @@ class GenerateMiddoBoxesModal extends Component
     {
         $this->validate();
 
-        MiddoBox::generateBatch($this->quantity);
+        $created = MiddoBox::generateBatch($this->quantity);
+        $this->generatedBoxes = $created
+            ->map(fn (MiddoBox $box) => [
+                'id' => $box->id,
+                'qr' => $box->qr_code_id,
+            ])
+            ->values()
+            ->all();
 
+        $this->dispatch('middo-boxes-generated', count: count($this->generatedBoxes));
+    }
+
+    public function done(): void
+    {
         $this->closeModal();
-        $this->dispatch('middo-boxes-generated');
     }
 
     public function render()

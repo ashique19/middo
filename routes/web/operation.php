@@ -10,6 +10,7 @@ use App\Livewire\Operation\ActiveOrders;
 use App\Livewire\Operation\KitchenAllOrders;
 use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\MiddoBoxes;
+use App\Livewire\Operation\MiddoBoxShow;
 use App\Livewire\Operation\OrderHistory;
 use App\Livewire\Operation\RidersBoard;
 use App\Livewire\Operation\SearchOrder;
@@ -72,6 +73,7 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/orders/{order}', OrderShow::class)->name('operation.orders.show');
 
     Route::get('/middo-boxes', MiddoBoxes::class)->name('operation.middo-boxes.index');
+    Route::get('/middo-boxes/{middoBox}', MiddoBoxShow::class)->name('operation.middo-boxes.show');
     Route::get('/middo-boxes/{middoBox}/print', MiddoBoxPrintController::class)->name('operation.middo-boxes.print');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('operation.middo-cash');
     Route::get('/cash-handovers', CashHandovers::class)->name('operation.cash-handovers');
