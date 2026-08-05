@@ -76,7 +76,7 @@ class Dashboard extends Component
             ],
             [
                 'label' => 'Kitchen money',
-                'hint' => 'Withdrawal approvals',
+                'hint' => 'Withdrawals + settlement batches',
                 'route' => $prefix.'.kitchen-money.index',
                 'stat' => null,
             ],

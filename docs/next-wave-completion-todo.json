@@ -280,12 +280,17 @@
     {
       "id": "F2",
       "title": "Kitchen settlement batches",
-      "status": "pending",
+      "status": "shipped",
+      "updated_at": "2026-08-05",
       "priority": "after-F0",
       "owner_hint": "accounts",
       "items": [
         "Group open kitchen payables into named remittance batches",
         "Accounts approve/pay as one packet with proof; settle many PartnerPayables together"
+      ],
+      "shipped": [
+        "kitchen_settlement_batches + items; accounts create/approve/reject on Kitchen money Batches tab",
+        "Settle many payables + one Middo float debit + one kitchen ledger debit; reserved from withdrawal FIFO"
       ]
     }
   ],
@@ -304,6 +309,6 @@
     "Kitchen-style capacity slots for riders",
     "Full bank ledger / VAT until docs/f0-finance-decisions.json is answered"
   ],
-  "buildable_complete": false,
-  "recommended_start": "F2 (kitchen settlement batches) — F0 complete; F1 native apps deferred"
+  "buildable_complete": true,
+  "recommended_start": "nice_to_have / product backlog — F0–F2 buildable wave complete; F1 native apps deferred"
 }
