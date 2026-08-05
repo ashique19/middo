@@ -239,15 +239,18 @@
     {
       "id": "F0",
       "title": "Accounts finance stretch — bank ledger / VAT",
-      "status": "scoped_deferred",
-      "deferred_at": "2026-08-05",
-      "priority": "low-until-mandated",
+      "status": "decisions_locked_partial",
+      "updated_at": "2026-08-05",
+      "priority": "high-after-decisions",
       "owner_hint": "accounts",
       "decision_checklist": "docs/f0-finance-decisions.json",
-      "why": "No VAT rate/settings, no bank schema; EPS/online is wallet/order paid today — not bank SoT. Do not half-build.",
+      "why": "Product locked VAT, multi-bank, cash positions, withdrawal channels, accounts+Excel mandate. pnl_batches still open.",
       "items": [
-        "Bank ledger alongside MiddoCashLedger (cash SoT stays MiddoCashLedger)",
-        "VAT / tax reporting surfaces",
+        "VAT 5% inclusive on food — Settings-editable; per-order snapshot; accounts unbundle",
+        "Multi Middo bank accounts — admin CRUD; accounts maintain; EPS fees by sub-gateway",
+        "Cash positions — cash at EPS, recv kitchen, recv riders, cash in hand; accounts posts",
+        "Withdrawals — Bank/bKash/Nagad/Cash + optional attachment on accounts process",
+        "Excel export for accounts",
         "Do not invent Middo login user"
       ]
     },

@@ -1,49 +1,75 @@
 {
-  "title": "F0 finance stretch — decisions required before build",
+  "title": "F0 finance stretch — decisions",
   "updated": "2026-08-05",
-  "status": "scoped_deferred",
-  "why_deferred": "No VAT rate/settings, no bank_* schema, and EPS/online money today posts to wallet/order paid — not a bank SoT. Half-building a MiddoBankLedger or VAT-from-guessed-totals would invent finance truth.",
+  "status": "decisions_locked_partial",
+  "note": "Product answered checklist 2026-08-05. pnl_batches still open (see explanation). Build when ship slices are sequenced.",
   "invariants": [
-    "MiddoCashLedger remains cash SoT",
     "Do not invent a Middo login user",
-    "Cash till and bank float stay distinct until product defines cash↔bank posts"
+    "MiddoCashLedger remains the till / cash-in-hand SoT (not bank float)",
+    "Bank multi-account is a separate SoT maintained by accounts; admin CRUD of accounts",
+    "VAT is inclusive in food price; accounts/P&L must unbundle VAT from middo_rest correctly"
   ],
-  "today": {
-    "cash_sot": "App\\Support\\MiddoCashLedger + MiddoCashLedgerPage",
-    "eps_online": "CorporateWalletTopUp / order amount_paid — no bank mirror",
-    "accounts_a4": "Operating costs + money buckets + order flow (not period P&L / bank / VAT)",
-    "hub_roadmap": "resources/views/livewire/shared/accounts-hub.blade.php roadmap list"
-  },
-  "decisions_before_code": [
-    {
-      "id": "vat",
-      "ask": "Statutory VAT/tax rate(s)? Inclusive vs exclusive? On food vs charges? Effective date? Stored per order line vs report-time compute?"
+  "decided": {
+    "vat": {
+      "rate_default_pct": 5,
+      "editable": "admin Settings",
+      "inclusion": "inclusive in price",
+      "applies_to": "food only (not charges)",
+      "effective": "always (no historic rate table for now)",
+      "storage": "per order line / order snapshot at place time",
+      "accounts": "unbundle VAT from food for middo_rest / tax payable reporting"
     },
-    {
-      "id": "bank_sot",
-      "ask": "One Middo bank float vs multi-account? What posts: EPS paid sessions, wallet top-ups, cash→bank deposits, partner payouts from bank?"
+    "bank_sot": {
+      "model": "multi-account (different banks)",
+      "admin": "add / edit / delete bank accounts",
+      "maintainer": "accounts role posts and reconciles",
+      "inflows": ["EPS (online)", "COD → cash handovers / till"],
+      "eps_charges": {
+        "model": "% of transaction by sub-gateway (EPS→bank, EPS→bKash, EPS→Nagad, …)",
+        "accounts": "fee expense / net bank credit must be recorded"
+      }
     },
-    {
-      "id": "cash_bank",
-      "ask": "Does till deposit debit MiddoCashLedger and credit bank (double-entry)? Who may post (accounts|admin)?"
+    "cash_positions": {
+      "poster": "accounts",
+      "buckets": [
+        "cash_at_eps — unsettled / in-gateway float",
+        "cash_receivable_kitchen — kitchen holds Middo cash / transfer pending",
+        "cash_receivable_riders — rider Due / cash bag until Middo handover",
+        "cash_in_hand — MiddoCashLedger till"
+      ],
+      "note": "Not a single till↔bank teleport; positions board + posts between buckets and into bank accounts"
     },
-    {
-      "id": "withdrawals",
-      "ask": "Kitchen/rider withdrawals stay Middo cash debit, or move to bank when bank SoT exists?"
+    "withdrawals": {
+      "request_channels": ["Bank", "bKash", "Nagad", "Cash"],
+      "requesters": ["kitchen", "rider"],
+      "processor": "accounts",
+      "attachments": "optional proof on process"
     },
-    {
-      "id": "pnl_batches",
-      "ask": "Period P&L / kitchen settlement batches in F0 or a later F2?"
-    },
-    {
-      "id": "mandate",
-      "ask": "Who mandates (finance/audit), and what filing or export is required?"
+    "mandate": {
+      "owner": "accounts",
+      "export": "Excel export on finance surfaces"
     }
+  },
+  "open": {
+    "pnl_batches": {
+      "ask": "Period P&L + kitchen settlement batches in F0 or later F2?",
+      "explanation": {
+        "period_pnl": "Report: revenue (food ex-VAT), VAT collected, charges, discounts, kitchen/delivery shares, operating costs, EPS fees, middo_rest — filtered by day/week/month. Read-only analytics for accounts.",
+        "kitchen_settlement_batches": "Workflow: group open kitchen payables into a named batch, approve/pay as one packet (often one bank payout), attach remittance, mark many PartnerPayables settled together. Operational payment packaging — not the same as a P&L report.",
+        "recommendation": "Ship VAT + bank accounts + cash positions + withdrawal channels first. Put period P&L Excel in the same wave if thin. Defer settlement *batches* to F2 unless accounts needs multi-payable remittance packets immediately (single withdrawals already exist)."
+      }
+    }
+  },
+  "suggested_ship_slices": [
+    "F0a — VAT 5% inclusive on food: Settings + order snapshot + money tree / middo_rest aware",
+    "F0b — Middo bank accounts CRUD (admin) + accounts ledger posts; EPS net + sub-gateway fee %",
+    "F0c — Cash positions board (EPS / kitchen recv / rider recv / cash in hand) + accounts posts",
+    "F0d — Withdrawal channel (Bank/bKash/Nagad/Cash) + optional attachment on accounts process",
+    "F0e — Excel export on cash / bank / VAT / positions",
+    "F2 — Period P&L polish + kitchen settlement batches (unless pulled into F0e)"
   ],
-  "ship_only_after": "All of vat + bank_sot + cash_bank answered; then 1–2 surfaces max (e.g. MiddoBankLedger + VAT report).",
   "related": [
     "docs/next-wave-completion-todo.json → F0",
-    "docs/accounts-completion-todo.json → non_goals",
-    "docs/ops-review.json → accounts hub gaps"
+    "docs/accounts-completion-todo.json → non_goals"
   ]
 }
