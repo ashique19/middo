@@ -2,7 +2,7 @@
     <div>
         <h1 class="text-3xl font-bold text-middo-dark">Rider money</h1>
         <p class="text-sm text-gray-500 mt-1">
-            Approve rider payment requests from Middo cash when Due is cleared.
+            Approve rider payment requests (cash till or bank float) when Due is cleared.
             Middo cash: <span class="font-bold text-middo-dark">৳{{ number_format($middoCash) }}</span>
         </p>
     </div>
@@ -16,13 +16,21 @@
 
     <div class="space-y-4">
         @forelse($withdrawals as $w)
-            @php($preview = $previews[$w->id] ?? null)
+            @php
+                $preview = $previews[$w->id] ?? null;
+                $channel = (string) ($w->payout_channel ?: \App\Support\PayoutChannel::CASH);
+                $needsBank = \App\Support\PayoutChannel::usesBankFloat($channel);
+            @endphp
             <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 space-y-3">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <p class="font-mono text-xs text-gray-400">#{{ $w->id }}</p>
                         <p class="font-bold text-middo-dark">{{ $w->rider?->name }}</p>
                         <p class="text-xs text-gray-500">{{ $w->rider?->mobile }}</p>
+                        <p class="mt-2 text-sm">
+                            <span class="font-semibold">{{ $w->payoutChannelLabel() }}</span>
+                            <span class="text-gray-500">· {{ $w->payoutDetailsSummary() }}</span>
+                        </p>
                     </div>
                     <div class="text-right">
                         <p class="text-2xl font-black text-middo-dark">৳{{ number_format($w->amount) }}</p>
@@ -52,18 +60,41 @@
                         </p>
                     @endif
                 @endif
-                <div class="flex justify-end gap-2">
-                    @if($canWriteMoney)
+                @if($canWriteMoney)
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-gray-50">
+                        @if($needsBank)
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-gray-400 mb-1">Pay from bank</label>
+                                <select wire:model="approveBankAccountId.{{ $w->id }}" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                                    <option value="">Select account…</option>
+                                    @foreach($banks as $bank)
+                                        <option value="{{ $bank->id }}">{{ $bank->label() }}</option>
+                                    @endforeach
+                                </select>
+                                @error('approveBankAccountId.'.$w->id) <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                        @endif
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-gray-400 mb-1">Review notes</label>
+                            <input type="text" wire:model="approveReviewNotes.{{ $w->id }}" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="Optional">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-gray-400 mb-1">Proof (optional)</label>
+                            <input type="file" wire:model="approveAttachment.{{ $w->id }}" accept="image/*,.pdf" class="block w-full text-xs">
+                            <div wire:loading wire:target="approveAttachment.{{ $w->id }}" class="text-xs text-gray-500 mt-1">Uploading…</div>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2">
                         <button type="button" wire:click="approveWithdrawal({{ $w->id }})"
-                                wire:confirm="Approve rider withdrawal #{{ $w->id }} and pay from Middo cash?"
+                                wire:confirm="Approve rider withdrawal #{{ $w->id }}?"
                                 @disabled($preview['blocked_by_due'] ?? false)
                                 class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50">Approve</button>
                         <button type="button" wire:click="rejectWithdrawal({{ $w->id }})"
                                 class="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 text-xs font-bold">Reject</button>
-                    @else
-                        <span class="text-xs font-semibold text-gray-400">Awaiting accounts</span>
-                    @endif
-                </div>
+                    </div>
+                @else
+                    <span class="text-xs font-semibold text-gray-400">Awaiting accounts</span>
+                @endif
             </div>
         @empty
             <div class="bg-white border border-gray-100 rounded-2xl p-10 text-center text-gray-400 italic">No pending rider withdrawals.</div>

@@ -14,6 +14,8 @@ class OrderMoneyEvent extends Model
 
     public const TYPE_DISCOUNT = 'discount';
 
+    public const TYPE_VAT = 'vat';
+
     public const TYPE_PAYMENT = 'payment';
 
     public const TYPE_CASH_COLLECTED = 'cash_collected';
@@ -39,6 +41,8 @@ class OrderMoneyEvent extends Model
     public const BUCKET_CHARGE = 'charge';
 
     public const BUCKET_DISCOUNT = 'discount';
+
+    public const BUCKET_VAT = 'vat';
 
     public const BUCKET_CUSTOMER_PAYMENT = 'customer_payment';
 

@@ -5,6 +5,7 @@ namespace App\Livewire\Shared;
 use App\Models\Order;
 use App\Models\OrderMoneyEvent;
 use App\Models\PartnerPayable;
+use App\Support\CodDueRecon;
 use App\Support\MiddoCashLedger;
 use App\Support\StaffPortal;
 use Livewire\Component;
@@ -94,6 +95,7 @@ class AccountsHub extends Component
             ->get();
 
         $prefix = StaffPortal::rolePrefix();
+        $shortCollections = CodDueRecon::openShortCollections(12);
 
         return view('livewire.shared.accounts-hub', [
             'middoCash' => MiddoCashLedger::balance(),
@@ -102,6 +104,7 @@ class AccountsHub extends Component
             'payables' => $payables,
             'recentEvents' => $recentEvents,
             'recentOrders' => $recentOrders,
+            'shortCollections' => $shortCollections,
             'orderShowRoutePrefix' => $prefix,
         ])->layout('layouts.private.app', [
             'title' => 'Accounts',

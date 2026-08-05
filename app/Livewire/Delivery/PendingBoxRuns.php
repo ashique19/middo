@@ -4,6 +4,7 @@ namespace App\Livewire\Delivery;
 
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
+use App\Support\MiddoBoxKitchenActions;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -70,6 +71,21 @@ class PendingBoxRuns extends Component
         }
     }
 
+    public function deliverToWarehouse(int $boxId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        try {
+            $box = MiddoBox::query()->findOrFail($boxId);
+            $delivered = MiddoBoxKitchenActions::deliverToWarehouseByRider($box, (int) Auth::id());
+            $this->statusMessage = "{$delivered->qr_code_id} delivered to Middo warehouse.";
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not deliver box to warehouse.';
+        }
+    }
+
     public function render()
     {
         $riderId = Auth::id();
@@ -86,18 +102,30 @@ class PendingBoxRuns extends Component
             ->orderBy('qr_code_id')
             ->paginate(20);
 
+        $latestActions = MiddoBoxLog::query()
+            ->whereIn('middo_box_id', collect($boxes->items())->pluck('id'))
+            ->orderByDesc('id')
+            ->get()
+            ->unique('middo_box_id')
+            ->keyBy('middo_box_id');
+
         $nodes = collect($boxes->items())
-            ->map(function (MiddoBox $box) {
+            ->map(function (MiddoBox $box) use ($latestActions) {
                 $linkedOrder = $box->orderMiddoBoxes->first()?->order;
                 $destinationKitchen = $box->kitchen
                     ?? $linkedOrder?->orderGroup?->kitchen;
+                $latestAction = $latestActions->get($box->id)?->log_action;
+                $enRouteToWarehouse = $latestAction === 'dispatched_to_warehouse';
 
-                $canHandToKitchen = $box->kitchen_id === null
+                $canHandToKitchen = ! $enRouteToWarehouse
+                    && $box->kitchen_id === null
                     && $linkedOrder !== null
                     && $linkedOrder->orderGroup?->kitchen_id;
 
                 $runLabel = 'With you';
-                if ($box->isIncomingToKitchen()) {
+                if ($enRouteToWarehouse) {
+                    $runLabel = 'Return to Middo warehouse';
+                } elseif ($box->isIncomingToKitchen()) {
                     $runLabel = 'Handed — awaiting kitchen receive';
                 } elseif ($linkedOrder && $linkedOrder->delivery_rider_id && $box->kitchen_id === null) {
                     $runLabel = 'Return to kitchen';
@@ -110,15 +138,16 @@ class PendingBoxRuns extends Component
                     'qr_code_id' => $box->qr_code_id,
                     'model' => str($box->box_model_type)->headline()->toString(),
                     'run_label' => $runLabel,
-                    'kitchen_name' => $destinationKitchen?->name,
-                    'kitchen_mobile' => $destinationKitchen?->mobile,
-                    'kitchen_address' => $destinationKitchen?->address,
+                    'kitchen_name' => $enRouteToWarehouse ? 'Middo warehouse' : $destinationKitchen?->name,
+                    'kitchen_mobile' => $enRouteToWarehouse ? null : $destinationKitchen?->mobile,
+                    'kitchen_address' => $enRouteToWarehouse ? null : $destinationKitchen?->address,
                     'order_id' => $linkedOrder?->id,
                     'menu_name' => $linkedOrder?->menuItem?->name,
                     'customer_name' => $linkedOrder
                         ? $linkedOrder->partyPayload()['customer_name']
                         : null,
                     'can_hand_to_kitchen' => (bool) $canHandToKitchen,
+                    'can_deliver_to_warehouse' => $enRouteToWarehouse,
                 ];
             })
             ->all();

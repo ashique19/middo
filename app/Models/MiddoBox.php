@@ -19,11 +19,13 @@ class MiddoBox extends Model
         'ready_for_pickup',
         'ready_for_pickup_at',
         'total_uses_count',
+        'unit_cost_bdt',
         'last_scanned_at',
     ];
 
     protected $casts = [
         'total_uses_count' => 'integer',
+        'unit_cost_bdt' => 'integer',
         'last_scanned_at' => 'datetime',
         'ready_for_pickup' => 'boolean',
         'ready_for_pickup_at' => 'datetime',
@@ -164,11 +166,12 @@ class MiddoBox extends Model
         return ($maxNumber ?? 0) + 1;
     }
 
-    public static function generateBatch(int $count): void
+    public static function generateBatch(int $count): \Illuminate\Support\Collection
     {
-        DB::transaction(function () use ($count) {
+        return DB::transaction(function () use ($count) {
             $prefix = 'MB-';
             $nextNumber = static::nextQrCodeNumber();
+            $created = collect();
 
             for ($i = 0; $i < $count; $i++) {
                 $box = static::create([
@@ -183,7 +186,44 @@ class MiddoBox extends Model
                     'custody_status' => 'warehouse',
                     'log_action' => 'registered_at_warehouse',
                 ]);
+
+                $created->push($box);
             }
+
+            return $created;
         });
+    }
+
+    public function damagedReportedAt(): ?\Carbon\Carbon
+    {
+        $log = $this->logs()
+            ->whereIn('log_action', ['marked_damaged_at_kitchen', 'returned_damaged_to_warehouse'])
+            ->orderBy('id')
+            ->first();
+
+        return $log?->created_at;
+    }
+
+    public function retiredAt(): ?\Carbon\Carbon
+    {
+        if ($this->asset_status !== 'retired') {
+            return null;
+        }
+
+        $log = $this->logs()
+            ->where('log_action', 'retired_at_warehouse')
+            ->orderByDesc('id')
+            ->first();
+
+        return $log?->created_at ?? $this->updated_at;
+    }
+
+    public function runCount(): int
+    {
+        $fromLogs = (int) $this->logs()
+            ->where('log_action', 'picked_by_delivery_from_kitchen')
+            ->count();
+
+        return max((int) $this->total_uses_count, $fromLogs);
     }
 }

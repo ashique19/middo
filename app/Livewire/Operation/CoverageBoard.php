@@ -31,12 +31,14 @@ class CoverageBoard extends Component
         $gaps = collect($rows)->where('gap', true)->count();
         $demandOrders = collect($rows)->sum('orders');
         $demandQty = collect($rows)->sum('quantity');
+        $agingUnclaimed = (int) collect($rows)->sum('aging_unclaimed');
 
         return view('livewire.operation.coverage-board', [
             'rows' => $rows,
             'gaps' => $gaps,
             'demandOrders' => $demandOrders,
             'demandQty' => $demandQty,
+            'agingUnclaimed' => $agingUnclaimed,
             'rolePrefix' => $this->rolePrefix(),
         ])->layout('layouts.private.app', ['title' => 'Coverage']);
     }

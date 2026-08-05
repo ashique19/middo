@@ -22,6 +22,8 @@ class Order extends Model
         'delivery_time',
         'total_amount',
         'food_amount',
+        'vat_rate_pct',
+        'vat_amount',
         'charges_amount',
         'discount_amount',
         'kitchen_share_amount',
@@ -42,6 +44,7 @@ class Order extends Model
         'coupon_id',
         'dispatched_at',
         'delivery_rider_id',
+        'original_delivery_rider_id',
         'created_by',
         'updated_by',
     ];
@@ -52,6 +55,8 @@ class Order extends Model
         'quantity' => 'integer',
         'total_amount' => 'integer',
         'food_amount' => 'integer',
+        'vat_rate_pct' => 'float',
+        'vat_amount' => 'integer',
         'charges_amount' => 'integer',
         'discount_amount' => 'integer',
         'kitchen_share_amount' => 'integer',
@@ -140,6 +145,11 @@ class Order extends Model
         return $this->belongsTo(User::class, 'delivery_rider_id');
     }
 
+    public function originalDeliveryRider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'original_delivery_rider_id');
+    }
+
     public function isKitchenDispatched(): bool
     {
         return $this->dispatched_at !== null;
@@ -207,6 +217,23 @@ class Order extends Model
     public function amountDue(): int
     {
         return max(0, $this->netTotalAmount() - $this->amountPaidValue());
+    }
+
+    /**
+     * Customer still owes after a short cash collect (cash taken but bill not closed).
+     */
+    public function customerCashShortfallAmount(): int
+    {
+        if ($this->cashCollectedAmount() < 1) {
+            return 0;
+        }
+
+        return $this->amountDue();
+    }
+
+    public function hasCustomerCashShortfall(): bool
+    {
+        return $this->customerCashShortfallAmount() > 0;
     }
 
     public function paymentMethodKey(): ?string

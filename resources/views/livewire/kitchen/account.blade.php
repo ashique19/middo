@@ -104,12 +104,13 @@
     @if($tab === 'withdraw')
         <form wire:submit="requestWithdrawal" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Request withdrawal</h2>
-            <p class="text-sm text-gray-500">Withdraw when Middo owes you (positive balance). Amount must match a FIFO total of whole open payables. Middo pays from cash on approval.</p>
+            <p class="text-sm text-gray-500">Withdraw when Middo owes you (positive balance). Amount must match a FIFO total of whole open payables. Choose Bank / bKash / Nagad / Cash — Middo pays on approval.</p>
             <div>
                 <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Amount (৳)</label>
                 <input type="number" min="1" wire:model="withdrawAmount" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
                 @error('withdrawAmount') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
+            @include('livewire.partials.payout-channel-fields')
             <div>
                 <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Notes</label>
                 <textarea wire:model="withdrawNotes" rows="2" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"></textarea>
@@ -120,11 +121,12 @@
 
     @if($tab === 'withdrawals')
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-            <table class="w-full text-sm min-w-[560px]">
+            <table class="w-full text-sm min-w-[640px]">
                 <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
                     <tr>
                         <th class="p-3 text-left">ID</th>
                         <th class="p-3 text-right">Amount</th>
+                        <th class="p-3 text-left">Channel</th>
                         <th class="p-3 text-left">Status</th>
                         <th class="p-3 text-left">When</th>
                     </tr>
@@ -134,11 +136,15 @@
                         <tr>
                             <td class="p-3 font-mono">#{{ $w->id }}</td>
                             <td class="p-3 text-right font-bold">৳{{ number_format($w->amount) }}</td>
+                            <td class="p-3">
+                                <div class="font-semibold">{{ $w->payoutChannelLabel() }}</div>
+                                <div class="text-xs text-gray-500">{{ $w->payoutDetailsSummary() }}</div>
+                            </td>
                             <td class="p-3 capitalize">{{ $w->status }}</td>
                             <td class="p-3 text-gray-500">{{ $w->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="p-8 text-center text-gray-400 italic">No withdrawal requests yet.</td></tr>
+                        <tr><td colspan="5" class="p-8 text-center text-gray-400 italic">No withdrawal requests yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>

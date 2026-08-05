@@ -123,6 +123,45 @@
         </div>
     </div>
 
+    @if(count($shortCollections) > 0)
+        <div class="rounded-2xl border border-rose-100 bg-white shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-rose-50 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h2 class="text-lg font-bold text-rose-900">Short cash collections</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Customer residual after partial COD — follow up via second cash or online link.</p>
+                </div>
+                <a href="{{ route($orderShowRoutePrefix.'.cod-recon.index') }}" class="text-xs font-bold text-middo-orange hover:underline">COD recon →</a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-rose-50/50 text-xs uppercase text-rose-800 font-semibold">
+                        <tr>
+                            <th class="p-3 text-left">Order</th>
+                            <th class="p-3 text-left">Rider</th>
+                            <th class="p-3 text-left">Corporate</th>
+                            <th class="p-3 text-right">Collected</th>
+                            <th class="p-3 text-right">Shortfall</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        @foreach($shortCollections as $row)
+                            <tr>
+                                <td class="p-3">
+                                    <a href="{{ route($orderShowRoutePrefix.'.orders.show', $row['id']) }}?lens=middo" class="font-mono font-bold text-middo-orange hover:underline">#{{ $row['id'] }}</a>
+                                    <div class="text-xs text-gray-500">{{ $row['menu'] }} · {{ $row['delivery_date'] }}</div>
+                                </td>
+                                <td class="p-3">{{ $row['rider'] }}</td>
+                                <td class="p-3">{{ $row['corporate'] }}</td>
+                                <td class="p-3 text-right font-mono">৳{{ number_format($row['collected']) }}</td>
+                                <td class="p-3 text-right font-mono font-bold text-rose-800">৳{{ number_format($row['shortfall']) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+
     <div class="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
         <div class="px-5 py-4 border-b border-gray-50">
             <h2 class="text-lg font-bold text-middo-dark">Orders with money activity</h2>
@@ -173,11 +212,11 @@
         </ul>
         <p class="font-bold text-gray-800 pt-2">Also manage here (roadmap)</p>
         <ul class="list-disc pl-5 space-y-1 text-xs">
-            <li>Bank / EPS ledger separate from Middo cash (online collections, top-ups, payouts)</li>
-            <li>Coupon & discount audit tied to each order’s billing branch</li>
+            <li>Bank / EPS ledger — F0b: multi bank accounts + EPS net credits (fee % by sub-gateway in Settings)</li>
+            <li>Cash positions — F0c: EPS / kitchen recv / rider Due / till board + till→bank deposit</li>
             <li>Period P&amp;L (day/week/month) and kitchen settlement batches</li>
-            <li>VAT/tax lines and supplier / packaging purchase costs</li>
-            <li>Corporate credit / invoice aging for billed accounts</li>
+            <li>Coupon &amp; discount audit tied to each order’s billing branch</li>
+            <li>Supplier / packaging purchase costs; corporate credit / invoice aging</li>
         </ul>
     </div>
 </div>

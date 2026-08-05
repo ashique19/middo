@@ -3,6 +3,7 @@
 namespace App\Livewire\Corporate;
 
 use App\Models\MiddoBox;
+use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -48,10 +49,16 @@ class MiddoBoxesCustodyModal extends Component
             return;
         }
 
+        $wasReady = (bool) $box->ready_for_pickup;
+
         $box->update([
             'ready_for_pickup' => true,
             'ready_for_pickup_at' => now(),
         ]);
+
+        if (! $wasReady) {
+            StaffAlerts::notifyRidersEmptyBoxPickup($box->fresh());
+        }
 
         $this->loadBoxes();
         $this->dispatch('box-marked-ready', boxId: $boxId);

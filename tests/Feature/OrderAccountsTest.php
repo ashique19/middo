@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Support\KitchenAccountLedger;
 use App\Support\MiddoCashLedger;
 use App\Support\OrderMoneyFlow;
+use App\Support\RiderAccountLedger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -151,7 +152,7 @@ class OrderAccountsTest extends TestCase
             'delivery_rider_id' => $rider->id,
             'updated_by' => $rider->id,
         ]);
-        \App\Support\OrderMoneyFlow::accrueDeliveryShareOnRunStart($order->fresh(['menuItem', 'orderGroup']), $rider);
+        OrderMoneyFlow::accrueDeliveryShareOnRunStart($order->fresh(['menuItem', 'orderGroup']), $rider);
 
         $this->assertDatabaseHas('partner_payables', [
             'order_id' => $order->id,
@@ -159,7 +160,7 @@ class OrderAccountsTest extends TestCase
             'amount' => 50,
             'status' => 'open',
         ]);
-        $this->assertSame(50, \App\Support\RiderAccountLedger::balance($rider->id));
+        $this->assertSame(50, RiderAccountLedger::balance($rider->id));
         $this->assertSame(1, OrderMoneyEvent::query()
             ->where('order_id', $order->id)
             ->where('event_type', 'delivery_share')
@@ -177,11 +178,12 @@ class OrderAccountsTest extends TestCase
             ->where('order_id', $order->id)
             ->where('event_type', 'delivery_share')
             ->count());
-        $this->assertSame(50, \App\Support\RiderAccountLedger::balance($rider->id));
+        $this->assertSame(50, RiderAccountLedger::balance($rider->id));
         $this->assertSame(100, KitchenAccountLedger::balance($kitchen->id));
 
         $order->refresh();
-        $this->assertSame(250, (int) $order->middo_rest_amount); // 400 - 100 - 50
+        $this->assertSame(231, (int) $order->middo_rest_amount); // 400 - 19 VAT - 100 - 50
+        $this->assertSame(19, (int) $order->vat_amount);
         $this->assertTrue(OrderMoneyEvent::query()->where('order_id', $order->id)->where('event_type', 'cash_collected')->exists());
         $this->assertTrue(OrderMoneyEvent::query()->where('order_id', $order->id)->where('event_type', 'middo_rest')->exists());
     }

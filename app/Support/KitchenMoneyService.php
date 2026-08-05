@@ -3,19 +3,46 @@
 namespace App\Support;
 
 use App\Models\KitchenMiddoTransfer;
+use App\Models\KitchenSettlementBatch;
+use App\Models\KitchenSettlementBatchItem;
 use App\Models\KitchenWithdrawalRequest;
 use App\Models\PartnerPayable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 class KitchenMoneyService
 {
     /**
-     * Approve a kitchen withdrawal: settle FIFO open payables (whole rows),
-     * debit Middo cash once, debit kitchen receivable ledger once.
+     * Payable IDs reserved on a pending settlement batch (cannot withdraw or re-batch).
+     *
+     * @return list<int>
      */
-    public static function approveWithdrawal(KitchenWithdrawalRequest $request, int $actorId, ?string $reviewNotes = null): KitchenWithdrawalRequest
+    public static function reservedPayableIds(?int $kitchenUserId = null): array
     {
-        return DB::transaction(function () use ($request, $actorId, $reviewNotes) {
+        $query = KitchenSettlementBatchItem::query()
+            ->whereHas('batch', function ($q) use ($kitchenUserId) {
+                $q->where('status', KitchenSettlementBatch::STATUS_PENDING);
+                if ($kitchenUserId) {
+                    $q->where('kitchen_user_id', $kitchenUserId);
+                }
+            });
+
+        return $query->pluck('partner_payable_id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /**
+     * Approve a kitchen withdrawal: settle FIFO open payables (whole rows),
+     * debit Middo cash or bank once, debit kitchen receivable ledger once.
+     *
+     * @param  array{bank_account_id?: ?int, attachment?: ?UploadedFile}  $options
+     */
+    public static function approveWithdrawal(
+        KitchenWithdrawalRequest $request,
+        int $actorId,
+        ?string $reviewNotes = null,
+        array $options = [],
+    ): KitchenWithdrawalRequest {
+        return DB::transaction(function () use ($request, $actorId, $reviewNotes, $options) {
             /** @var KitchenWithdrawalRequest $locked */
             $locked = KitchenWithdrawalRequest::query()->whereKey($request->id)->lockForUpdate()->firstOrFail();
             if (! $locked->isPending()) {
@@ -29,10 +56,12 @@ class KitchenMoneyService
                 throw new \RuntimeException('Kitchen receivable is lower than the requested withdrawal.');
             }
 
+            $reserved = self::reservedPayableIds($kitchenId);
             $open = PartnerPayable::query()
                 ->where('beneficiary_role', PartnerPayable::ROLE_KITCHEN)
                 ->where('beneficiary_user_id', $kitchenId)
                 ->where('status', PartnerPayable::STATUS_OPEN)
+                ->when($reserved !== [], fn ($q) => $q->whereNotIn('id', $reserved))
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
@@ -61,13 +90,17 @@ class KitchenMoneyService
                 ]);
             }
 
-            $middoEntry = MiddoCashLedger::debit(
+            $channel = (string) ($locked->payout_channel ?: PayoutChannel::CASH);
+            $payout = WithdrawalPayout::debitMiddoFloat(
+                $channel,
                 $paid,
-                'kitchen_withdrawal_paid',
                 KitchenWithdrawalRequest::class,
-                $locked->id,
+                (int) $locked->id,
                 "Kitchen withdrawal #{$locked->id} paid",
-                $actorId
+                $actorId,
+                isset($options['bank_account_id']) ? (int) $options['bank_account_id'] : null,
+                $options['attachment'] ?? null,
+                'kitchen_withdrawal_paid',
             );
 
             $kitchenEntry = KitchenAccountLedger::debit(
@@ -86,8 +119,11 @@ class KitchenMoneyService
                 'reviewed_by' => $actorId,
                 'reviewed_at' => now(),
                 'review_notes' => $reviewNotes,
+                'attachment_path' => $payout['attachment_path'],
                 'kitchen_ledger_entry_id' => $kitchenEntry->id,
-                'middo_cash_ledger_entry_id' => $middoEntry->id,
+                'middo_cash_ledger_entry_id' => $payout['cash_entry_id'],
+                'middo_bank_account_id' => $payout['bank_account_id'],
+                'middo_bank_ledger_entry_id' => $payout['bank_entry_id'],
             ]);
 
             return $locked->fresh();
@@ -108,10 +144,12 @@ class KitchenMoneyService
     {
         $kitchenId = (int) $request->kitchen_user_id;
         $requested = (int) $request->amount;
+        $reserved = self::reservedPayableIds($kitchenId);
         $open = PartnerPayable::query()
             ->where('beneficiary_role', PartnerPayable::ROLE_KITCHEN)
             ->where('beneficiary_user_id', $kitchenId)
             ->where('status', PartnerPayable::STATUS_OPEN)
+            ->when($reserved !== [], fn ($q) => $q->whereNotIn('id', $reserved))
             ->orderBy('id')
             ->get();
 
@@ -137,6 +175,188 @@ class KitchenMoneyService
             'fifo_fit_total' => $fifoFit,
             'fifo_ok' => $fifoFit >= 1 && $fifoFit <= $requested,
         ];
+    }
+
+    /**
+     * @param  list<int>  $payableIds
+     * @param  array<string, mixed>  $payoutDetails
+     */
+    public static function createSettlementBatch(
+        int $kitchenUserId,
+        string $name,
+        array $payableIds,
+        string $payoutChannel,
+        array $payoutDetails,
+        int $actorId,
+        ?string $notes = null,
+    ): KitchenSettlementBatch {
+        $name = trim($name);
+        if ($name === '') {
+            throw new \InvalidArgumentException('Batch name is required.');
+        }
+
+        $payableIds = array_values(array_unique(array_map('intval', $payableIds)));
+        if ($payableIds === []) {
+            throw new \InvalidArgumentException('Select at least one open payable.');
+        }
+
+        PayoutChannel::assertValid($payoutChannel, $payoutDetails);
+        $details = PayoutChannel::normalizeDetails($payoutChannel, $payoutDetails);
+
+        return DB::transaction(function () use ($kitchenUserId, $name, $payableIds, $payoutChannel, $details, $actorId, $notes) {
+            $reserved = self::reservedPayableIds();
+            $payables = PartnerPayable::query()
+                ->whereIn('id', $payableIds)
+                ->where('beneficiary_role', PartnerPayable::ROLE_KITCHEN)
+                ->where('beneficiary_user_id', $kitchenUserId)
+                ->where('status', PartnerPayable::STATUS_OPEN)
+                ->when($reserved !== [], fn ($q) => $q->whereNotIn('id', $reserved))
+                ->lockForUpdate()
+                ->get();
+
+            if ($payables->count() !== count($payableIds)) {
+                throw new \RuntimeException('One or more payables are missing, settled, or already in a pending batch.');
+            }
+
+            $amount = (int) $payables->sum('amount');
+            if ($amount < 1) {
+                throw new \RuntimeException('Batch amount must be positive.');
+            }
+
+            $balance = KitchenAccountLedger::balance($kitchenUserId);
+            if ($amount > $balance) {
+                throw new \RuntimeException('Kitchen receivable is lower than the batch total.');
+            }
+
+            $batch = KitchenSettlementBatch::query()->create([
+                'name' => $name,
+                'kitchen_user_id' => $kitchenUserId,
+                'amount' => $amount,
+                'status' => KitchenSettlementBatch::STATUS_PENDING,
+                'payout_channel' => $payoutChannel,
+                'payout_details' => $details ?: null,
+                'notes' => $notes,
+                'created_by' => $actorId,
+            ]);
+
+            foreach ($payables as $payable) {
+                KitchenSettlementBatchItem::query()->create([
+                    'kitchen_settlement_batch_id' => $batch->id,
+                    'partner_payable_id' => $payable->id,
+                    'amount' => (int) $payable->amount,
+                ]);
+            }
+
+            return $batch->fresh(['items']);
+        });
+    }
+
+    /**
+     * @param  array{bank_account_id?: ?int, attachment?: ?UploadedFile}  $options
+     */
+    public static function approveSettlementBatch(
+        KitchenSettlementBatch $batch,
+        int $actorId,
+        ?string $reviewNotes = null,
+        array $options = [],
+    ): KitchenSettlementBatch {
+        return DB::transaction(function () use ($batch, $actorId, $reviewNotes, $options) {
+            /** @var KitchenSettlementBatch $locked */
+            $locked = KitchenSettlementBatch::query()->whereKey($batch->id)->lockForUpdate()->firstOrFail();
+            if (! $locked->isPending()) {
+                throw new \RuntimeException('Settlement batch is not pending.');
+            }
+
+            $locked->load(['items']);
+            $kitchenId = (int) $locked->kitchen_user_id;
+            $amount = (int) $locked->amount;
+            $balance = KitchenAccountLedger::balance($kitchenId);
+            if ($amount > $balance) {
+                throw new \RuntimeException('Kitchen receivable is lower than the batch total.');
+            }
+
+            $payableIds = $locked->items->pluck('partner_payable_id')->map(fn ($id) => (int) $id)->all();
+            $payables = PartnerPayable::query()
+                ->whereIn('id', $payableIds)
+                ->where('beneficiary_role', PartnerPayable::ROLE_KITCHEN)
+                ->where('beneficiary_user_id', $kitchenId)
+                ->where('status', PartnerPayable::STATUS_OPEN)
+                ->lockForUpdate()
+                ->get();
+
+            if ($payables->count() !== count($payableIds)) {
+                throw new \RuntimeException('Batch payables are no longer all open. Reject and rebuild the batch.');
+            }
+
+            foreach ($payables as $payable) {
+                OrderMoneyFlow::settlePayable($payable, $actorId, 'Kitchen settlement batch #'.$locked->id, [
+                    'debit_middo' => false,
+                    'debit_kitchen_ledger' => false,
+                ]);
+            }
+
+            $channel = (string) ($locked->payout_channel ?: PayoutChannel::CASH);
+            $payout = WithdrawalPayout::debitMiddoFloat(
+                $channel,
+                $amount,
+                KitchenSettlementBatch::class,
+                (int) $locked->id,
+                "Kitchen settlement batch #{$locked->id} paid",
+                $actorId,
+                isset($options['bank_account_id']) ? (int) $options['bank_account_id'] : null,
+                $options['attachment'] ?? null,
+                'kitchen_settlement_paid',
+            );
+
+            $kitchenEntry = KitchenAccountLedger::debit(
+                $kitchenId,
+                $amount,
+                'settlement_batch_paid',
+                KitchenSettlementBatch::class,
+                $locked->id,
+                "Settlement batch #{$locked->id} approved",
+                $actorId
+            );
+
+            $locked->update([
+                'status' => KitchenSettlementBatch::STATUS_APPROVED,
+                'reviewed_by' => $actorId,
+                'reviewed_at' => now(),
+                'review_notes' => $reviewNotes,
+                'attachment_path' => $payout['attachment_path'],
+                'kitchen_ledger_entry_id' => $kitchenEntry->id,
+                'middo_cash_ledger_entry_id' => $payout['cash_entry_id'],
+                'middo_bank_account_id' => $payout['bank_account_id'],
+                'middo_bank_ledger_entry_id' => $payout['bank_entry_id'],
+            ]);
+
+            return $locked->fresh(['items']);
+        });
+    }
+
+    public static function rejectSettlementBatch(
+        KitchenSettlementBatch $batch,
+        int $actorId,
+        ?string $reviewNotes = null,
+    ): KitchenSettlementBatch {
+        if (! $batch->isPending()) {
+            throw new \RuntimeException('Settlement batch is not pending.');
+        }
+
+        $batch->update([
+            'status' => KitchenSettlementBatch::STATUS_REJECTED,
+            'reviewed_by' => $actorId,
+            'reviewed_at' => now(),
+            'review_notes' => $reviewNotes,
+        ]);
+
+        // Items stay for audit; unique partner_payable_id blocks re-attach while row exists.
+        // Delete items so payables can enter a new batch or withdrawal FIFO.
+        KitchenSettlementBatchItem::query()
+            ->where('kitchen_settlement_batch_id', $batch->id)
+            ->delete();
+
+        return $batch->fresh();
     }
 
     public static function rejectWithdrawal(KitchenWithdrawalRequest $request, int $actorId, ?string $reviewNotes = null): KitchenWithdrawalRequest

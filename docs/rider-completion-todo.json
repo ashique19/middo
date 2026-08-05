@@ -609,20 +609,37 @@
     "Native iOS/Android rider app (later — reuse R5 IA)"
   ],
   "parked_next_wave_agreed_2026_08_04": {
-    "status": "parked — N0/N1 sequenced in docs/next-wave-completion-todo.json (v2)",
+    "status": "cleared for core next-wave — N0–N5 shipped; F0/F1 remain low/deferred",
     "deferred_product": [
-      "R2.3 kitchen→ops box rider leg (settings rate ready; kitchen sendToWarehouse is direct today)",
       "Native rider app (reuse R5 IA)"
     ],
     "worth_building_next": [
-      "Rider shifts / availability — ESSENTIAL (see next-wave N1)",
-      "Failed delivery / reassign / release after accept (commission accrued at start; unwind only on cancel today)",
-      "Aging unclaimed lunch dispatches + coverage gaps (no rider SLA mirror of kitchen deadlines)",
-      "COD reconciliation report (day × rider × collected / Due / handed / accepted)",
-      "Box/ops run StaffAlerts (ops→kitchen assign, empty-box pickup — lunch/custom only today)",
-      "Partial / short cash collection (confirmCashPayment is full amountDue only)",
-      "Handover reject / amount dispute (kitchen or Middo — accept-only today)",
-      "Ops live who-holds-what board (lunch in transit + box custody + custom started)"
+      "Accounts finance stretch (F0) — scoped deferred; see docs/f0-finance-decisions.json"
+    ],
+    "closed_by_n0": [
+      "COD reconciliation report → O3 CodDueReconPage + accounts portal",
+      "Handover reject / amount dispute → A2 dual-control (ops propose → accounts confirm); kitchen reject immediate",
+      "Ops live who-holds-what board → O4 RidersBoard (N1 extended with shift + mid-run reassign)"
+    ],
+    "shipped_n1": [
+      "Rider shifts / availability (on / off / unable)",
+      "Ops-mediated mid-run parcel reassign (starter keeps commission; optional rescue ৳; no peer Due transfer)",
+      "Failed delivery / release remains OrderOpsForce::releaseRiderToPacked"
+    ],
+    "shipped_n2": [
+      "Aging unclaimed packed list + RiderAcceptSla on RidersBoard",
+      "Coverage board unclaimed/aging + on-shift rider columns"
+    ],
+    "shipped_n3": [
+      "Partial / short cash collection with residual customer due",
+      "Accounts CodDueRecon + Hub shortfall visibility"
+    ],
+    "shipped_n4": [
+      "Ops→kitchen box assign StaffAlerts (rider + kitchen)",
+      "Empty-box ready-for-pickup StaffAlerts to area riders"
+    ],
+    "shipped_n5": [
+      "Optional kitchen→ops via rider (Settings toggle; books KITCHEN_TO_OPS; rider deliver to warehouse)"
     ],
     "nice_to_have": [
       "POD / photo / delivery OTP",
