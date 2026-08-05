@@ -14,6 +14,8 @@ class MiddoSettings
 
     public const KEY_AUTO_GROUP_QUANTITY = 'meal.auto_group_quantity';
 
+    public const KEY_MID_RUN_RESCUE = 'delivery.commission.mid_run_rescue';
+
     protected static function tierDefaultKey(string $tier): string
     {
         return 'kitchen.tier_defaults.'.KitchenTier::normalize($tier).'.allowed_open_groups';
@@ -130,7 +132,18 @@ class MiddoSettings
     }
 
     /**
-     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>}  $payload
+     * Optional ৳ paid to rescue rider B on mid-run reassign (default 0 — no double lunch commission).
+     */
+    public static function midRunRescueCommission(): int
+    {
+        return max(0, (int) self::get(
+            self::KEY_MID_RUN_RESCUE,
+            config('middo.delivery_commission_defaults.mid_run_rescue', 0)
+        ));
+    }
+
+    /**
+     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int}  $payload
      */
     public static function updateMealAndKitchenDefaults(array $payload): void
     {
@@ -168,6 +181,10 @@ class MiddoSettings
                     max(0, (int) $payload['delivery_commissions'][$type])
                 );
             }
+        }
+
+        if (array_key_exists('mid_run_rescue_commission', $payload)) {
+            self::set(self::KEY_MID_RUN_RESCUE, max(0, (int) $payload['mid_run_rescue_commission']));
         }
     }
 

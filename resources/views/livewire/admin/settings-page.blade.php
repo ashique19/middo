@@ -115,6 +115,13 @@
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('commission_custom') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Mid-run rescue (optional)</label>
+                    <input type="number" min="0" wire:model="commission_mid_run_rescue"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    <p class="text-[11px] text-gray-400 mt-1">Paid to rescue rider B only. Starter keeps lunch commission. Default ৳0.</p>
+                    @error('commission_mid_run_rescue') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
             </div>
         </section>
 

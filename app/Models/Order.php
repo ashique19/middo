@@ -42,6 +42,7 @@ class Order extends Model
         'coupon_id',
         'dispatched_at',
         'delivery_rider_id',
+        'original_delivery_rider_id',
         'created_by',
         'updated_by',
     ];
@@ -138,6 +139,11 @@ class Order extends Model
     public function deliveryRider(): BelongsTo
     {
         return $this->belongsTo(User::class, 'delivery_rider_id');
+    }
+
+    public function originalDeliveryRider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'original_delivery_rider_id');
     }
 
     public function isKitchenDispatched(): bool

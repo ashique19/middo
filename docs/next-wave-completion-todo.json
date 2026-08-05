@@ -8,7 +8,7 @@
     "ops_clear_gate": "cleared (docs/ops-clear-gate.json)",
     "kitchen": "K0–K6 done",
     "rider_core": "R0–R* core phases done; parked_next_wave still open",
-    "main_tip": "5139fae"
+    "main_tip": "473204e"
   },
   "sources": [
     "docs/rider-completion-todo.json → parked_next_wave_agreed_2026_08_04",
@@ -33,33 +33,47 @@
     {
       "id": "N0",
       "title": "Reconcile parked rider items already covered by ops/accounts",
-      "status": "pending",
-      "note": "Audit + close or thin-docs before building duplicates",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "note": "Closed duplicates; remaining parked items stay sequenced as N2+",
       "items": [
         {
           "parked": "COD reconciliation report",
           "likely_covered_by": "O3 CodDueReconPage + accounts portal",
-          "action": "Mark done in rider parked list or list remaining gaps"
+          "action": "closed — covered by O3 / accounts; no rider duplicate",
+          "resolution": "done"
         },
         {
           "parked": "Handover reject / amount dispute",
           "likely_covered_by": "A2 ops propose → accounts confirm (Middo Due); kitchen reject still immediate",
-          "action": "Confirm kitchen-target reject UX is enough; document dual-control"
+          "action": "closed — kitchen immediate reject + Middo dual-control documented",
+          "resolution": "done"
         },
         {
           "parked": "Ops live who-holds-what board",
           "likely_covered_by": "O4 RidersBoard (lunch / boxes / custom)",
-          "action": "Gap-check vs parked wording; close or extend"
+          "action": "closed — O4 board is the who-holds-what surface (extended in N1 with shift + mid-run reassign)",
+          "resolution": "done"
         }
       ]
     },
     {
       "id": "N1",
       "title": "Rider shifts + mid-run reassign / failed delivery",
-      "status": "pending",
+      "status": "done",
+      "done_at": "2026-08-05",
       "priority": "essential",
       "owner_hint": "ops + rider (+ accounts if Due custody moves)",
       "policy": "see decided_2026_08_05.mid_run_emergency_transfer",
+      "shipped": [
+        "users.rider_shift_status (on / off / unable) + rider dashboard toggle",
+        "Accept/start gated while off or unable",
+        "OpsRiderMidRunReassign: boxes A→B, starter keeps payable, no cash peer transfer; blocked after cash_collected",
+        "RidersBoard on_the_way mid-run reassign modal",
+        "orders.original_delivery_rider_id",
+        "Optional Settings mid-run rescue ৳ (default 0) via MiddoOperatingCosts",
+        "Ops release-to-packed remains the void/failed path (OrderOpsForce)"
+      ],
       "items": [
         "Rider shift / availability (on shift, off shift, unable to continue)",
         "Ops-mediated parcel/custody reassign after accept (A → B)",
@@ -159,5 +173,5 @@
     "Insurance / float deposits (unless finance mandates)",
     "Kitchen-style capacity slots for riders"
   ],
-  "recommended_start": "N0 → N1 (shifts + mid-run reassign with locked commission/Due policy) → N2"
+  "recommended_start": "N2 (aging unclaimed + coverage SLA) — N0/N1 done"
 }

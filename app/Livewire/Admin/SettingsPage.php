@@ -29,6 +29,8 @@ class SettingsPage extends Component
 
     public int $commission_custom = 40;
 
+    public int $commission_mid_run_rescue = 0;
+
     public string $statusMessage = '';
 
     public string $errorMessage = '';
@@ -53,6 +55,7 @@ class SettingsPage extends Component
         $this->commission_kitchen_to_ops = $commissions[DeliveryRunType::KITCHEN_TO_OPS];
         $this->commission_ops_to_kitchen = $commissions[DeliveryRunType::OPS_TO_KITCHEN];
         $this->commission_custom = $commissions[DeliveryRunType::CUSTOM];
+        $this->commission_mid_run_rescue = MiddoSettings::midRunRescueCommission();
     }
 
     public function save(): void
@@ -71,6 +74,7 @@ class SettingsPage extends Component
             'commission_kitchen_to_ops' => 'required|integer|min:0|max:100000',
             'commission_ops_to_kitchen' => 'required|integer|min:0|max:100000',
             'commission_custom' => 'required|integer|min:0|max:100000',
+            'commission_mid_run_rescue' => 'required|integer|min:0|max:100000',
         ]);
 
         MiddoSettings::updateMealAndKitchenDefaults([
@@ -88,6 +92,7 @@ class SettingsPage extends Component
                 DeliveryRunType::OPS_TO_KITCHEN => $this->commission_ops_to_kitchen,
                 DeliveryRunType::CUSTOM => $this->commission_custom,
             ],
+            'mid_run_rescue_commission' => $this->commission_mid_run_rescue,
         ]);
 
         $this->loadFromSettings();

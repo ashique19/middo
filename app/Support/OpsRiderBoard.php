@@ -73,6 +73,8 @@ class OpsRiderBoard
                     'id' => $rider->id,
                     'name' => $rider->name,
                     'mobile' => $rider->mobile,
+                    'shift' => RiderShift::normalize($rider->rider_shift_status ?? null),
+                    'shift_label' => RiderShift::label($rider->rider_shift_status ?? null),
                     'areas' => $rider->areas->pluck('name')->filter()->values()->all(),
                     'due_float' => (int) $rider->balance,
                     'wallet' => RiderAccountLedger::balance((int) $rider->id),
@@ -136,6 +138,8 @@ class OpsRiderBoard
                 'delivery_time' => $order->delivery_time,
                 'rider_id' => $order->delivery_rider_id,
                 'rider' => $order->deliveryRider?->name ?? '—',
+                'original_rider_id' => $order->original_delivery_rider_id,
+                'cash_collected' => (int) ($order->cash_collected ?? 0),
                 'kitchen' => $order->orderGroup?->kitchenDisplayName() ?? '—',
                 'corporate' => $order->user?->company_name
                     ?: trim(($order->user?->first_name ?? '').' '.($order->user?->last_name ?? '')),

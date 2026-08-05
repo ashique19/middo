@@ -93,6 +93,7 @@ return [
         'kitchen_to_ops' => (int) env('DELIVERY_COMMISSION_KITCHEN_TO_OPS', 25),
         'ops_to_kitchen' => (int) env('DELIVERY_COMMISSION_OPS_TO_KITCHEN', 25),
         'custom' => (int) env('DELIVERY_COMMISSION_CUSTOM', 40),
+        'mid_run_rescue' => (int) env('DELIVERY_COMMISSION_MID_RUN_RESCUE', 0),
     ],
 
     /*

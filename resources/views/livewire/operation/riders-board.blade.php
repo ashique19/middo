@@ -60,6 +60,7 @@
                     <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
                         <tr>
                             <th class="p-3 text-left">Rider</th>
+                            <th class="p-3 text-left">Shift</th>
                             <th class="p-3 text-left">Areas</th>
                             <th class="p-3 text-right">Due float</th>
                             <th class="p-3 text-right">Wallet</th>
@@ -76,6 +77,14 @@
                                     <div class="font-semibold">{{ $row['name'] }}</div>
                                     <div class="text-xs text-gray-500">{{ $row['mobile'] }}</div>
                                 </td>
+                                <td class="p-3">
+                                    <span @class([
+                                        'text-xs font-bold',
+                                        'text-emerald-700' => $row['shift'] === 'on',
+                                        'text-gray-500' => $row['shift'] === 'off',
+                                        'text-amber-700' => $row['shift'] === 'unable',
+                                    ])>{{ $row['shift_label'] }}</span>
+                                </td>
                                 <td class="p-3 text-xs text-gray-600">{{ $row['areas'] ? implode(', ', $row['areas']) : '—' }}</td>
                                 <td class="p-3 text-right font-mono {{ $row['due_float'] > 0 ? 'text-amber-800 font-bold' : '' }}">৳{{ number_format($row['due_float']) }}</td>
                                 <td class="p-3 text-right font-mono">৳{{ number_format($row['wallet']) }}</td>
@@ -87,7 +96,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="p-10 text-center text-gray-400 italic">No active riders.</td></tr>
+                            <tr><td colspan="9" class="p-10 text-center text-gray-400 italic">No active riders.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -131,7 +140,7 @@
     @elseif($tab === 'on_the_way')
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full text-sm min-w-[800px]">
+                <table class="w-full text-sm min-w-[900px]">
                     <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
                         <tr>
                             <th class="p-3 text-left">Order</th>
@@ -139,6 +148,7 @@
                             <th class="p-3 text-left">Kitchen</th>
                             <th class="p-3 text-left">When</th>
                             <th class="p-3 text-left">Corporate</th>
+                            <th class="p-3 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y">
@@ -154,18 +164,50 @@
                                     @else
                                         {{ $row['rider'] }}
                                     @endif
+                                    @if($row['original_rider_id'] && $row['original_rider_id'] !== $row['rider_id'])
+                                        <div class="text-[10px] text-gray-400">Starter #{{ $row['original_rider_id'] }}</div>
+                                    @endif
                                 </td>
                                 <td class="p-3">{{ $row['kitchen'] }}</td>
                                 <td class="p-3 font-mono text-xs">{{ $row['delivery_date'] }} · {{ $row['delivery_time'] }}</td>
                                 <td class="p-3">{{ $row['corporate'] }}</td>
+                                <td class="p-3 text-right">
+                                    @if($row['cash_collected'] < 1)
+                                        <button type="button" wire:click="openOrderReassign({{ $row['id'] }})"
+                                            class="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700">Reassign</button>
+                                    @else
+                                        <span class="text-[10px] text-amber-700 font-semibold">Cash held</span>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="p-10 text-center text-gray-400 italic">No lunch runs in transit.</td></tr>
+                            <tr><td colspan="6" class="p-10 text-center text-gray-400 italic">No lunch runs in transit.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
         </div>
+
+        @if($reassignOrderId)
+            <div class="fixed inset-0 bg-gray-900/50 flex items-center justify-center p-4 z-50">
+                <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+                    <h3 class="text-lg font-bold text-middo-dark">Mid-run reassign order #{{ $reassignOrderId }}</h3>
+                    <p class="text-xs text-gray-500">Moves boxes to the rescue rider. Starter keeps lunch commission. Due/cash does not peer-transfer.</p>
+                    <select wire:model="reassignOrderRiderId" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        <option value="">Select rescue rider</option>
+                        @foreach($riderOptions as $rider)
+                            <option value="{{ $rider->id }}">{{ $rider->name }} · {{ $rider->mobile }} · {{ \App\Support\RiderShift::label($rider->rider_shift_status ?? null) }}</option>
+                        @endforeach
+                    </select>
+                    <input type="text" wire:model="reassignOrderReason" placeholder="Reason (optional)"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <div class="flex justify-end gap-2">
+                        <button type="button" wire:click="cancelOrderReassign" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold">Cancel</button>
+                        <button type="button" wire:click="confirmOrderReassign" class="px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold">Reassign</button>
+                    </div>
+                </div>
+            </div>
+        @endif
     @elseif($tab === 'boxes')
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
             <div class="overflow-x-auto">

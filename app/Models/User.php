@@ -24,6 +24,7 @@ use Laravel\Sanctum\HasApiTokens;
     'password',
     'role_id',
     'status',
+    'rider_shift_status',
     'kitchen_tier',
     'allowed_open_groups',
     'is_mobile_verified',
@@ -79,6 +80,16 @@ class User extends Authenticatable
     public function isDelivery(): bool
     {
         return $this->role?->name === 'delivery';
+    }
+
+    public function riderShiftStatus(): string
+    {
+        return \App\Support\RiderShift::normalize($this->rider_shift_status ?? null);
+    }
+
+    public function canAcceptNewRuns(): bool
+    {
+        return $this->isDelivery() && \App\Support\RiderShift::canAcceptNewRuns($this->rider_shift_status ?? null);
     }
 
     /**
