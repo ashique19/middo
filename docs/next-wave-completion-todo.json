@@ -1,6 +1,6 @@
 {
   "title": "Post clear — next-wave backlog",
-  "version": 1,
+  "version": 2,
   "updated": "2026-08-05",
   "checkpoint": {
     "ops": "O0–O9 done (docs/ops-completion-todo.json)",
@@ -8,7 +8,7 @@
     "ops_clear_gate": "cleared (docs/ops-clear-gate.json)",
     "kitchen": "K0–K6 done",
     "rider_core": "R0–R* core phases done; parked_next_wave still open",
-    "main_tip": "d1fff21"
+    "main_tip": "5139fae"
   },
   "sources": [
     "docs/rider-completion-todo.json → parked_next_wave_agreed_2026_08_04",
@@ -16,6 +16,18 @@
     "docs/ops-review.json → out_of_scope_candidates_for_debate",
     "docs/accounts-completion-todo.json → non_goals"
   ],
+  "decided_2026_08_05": {
+    "rider_shifts": "essential — not nice-to-have",
+    "mid_run_emergency_transfer": {
+      "trigger_example": "Rider started a run; vehicle damaged; cannot continue",
+      "parcels_custody": "Ops-mediated reassign A → B (boxes/orders). No peer chat transfer.",
+      "money_a_to_b": "NO free rider↔rider cash/Due transfer",
+      "due_cash_when_a_still_holds": "Preferred: A keeps Due liability until Middo/kitchen handover. If cash must travel with parcels: ops/accounts reassigns Due custody on the ledger with audit — never a rider 'send money to rider' action.",
+      "commission": "Starter (A) keeps commission already accrued at run start. B does NOT get a second full lunch commission on the same order.",
+      "rescue_pay_for_b": "Optional settings rescue/completion rate (operating-cost style) or ৳0 until product sets a rate — pick one rate in Settings, do not double-pay."
+    },
+    "one_liner": "Emergency mid-run transfer = ops reassigns parcels; commission stays with the starter; Due/cash never peer-transfers — only Middo/ops-mediated custody."
+  },
   "suggested_ship_order": ["N0", "N1", "N2", "N3", "N4", "N5", "F0", "F1"],
   "phases": [
     {
@@ -43,17 +55,23 @@
     },
     {
       "id": "N1",
-      "title": "Failed delivery / reassign / release after accept",
+      "title": "Rider shifts + mid-run reassign / failed delivery",
       "status": "pending",
-      "priority": "high",
-      "owner_hint": "ops + rider",
+      "priority": "essential",
+      "owner_hint": "ops + rider (+ accounts if Due custody moves)",
+      "policy": "see decided_2026_08_05.mid_run_emergency_transfer",
       "items": [
-        "Release / reassign after rider accept (commission already accrued at start)",
-        "Unwind rules when not a full cancel",
-        "Ops force path + rider UI + audit"
+        "Rider shift / availability (on shift, off shift, unable to continue)",
+        "Ops-mediated parcel/custody reassign after accept (A → B)",
+        "Starter keeps accrued commission; no double full lunch commission for B",
+        "Optional Settings rescue/completion rate for B (or ৳0)",
+        "Due stays on A by default; ops/accounts ledger Due reassignment only if cash must move with parcels",
+        "No rider↔rider money UI",
+        "Failed delivery / release path + audit (align with OrderOpsForce / RiderMoney)"
       ],
       "risks": [
-        "Commission / Due / box custody must stay consistent with OrderOpsForce and RiderMoney"
+        "Commission / Due / box custody must stay consistent with OrderOpsForce and RiderMoney",
+        "In-kind commission already taken from A's cash bag must not be clawed incorrectly on reassign"
       ]
     },
     {
@@ -129,7 +147,6 @@
   ],
   "nice_to_have": [
     "POD / photo / delivery OTP",
-    "Rider shifts / availability",
     "Corporate-facing rider name + ETA",
     "Post-hoc commission adjustments",
     "Richer offline than PWA passthrough"
@@ -138,9 +155,9 @@
     "GPS / live map / route optimization",
     "Ops menu CRUD (keep admin)",
     "Middo login user",
-    "Rider↔rider cash",
+    "Rider↔rider cash (peer transfer) — Due custody moves only via ops/accounts ledger",
     "Insurance / float deposits (unless finance mandates)",
     "Kitchen-style capacity slots for riders"
   ],
-  "recommended_start": "N0 (close already-shipped parked items) → N1 (failed delivery / release) → N2 (aging + rider SLA)"
+  "recommended_start": "N0 → N1 (shifts + mid-run reassign with locked commission/Due policy) → N2"
 }
