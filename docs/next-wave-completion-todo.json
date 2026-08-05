@@ -271,7 +271,8 @@
       "deferred_at": "2026-08-05",
       "priority": "deferred",
       "owner_hint": "product",
-      "why": "Productize when native clients are mandated; corporate Flutter API already stubbed; rider reuses R5 IA.",
+      "why": "Deferred until web finance/ops surfaces are tested in detail and no immediate product changes are required. Corporate Flutter API already stubbed; rider reuses R5 IA.",
+      "resume_when": "After thorough manual/QA testing of F0–F2 (and related portals) with no blocking web changes outstanding.",
       "items": [
         "Native rider app (reuse R5 IA)",
         "Corporate Flutter API already stubbed — productize when ready"
@@ -310,5 +311,5 @@
     "Full bank ledger / VAT until docs/f0-finance-decisions.json is answered"
   ],
   "buildable_complete": true,
-  "recommended_start": "nice_to_have / product backlog — F0–F2 buildable wave complete; F1 native apps deferred"
+  "recommended_start": "Manual/QA pass on F0–F2 with AccountsFinanceTestSeeder fixtures — F1 native apps stay deferred until that pass finds no immediate web changes"
 }
