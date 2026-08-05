@@ -11,6 +11,7 @@ use App\Livewire\Operation\KitchenAllOrders;
 use App\Livewire\Operation\Kitchens;
 use App\Livewire\Operation\MiddoBoxes;
 use App\Livewire\Operation\MiddoBoxShow;
+use App\Livewire\Operation\OpsDayBoard;
 use App\Livewire\Operation\OrderHistory;
 use App\Livewire\Operation\RidersBoard;
 use App\Livewire\Operation\SearchOrder;
@@ -81,6 +82,7 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/riders', RidersBoard::class)->name('operation.riders.index');
     Route::get('/areas', AreasAdmin::class)->name('operation.areas.index');
     Route::get('/coverage', CoverageBoard::class)->name('operation.coverage.index');
+    Route::get('/ops-day', OpsDayBoard::class)->name('operation.ops-day.index');
     Route::get('/complaints', Complaints::class)->name('operation.complaints.index');
     Route::get('/complaints/{complaint}', ComplaintShow::class)->name('operation.complaints.show');
     Route::get('/accounts', AccountsHub::class)->name('operation.accounts.index');

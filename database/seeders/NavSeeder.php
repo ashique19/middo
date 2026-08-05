@@ -168,6 +168,14 @@ class NavSeeder extends Seeder
             'role_id' => $adminId,
         ]);
 
+        Nav::create([
+            'title' => 'Ops day',
+            'route_name' => 'admin.ops-day.index',
+            'icon' => '📅',
+            'order' => 18,
+            'role_id' => $adminId,
+        ]);
+
         // ── Operation ────────────────────────────────────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'operation.dashboard', 'order' => 1, 'role_id' => $operationId]);
         Nav::create(['title' => 'Corporates', 'route_name' => 'operation.corporates.index', 'order' => 2, 'role_id' => $operationId, 'icon' => '🏢']);
@@ -283,6 +291,14 @@ class NavSeeder extends Seeder
             'route_name' => 'operation.coverage.index',
             'icon' => '📍',
             'order' => 16,
+            'role_id' => $operationId,
+        ]);
+
+        Nav::create([
+            'title' => 'Ops day',
+            'route_name' => 'operation.ops-day.index',
+            'icon' => '📅',
+            'order' => 17,
             'role_id' => $operationId,
         ]);
 

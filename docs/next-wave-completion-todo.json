@@ -192,11 +192,17 @@
     {
       "id": "OPS-DAY",
       "title": "Ops date-wise food / box / cash status board",
-      "status": "pending",
+      "status": "done",
+      "done_at": "2026-08-05",
       "priority": "high",
       "owner_hint": "ops",
       "covers": ["a", "b", "c", "d", "e", "f", "g", "h"],
-      "note": "see ops_day_status_checklist_2026_08_05 — all PARTIAL except WH→kitchen action DONE",
+      "shipped": [
+        "OpsDayChecklist::forDate + OpsDayBoard with deliveryDate picker",
+        "Sections a–h: lunch accept/on-way/delivered, box ready/collect/incoming/WH/dispatch, COD unpaid/short/collected, cash kitchen+Middo handovers",
+        "Attention counts + deep links; nav + dashboard quick link"
+      ],
+      "note": "see ops_day_status_checklist_2026_08_05",
       "items": [
         "Date lens: kitchen→rider accept + delivered (a, b)",
         "Date lens: box handoffs customer↔rider↔kitchen↔WH (c–f)",
@@ -253,5 +259,5 @@
     "Insurance / float deposits (unless finance mandates)",
     "Kitchen-style capacity slots for riders"
   ],
-  "recommended_start": "OPS-DAY (date-wise a–h board) then N4 StaffAlerts — BOX1/BOX2 done"
+  "recommended_start": "N4 (StaffAlerts for box/ops runs) — N0–N3, BOX1/BOX2, OPS-DAY done"
 }

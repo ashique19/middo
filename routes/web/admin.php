@@ -21,6 +21,7 @@ use App\Livewire\Operation\ComplaintShow;
 use App\Livewire\Operation\Complaints;
 use App\Livewire\Operation\CoverageBoard;
 use App\Livewire\Operation\CustomRuns;
+use App\Livewire\Operation\OpsDayBoard;
 use App\Livewire\Operation\RidersBoard;
 use App\Livewire\Operation\SlaBoard;
 use App\Livewire\Shared\MealItemShow;
@@ -78,6 +79,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/riders', RidersBoard::class)->name('admin.riders.index');
     Route::get('/areas', AreasAdmin::class)->name('admin.areas.index');
     Route::get('/coverage', CoverageBoard::class)->name('admin.coverage.index');
+    Route::get('/ops-day', OpsDayBoard::class)->name('admin.ops-day.index');
     Route::get('/complaints', Complaints::class)->name('admin.complaints.index');
     Route::get('/complaints/{complaint}', ComplaintShow::class)->name('admin.complaints.show');
     Route::get('/accounts', AccountsHub::class)->name('admin.accounts.index');
