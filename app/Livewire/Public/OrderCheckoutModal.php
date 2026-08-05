@@ -366,10 +366,15 @@ class OrderCheckoutModal extends Component
     protected function syncDefaultPaymentMethod(int $activeDateCount): void
     {
         $prepayRequired = (bool) ($this->prepayment['required'] ?? false);
-        $options = OrderPaymentMethod::checkoutOptions($prepayRequired, $activeDateCount);
+        $options = OrderPaymentMethod::checkoutOptions(
+            $prepayRequired,
+            $activeDateCount,
+            $this->walletBalance(),
+            $this->balanceChargeAmount()
+        );
 
         if (! in_array($this->paymentMethod, $options, true)) {
-            $this->paymentMethod = $options[0] ?? OrderPaymentMethod::CASH_ON_DELIVERY;
+            $this->paymentMethod = $options[0] ?? OrderPaymentMethod::GATEWAY;
         }
     }
 
@@ -385,7 +390,37 @@ class OrderCheckoutModal extends Component
 
     public function getShowsPaymentMethodPickerProperty(): bool
     {
-        return (bool) ($this->prepayment['required'] ?? false) || $this->codAllowed;
+        // Always show the picker so COD / Balance / Online stay visible; unavailable
+        // methods are disabled in the template rather than hidden.
+        return true;
+    }
+
+    public function getBalancePaymentAvailableProperty(): bool
+    {
+        return OrderPaymentMethod::balanceSelectable(
+            $this->walletBalance(),
+            $this->balanceChargeAmount()
+        );
+    }
+
+    protected function walletBalance(): int
+    {
+        return (int) (Auth::user()?->balance ?? 0);
+    }
+
+    /**
+     * Amount Middo Balance would debit if selected (full cart, or required prepay).
+     */
+    protected function balanceChargeAmount(): int
+    {
+        $prepayRequired = (bool) ($this->prepayment['required'] ?? false);
+
+        return OrderPaymentMethod::checkoutChargeAmount(
+            OrderPaymentMethod::BALANCE,
+            $prepayRequired,
+            (int) ($this->prepayment['amount'] ?? 0),
+            (int) round($this->total)
+        );
     }
 
     /**
@@ -873,7 +908,14 @@ class OrderCheckoutModal extends Component
             return OrderPaymentMethod::resolveCheckout(
                 $this->paymentMethod,
                 (bool) ($prepayment['required'] ?? false),
-                $activeDateCount
+                $activeDateCount,
+                $this->walletBalance(),
+                OrderPaymentMethod::checkoutChargeAmount(
+                    OrderPaymentMethod::BALANCE,
+                    (bool) ($prepayment['required'] ?? false),
+                    (int) ($prepayment['amount'] ?? 0),
+                    (int) round($this->total)
+                )
             );
         } catch (\InvalidArgumentException $e) {
             $this->addError('paymentMethod', $prepayment['message'] ?? $e->getMessage());

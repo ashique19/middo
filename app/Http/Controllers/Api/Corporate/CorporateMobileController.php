@@ -585,6 +585,18 @@ class CorporateMobileController extends Controller
             $activeDateCount
         );
 
+        $cartTotal = 0;
+        foreach ($data['dates'] as $line) {
+            $cartTotal += (int) round($menuItem->price * (int) $line['quantity']);
+        }
+        $cartTotal += (int) ($this->orderChargesQuote($data, $menuItem)['total'] ?? 0);
+        $balanceCharge = OrderPaymentMethod::checkoutChargeAmount(
+            OrderPaymentMethod::BALANCE,
+            (bool) $prepayment['required'],
+            (int) $prepayment['amount'],
+            $cartTotal
+        );
+
         $result = OrderConfirmationOtp::send($data['mobile']);
 
         if (! $result['ok']) {
@@ -600,9 +612,15 @@ class CorporateMobileController extends Controller
             'debug_otp' => $result['debug_otp'] ?? null,
             'prepayment' => $prepayment,
             'cod_allowed' => $codAllowed,
+            'balance_available' => OrderPaymentMethod::balanceSelectable(
+                (int) $request->user()->balance,
+                $balanceCharge
+            ),
             'payment_methods' => OrderPaymentMethod::checkoutOptions(
                 (bool) $prepayment['required'],
-                $activeDateCount
+                $activeDateCount,
+                (int) $request->user()->balance,
+                $balanceCharge
             ),
         ]);
     }
@@ -714,11 +732,29 @@ class CorporateMobileController extends Controller
         $prepayment = $this->prepaymentQuote($user, $data, $menuItem);
         $activeDateCount = count($data['dates']);
 
+        $chargeQuote = $this->orderChargesQuote($data, $menuItem);
+        $perOrderCharges = $chargeQuote['per_order'] ?? [];
+        $lineTotals = [];
+        foreach ($data['dates'] as $line) {
+            $food = (int) round($menuItem->price * (int) $line['quantity']);
+            $fees = (int) collect($perOrderCharges[(string) $line['date']] ?? [])->sum('amount');
+            $lineTotals[] = $food + $fees;
+        }
+        $cartTotal = (int) array_sum($lineTotals);
+        $balanceCharge = OrderPaymentMethod::checkoutChargeAmount(
+            OrderPaymentMethod::BALANCE,
+            (bool) $prepayment['required'],
+            (int) $prepayment['amount'],
+            $cartTotal
+        );
+
         try {
             $paymentMethod = OrderPaymentMethod::resolveCheckout(
                 $data['payment_method'] ?? null,
                 (bool) $prepayment['required'],
-                $activeDateCount
+                $activeDateCount,
+                (int) $user->balance,
+                $balanceCharge
             );
         } catch (\InvalidArgumentException $e) {
             $errors = ['payment_method' => [$prepayment['message'] ?? $e->getMessage()]];
@@ -729,15 +765,6 @@ class CorporateMobileController extends Controller
             throw ValidationException::withMessages($errors);
         }
 
-        $chargeQuote = $this->orderChargesQuote($data, $menuItem);
-        $perOrderCharges = $chargeQuote['per_order'] ?? [];
-        $lineTotals = [];
-        foreach ($data['dates'] as $line) {
-            $food = (int) round($menuItem->price * (int) $line['quantity']);
-            $fees = (int) collect($perOrderCharges[(string) $line['date']] ?? [])->sum('amount');
-            $lineTotals[] = $food + $fees;
-        }
-        $cartTotal = (int) array_sum($lineTotals);
         $chargeAmount = OrderPaymentMethod::checkoutChargeAmount(
             $paymentMethod,
             (bool) $prepayment['required'],

@@ -2,12 +2,12 @@
     @if($showModal && !empty($dish))
         {{-- Fullscreen Overlay Backdrop with persistent key mapping --}}
         <div wire:key="order-checkout-modal-root" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
-            
+
             {{-- Main Dashboard Card Layout Container --}}
             <div class="bg-[#FDFBF7] rounded-[32px] shadow-2xl border border-amber-900/5 w-full max-w-5xl flex flex-col md:grid md:grid-cols-12 md:items-stretch text-amber-950 antialiased font-sans my-auto max-h-[90vh] overflow-y-auto md:overflow-hidden">
-                
-                {{-- LEFT COLUMN: Dish Snapshot --}}
-                <div class="w-full md:col-span-4 bg-[#F9F6F0] p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-amber-900/5 md:overflow-y-auto md:min-h-0">
+
+                {{-- LEFT COLUMN: Dish + delivery window --}}
+                <div class="w-full md:col-span-4 bg-[#F9F6F0] p-6 flex flex-col gap-5 border-b md:border-b-0 md:border-r border-amber-900/5 md:overflow-y-auto md:min-h-0">
                     <div>
                         <div class="flex items-center gap-2 mb-4 text-middo-orange font-bold text-lg">
                             <span class="text-xl">🍴</span> Middo
@@ -15,58 +15,79 @@
                         <h2 class="text-xl font-extrabold text-gray-800 uppercase tracking-wide mb-4">
                             Your Lunch Order
                         </h2>
-                        
+
                         <div class="rounded-2xl overflow-hidden bg-white shadow-sm border border-gray-100 p-3">
                             @if($dish['thumbnail'])
-                                <img src="{{ asset($dish['thumbnail']) }}" alt="{{ $dish['name'] }}" class="w-full h-48 object-cover rounded-xl mb-3">
+                                <img src="{{ asset($dish['thumbnail']) }}" alt="{{ $dish['name'] }}" class="w-full h-40 object-cover rounded-xl mb-3">
                             @else
-                                <div class="w-full h-48 bg-gray-100 rounded-xl mb-3 flex items-center justify-center text-gray-400 font-medium">No Image Available</div>
+                                <div class="w-full h-40 bg-gray-100 rounded-xl mb-3 flex items-center justify-center text-gray-400 font-medium">No Image Available</div>
                             @endif
                             <h3 class="text-lg font-bold text-gray-800 px-1">{{ $dish['name'] }}</h3>
+                            <p class="text-sm font-medium text-gray-500 px-1 mt-1">Unit Price: <span class="text-gray-800 font-bold">৳{{ number_format($dish['price'], 2) }}</span></p>
                         </div>
                     </div>
 
-                    <div class="mt-6 bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-                        <p class="text-sm font-medium text-gray-500">Unit Price: <span class="text-gray-800 font-bold">৳{{ number_format($dish['price'], 2) }}</span></p>
-                        <p class="text-[11px] text-gray-400 mt-1">Select and adjust individual quantities in the calendar dates.</p>
+                    <div>
+                        <label class="block text-base font-bold text-gray-800 mb-1">Delivery window</label>
+                        <div class="mb-2 text-amber-800">
+                            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="1" y="3" width="15" height="13" rx="2" ry="2" />
+                                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                                <circle cx="5.5" cy="18.5" r="2.5" />
+                                <circle cx="18.5" cy="18.5" r="2.5" />
+                            </svg>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            @foreach($deliveryWindows as $time)
+                                @php
+                                    $isTimeSelected = ($deliveryWindow === $time);
+                                @endphp
+                                <label
+                                    wire:key="delivery-window-{{ Str::slug($time) }}"
+                                    class="flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition shadow-sm select-none
+                                        {{ $isTimeSelected ? 'border-amber-800 bg-amber-900 text-white font-bold' : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-800' }}"
+                                >
+                                    <input
+                                        type="radio"
+                                        name="delivery_window_option"
+                                        value="{{ $time }}"
+                                        wire:model.live="deliveryWindow"
+                                        class="w-3.5 h-3.5 text-amber-900 focus:ring-amber-700 border-gray-300 {{ $isTimeSelected ? 'accent-white' : 'accent-amber-900' }}"
+                                        {{ $isConfirmingOtp ? 'disabled' : '' }}
+                                    >
+                                    <span class="text-xs font-bold tracking-wide">Timeline - {{ $time }}</span>
+                                </label>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
 
-                {{-- =========================================================================
-                    CENTER COLUMN: Delivery Logistics (Dynamic Cutoff & Timelines)
-                    ========================================================================= --}}
-                <div class="w-full md:col-span-4 p-6 flex flex-col justify-between bg-white border-b md:border-b-0 md:border-r border-amber-900/5 md:overflow-y-auto md:min-h-0">
+                {{-- MIDDLE: Dates + receiver / address --}}
+                <div class="w-full md:col-span-4 p-6 flex flex-col gap-4 bg-white border-b md:border-b-0 md:border-r border-amber-900/5 md:overflow-y-auto md:min-h-0">
                     <div>
                         <h4 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-3">Delivery Logistics</h4>
                         <label class="block text-base font-bold text-gray-800 mb-2">Order for Dates & Quantities:</label>
-                        
-                        {{-- Real-Time Same-Day Order Countdown Banner --}}
+
                         @if(!$isPastCutoff)
-                            <div x-data="{ 
+                            <div x-data="{
                                 timeLeft: '00h 00m 00s',
                                 init() {
                                     const updateTimer = () => {
                                         const now = new Date();
-                                        
-                                        // Create target deadline explicitly specifying local year, month, date, and cutoff configurations
                                         const target = new Date();
                                         target.setHours({{ $cutoffHour }}, {{ $cutoffMinute }}, 0, 0);
-                                        
                                         const diff = target.getTime() - now.getTime();
-                                        
                                         if (diff <= 0) {
                                             this.timeLeft = 'Closed';
                                             $wire.call('loadOrderCheckout', { dishId: {{ $dish->id ?? 'null' }} });
                                             return;
                                         }
-                                        
                                         const hrs = String(Math.floor(diff / 3600000)).padStart(2, '0');
                                         const mins = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
                                         const secs = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
-                                        
                                         this.timeLeft = `${hrs}h ${mins}m ${secs}s`;
                                     };
-                                    
                                     updateTimer();
                                     const interval = setInterval(updateTimer, 1000);
                                     $cleanup(() => clearInterval(interval));
@@ -88,21 +109,20 @@
                             </div>
                         @endif
 
-                        {{-- Dynamic Multi-Select Grid Structure --}}
-                        <div class="bg-[#fcf8f2] border border-gray-200 rounded-xl p-1 shadow-inner grid grid-cols-3 divide-x divide-y divide-gray-200/80 text-center text-sm max-h-[260px] overflow-y-auto">
+                        <div class="bg-[#fcf8f2] border border-gray-200 rounded-xl p-1 shadow-inner grid grid-cols-3 divide-x divide-y divide-gray-200/80 text-center text-sm max-h-[220px] overflow-y-auto">
                             @foreach($availableDates as $dateStr)
-                                @php 
-                                    $targetDate = Carbon\Carbon::parse($dateStr); 
+                                @php
+                                    $targetDate = Carbon\Carbon::parse($dateStr);
                                     $dateQty = $quantities[$dateStr] ?? 0;
                                     $isActive = ($dateQty > 0);
                                 @endphp
-                                <div 
+                                <div
                                     wire:key="date-grid-card-{{ $dateStr }}"
-                                    class="relative p-2.5 flex flex-col justify-between items-center transition-all duration-150 select-none border-t-0 border-l-0 border-gray-200/80 min-h-[120px]
+                                    class="relative p-2.5 flex flex-col justify-between items-center transition-all duration-150 select-none border-t-0 border-l-0 border-gray-200/80 min-h-[110px]
                                         {{ $isActive ? 'bg-emerald-800 text-white shadow-sm' : 'bg-white text-gray-700 hover:bg-amber-50/20' }}"
                                 >
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         wire:click="toggleDateSelection('{{ $dateStr }}')"
                                         class="w-full flex flex-col items-center focus:outline-none"
                                     >
@@ -135,74 +155,69 @@
                         @error('selectedDate') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                     </div>
 
-                    {{-- Timeline Selectors --}}
-                    <div>
-                        <label class="block text-base font-bold text-gray-800 mb-1">Delivery window</label>
-                        <div class="mb-2 text-amber-800">
-                            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="1" y="3" width="15" height="13" rx="2" ry="2" />
-                                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-                                <circle cx="5.5" cy="18.5" r="2.5" />
-                                <circle cx="18.5" cy="18.5" r="2.5" />
-                            </svg>
+                    <div class="space-y-3 pt-1 border-t border-gray-100">
+                        <label class="block text-xs font-black uppercase tracking-wider text-gray-400">Receiver and address</label>
+
+                        <div class="bg-[#FDFBF7] rounded-2xl p-3 border border-gray-100">
+                            <p class="text-[11px] text-gray-400 leading-none font-medium">Desk receiver name <span class="text-gray-300">(who gets the box)</span></p>
+                            <input wire:model.live="customerName" type="text" placeholder="Desk / contact person"
+                                class="mt-1 w-full border-gray-200 bg-white rounded-lg text-sm p-2 shadow-sm font-extrabold text-gray-800"
+                                {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                            @error('customerName') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
+                            @if(auth()->check())
+                                <p class="text-[10px] text-gray-400 mt-2">
+                                    Billing account: <span class="font-bold text-gray-600">{{ auth()->user()->name ?? auth()->user()->first_name }}</span>
+                                    @if(auth()->user()->company_name) — {{ auth()->user()->company_name }}@endif
+                                </p>
+                            @endif
                         </div>
 
-                        {{-- Timeline Selectors Section --}}
-                        <div class="space-y-1.5">
-                            @foreach($deliveryWindows as $time)
-                                @php 
-                                    $isTimeSelected = ($deliveryWindow === $time); 
-                                @endphp
-                                <label 
-                                    wire:key="delivery-window-{{ Str::slug($time) }}"
-                                    class="flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition shadow-sm select-none
-                                        {{ $isTimeSelected ? 'border-amber-800 bg-amber-900 text-white font-bold' : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-800' }}"
-                                >
-                                    <input 
-                                        type="radio" 
-                                        name="delivery_window_option"
-                                        value="{{ $time }}" 
-                                        wire:model.live="deliveryWindow"
-                                        class="w-3.5 h-3.5 text-amber-900 focus:ring-amber-700 border-gray-300 {{ $isTimeSelected ? 'accent-white' : 'accent-amber-900' }}"
-                                        {{ $isConfirmingOtp ? 'disabled' : '' }}
-                                    >
-                                    <span class="text-xs font-bold tracking-wide">Timeline - {{ $time }}</span>
-                                </label>
-                            @endforeach
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Mobile Number</label>
+                            <input wire:model="mobile" type="text" placeholder="e.g. 01710123456"
+                                class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                            @error('mobile') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
                         </div>
-                        
 
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">City</label>
+                                <select wire:model.live="city_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                    @foreach($citiesList as $cityOption)
+                                        <option value="{{ $cityOption['id'] }}">{{ $cityOption['name'] }}</option>
+                                    @endforeach
+                                </select>
+                                @error('city_id') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Area</label>
+                                <select wire:model.live="area_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                    @if(count($areasList) === 0)
+                                        <option value="">No areas available</option>
+                                    @endif
+                                    @foreach($areasList as $areaOption)
+                                        <option value="{{ $areaOption['id'] }}">{{ $areaOption['name'] }}</option>
+                                    @endforeach
+                                </select>
+                                @error('area_id') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Street Address</label>
+                            <input wire:model="addressLine1" type="text" placeholder="Building, Flat No., Street details" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                            @error('addressLine1') <span class="text-red-500 text-xs mt-0.5 block">{{ $message }}</span> @enderror
+                        </div>
                     </div>
                 </div>
 
-                {{-- =========================================================================
-                     RIGHT COLUMN: Customer Details, Invoicing Summary, & Logistics Address
-                     ========================================================================= --}}
+                {{-- RIGHT: Summary, coupon, payment, confirm --}}
                 <div class="w-full md:col-span-4 p-6 bg-[#FDFBF7] flex flex-col md:min-h-0 md:overflow-hidden">
                     <div class="flex-1 min-h-0 md:overflow-y-auto pr-0.5 space-y-3">
-                        <h4 class="text-xs font-black uppercase tracking-wider text-gray-400">Order Summary & Customer Info</h4>
+                        <h4 class="text-xs font-black uppercase tracking-wider text-gray-400">Order Summary</h4>
 
-                        {{-- Corporate Mini User Badge --}}
-                        <div class="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm">
-                            <div class="w-10 h-10 rounded-full bg-middo-orange/10 border border-middo-orange/20 text-middo-orange flex items-center justify-center font-bold text-sm uppercase shadow-inner overflow-hidden shrink-0">
-                                {{ substr($customerName !== '' ? $customerName : (auth()->user()?->name ?? 'U'), 0, 2) }}
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-[11px] text-gray-400 leading-none font-medium">Desk receiver name <span class="text-gray-300">(who gets the box at your office)</span></p>
-                                <input wire:model.live="customerName" type="text" placeholder="Desk / contact person"
-                                    class="mt-1 w-full border-gray-200 bg-white rounded-lg text-sm p-2 shadow-sm font-extrabold text-gray-800"
-                                    {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                @error('customerName') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-                        @if(auth()->check())
-                            <p class="text-[10px] text-gray-400 px-1">
-                                Billing account: <span class="font-bold text-gray-600">{{ auth()->user()->name ?? auth()->user()->first_name }}</span>
-                                @if(auth()->user()->company_name) — {{ auth()->user()->company_name }}@endif
-                            </p>
-                        @endif
-
-                        {{-- Line items only — scroll independently of coupon/payment --}}
                         <div class="space-y-1.5 text-xs text-gray-600 max-h-[96px] overflow-y-auto pr-1">
                             @foreach($quantities as $date => $qty)
                                 @if($qty > 0)
@@ -213,53 +228,8 @@
                                 @endif
                             @endforeach
                         </div>
-
-                        {{-- Delivery Logistics Address Segment --}}
-                        <div class="space-y-3 pt-1">
-                            <label class="block text-xs font-black uppercase tracking-wider text-gray-400">Delivery Logistics & Info</label>
-
-                            <div>
-                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Mobile Number</label>
-                                <input wire:model="mobile" type="text" placeholder="e.g. 01710123456"
-                                    class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                    {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                @error('mobile') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">City</label>
-                                    <select wire:model.live="city_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                        @foreach($citiesList as $cityOption)
-                                            <option value="{{ $cityOption['id'] }}">{{ $cityOption['name'] }}</option>
-                                        @endforeach
-                                    </select>
-                                    @error('city_id') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
-                                </div>
-
-                                <div>
-                                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Area</label>
-                                    <select wire:model.live="area_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                        @if(count($areasList) === 0)
-                                            <option value="">No areas available</option>
-                                        @endif
-                                        @foreach($areasList as $areaOption)
-                                            <option value="{{ $areaOption['id'] }}">{{ $areaOption['name'] }}</option>
-                                        @endforeach
-                                    </select>
-                                    @error('area_id') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Street Address</label>
-                                <input wire:model="addressLine1" type="text" placeholder="Building, Flat No., Street details" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                @error('addressLine1') <span class="text-red-500 text-xs mt-0.5 block">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
                     </div>
 
-                    {{-- Totals, coupon, payment, and confirm stay pinned (not buried in line-item scroll) --}}
                     <div class="shrink-0 space-y-2 pt-3 mt-3 border-t border-gray-200/60 bg-[#FDFBF7]">
                         <div class="space-y-1 text-xs">
                             <div class="flex justify-between text-gray-500">
@@ -323,24 +293,28 @@
                             </div>
                         @endif
 
-                        @if($this->showsPaymentMethodPicker)
-                            <div>
-                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Payment method</label>
-                                <select wire:model.live="paymentMethod" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                    @if($this->codAllowed)
-                                        <option value="cash_on_delivery">Cash on Delivery</option>
-                                    @endif
-                                    <option value="balance">Middo Balance</option>
-                                    <option value="gateway">Online payment</option>
-                                </select>
-                                @error('paymentMethod') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
-                            </div>
-                        @elseif($paymentMethod === 'cash_on_delivery')
-                            <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-[11px] text-emerald-950">
-                                <p class="font-bold">Payment method: Cash on Delivery</p>
-                                <p class="mt-0.5 text-emerald-800/80">Pay the rider when your meal is delivered.</p>
-                            </div>
-                        @endif
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Payment method</label>
+                            <select wire:model.live="paymentMethod" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                @if($this->codAllowed)
+                                    <option value="cash_on_delivery">Cash on Delivery</option>
+                                @endif
+                                <option value="balance" @disabled(! $this->balancePaymentAvailable)>
+                                    Middo Balance @if(! $this->balancePaymentAvailable)(unavailable — no funds)@endif
+                                </option>
+                                <option value="gateway">Online payment</option>
+                            </select>
+                            @if(! $this->balancePaymentAvailable)
+                                <p class="text-[10px] text-gray-500 mt-1">
+                                    Middo Balance is inactive until you
+                                    <button type="button" @click="$dispatch('open-wallet-top-up-modal')" class="font-bold text-middo-orange underline">add money</button>.
+                                </p>
+                            @endif
+                            @if(! $this->codAllowed)
+                                <p class="text-[10px] text-amber-800 mt-1">Cash on Delivery is limited to 3 active orders (same day or across days) without prepayment.</p>
+                            @endif
+                            @error('paymentMethod') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
+                        </div>
 
                         @if(!$isConfirmingOtp)
                             <button
