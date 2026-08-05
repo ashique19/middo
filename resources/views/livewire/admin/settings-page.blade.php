@@ -103,6 +103,17 @@
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('commission_kitchen_to_ops') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
+                <div class="sm:col-span-2">
+                    <label class="inline-flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" wire:model="kitchen_to_ops_via_rider"
+                               class="mt-1 rounded border-gray-300 text-middo-orange focus:ring-middo-orange">
+                        <span>
+                            <span class="block text-sm font-bold text-middo-dark">Kitchen → ops via rider</span>
+                            <span class="block text-[11px] text-gray-400 mt-0.5">When on, kitchen can assign a rider for empty-box returns (books the kitchen→ops rate). Direct warehouse send stays available. Default off.</span>
+                        </span>
+                    </label>
+                    @error('kitchen_to_ops_via_rider') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Ops → kitchen (box)</label>
                     <input type="number" min="0" wire:model="commission_ops_to_kitchen"

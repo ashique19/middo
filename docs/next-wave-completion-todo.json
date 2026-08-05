@@ -220,9 +220,17 @@
     {
       "id": "N5",
       "title": "Kitchen→ops box rider leg (R2.3)",
-      "status": "pending",
+      "status": "done",
+      "done_at": "2026-08-05",
       "priority": "medium",
       "owner_hint": "kitchen + ops + rider",
+      "shipped": [
+        "Settings toggle delivery.kitchen_to_ops_via_rider (default off) + admin checkbox",
+        "MiddoBoxKitchenActions::dispatchToWarehouseViaRider — log dispatched_to_warehouse, books KITCHEN_TO_OPS",
+        "BoxesAtKitchen Send via rider when toggle on; direct send unchanged",
+        "PendingBoxRuns::deliverToWarehouse → returned_to_warehouse (ops ack queue)",
+        "StaffAlerts TYPE_KITCHEN_TO_OPS_BOX for rider + ops/admin"
+      ],
       "items": [
         "Settings rate ready; kitchen sendToWarehouse is direct today",
         "Optional kitchen→ops→warehouse rider leg when product wants it"
@@ -266,5 +274,5 @@
     "Insurance / float deposits (unless finance mandates)",
     "Kitchen-style capacity slots for riders"
   ],
-  "recommended_start": "N5 (Kitchen→ops box rider leg) — N0–N4, BOX1/BOX2, OPS-DAY done"
+  "recommended_start": "F0 (Accounts finance stretch) or stop — N0–N5, BOX1/BOX2, OPS-DAY done; F1 deferred"
 }

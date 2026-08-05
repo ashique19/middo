@@ -18,6 +18,9 @@ class MiddoSettings
 
     public const KEY_RIDER_UNCLAIMED_AGE_WARN_MINUTES = 'delivery.rider_unclaimed_age_warn_minutes';
 
+    /** When true, kitchen can dispatch empty boxes to warehouse via a rider (N5). Default false = direct teleport. */
+    public const KEY_KITCHEN_TO_OPS_VIA_RIDER = 'delivery.kitchen_to_ops_via_rider';
+
     protected static function tierDefaultKey(string $tier): string
     {
         return 'kitchen.tier_defaults.'.KitchenTier::normalize($tier).'.allowed_open_groups';
@@ -156,7 +159,20 @@ class MiddoSettings
     }
 
     /**
-     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int}  $payload
+     * Kitchen empty-box return via rider (kitchen→ops leg). Off = direct warehouse teleport.
+     */
+    public static function kitchenToOpsViaRider(): bool
+    {
+        $raw = self::get(
+            self::KEY_KITCHEN_TO_OPS_VIA_RIDER,
+            config('middo.kitchen_to_ops_via_rider', false) ? '1' : '0'
+        );
+
+        return in_array((string) $raw, ['1', 'true', 'yes', 'on'], true);
+    }
+
+    /**
+     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool}  $payload
      */
     public static function updateMealAndKitchenDefaults(array $payload): void
     {
@@ -198,6 +214,10 @@ class MiddoSettings
 
         if (array_key_exists('mid_run_rescue_commission', $payload)) {
             self::set(self::KEY_MID_RUN_RESCUE, max(0, (int) $payload['mid_run_rescue_commission']));
+        }
+
+        if (array_key_exists('kitchen_to_ops_via_rider', $payload)) {
+            self::set(self::KEY_KITCHEN_TO_OPS_VIA_RIDER, $payload['kitchen_to_ops_via_rider'] ? '1' : '0');
         }
     }
 

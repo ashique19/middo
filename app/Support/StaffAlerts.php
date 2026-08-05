@@ -261,6 +261,66 @@ class StaffAlerts
     }
 
     /**
+     * Kitchen assigned empty Middo boxes to a rider bound for Middo warehouse.
+     *
+     * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
+     * @return int number of alerts created (rider + ops/admin)
+     */
+    public static function notifyKitchenToOpsBoxes(User $rider, User $kitchen, Collection|array $boxes): int
+    {
+        $boxes = collect($boxes)->filter()->values();
+        if ($boxes->isEmpty()) {
+            return 0;
+        }
+
+        $boxIds = $boxes->map(fn (MiddoBox $b) => (int) $b->id)->sort()->values()->all();
+        $labels = $boxes->map(fn (MiddoBox $b) => $b->qr_code_id ?: '#'.$b->id)->all();
+        $count = $boxes->count();
+        $boxList = implode(', ', array_slice($labels, 0, 5)).($count > 5 ? '…' : '');
+        $dedupeBase = 'kitchen_ops:'.$rider->id.':'.$kitchen->id.':'.implode('-', $boxIds);
+        $created = 0;
+
+        $riderAlert = self::createOnce(
+            (int) $rider->id,
+            StaffAlert::TYPE_KITCHEN_TO_OPS_BOX,
+            $count === 1 ? 'Kitchen→ops box run' : "Kitchen→ops box run ({$count})",
+            sprintf('Return %s from %s to Middo warehouse.', $boxList, $kitchen->name),
+            null,
+            [
+                'box_ids' => $boxIds,
+                'kitchen_id' => $kitchen->id,
+                'run_type' => DeliveryRunType::KITCHEN_TO_OPS,
+            ],
+            $dedupeBase.':rider'
+        );
+        if ($riderAlert) {
+            $created++;
+        }
+
+        foreach (self::opsAndAdminUserIds() as $userId) {
+            $alert = self::createOnce(
+                $userId,
+                StaffAlert::TYPE_KITCHEN_TO_OPS_BOX,
+                $count === 1 ? 'Inbound empty box (rider)' : "Inbound empty boxes ({$count})",
+                sprintf('%s is returning %s from %s.', $rider->name, $boxList, $kitchen->name),
+                null,
+                [
+                    'box_ids' => $boxIds,
+                    'rider_id' => $rider->id,
+                    'kitchen_id' => $kitchen->id,
+                    'run_type' => DeliveryRunType::KITCHEN_TO_OPS,
+                ],
+                $dedupeBase.':ops:'.$userId
+            );
+            if ($alert) {
+                $created++;
+            }
+        }
+
+        return $created;
+    }
+
+    /**
      * Corporate marked an empty Middo box ready for pickup — notify riders serving that area.
      *
      * @return int number of alerts created

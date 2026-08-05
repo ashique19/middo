@@ -63,6 +63,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Kitchen → ops empty-box via rider (N5)
+    |--------------------------------------------------------------------------
+    |
+    | When false (default), kitchen "Send to Middo warehouse" teleports the box.
+    | When true, kitchen can also assign a rider (books kitchen_to_ops commission).
+    |
+    */
+    'kitchen_to_ops_via_rider' => (bool) env('KITCHEN_TO_OPS_VIA_RIDER', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Kitchen Tier Defaults (allowed concurrent open groups)
     |--------------------------------------------------------------------------
     |

@@ -23,6 +23,9 @@ class StaffAlert extends Model
     /** Corporate marked empty Middo box ready for rider pickup. */
     public const TYPE_EMPTY_BOX_PICKUP = 'empty_box_pickup';
 
+    /** Kitchen assigned empty box to rider for Middo warehouse return. */
+    public const TYPE_KITCHEN_TO_OPS_BOX = 'kitchen_to_ops_box';
+
     protected $fillable = [
         'user_id',
         'type',

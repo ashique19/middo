@@ -4,7 +4,9 @@ namespace App\Livewire\Kitchen;
 
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
+use App\Models\User;
 use App\Support\MiddoBoxKitchenActions;
+use App\Support\MiddoSettings;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -23,15 +25,21 @@ class BoxesAtKitchen extends Component
 
     public string $damageNotes = '';
 
+    public ?int $viaRiderBoxId = null;
+
+    public ?int $selectedRiderId = null;
+
     public function updatingFilter(): void
     {
         $this->resetPage();
         $this->cancelDamage();
+        $this->cancelViaRider();
     }
 
     public function openDamage(int $boxId): void
     {
         $this->errorMessage = null;
+        $this->cancelViaRider();
         $this->damageBoxId = $boxId;
         $this->damageNotes = '';
     }
@@ -40,6 +48,24 @@ class BoxesAtKitchen extends Component
     {
         $this->damageBoxId = null;
         $this->damageNotes = '';
+    }
+
+    public function openViaRider(int $boxId): void
+    {
+        if (! MiddoSettings::kitchenToOpsViaRider()) {
+            return;
+        }
+
+        $this->errorMessage = null;
+        $this->cancelDamage();
+        $this->viaRiderBoxId = $boxId;
+        $this->selectedRiderId = null;
+    }
+
+    public function cancelViaRider(): void
+    {
+        $this->viaRiderBoxId = null;
+        $this->selectedRiderId = null;
     }
 
     public function confirmDamage(): void
@@ -82,6 +108,40 @@ class BoxesAtKitchen extends Component
         }
     }
 
+    public function sendViaRider(): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        if (! MiddoSettings::kitchenToOpsViaRider()) {
+            $this->errorMessage = 'Kitchen→ops via rider is not enabled in Settings.';
+
+            return;
+        }
+
+        if (! $this->viaRiderBoxId) {
+            return;
+        }
+
+        try {
+            $this->validate([
+                'selectedRiderId' => 'required|exists:users,id',
+            ]);
+
+            $box = MiddoBox::query()->findOrFail($this->viaRiderBoxId);
+            $sent = MiddoBoxKitchenActions::dispatchToWarehouseViaRider(
+                $box,
+                (int) Auth::id(),
+                (int) $this->selectedRiderId
+            );
+            $this->statusMessage = "{$sent->qr_code_id} handed to rider for Middo warehouse.";
+            $this->cancelViaRider();
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not assign rider.';
+        }
+    }
+
     public function sendDamagedToWarehouse(int $boxId): void
     {
         $this->statusMessage = null;
@@ -97,9 +157,37 @@ class BoxesAtKitchen extends Component
         }
     }
 
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    protected function fetchRidersForKitchen(): array
+    {
+        $kitchen = Auth::user();
+        $kitchenAreaId = $kitchen?->area_id !== null ? (int) $kitchen->area_id : null;
+
+        return User::query()
+            ->with(['role', 'areas'])
+            ->whereHas('role', fn ($query) => $query->where('name', 'delivery'))
+            ->where('status', 'active')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->when(
+                $kitchenAreaId !== null,
+                fn ($riders) => $riders->filter(fn (User $user) => $user->servesArea($kitchenAreaId))
+            )
+            ->values()
+            ->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+            ])
+            ->all();
+    }
+
     public function render()
     {
         $kitchenId = (int) Auth::id();
+        $viaRiderEnabled = MiddoSettings::kitchenToOpsViaRider();
 
         $counts = [
             'inventory' => MiddoBox::query()->atKitchen($kitchenId)->where('asset_status', '!=', 'damaged')->count(),
@@ -109,6 +197,7 @@ class BoxesAtKitchen extends Component
                 ->where('performed_by', $kitchenId)
                 ->whereIn('log_action', [
                     'returned_to_warehouse',
+                    'dispatched_to_warehouse',
                     'returned_damaged_to_warehouse',
                     'marked_damaged_at_kitchen',
                     'received_at_kitchen',
@@ -122,6 +211,7 @@ class BoxesAtKitchen extends Component
                 ->where('performed_by', $kitchenId)
                 ->whereIn('log_action', [
                     'returned_to_warehouse',
+                    'dispatched_to_warehouse',
                     'returned_damaged_to_warehouse',
                     'marked_damaged_at_kitchen',
                     'received_at_kitchen',
@@ -133,6 +223,8 @@ class BoxesAtKitchen extends Component
                 'boxes' => null,
                 'history' => $history,
                 'counts' => $counts,
+                'viaRiderEnabled' => $viaRiderEnabled,
+                'riders' => [],
             ])->layout('kitchen.layout.app', ['title' => 'Boxes at Kitchen']);
         }
 
@@ -150,6 +242,8 @@ class BoxesAtKitchen extends Component
             'boxes' => $boxes,
             'history' => null,
             'counts' => $counts,
+            'viaRiderEnabled' => $viaRiderEnabled,
+            'riders' => $viaRiderEnabled ? $this->fetchRidersForKitchen() : [],
         ])->layout('kitchen.layout.app', ['title' => 'Boxes at Kitchen']);
     }
 }

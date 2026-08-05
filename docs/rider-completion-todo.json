@@ -609,13 +609,12 @@
     "Native iOS/Android rider app (later — reuse R5 IA)"
   ],
   "parked_next_wave_agreed_2026_08_04": {
-    "status": "partially cleared — N0–N4 shipped; remainder in next-wave N5+",
+    "status": "cleared for core next-wave — N0–N5 shipped; F0/F1 remain low/deferred",
     "deferred_product": [
-      "R2.3 kitchen→ops box rider leg (settings rate ready; kitchen sendToWarehouse is direct today)",
       "Native rider app (reuse R5 IA)"
     ],
     "worth_building_next": [
-      "R2.3 kitchen→ops box rider leg — next-wave N5"
+      "Accounts finance stretch (F0) when mandated — bank ledger / VAT"
     ],
     "closed_by_n0": [
       "COD reconciliation report → O3 CodDueReconPage + accounts portal",
@@ -638,6 +637,9 @@
     "shipped_n4": [
       "Ops→kitchen box assign StaffAlerts (rider + kitchen)",
       "Empty-box ready-for-pickup StaffAlerts to area riders"
+    ],
+    "shipped_n5": [
+      "Optional kitchen→ops via rider (Settings toggle; books KITCHEN_TO_OPS; rider deliver to warehouse)"
     ],
     "nice_to_have": [
       "POD / photo / delivery OTP",
