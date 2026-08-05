@@ -136,6 +136,24 @@
             </div>
         </section>
 
+        <section class="space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Finance — food VAT</h2>
+                <p class="text-xs text-gray-500 mt-1">
+                    Inclusive VAT on food only (not charges). Snapshotted onto each order at place time; Middo rest uses food ex-VAT.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">VAT rate (%)</label>
+                    <input type="number" min="0" max="100" step="0.01" wire:model="vat_rate_pct"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    <p class="text-[11px] text-gray-400 mt-1">Default 5% for food business. Admin editable.</p>
+                    @error('vat_rate_pct') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+        </section>
+
         <div class="flex justify-end pt-2">
             <button type="submit"
                     class="inline-flex px-5 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition">

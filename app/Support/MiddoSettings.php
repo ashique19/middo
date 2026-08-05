@@ -21,6 +21,9 @@ class MiddoSettings
     /** When true, kitchen can dispatch empty boxes to warehouse via a rider (N5). Default false = direct teleport. */
     public const KEY_KITCHEN_TO_OPS_VIA_RIDER = 'delivery.kitchen_to_ops_via_rider';
 
+    /** Inclusive food VAT % (default 5). Snapshot onto orders at place. */
+    public const KEY_VAT_RATE_PCT = 'finance.vat_rate_pct';
+
     protected static function tierDefaultKey(string $tier): string
     {
         return 'kitchen.tier_defaults.'.KitchenTier::normalize($tier).'.allowed_open_groups';
@@ -172,7 +175,20 @@ class MiddoSettings
     }
 
     /**
-     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool}  $payload
+     * Inclusive VAT % applied to food only (charges excluded). Default 5.
+     */
+    public static function vatRatePct(): float
+    {
+        $raw = self::get(
+            self::KEY_VAT_RATE_PCT,
+            config('middo.vat_rate_pct', 5)
+        );
+
+        return max(0, min(100, (float) $raw));
+    }
+
+    /**
+     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool, vat_rate_pct?: float|int}  $payload
      */
     public static function updateMealAndKitchenDefaults(array $payload): void
     {
@@ -218,6 +234,11 @@ class MiddoSettings
 
         if (array_key_exists('kitchen_to_ops_via_rider', $payload)) {
             self::set(self::KEY_KITCHEN_TO_OPS_VIA_RIDER, $payload['kitchen_to_ops_via_rider'] ? '1' : '0');
+        }
+
+        if (array_key_exists('vat_rate_pct', $payload)) {
+            $pct = max(0, min(100, (float) $payload['vat_rate_pct']));
+            self::set(self::KEY_VAT_RATE_PCT, rtrim(rtrim(number_format($pct, 2, '.', ''), '0'), '.') ?: '0');
         }
     }
 

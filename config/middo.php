@@ -74,6 +74,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Food VAT (inclusive)
+    |--------------------------------------------------------------------------
+    |
+    | Default statutory rate for food businesses. Admin Settings can edit.
+    | Applied to food only; unbundled for middo_rest / tax reporting.
+    |
+    */
+    'vat_rate_pct' => (float) env('MIDDO_VAT_RATE_PCT', 5),
+
+    /*
+    |--------------------------------------------------------------------------
     | Kitchen Tier Defaults (allowed concurrent open groups)
     |--------------------------------------------------------------------------
     |

@@ -1,8 +1,8 @@
 {
   "title": "F0 finance stretch — decisions",
   "updated": "2026-08-05",
-  "status": "decisions_locked_partial",
-  "note": "Product answered checklist 2026-08-05. pnl_batches still open (see explanation). Build when ship slices are sequenced.",
+  "status": "decisions_locked",
+  "note": "Product answered checklist 2026-08-05. All decision ids locked. Build via suggested_ship_slices.",
   "invariants": [
     "Do not invent a Middo login user",
     "MiddoCashLedger remains the till / cash-in-hand SoT (not bank float)",
@@ -48,25 +48,20 @@
     "mandate": {
       "owner": "accounts",
       "export": "Excel export on finance surfaces"
-    }
-  },
-  "open": {
+    },
     "pnl_batches": {
-      "ask": "Period P&L + kitchen settlement batches in F0 or later F2?",
-      "explanation": {
-        "period_pnl": "Report: revenue (food ex-VAT), VAT collected, charges, discounts, kitchen/delivery shares, operating costs, EPS fees, middo_rest — filtered by day/week/month. Read-only analytics for accounts.",
-        "kitchen_settlement_batches": "Workflow: group open kitchen payables into a named batch, approve/pay as one packet (often one bank payout), attach remittance, mark many PartnerPayables settled together. Operational payment packaging — not the same as a P&L report.",
-        "recommendation": "Ship VAT + bank accounts + cash positions + withdrawal channels first. Put period P&L Excel in the same wave if thin. Defer settlement *batches* to F2 unless accounts needs multi-payable remittance packets immediately (single withdrawals already exist)."
-      }
+      "period_pnl": "in_F0 — report + Excel export",
+      "kitchen_settlement_batches": "in_F2 — multi-payable remittance packets (single withdrawals stay as today)"
     }
   },
+  "open": {},
   "suggested_ship_slices": [
     "F0a — VAT 5% inclusive on food: Settings + order snapshot + money tree / middo_rest aware",
     "F0b — Middo bank accounts CRUD (admin) + accounts ledger posts; EPS net + sub-gateway fee %",
     "F0c — Cash positions board (EPS / kitchen recv / rider recv / cash in hand) + accounts posts",
     "F0d — Withdrawal channel (Bank/bKash/Nagad/Cash) + optional attachment on accounts process",
-    "F0e — Excel export on cash / bank / VAT / positions",
-    "F2 — Period P&L polish + kitchen settlement batches (unless pulled into F0e)"
+    "F0e — Period P&L + Excel export on cash / bank / VAT / positions",
+    "F2 — Kitchen settlement batches"
   ],
   "related": [
     "docs/next-wave-completion-todo.json → F0",

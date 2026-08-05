@@ -239,18 +239,23 @@
     {
       "id": "F0",
       "title": "Accounts finance stretch — bank ledger / VAT",
-      "status": "decisions_locked_partial",
+      "status": "in_progress",
       "updated_at": "2026-08-05",
       "priority": "high-after-decisions",
       "owner_hint": "accounts",
       "decision_checklist": "docs/f0-finance-decisions.json",
-      "why": "Product locked VAT, multi-bank, cash positions, withdrawal channels, accounts+Excel mandate. pnl_batches still open.",
+      "why": "All F0 decisions locked. Period P&L+Excel in F0; kitchen settlement batches → F2.",
+      "slices": ["F0a VAT", "F0b bank+EPS fees", "F0c cash positions", "F0d withdrawal channels", "F0e period P&L+Excel"],
+      "shipped": [
+        "F0a: finance.vat_rate_pct Settings (default 5%); orders.vat_rate_pct + vat_amount snapshot",
+        "F0a: inclusive food VAT unbundled; middo_rest uses food ex-VAT; money tree + VAT event"
+      ],
       "items": [
         "VAT 5% inclusive on food — Settings-editable; per-order snapshot; accounts unbundle",
         "Multi Middo bank accounts — admin CRUD; accounts maintain; EPS fees by sub-gateway",
         "Cash positions — cash at EPS, recv kitchen, recv riders, cash in hand; accounts posts",
         "Withdrawals — Bank/bKash/Nagad/Cash + optional attachment on accounts process",
-        "Excel export for accounts",
+        "Period P&L + Excel export for accounts",
         "Do not invent Middo login user"
       ]
     },
@@ -265,6 +270,17 @@
       "items": [
         "Native rider app (reuse R5 IA)",
         "Corporate Flutter API already stubbed — productize when ready"
+      ]
+    },
+    {
+      "id": "F2",
+      "title": "Kitchen settlement batches",
+      "status": "pending",
+      "priority": "after-F0",
+      "owner_hint": "accounts",
+      "items": [
+        "Group open kitchen payables into named remittance batches",
+        "Accounts approve/pay as one packet with proof; settle many PartnerPayables together"
       ]
     }
   ],
@@ -283,6 +299,6 @@
     "Kitchen-style capacity slots for riders",
     "Full bank ledger / VAT until docs/f0-finance-decisions.json is answered"
   ],
-  "buildable_complete": true,
-  "recommended_start": "Stop — N0–N5, BOX1/BOX2, OPS-DAY shipped; F0 scoped deferred (docs/f0-finance-decisions.json); F1 deferred"
+  "buildable_complete": false,
+  "recommended_start": "F0a (VAT 5% inclusive) — F0 decisions locked; F2 = settlement batches later"
 }

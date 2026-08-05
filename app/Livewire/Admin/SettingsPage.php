@@ -33,6 +33,8 @@ class SettingsPage extends Component
 
     public bool $kitchen_to_ops_via_rider = false;
 
+    public float $vat_rate_pct = 5;
+
     public string $statusMessage = '';
 
     public string $errorMessage = '';
@@ -59,6 +61,7 @@ class SettingsPage extends Component
         $this->commission_custom = $commissions[DeliveryRunType::CUSTOM];
         $this->commission_mid_run_rescue = MiddoSettings::midRunRescueCommission();
         $this->kitchen_to_ops_via_rider = MiddoSettings::kitchenToOpsViaRider();
+        $this->vat_rate_pct = MiddoSettings::vatRatePct();
     }
 
     public function save(): void
@@ -79,6 +82,7 @@ class SettingsPage extends Component
             'commission_custom' => 'required|integer|min:0|max:100000',
             'commission_mid_run_rescue' => 'required|integer|min:0|max:100000',
             'kitchen_to_ops_via_rider' => 'boolean',
+            'vat_rate_pct' => 'required|numeric|min:0|max:100',
         ]);
 
         MiddoSettings::updateMealAndKitchenDefaults([
@@ -98,6 +102,7 @@ class SettingsPage extends Component
             ],
             'mid_run_rescue_commission' => $this->commission_mid_run_rescue,
             'kitchen_to_ops_via_rider' => $this->kitchen_to_ops_via_rider,
+            'vat_rate_pct' => $this->vat_rate_pct,
         ]);
 
         $this->loadFromSettings();
