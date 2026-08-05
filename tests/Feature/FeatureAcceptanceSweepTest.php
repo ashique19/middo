@@ -305,7 +305,9 @@ class FeatureAcceptanceSweepTest extends TestCase
             ->call('setViewMode', 'list')
             ->assertSet('viewMode', 'list')
             ->assertSee('Cash on Delivery')
-            ->assertDontSee('open-edit-order-modal');
+            ->assertDontSee('open-edit-order-modal')
+            ->assertDontSeeHtml('>View</a>')
+            ->assertDontSee('Action');
 
         $this->get(route('login'))
             ->assertOk()

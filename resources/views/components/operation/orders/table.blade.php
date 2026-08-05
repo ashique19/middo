@@ -2,7 +2,12 @@
     'orders' => [],
     'emptyMessage' => 'No orders found.',
     'showGroup' => false,
+    'showViewAction' => true,
 ])
+
+@php
+    $emptyColspan = ($showGroup ? 12 : 11) + ($showViewAction ? 1 : 0);
+@endphp
 
 <div class="bg-white shadow-md border border-gray-100 rounded-2xl overflow-hidden">
     <div class="overflow-x-auto">
@@ -23,7 +28,9 @@
                     <th class="p-4">Payment</th>
                     <th class="p-4">Method</th>
                     <th class="p-4 text-right">Total</th>
-                    <th class="p-4 text-right sticky right-0 bg-gray-50">Action</th>
+                    @if($showViewAction)
+                        <th class="p-4 text-right sticky right-0 bg-gray-50">Action</th>
+                    @endif
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 text-sm">
@@ -44,7 +51,11 @@
                     <tr wire:key="operation-order-row-{{ $order['id'] }}" class="hover:bg-gray-50/70 transition">
                         <td class="p-4 font-mono font-semibold text-gray-800">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <x-orders.id-link :order-id="$order['id']" />
+                                @if($showViewAction)
+                                    <x-orders.id-link :order-id="$order['id']" />
+                                @else
+                                    <span class="font-mono font-bold text-gray-800">#{{ $order['id'] }}</span>
+                                @endif
                                 @if(!empty($order['is_package']) || !empty($order['package_subscription_id']))
                                     <x-package-badge :title="$order['package_name'] ?? 'Meal package'" />
                                 @endif
@@ -103,13 +114,15 @@
                         <td class="p-4 text-right font-mono font-bold text-gray-900">
                             ৳{{ number_format($order['total_amount'] ?? 0, 0) }}
                         </td>
-                        <td class="p-4 text-right sticky right-0 bg-white">
-                            <x-orders.view-link :order-id="$order['id']" />
-                        </td>
+                        @if($showViewAction)
+                            <td class="p-4 text-right sticky right-0 bg-white">
+                                <x-orders.view-link :order-id="$order['id']" />
+                            </td>
+                        @endif
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ $showGroup ? 13 : 12 }}" class="p-12 text-center text-sm font-semibold text-gray-400 italic">
+                        <td colspan="{{ $emptyColspan }}" class="p-12 text-center text-sm font-semibold text-gray-400 italic">
                             {{ $emptyMessage }}
                         </td>
                     </tr>
