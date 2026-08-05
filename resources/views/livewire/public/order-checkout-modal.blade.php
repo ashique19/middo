@@ -4,10 +4,10 @@
         <div wire:key="order-checkout-modal-root" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
             
             {{-- Main Dashboard Card Layout Container --}}
-            <div class="bg-[#FDFBF7] rounded-[32px] shadow-2xl border border-amber-900/5 w-full max-w-5xl flex flex-col md:grid md:grid-cols-12 text-amber-950 antialiased font-sans my-auto max-h-[90vh] overflow-y-auto">                
+            <div class="bg-[#FDFBF7] rounded-[32px] shadow-2xl border border-amber-900/5 w-full max-w-5xl flex flex-col md:grid md:grid-cols-12 md:items-stretch text-amber-950 antialiased font-sans my-auto max-h-[90vh] overflow-y-auto md:overflow-hidden">
                 
                 {{-- LEFT COLUMN: Dish Snapshot --}}
-                <div class="w-full md:col-span-4 bg-[#F9F6F0] p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-amber-900/5">
+                <div class="w-full md:col-span-4 bg-[#F9F6F0] p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-amber-900/5 md:overflow-y-auto md:min-h-0">
                     <div>
                         <div class="flex items-center gap-2 mb-4 text-middo-orange font-bold text-lg">
                             <span class="text-xl">🍴</span> Middo
@@ -35,7 +35,7 @@
                 {{-- =========================================================================
                     CENTER COLUMN: Delivery Logistics (Dynamic Cutoff & Timelines)
                     ========================================================================= --}}
-                <div class="w-full md:col-span-4 p-6 flex flex-col justify-between bg-white border-b md:border-b-0 md:border-r border-amber-900/5">
+                <div class="w-full md:col-span-4 p-6 flex flex-col justify-between bg-white border-b md:border-b-0 md:border-r border-amber-900/5 md:overflow-y-auto md:min-h-0">
                     <div>
                         <h4 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-3">Delivery Logistics</h4>
                         <label class="block text-base font-bold text-gray-800 mb-2">Order for Dates & Quantities:</label>
@@ -178,12 +178,12 @@
                 {{-- =========================================================================
                      RIGHT COLUMN: Customer Details, Invoicing Summary, & Logistics Address
                      ========================================================================= --}}
-                <div class="w-full md:col-span-4 p-6 bg-[#FDFBF7] flex flex-col justify-between">
-                    <div>
-                        <h4 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-3">Order Summary & Customer Info</h4>
-                        
+                <div class="w-full md:col-span-4 p-6 bg-[#FDFBF7] flex flex-col md:min-h-0 md:overflow-hidden">
+                    <div class="flex-1 min-h-0 md:overflow-y-auto pr-0.5 space-y-3">
+                        <h4 class="text-xs font-black uppercase tracking-wider text-gray-400">Order Summary & Customer Info</h4>
+
                         {{-- Corporate Mini User Badge --}}
-                        <div class="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm mb-1">
+                        <div class="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm">
                             <div class="w-10 h-10 rounded-full bg-middo-orange/10 border border-middo-orange/20 text-middo-orange flex items-center justify-center font-bold text-sm uppercase shadow-inner overflow-hidden shrink-0">
                                 {{ substr($customerName !== '' ? $customerName : (auth()->user()?->name ?? 'U'), 0, 2) }}
                             </div>
@@ -196,14 +196,14 @@
                             </div>
                         </div>
                         @if(auth()->check())
-                            <p class="text-[10px] text-gray-400 mb-3 px-1">
+                            <p class="text-[10px] text-gray-400 px-1">
                                 Billing account: <span class="font-bold text-gray-600">{{ auth()->user()->name ?? auth()->user()->first_name }}</span>
                                 @if(auth()->user()->company_name) — {{ auth()->user()->company_name }}@endif
                             </p>
                         @endif
 
-                        {{-- Calculation Bill Table Matrix showing multi-date breakouts --}}
-                        <div class="space-y-1.5 text-xs text-gray-600 border-b border-gray-200/80 pb-3 mb-3 max-h-[120px] overflow-y-auto pr-1">
+                        {{-- Line items only — scroll independently of coupon/payment --}}
+                        <div class="space-y-1.5 text-xs text-gray-600 max-h-[96px] overflow-y-auto pr-1">
                             @foreach($quantities as $date => $qty)
                                 @if($qty > 0)
                                     <div class="flex justify-between items-center text-gray-700" wire:key="summary-row-{{ $date }}">
@@ -212,93 +212,15 @@
                                     </div>
                                 @endif
                             @endforeach
-                            
-                                <div class="pt-2 border-t border-dashed border-gray-200 space-y-1">
-                                <div class="flex justify-between text-gray-500">
-                                    <span>Cumulative Subtotal:</span>
-                                    <span class="font-bold text-gray-900">৳{{ number_format($subtotal, 2) }}</span>
-                                </div>
-                                @forelse($chargeLines as $chargeLine)
-                                    <div class="flex justify-between text-gray-500" wire:key="fee-{{ $loop->index }}">
-                                        <span>{{ $chargeLine['name'] }}:</span>
-                                        <span class="font-bold text-gray-700">৳{{ number_format($chargeLine['amount'], 2) }}</span>
-                                    </div>
-                                @empty
-                                    <div class="flex justify-between text-gray-400">
-                                        <span>Charges:</span>
-                                        <span class="font-bold text-gray-600">৳{{ number_format($taxesAndFees, 2) }}</span>
-                                    </div>
-                                @endforelse
-                                @if($couponDiscount > 0)
-                                    <div class="flex justify-between text-emerald-700">
-                                        <span>Coupon ({{ $appliedCouponCode }}):</span>
-                                        <span class="font-bold">−৳{{ number_format($couponDiscount) }}</span>
-                                    </div>
-                                @endif
-                                <div class="flex justify-between text-sm font-black text-gray-900 pt-1">
-                                    <span>TOTAL:</span>
-                                    <span class="text-base text-gray-900">৳{{ number_format($total, 2) }}</span>
-                                </div>
-                                <div class="pt-2">
-                                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Coupon code</label>
-                                    <div class="flex gap-2">
-                                        <input wire:model="couponCode" type="text" class="flex-1 border-gray-200 rounded-xl text-sm p-2 uppercase tracking-wider font-bold" placeholder="SAVE50" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                        @if($appliedCouponCode !== '')
-                                            <button type="button" wire:click="removeCoupon" class="px-3 py-2 rounded-xl border border-gray-200 text-[11px] font-black" {{ $isConfirmingOtp ? 'disabled' : '' }}>Remove</button>
-                                        @else
-                                            <button type="button" wire:click="applyCoupon" class="px-3 py-2 rounded-xl bg-[#1E4630] text-white text-[11px] font-black" {{ $isConfirmingOtp ? 'disabled' : '' }}>Apply</button>
-                                        @endif
-                                    </div>
-                                    @error('couponCode') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
-                                    @if($couponMessage)
-                                        <p class="text-[11px] font-semibold text-emerald-800 mt-1">{{ $couponMessage }}</p>
-                                    @endif
-                                </div>
-                                @if(!empty($prepayment['required']))
-                                    <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-950 space-y-1">
-                                        <p class="font-bold">Prepayment required: ৳{{ number_format($prepayment['amount'] ?? 0) }}
-                                            ({{ ($prepayment['ratio'] ?? 0) >= 1 ? '100%' : '50%' }}) — charged to your billing account</p>
-                                        <p>{{ $prepayment['message'] ?? '' }}</p>
-                                        <div class="flex items-center justify-between gap-2">
-                                            <p>Middo Balance: <span class="font-bold">৳{{ number_format($prepayment['balance'] ?? 0) }}</span></p>
-                                            @if(empty($prepayment['balance_sufficient']) || ($prepayment['balance'] ?? 0) < ($prepayment['amount'] ?? 0))
-                                                <button type="button"
-                                                        @click="$dispatch('open-wallet-top-up-modal')"
-                                                        class="text-[10px] font-black text-white bg-middo-orange hover:bg-[#733614] px-2 py-1 rounded-lg transition shrink-0">
-                                                    + Add Money
-                                                </button>
-                                            @endif
-                                        </div>
-                                    </div>
-                                @endif
-                                @if($this->showsPaymentMethodPicker)
-                                    <div class="pt-1">
-                                        <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Payment method</label>
-                                        <select wire:model.live="paymentMethod" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                            @if($this->codAllowed)
-                                                <option value="cash_on_delivery">Cash on Delivery</option>
-                                            @endif
-                                            <option value="balance">Middo Balance</option>
-                                            <option value="gateway">Online payment</option>
-                                        </select>
-                                        @error('paymentMethod') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
-                                    </div>
-                                @elseif($paymentMethod === 'cash_on_delivery')
-                                    <div class="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-[11px] text-emerald-950">
-                                        <p class="font-bold">Payment method: Cash on Delivery</p>
-                                        <p class="mt-0.5 text-emerald-800/80">Pay the rider when your meal is delivered.</p>
-                                    </div>
-                                @endif
-                            </div>
                         </div>
 
                         {{-- Delivery Logistics Address Segment --}}
-                        <div class="space-y-3">
-                            <label class="block text-xs font-black uppercase tracking-wider text-gray-400 mb-1">Delivery Logistics & Info</label>
-                            
+                        <div class="space-y-3 pt-1">
+                            <label class="block text-xs font-black uppercase tracking-wider text-gray-400">Delivery Logistics & Info</label>
+
                             <div>
                                 <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Mobile Number</label>
-                                <input wire:model="mobile" type="text" placeholder="e.g. 01710123456" 
+                                <input wire:model="mobile" type="text" placeholder="e.g. 01710123456"
                                     class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500"
                                     {{ $isConfirmingOtp ? 'disabled' : '' }}>
                                 @error('mobile') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
@@ -335,18 +257,95 @@
                                 @error('addressLine1') <span class="text-red-500 text-xs mt-0.5 block">{{ $message }}</span> @enderror
                             </div>
                         </div>
-
-
                     </div>
 
-                    {{-- PLACE THE CODE BLOCK DIRECTLY INSIDE THIS ACTION CONTROLS SECTION --}}
-                    <div class="space-y-2 pt-2 border-t border-gray-200/60">
-                        
+                    {{-- Totals, coupon, payment, and confirm stay pinned (not buried in line-item scroll) --}}
+                    <div class="shrink-0 space-y-2 pt-3 mt-3 border-t border-gray-200/60 bg-[#FDFBF7]">
+                        <div class="space-y-1 text-xs">
+                            <div class="flex justify-between text-gray-500">
+                                <span>Cumulative Subtotal:</span>
+                                <span class="font-bold text-gray-900">৳{{ number_format($subtotal, 2) }}</span>
+                            </div>
+                            @forelse($chargeLines as $chargeLine)
+                                <div class="flex justify-between text-gray-500" wire:key="fee-{{ $loop->index }}">
+                                    <span>{{ $chargeLine['name'] }}:</span>
+                                    <span class="font-bold text-gray-700">৳{{ number_format($chargeLine['amount'], 2) }}</span>
+                                </div>
+                            @empty
+                                <div class="flex justify-between text-gray-400">
+                                    <span>Charges:</span>
+                                    <span class="font-bold text-gray-600">৳{{ number_format($taxesAndFees, 2) }}</span>
+                                </div>
+                            @endforelse
+                            @if($couponDiscount > 0)
+                                <div class="flex justify-between text-emerald-700">
+                                    <span>Coupon ({{ $appliedCouponCode }}):</span>
+                                    <span class="font-bold">−৳{{ number_format($couponDiscount) }}</span>
+                                </div>
+                            @endif
+                            <div class="flex justify-between text-sm font-black text-gray-900 pt-1">
+                                <span>TOTAL:</span>
+                                <span class="text-base text-gray-900">৳{{ number_format($total, 2) }}</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Coupon code</label>
+                            <div class="flex gap-2">
+                                <input wire:model="couponCode" type="text" class="flex-1 border-gray-200 rounded-xl text-sm p-2 uppercase tracking-wider font-bold" placeholder="SAVE50" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                @if($appliedCouponCode !== '')
+                                    <button type="button" wire:click="removeCoupon" class="px-3 py-2 rounded-xl border border-gray-200 text-[11px] font-black" {{ $isConfirmingOtp ? 'disabled' : '' }}>Remove</button>
+                                @else
+                                    <button type="button" wire:click="applyCoupon" class="px-3 py-2 rounded-xl bg-[#1E4630] text-white text-[11px] font-black" {{ $isConfirmingOtp ? 'disabled' : '' }}>Apply</button>
+                                @endif
+                            </div>
+                            @error('couponCode') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
+                            @if($couponMessage)
+                                <p class="text-[11px] font-semibold text-emerald-800 mt-1">{{ $couponMessage }}</p>
+                            @endif
+                        </div>
+
+                        @if(!empty($prepayment['required']))
+                            <div class="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-950 space-y-1">
+                                <p class="font-bold">Prepayment required: ৳{{ number_format($prepayment['amount'] ?? 0) }}
+                                    ({{ ($prepayment['ratio'] ?? 0) >= 1 ? '100%' : '50%' }}) — charged to your billing account</p>
+                                <p>{{ $prepayment['message'] ?? '' }}</p>
+                                <div class="flex items-center justify-between gap-2">
+                                    <p>Middo Balance: <span class="font-bold">৳{{ number_format($prepayment['balance'] ?? 0) }}</span></p>
+                                    @if(empty($prepayment['balance_sufficient']) || ($prepayment['balance'] ?? 0) < ($prepayment['amount'] ?? 0))
+                                        <button type="button"
+                                                @click="$dispatch('open-wallet-top-up-modal')"
+                                                class="text-[10px] font-black text-white bg-middo-orange hover:bg-[#733614] px-2 py-1 rounded-lg transition shrink-0">
+                                            + Add Money
+                                        </button>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+
+                        @if($this->showsPaymentMethodPicker)
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Payment method</label>
+                                <select wire:model.live="paymentMethod" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                    @if($this->codAllowed)
+                                        <option value="cash_on_delivery">Cash on Delivery</option>
+                                    @endif
+                                    <option value="balance">Middo Balance</option>
+                                    <option value="gateway">Online payment</option>
+                                </select>
+                                @error('paymentMethod') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
+                            </div>
+                        @elseif($paymentMethod === 'cash_on_delivery')
+                            <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-[11px] text-emerald-950">
+                                <p class="font-bold">Payment method: Cash on Delivery</p>
+                                <p class="mt-0.5 text-emerald-800/80">Pay the rider when your meal is delivered.</p>
+                            </div>
+                        @endif
+
                         @if(!$isConfirmingOtp)
-                            {{-- Normal State: Submit Details & Request Order OTP Token --}}
-                            <button 
-                                type="button" 
-                                wire:click="initiateOrderConfirmation" 
+                            <button
+                                type="button"
+                                wire:click="initiateOrderConfirmation"
                                 wire:loading.attr="disabled"
                                 class="w-full bg-middo-orange text-white py-3.5 rounded-xl font-bold hover:bg-amber-950 shadow-md transition text-sm tracking-wide"
                             >
@@ -354,8 +353,7 @@
                                 <span wire:loading wire:target="initiateOrderConfirmation">Sending Confirmation SMS...</span>
                             </button>
                         @else
-                            {{-- Confirmation State: Prompt entry panel to execute transactional creation --}}
-                            <div class="bg-amber-50/70 border border-amber-200 p-3 rounded-xl space-y-2 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-150" wire:key="checkout-confirmation-panel">
+                            <div class="bg-amber-50/70 border border-amber-200 p-3 rounded-xl space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-150" wire:key="checkout-confirmation-panel">
                                 <div class="flex justify-between items-center">
                                     <p class="text-[11px] text-amber-950 font-bold">Verification SMS Sent! Enter 4-Digit Code:</p>
                                     <button type="button" wire:click="$set('isConfirmingOtp', false)" class="text-[10px] text-gray-400 hover:text-gray-600 underline font-semibold">Change Info</button>
@@ -373,11 +371,11 @@
                                         <p class="mt-0.5">Pay the rider when your meal arrives.</p>
                                     </div>
                                 @endif
-                                
+
                                 <div class="flex gap-2">
-                                    <input wire:model="otpInput" type="text" maxlength="4" placeholder="••••" 
+                                    <input wire:model="otpInput" type="text" maxlength="4" placeholder="••••"
                                         class="w-24 border-gray-200 bg-white rounded-xl text-center text-sm font-bold tracking-widest p-2 shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
-                                    
+
                                     <button type="button" wire:click="finalizeOrder" wire:loading.attr="disabled"
                                         class="flex-1 px-3 py-2 bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-emerald-950 transition">
                                         <span wire:loading.remove wire:target="finalizeOrder">Verify & Place Order</span>
@@ -386,8 +384,6 @@
                                 </div>
                                 @error('otpInput') <span class="text-red-500 text-xs font-semibold block">{{ $message }}</span> @enderror
                                 @error('paymentMethod') <span class="text-red-500 text-xs font-semibold block">{{ $message }}</span> @enderror
-                            </div>
-                                @error('otpInput') <span class="text-red-500 text-xs font-semibold block mt-0.5">{{ $message }}</span> @enderror
                             </div>
                         @endif
 
