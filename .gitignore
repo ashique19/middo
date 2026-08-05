@@ -17,6 +17,11 @@
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
+/tests/e2e/recordings
+/tests/e2e/playwright-report
+/test-results
+/playwright-report
+/blob-report
 /storage/*.key
 /storage/pail
 _ide_helper.php

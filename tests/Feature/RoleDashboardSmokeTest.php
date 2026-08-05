@@ -23,6 +23,7 @@ class RoleDashboardSmokeTest extends TestCase
             'kitchen' => ['kitchen', '/kitchen/dashboard'],
             'delivery' => ['delivery', '/delivery/dashboard'],
             'corporate' => ['corporate', '/corporate/dashboard'],
+            'accounts' => ['accounts', '/accounts/dashboard'],
         ];
     }
 

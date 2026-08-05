@@ -97,7 +97,8 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-        if ($this->app->environment('production') || filled(env('CODESPACE_NAME'))) {
+        $forceHttpsByDefault = $this->app->environment('production') || filled(env('CODESPACE_NAME'));
+        if (filter_var(env('FORCE_HTTPS', $forceHttpsByDefault), FILTER_VALIDATE_BOOLEAN)) {
             URL::forceScheme('https');
         }
     }

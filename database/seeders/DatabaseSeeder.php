@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
             DeliveryFeaturesTestSeeder::class,
             OrderLogSeeder::class,
             OrderComplaintSeeder::class,
+            E2eOrderLifecycleSeeder::class,
         ]);
     }
 }
