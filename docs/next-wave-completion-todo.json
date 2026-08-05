@@ -1,0 +1,146 @@
+{
+  "title": "Post clear — next-wave backlog",
+  "version": 1,
+  "updated": "2026-08-05",
+  "checkpoint": {
+    "ops": "O0–O9 done (docs/ops-completion-todo.json)",
+    "accounts": "A0–A4 done (docs/accounts-completion-todo.json)",
+    "ops_clear_gate": "cleared (docs/ops-clear-gate.json)",
+    "kitchen": "K0–K6 done",
+    "rider_core": "R0–R* core phases done; parked_next_wave still open",
+    "main_tip": "d1fff21"
+  },
+  "sources": [
+    "docs/rider-completion-todo.json → parked_next_wave_agreed_2026_08_04",
+    "docs/ops-completion-todo.json → non_goals_for_now",
+    "docs/ops-review.json → out_of_scope_candidates_for_debate",
+    "docs/accounts-completion-todo.json → non_goals"
+  ],
+  "suggested_ship_order": ["N0", "N1", "N2", "N3", "N4", "N5", "F0", "F1"],
+  "phases": [
+    {
+      "id": "N0",
+      "title": "Reconcile parked rider items already covered by ops/accounts",
+      "status": "pending",
+      "note": "Audit + close or thin-docs before building duplicates",
+      "items": [
+        {
+          "parked": "COD reconciliation report",
+          "likely_covered_by": "O3 CodDueReconPage + accounts portal",
+          "action": "Mark done in rider parked list or list remaining gaps"
+        },
+        {
+          "parked": "Handover reject / amount dispute",
+          "likely_covered_by": "A2 ops propose → accounts confirm (Middo Due); kitchen reject still immediate",
+          "action": "Confirm kitchen-target reject UX is enough; document dual-control"
+        },
+        {
+          "parked": "Ops live who-holds-what board",
+          "likely_covered_by": "O4 RidersBoard (lunch / boxes / custom)",
+          "action": "Gap-check vs parked wording; close or extend"
+        }
+      ]
+    },
+    {
+      "id": "N1",
+      "title": "Failed delivery / reassign / release after accept",
+      "status": "pending",
+      "priority": "high",
+      "owner_hint": "ops + rider",
+      "items": [
+        "Release / reassign after rider accept (commission already accrued at start)",
+        "Unwind rules when not a full cancel",
+        "Ops force path + rider UI + audit"
+      ],
+      "risks": [
+        "Commission / Due / box custody must stay consistent with OrderOpsForce and RiderMoney"
+      ]
+    },
+    {
+      "id": "N2",
+      "title": "Aging unclaimed lunch dispatches + rider coverage SLA",
+      "status": "pending",
+      "priority": "high",
+      "owner_hint": "ops (+ coverage board)",
+      "items": [
+        "Unclaimed packed / awaiting-accept aging list",
+        "Rider-side SLA mirror of kitchen accept/dispatch deadlines",
+        "Surface gaps on Coverage board (O8) and/or RidersBoard"
+      ]
+    },
+    {
+      "id": "N3",
+      "title": "Partial / short cash collection",
+      "status": "pending",
+      "priority": "medium",
+      "owner_hint": "rider + accounts",
+      "items": [
+        "confirmCashPayment today is full amountDue only",
+        "Partial collect + residual Due / dispute path",
+        "Accounts visibility on short collections"
+      ]
+    },
+    {
+      "id": "N4",
+      "title": "StaffAlerts for box/ops runs",
+      "status": "pending",
+      "priority": "medium",
+      "owner_hint": "ops",
+      "items": [
+        "Alerts today lean lunch/custom",
+        "ops→kitchen assign alerts",
+        "Empty-box pickup / box-run alerts"
+      ]
+    },
+    {
+      "id": "N5",
+      "title": "Kitchen→ops box rider leg (R2.3)",
+      "status": "pending",
+      "priority": "medium",
+      "owner_hint": "kitchen + ops + rider",
+      "items": [
+        "Settings rate ready; kitchen sendToWarehouse is direct today",
+        "Optional kitchen→ops→warehouse rider leg when product wants it"
+      ]
+    },
+    {
+      "id": "F0",
+      "title": "Accounts finance stretch — bank ledger / VAT",
+      "status": "pending",
+      "priority": "low-until-mandated",
+      "owner_hint": "accounts",
+      "items": [
+        "Bank ledger alongside MiddoCashLedger (cash SoT stays MiddoCashLedger)",
+        "VAT / tax reporting surfaces",
+        "Do not invent Middo login user"
+      ]
+    },
+    {
+      "id": "F1",
+      "title": "Native apps (rider / corporate)",
+      "status": "pending",
+      "priority": "deferred",
+      "owner_hint": "product",
+      "items": [
+        "Native rider app (reuse R5 IA)",
+        "Corporate Flutter API already stubbed — productize when ready"
+      ]
+    }
+  ],
+  "nice_to_have": [
+    "POD / photo / delivery OTP",
+    "Rider shifts / availability",
+    "Corporate-facing rider name + ETA",
+    "Post-hoc commission adjustments",
+    "Richer offline than PWA passthrough"
+  ],
+  "still_out_of_scope": [
+    "GPS / live map / route optimization",
+    "Ops menu CRUD (keep admin)",
+    "Middo login user",
+    "Rider↔rider cash",
+    "Insurance / float deposits (unless finance mandates)",
+    "Kitchen-style capacity slots for riders"
+  ],
+  "recommended_start": "N0 (close already-shipped parked items) → N1 (failed delivery / release) → N2 (aging + rider SLA)"
+}

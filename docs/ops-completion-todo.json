@@ -159,7 +159,12 @@
   "post_ops": {
     "accounts_role": {
       "phases": ["A0", "A1", "A2", "A3", "A4"],
+      "status": "done",
       "see": "docs/accounts-completion-todo.json"
+    },
+    "next_wave": {
+      "see": "docs/next-wave-completion-todo.json",
+      "start": "N0 → N1 → N2"
     }
   },
   "non_goals_for_now": [

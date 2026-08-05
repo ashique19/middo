@@ -67,6 +67,7 @@
       ]
     }
   ],
+  "next_wave": "docs/next-wave-completion-todo.json",
   "non_goals": [
     "Kitchen assign / box dispatch / order force (stays ops|admin)",
     "Middo login user",
