@@ -111,4 +111,17 @@ class PackageRefund
             })
             ->all();
     }
+
+    /**
+     * Prepaid value for billable days that were never confirmed as orders
+     * (awaiting/partial schedule). Equals subscription prepaid minus the sum of
+     * per-day refund allocations for every existing package order.
+     */
+    public static function unscheduledPrepaidResidual(PackageSubscription $subscription): int
+    {
+        $prepaid = self::subscriptionPrepaidAmount($subscription);
+        $allocatedToOrders = (int) array_sum(self::packageDayRefundAllocations($subscription));
+
+        return max(0, $prepaid - $allocatedToOrders);
+    }
 }
