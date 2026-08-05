@@ -3,6 +3,7 @@
 namespace App\Livewire\Operation;
 
 use App\Models\MiddoBox;
+use App\Models\MiddoBoxLog;
 use App\Support\OpsBoxCustody;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
@@ -43,10 +44,13 @@ class MiddoBoxes extends Component
     }
 
     #[On('middo-boxes-generated')]
-    public function refreshBoxes(): void
+    public function refreshBoxes(?int $count = null): void
     {
         $this->resetPage();
         $this->selectedBoxIds = [];
+        if ($count !== null && $count > 0) {
+            $this->statusMessage = "Generated {$count} new Middo ".str('box')->plural($count).' (latest first on this list).';
+        }
     }
 
     #[On('middo-boxes-assigned')]
@@ -78,9 +82,18 @@ class MiddoBoxes extends Component
 
     public function retire(int $boxId): void
     {
-        MiddoBox::query()
-            ->whereKey($boxId)
-            ->update(['asset_status' => 'retired']);
+        $box = MiddoBox::query()->find($boxId);
+        if (! $box || $box->asset_status === 'retired') {
+            return;
+        }
+
+        $box->update(['asset_status' => 'retired']);
+        MiddoBoxLog::create([
+            'middo_box_id' => $box->id,
+            'custody_status' => 'warehouse',
+            'log_action' => 'retired_at_warehouse',
+            'performed_by' => Auth::id(),
+        ]);
 
         $this->selectedBoxIds = array_values(array_filter(
             $this->selectedBoxIds,
@@ -90,14 +103,27 @@ class MiddoBoxes extends Component
 
     public function reactivate(int $boxId): void
     {
-        MiddoBox::query()
+        $box = MiddoBox::query()
             ->whereKey($boxId)
             ->whereIn('asset_status', ['damaged', 'retired', 'maintenance', 'lost'])
-            ->update([
-                'asset_status' => 'at_middo_warehouse',
-                'kitchen_id' => null,
-                'held_by_user_id' => null,
-            ]);
+            ->first();
+
+        if (! $box) {
+            return;
+        }
+
+        $box->update([
+            'asset_status' => 'at_middo_warehouse',
+            'kitchen_id' => null,
+            'held_by_user_id' => null,
+        ]);
+
+        MiddoBoxLog::create([
+            'middo_box_id' => $box->id,
+            'custody_status' => 'warehouse',
+            'log_action' => 'reactivated_at_warehouse',
+            'performed_by' => Auth::id(),
+        ]);
     }
 
     public function ackReturn(int $boxId): void
@@ -135,7 +161,7 @@ class MiddoBoxes extends Component
             })
             ->when($this->statusFilter !== '', fn ($q) => $q->where('asset_status', $this->statusFilter))
             ->orderByRaw("CASE WHEN asset_status = 'damaged' THEN 0 ELSE 1 END")
-            ->orderBy('qr_code_id')
+            ->orderByDesc('id')
             ->paginate(20);
 
         return view('livewire.operation.middo-boxes', [

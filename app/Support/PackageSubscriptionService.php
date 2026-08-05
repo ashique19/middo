@@ -516,6 +516,20 @@ class PackageSubscriptionService
                 $refunded += $lineRefund;
             }
 
+            // Partially scheduled packages leave prepaid days without orders.
+            // Refund that residual so cancelRemaining returns the full unused prepaid.
+            $residual = PackageRefund::unscheduledPrepaidResidual($lockedSub->fresh(['orders']));
+            if ($residual > 0) {
+                WalletLedger::credit(
+                    $owner,
+                    $residual,
+                    WalletTransaction::TYPE_REFUND,
+                    'Package subscription cancelled — refund for unscheduled prepaid days on subscription #'.$lockedSub->id,
+                    $lockedSub
+                );
+                $refunded += $residual;
+            }
+
             $lockedSub->update([
                 'status' => PackageSubscription::STATUS_CANCELLED,
             ]);

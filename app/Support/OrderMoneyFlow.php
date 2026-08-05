@@ -29,9 +29,30 @@ class OrderMoneyFlow
 
         self::write($order, OrderMoneyEvent::TYPE_PLACED, OrderMoneyEvent::BUCKET_REVENUE, (int) $breakdown['food_amount'], [
             'channel' => 'system',
-            'description' => 'Food revenue (menu × qty)',
-            'meta' => ['quantity' => (int) $order->quantity, 'unit_price' => self::unitFoodPrice($order)],
+            'description' => 'Food revenue (menu × qty, VAT-inclusive)',
+            'meta' => [
+                'quantity' => (int) $order->quantity,
+                'unit_price' => self::unitFoodPrice($order),
+                'vat_rate_pct' => (float) $breakdown['vat_rate_pct'],
+                'vat_amount' => (int) $breakdown['vat_amount'],
+                'food_ex_vat' => (int) $breakdown['food_amount'] - (int) $breakdown['vat_amount'],
+            ],
         ]);
+
+        if ((int) $breakdown['vat_amount'] > 0) {
+            self::write($order, OrderMoneyEvent::TYPE_VAT, OrderMoneyEvent::BUCKET_VAT, (int) $breakdown['vat_amount'], [
+                'channel' => 'system',
+                'description' => sprintf(
+                    'VAT %.2f%% unbundled from food (inclusive)',
+                    (float) $breakdown['vat_rate_pct']
+                ),
+                'meta' => [
+                    'vat_rate_pct' => (float) $breakdown['vat_rate_pct'],
+                    'food_inclusive' => (int) $breakdown['food_amount'],
+                    'food_ex_vat' => (int) $breakdown['food_amount'] - (int) $breakdown['vat_amount'],
+                ],
+            ]);
+        }
 
         if ((int) $breakdown['charges_amount'] > 0) {
             self::write($order, OrderMoneyEvent::TYPE_CHARGE, OrderMoneyEvent::BUCKET_CHARGE, (int) $breakdown['charges_amount'], [
@@ -188,6 +209,8 @@ class OrderMoneyFlow
         $order->forceFill([
             'kitchen_share_amount' => $breakdown['kitchen_share_amount'],
             'food_amount' => $breakdown['food_amount'],
+            'vat_rate_pct' => $breakdown['vat_rate_pct'],
+            'vat_amount' => $breakdown['vat_amount'],
             'charges_amount' => $breakdown['charges_amount'],
             'discount_amount' => $breakdown['discount_amount'],
         ])->saveQuietly();
@@ -346,6 +369,9 @@ class OrderMoneyFlow
             'description' => 'Middo rest after partner shares (before/excluding direct-cost memo)',
             'meta' => [
                 'food' => (int) $breakdown['food_amount'],
+                'food_ex_vat' => (int) $breakdown['food_amount'] - (int) $breakdown['vat_amount'],
+                'vat' => (int) $breakdown['vat_amount'],
+                'vat_rate_pct' => (float) $breakdown['vat_rate_pct'],
                 'charges' => (int) $breakdown['charges_amount'],
                 'discount' => (int) $breakdown['discount_amount'],
                 'kitchen' => (int) $breakdown['kitchen_share_amount'],
@@ -597,6 +623,7 @@ class OrderMoneyFlow
                 OrderMoneyEvent::TYPE_PLACED,
                 OrderMoneyEvent::TYPE_CHARGE,
                 OrderMoneyEvent::TYPE_DISCOUNT,
+                OrderMoneyEvent::TYPE_VAT,
             ], true)) {
                 $billing[] = $row;
             } elseif (in_array($event->event_type, [
@@ -622,10 +649,16 @@ class OrderMoneyFlow
             'settled_at' => $p->settled_at?->timezone('Asia/Dhaka')->format('Y-m-d H:i'),
         ])->values()->all();
 
+        $food = (int) ($order->food_amount ?: max(0, (int) $order->total_amount - (int) ($order->charges_amount ?? 0)));
+        $vat = (int) ($order->vat_amount ?? 0);
+
         return [
             'summary' => [
                 'total' => (int) $order->total_amount,
-                'food' => (int) ($order->food_amount ?: max(0, (int) $order->total_amount - (int) ($order->charges_amount ?? 0))),
+                'food' => $food,
+                'food_ex_vat' => max(0, $food - $vat),
+                'vat' => $vat,
+                'vat_rate_pct' => (float) ($order->vat_rate_pct ?? 0),
                 'charges' => (int) ($order->charges_amount ?? 0),
                 'discount' => (int) ($order->discount_amount ?? 0),
                 'paid' => (int) $order->amount_paid,
@@ -648,6 +681,8 @@ class OrderMoneyFlow
     /**
      * @return array{
      *   food_amount:int,
+     *   vat_rate_pct:float,
+     *   vat_amount:int,
      *   charges_amount:int,
      *   discount_amount:int,
      *   kitchen_share_amount:int,
@@ -674,6 +709,20 @@ class OrderMoneyFlow
             }
         }
 
+        // Snapshot: first breakdown (food not yet saved) uses Settings; later recomputes keep order.vat_rate_pct.
+        $rate = MiddoSettings::vatRatePct();
+        if (
+            Schema::hasColumn('orders', 'vat_rate_pct')
+            && $order->exists
+            && (int) ($order->food_amount ?? 0) > 0
+        ) {
+            $rate = (float) ($order->vat_rate_pct ?? 0);
+        }
+
+        $rate = max(0.0, min(100.0, $rate));
+        $foodEx = $rate > 0 ? (int) round($food / (1 + ($rate / 100))) : $food;
+        $vat = max(0, $food - $foodEx);
+
         $kitchenUnit = (int) ($menu?->kitchen_commission ?? 0);
         $deliveryUnit = (int) ($menu?->delivery_commission ?? 0);
         $directUnit = (int) ($menu?->meals_cost ?? 0) + (int) ($menu?->other_cost ?? 0);
@@ -682,8 +731,7 @@ class OrderMoneyFlow
         $delivery = $deliveryUnit * $qty;
         $direct = $directUnit * $qty;
 
-        // Middo rest = what Middo keeps of the customer bill after partner shares.
-        // Cap partner shares so kitchen + delivery never exceed billNet.
+        // Cap partner shares against inclusive customer bill (VAT stays in the bill).
         $billNet = max(0, $food + $charges - $discount);
         $partnerTotal = $kitchen + $delivery;
         if ($partnerTotal > $billNet && $partnerTotal > 0) {
@@ -691,10 +739,13 @@ class OrderMoneyFlow
             $kitchen = $scaledKitchen;
             $delivery = $billNet - $scaledKitchen;
         }
-        $middoRest = max(0, $billNet - $kitchen - $delivery);
+        // Middo rest uses food ex-VAT so VAT is tax payable, not Middo margin.
+        $middoRest = max(0, $billNet - $vat - $kitchen - $delivery);
 
         return [
             'food_amount' => $food,
+            'vat_rate_pct' => $rate,
+            'vat_amount' => $vat,
             'charges_amount' => $charges,
             'discount_amount' => $discount,
             'kitchen_share_amount' => $kitchen,
@@ -830,6 +881,9 @@ class OrderMoneyFlow
             'summary' => [
                 'total' => (int) $order->total_amount,
                 'food' => $breakdown['food_amount'],
+                'food_ex_vat' => max(0, $breakdown['food_amount'] - $breakdown['vat_amount']),
+                'vat' => $breakdown['vat_amount'],
+                'vat_rate_pct' => $breakdown['vat_rate_pct'],
                 'charges' => $breakdown['charges_amount'],
                 'discount' => $breakdown['discount_amount'],
                 'paid' => (int) $order->amount_paid,
@@ -845,7 +899,7 @@ class OrderMoneyFlow
                 [
                     'event_type' => 'placed',
                     'amount' => $breakdown['food_amount'],
-                    'description' => 'Food revenue (estimated from current menu)',
+                    'description' => 'Food revenue (estimated from current menu, VAT-inclusive)',
                     'middo_cash_balance_after' => null,
                     'at' => null,
                 ],

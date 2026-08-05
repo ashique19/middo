@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Support\DeliveryRunType;
 use App\Support\MiddoOperatingCosts;
 use App\Support\RiderCommission;
+use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -82,7 +83,12 @@ class AssignMiddoBoxesModal extends Component
             'selectedKitchenId' => 'required|exists:users,id',
         ]);
 
-        $assignedCount = DB::transaction(function () {
+        $assignedCount = 0;
+        $assignedBoxes = collect();
+        $rider = null;
+        $kitchen = null;
+
+        DB::transaction(function () use (&$assignedCount, &$assignedBoxes, &$rider, &$kitchen) {
             $boxes = MiddoBox::query()
                 ->whereIn('id', $this->boxIds)
                 ->where('asset_status', 'at_middo_warehouse')
@@ -90,7 +96,7 @@ class AssignMiddoBoxesModal extends Component
                 ->get();
 
             if ($boxes->isEmpty()) {
-                return 0;
+                return;
             }
 
             $boxIds = $boxes->pluck('id');
@@ -112,6 +118,7 @@ class AssignMiddoBoxesModal extends Component
             }
 
             $rider = User::query()->find($this->selectedRiderId);
+            $kitchen = User::query()->find($this->selectedKitchenId);
             if ($rider) {
                 $perBox = RiderCommission::forSettingsRun($rider, DeliveryRunType::OPS_TO_KITCHEN);
                 foreach ($boxIds as $boxId) {
@@ -128,13 +135,18 @@ class AssignMiddoBoxesModal extends Component
                 }
             }
 
-            return $boxIds->count();
+            $assignedBoxes = $boxes;
+            $assignedCount = $boxIds->count();
         });
 
         if ($assignedCount === 0) {
             $this->addError('selectedRiderId', 'No warehouse boxes were available to assign.');
 
             return;
+        }
+
+        if ($rider && $kitchen) {
+            StaffAlerts::notifyOpsToKitchenBoxes($rider, $kitchen, $assignedBoxes);
         }
 
         $this->dispatch('middo-boxes-assigned');

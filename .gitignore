@@ -32,3 +32,8 @@ Thumbs.db
 .env.example
 .npmrc
 /.devcontainer
+# Runtime uploads (keep directories)
+/public/img/kitchen-transfers/*
+!/public/img/kitchen-transfers/.gitkeep
+/public/img/withdrawal-attachments/*
+!/public/img/withdrawal-attachments/.gitkeep

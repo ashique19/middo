@@ -34,6 +34,10 @@ class CustomRuns extends Component
 
                 $rider = User::query()->findOrFail($riderId);
 
+                if (! $rider->canAcceptNewRuns()) {
+                    throw new \RuntimeException('You are not on shift. Set On shift on the dashboard before starting runs.');
+                }
+
                 if ($run->rider_user_id !== null && (int) $run->rider_user_id !== $riderId) {
                     throw new \RuntimeException('This run is assigned to another rider.');
                 }

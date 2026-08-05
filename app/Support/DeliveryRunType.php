@@ -20,6 +20,9 @@ class DeliveryRunType
 
     public const CUSTOM = 'custom';
 
+    /** Optional ৳ for rescue rider B on mid-run reassign (Settings; default 0). */
+    public const MID_RUN_RESCUE = 'mid_run_rescue';
+
     /**
      * Run types whose default rate lives in admin Settings (not menu).
      *
@@ -64,6 +67,7 @@ class DeliveryRunType
             self::KITCHEN_TO_OPS => 'Kitchen → ops (box)',
             self::OPS_TO_KITCHEN => 'Ops → kitchen (box)',
             self::CUSTOM => 'Custom point → point',
+            self::MID_RUN_RESCUE => 'Mid-run rescue',
             default => $type,
         };
     }

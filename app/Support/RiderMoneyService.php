@@ -5,18 +5,24 @@ namespace App\Support;
 use App\Models\PartnerPayable;
 use App\Models\RiderWithdrawalRequest;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 class RiderMoneyService
 {
     /**
      * Approve a rider withdrawal: settle FIFO open lunch payables that fit,
-     * then debit Middo cash + rider wallet for the full requested amount.
-     * Box commissions may sit on the ledger without PartnerPayable rows.
+     * then debit Middo cash or bank + rider wallet for the full requested amount.
+     *
+     * @param  array{bank_account_id?: ?int, attachment?: ?UploadedFile}  $options
      */
-    public static function approveWithdrawal(RiderWithdrawalRequest $request, int $actorId, ?string $reviewNotes = null): RiderWithdrawalRequest
-    {
-        return DB::transaction(function () use ($request, $actorId, $reviewNotes) {
+    public static function approveWithdrawal(
+        RiderWithdrawalRequest $request,
+        int $actorId,
+        ?string $reviewNotes = null,
+        array $options = [],
+    ): RiderWithdrawalRequest {
+        return DB::transaction(function () use ($request, $actorId, $reviewNotes, $options) {
             /** @var RiderWithdrawalRequest $locked */
             $locked = RiderWithdrawalRequest::query()->whereKey($request->id)->lockForUpdate()->firstOrFail();
             if (! $locked->isPending()) {
@@ -56,13 +62,17 @@ class RiderMoneyService
                 $remaining -= (int) $payable->amount;
             }
 
-            $middoEntry = MiddoCashLedger::debit(
+            $channel = (string) ($locked->payout_channel ?: PayoutChannel::CASH);
+            $payout = WithdrawalPayout::debitMiddoFloat(
+                $channel,
                 $requested,
-                'rider_withdrawal_paid',
                 RiderWithdrawalRequest::class,
-                $locked->id,
+                (int) $locked->id,
                 "Rider withdrawal #{$locked->id} paid",
-                $actorId
+                $actorId,
+                isset($options['bank_account_id']) ? (int) $options['bank_account_id'] : null,
+                $options['attachment'] ?? null,
+                'rider_withdrawal_paid',
             );
 
             $riderEntry = RiderAccountLedger::debit(
@@ -80,8 +90,11 @@ class RiderMoneyService
                 'reviewed_by' => $actorId,
                 'reviewed_at' => now(),
                 'review_notes' => $reviewNotes,
+                'attachment_path' => $payout['attachment_path'],
                 'rider_ledger_entry_id' => $riderEntry->id,
-                'middo_cash_ledger_entry_id' => $middoEntry->id,
+                'middo_cash_ledger_entry_id' => $payout['cash_entry_id'],
+                'middo_bank_account_id' => $payout['bank_account_id'],
+                'middo_bank_ledger_entry_id' => $payout['bank_entry_id'],
             ]);
 
             return $locked->fresh();

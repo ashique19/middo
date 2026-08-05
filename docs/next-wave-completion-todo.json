@@ -1,0 +1,334 @@
+{
+  "title": "Post clear — next-wave backlog",
+  "version": 2,
+  "updated": "2026-08-05",
+  "checkpoint": {
+    "ops": "O0–O9 done (docs/ops-completion-todo.json)",
+    "accounts": "A0–A4 done (docs/accounts-completion-todo.json)",
+    "ops_clear_gate": "cleared (docs/ops-clear-gate.json)",
+    "kitchen": "K0–K6 done",
+    "rider_core": "R0–R* core phases done; parked_next_wave still open",
+    "main_tip": "473204e"
+  },
+  "sources": [
+    "docs/rider-completion-todo.json → parked_next_wave_agreed_2026_08_04",
+    "docs/ops-completion-todo.json → non_goals_for_now",
+    "docs/ops-review.json → out_of_scope_candidates_for_debate",
+    "docs/accounts-completion-todo.json → non_goals"
+  ],
+  "decided_2026_08_05": {
+    "rider_shifts": "essential — not nice-to-have",
+    "mid_run_emergency_transfer": {
+      "trigger_example": "Rider started a run; vehicle damaged; cannot continue",
+      "parcels_custody": "Ops-mediated reassign A → B (boxes/orders). No peer chat transfer.",
+      "money_a_to_b": "NO free rider↔rider cash/Due transfer",
+      "due_cash_when_a_still_holds": "Preferred: A keeps Due liability until Middo/kitchen handover. If cash must travel with parcels: ops/accounts reassigns Due custody on the ledger with audit — never a rider 'send money to rider' action.",
+      "commission": "Starter (A) keeps commission already accrued at run start. B does NOT get a second full lunch commission on the same order.",
+      "rescue_pay_for_b": "Optional settings rescue/completion rate (operating-cost style) or ৳0 until product sets a rate — pick one rate in Settings, do not double-pay."
+    },
+    "one_liner": "Emergency mid-run transfer = ops reassigns parcels; commission stays with the starter; Due/cash never peer-transfers — only Middo/ops-mediated custody."
+  },
+  "suggested_ship_order": ["N0", "N1", "N2", "N3", "BOX1", "BOX2", "OPS-DAY", "N4", "N5", "F0", "F1"],
+  "ops_day_status_checklist_2026_08_05": {
+    "note": "Actor flows exist; ops lacks a single date-filtered day checklist. PARTIAL = live queues without delivery_date lens.",
+    "items": [
+      {"id": "a", "label": "Kitchen → Delivery (lunch dispatch accept)", "status": "partial", "surfaces": "RidersBoard awaiting/on_the_way", "gap": "no date picker"},
+      {"id": "b", "label": "Delivery → Customer (delivered)", "status": "partial", "surfaces": "Rider deliver; StaffDashboard today breakdown", "gap": "no ops delivered-today checklist"},
+      {"id": "c", "label": "Box collect Customer → Delivery", "status": "partial", "surfaces": "DeliveredOrders receiveBoxes; RidersBoard box custody", "gap": "no date-wise pending-collect queue"},
+      {"id": "d", "label": "Box Delivery → Kitchen", "status": "partial", "surfaces": "PendingBoxRuns; IncomingBoxes; MiddoBoxes to_kitchen", "gap": "split across roles; no date filter"},
+      {"id": "e", "label": "Box Kitchen → Operation WH", "status": "partial", "surfaces": "Kitchen sendToWarehouse; MiddoBoxes inbound returns + ack", "gap": "not date-wise"},
+      {"id": "f", "label": "Operation WH → Kitchen", "status": "done_action_partial_view", "surfaces": "AssignMiddoBoxesModal", "gap": "inventory action exists; not delivery-date checklist"},
+      {"id": "g", "label": "COD Customer → Delivery", "status": "partial", "surfaces": "PaymentModal; CodDueRecon (has date)", "gap": "recon is money rollup not per-order collect checklist"},
+      {"id": "h", "label": "Cash Delivery → Kitchen", "status": "partial", "surfaces": "Delivery/Kitchen CashHandovers; ops dashboard count", "gap": "ops has Middo handovers; kitchen-target board thin"}
+    ]
+  },
+  "phases": [
+    {
+      "id": "N0",
+      "title": "Reconcile parked rider items already covered by ops/accounts",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "note": "Closed duplicates; remaining parked items stay sequenced as N2+",
+      "items": [
+        {
+          "parked": "COD reconciliation report",
+          "likely_covered_by": "O3 CodDueReconPage + accounts portal",
+          "action": "closed — covered by O3 / accounts; no rider duplicate",
+          "resolution": "done"
+        },
+        {
+          "parked": "Handover reject / amount dispute",
+          "likely_covered_by": "A2 ops propose → accounts confirm (Middo Due); kitchen reject still immediate",
+          "action": "closed — kitchen immediate reject + Middo dual-control documented",
+          "resolution": "done"
+        },
+        {
+          "parked": "Ops live who-holds-what board",
+          "likely_covered_by": "O4 RidersBoard (lunch / boxes / custom)",
+          "action": "closed — O4 board is the who-holds-what surface (extended in N1 with shift + mid-run reassign)",
+          "resolution": "done"
+        }
+      ]
+    },
+    {
+      "id": "N1",
+      "title": "Rider shifts + mid-run reassign / failed delivery",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "priority": "essential",
+      "owner_hint": "ops + rider (+ accounts if Due custody moves)",
+      "policy": "see decided_2026_08_05.mid_run_emergency_transfer",
+      "shipped": [
+        "users.rider_shift_status (on / off / unable) + rider dashboard toggle",
+        "Accept/start gated while off or unable",
+        "OpsRiderMidRunReassign: boxes A→B, starter keeps payable, no cash peer transfer; blocked after cash_collected",
+        "RidersBoard on_the_way mid-run reassign modal",
+        "orders.original_delivery_rider_id",
+        "Optional Settings mid-run rescue ৳ (default 0) via MiddoOperatingCosts",
+        "Ops release-to-packed remains the void/failed path (OrderOpsForce)"
+      ],
+      "items": [
+        "Rider shift / availability (on shift, off shift, unable to continue)",
+        "Ops-mediated parcel/custody reassign after accept (A → B)",
+        "Starter keeps accrued commission; no double full lunch commission for B",
+        "Optional Settings rescue/completion rate for B (or ৳0)",
+        "Due stays on A by default; ops/accounts ledger Due reassignment only if cash must move with parcels",
+        "No rider↔rider money UI",
+        "Failed delivery / release path + audit (align with OrderOpsForce / RiderMoney)"
+      ],
+      "risks": [
+        "Commission / Due / box custody must stay consistent with OrderOpsForce and RiderMoney",
+        "In-kind commission already taken from A's cash bag must not be clawed incorrectly on reassign"
+      ]
+    },
+    {
+      "id": "N2",
+      "title": "Aging unclaimed lunch dispatches + rider coverage SLA",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "priority": "high",
+      "owner_hint": "ops (+ coverage board)",
+      "shipped": [
+        "RiderAcceptSla — age from dispatched_at; claim-by = delivery wall-clock; on-the-way-by = DispatchDeadline",
+        "OpsRiderBoard::awaitingAccept enriched + sorted by SLA; aging/overdue counts",
+        "RidersBoard awaiting tab Age/SLA column + aging tile",
+        "OpsAreaCoverage: unclaimed_packed, aging_unclaimed, riders_on_shift + gap reasons",
+        "Coverage board aging tile + columns; dashboard hint when aging",
+        "config middo.rider_unclaimed_age_warn_minutes (default 30)"
+      ],
+      "items": [
+        "Unclaimed packed / awaiting-accept aging list",
+        "Rider-side SLA mirror of kitchen accept/dispatch deadlines",
+        "Surface gaps on Coverage board (O8) and/or RidersBoard"
+      ]
+    },
+    {
+      "id": "N3",
+      "title": "Partial / short cash collection",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "priority": "medium",
+      "owner_hint": "rider + accounts",
+      "shipped": [
+        "PaymentModal cashCollectAmount (1..due); short requires reason; residual stays delivered",
+        "amount_paid += cash; cash_collected accumulates; cash_due_to_middo accumulates; second collect closes",
+        "OrderLog cash_short_collect; settleDeliveryCommissionFromCash already partial-capable",
+        "CodDueRecon shortfall totals + short_orders table; Accounts Hub short collections list",
+        "No peer Due transfer; handover still only fully paid Due"
+      ],
+      "items": [
+        "confirmCashPayment today is full amountDue only",
+        "Partial collect + residual Due / dispute path",
+        "Accounts visibility on short collections"
+      ]
+    },
+    {
+      "id": "N4",
+      "title": "StaffAlerts for box/ops runs",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "priority": "medium",
+      "owner_hint": "ops",
+      "shipped": [
+        "TYPE_OPS_TO_KITCHEN_BOX + TYPE_EMPTY_BOX_PICKUP",
+        "StaffAlerts::notifyOpsToKitchenBoxes — rider + kitchen on AssignMiddoBoxesModal::save",
+        "StaffAlerts::notifyRidersEmptyBoxPickup — area riders on corporate mark-ready (Livewire + mobile API)",
+        "Alerts page subtitle covers lunch/boxes/custom"
+      ],
+      "items": [
+        "Alerts today lean lunch/custom",
+        "ops→kitchen assign alerts",
+        "Empty-box pickup / box-run alerts"
+      ]
+    },
+    {
+      "id": "BOX1",
+      "title": "Middo boxes list + generate UX",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "priority": "high",
+      "owner_hint": "ops",
+      "shipped": [
+        "List default order latest-first (id DESC; damaged still pinned)",
+        "Generate modal lists new QR IDs with Details/Print links",
+        "Retire/reactivate write lifecycle MiddoBoxLog actions"
+      ],
+      "items": [
+        "Latest-first ordering on /operation/middo-boxes",
+        "Generate modal shows newly generated box IDs"
+      ]
+    },
+    {
+      "id": "BOX2",
+      "title": "Middo box details page (timeline + lifespan)",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "priority": "high",
+      "owner_hint": "ops",
+      "shipped": [
+        "operation.middo-boxes.show + MiddoBoxShow",
+        "Created / damaged / retired timestamps; runs; days; runs/day",
+        "Optional unit_cost_bdt → cost/run",
+        "Tracking tree latest-first (MiddoBoxLifecycle)"
+      ],
+      "items": [
+        "Details page: created/retired/damaged, runs, tracking tree",
+        "Lifespan / cost / efficiency analytics"
+      ]
+    },
+    {
+      "id": "OPS-DAY",
+      "title": "Ops date-wise food / box / cash status board",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "priority": "high",
+      "owner_hint": "ops",
+      "covers": ["a", "b", "c", "d", "e", "f", "g", "h"],
+      "shipped": [
+        "OpsDayChecklist::forDate + OpsDayBoard with deliveryDate picker",
+        "Sections a–h: lunch accept/on-way/delivered, box ready/collect/incoming/WH/dispatch, COD unpaid/short/collected, cash kitchen+Middo handovers",
+        "Attention counts + deep links; nav + dashboard quick link"
+      ],
+      "note": "see ops_day_status_checklist_2026_08_05",
+      "items": [
+        "Date lens: kitchen→rider accept + delivered (a, b)",
+        "Date lens: box handoffs customer↔rider↔kitchen↔WH (c–f)",
+        "Date lens: COD collect + kitchen/Middo cash handovers (g, h)",
+        "Reuse RidersBoard / MiddoBoxes / CodDueRecon patterns with deliveryDate picker"
+      ]
+    },
+    {
+      "id": "N5",
+      "title": "Kitchen→ops box rider leg (R2.3)",
+      "status": "done",
+      "done_at": "2026-08-05",
+      "priority": "medium",
+      "owner_hint": "kitchen + ops + rider",
+      "shipped": [
+        "Settings toggle delivery.kitchen_to_ops_via_rider (default off) + admin checkbox",
+        "MiddoBoxKitchenActions::dispatchToWarehouseViaRider — log dispatched_to_warehouse, books KITCHEN_TO_OPS",
+        "BoxesAtKitchen Send via rider when toggle on; direct send unchanged",
+        "PendingBoxRuns::deliverToWarehouse → returned_to_warehouse (ops ack queue)",
+        "StaffAlerts TYPE_KITCHEN_TO_OPS_BOX for rider + ops/admin"
+      ],
+      "items": [
+        "Settings rate ready; kitchen sendToWarehouse is direct today",
+        "Optional kitchen→ops→warehouse rider leg when product wants it"
+      ]
+    },
+    {
+      "id": "F0",
+      "title": "Accounts finance stretch — bank ledger / VAT",
+      "status": "shipped",
+      "updated_at": "2026-08-05",
+      "priority": "high-after-decisions",
+      "owner_hint": "accounts",
+      "decision_checklist": "docs/f0-finance-decisions.json",
+      "why": "All F0 decisions locked. Period P&L+Excel in F0; kitchen settlement batches → F2.",
+      "slices": ["F0a VAT", "F0b bank+EPS fees", "F0c cash positions", "F0d withdrawal channels", "F0e period P&L+Excel"],
+      "shipped": [
+        "F0a: finance.vat_rate_pct Settings (default 5%); orders.vat_rate_pct + vat_amount snapshot",
+        "F0a: inclusive food VAT unbundled; middo_rest uses food ex-VAT; money tree + VAT event",
+        "F0b: middo_bank_accounts + middo_bank_ledger; admin CRUD; accounts/admin bank ledger page",
+        "F0b: EPS fee % by sub-gateway (Settings); postEpsPayment net credit on EPS success (idempotent)",
+        "F0c: CashPositions board — kitchen recv / rider Due / till + EPS note; till→bank deposit; nav",
+        "F0d: Withdrawal payout_channel Bank/bKash/Nagad/Cash + details; accounts approve with bank float debit or till; optional attachment",
+        "F0e: Period P&L by delivery date + opex/EPS fees; CSV Excel export; cash/bank companion rollups; nav accounts|admin|ops"
+      ],
+      "items": [
+        "VAT 5% inclusive on food — Settings-editable; per-order snapshot; accounts unbundle",
+        "Multi Middo bank accounts — admin CRUD; accounts maintain; EPS fees by sub-gateway",
+        "Cash positions — cash at EPS, recv kitchen, recv riders, cash in hand; accounts posts",
+        "Withdrawals — Bank/bKash/Nagad/Cash + optional attachment on accounts process",
+        "Period P&L + Excel export for accounts",
+        "Do not invent Middo login user"
+      ]
+    },
+    {
+      "id": "F1",
+      "title": "Native apps (rider / corporate)",
+      "status": "deferred",
+      "deferred_at": "2026-08-05",
+      "priority": "deferred",
+      "owner_hint": "product",
+      "why": "Deferred until web finance/ops surfaces are tested in detail and no immediate product changes are required. Corporate Flutter API already stubbed; rider reuses R5 IA.",
+      "resume_when": "After thorough manual/QA testing of F0–F2 (and related portals) with no blocking web changes outstanding.",
+      "items": [
+        "Native rider app (reuse R5 IA)",
+        "Corporate Flutter API already stubbed — productize when ready"
+      ]
+    },
+    {
+      "id": "F2",
+      "title": "Kitchen settlement batches",
+      "status": "shipped",
+      "updated_at": "2026-08-05",
+      "priority": "after-F0",
+      "owner_hint": "accounts",
+      "items": [
+        "Group open kitchen payables into named remittance batches",
+        "Accounts approve/pay as one packet with proof; settle many PartnerPayables together"
+      ],
+      "shipped": [
+        "kitchen_settlement_batches + items; accounts create/approve/reject on Kitchen money Batches tab",
+        "Settle many payables + one Middo float debit + one kitchen ledger debit; reserved from withdrawal FIFO"
+      ]
+    },
+    {
+      "id": "GM0",
+      "title": "Ground Marketing — companies + OTP field signup",
+      "status": "shipped",
+      "updated_at": "2026-08-05",
+      "priority": "product",
+      "owner_hint": "ground_marketing",
+      "decision_checklist": "docs/ground-marketing-decisions.json",
+      "why": "Company is a lead/org record (not a user type). Marketers book HR visits and OTP-verify employee signups under a company (address copied).",
+      "shipped": [
+        "Role ground_marketing + /marketing portal (dashboard, companies, company show)",
+        "companies + company_appointments; users.company_id",
+        "Field signup: select company → name/mobile → SignupOtp → corporate user with company address",
+        "Admin Users → Ground marketing roster; seeded marketing@middo.com / 01310123463"
+      ],
+      "later": [
+        "GM2 — group parcels by company for same-rider assignment"
+      ]
+    }
+  ],
+  "nice_to_have": [
+    "POD / photo / delivery OTP",
+    "Corporate-facing rider name + ETA",
+    "Post-hoc commission adjustments",
+    "Richer offline than PWA passthrough"
+  ],
+  "still_out_of_scope": [
+    "GPS / live map / route optimization",
+    "Ops menu CRUD (keep admin)",
+    "Middo login user",
+    "Rider↔rider cash (peer transfer) — Due custody moves only via ops/accounts ledger",
+    "Insurance / float deposits (unless finance mandates)",
+    "Kitchen-style capacity slots for riders",
+    "Full bank ledger / VAT until docs/f0-finance-decisions.json is answered"
+  ],
+  "buildable_complete": true,
+  "recommended_start": "Manual/QA pass on F0–F2; Ground Marketing GM0 shipped (companies + OTP field signup) — F1 native apps stay deferred; GM2 parcel-by-company later"
+}

@@ -140,8 +140,12 @@
                                     >
                                 @endif
                             </td>
-                            <td class="p-4 font-mono font-semibold text-gray-800">#{{ $box->id }}</td>
-                            <td class="p-4 font-mono font-medium text-middo-dark">{{ $box->qr_code_id }}</td>
+                            <td class="p-4 font-mono font-semibold text-gray-800">
+                                <a href="{{ route('operation.middo-boxes.show', $box) }}" class="text-middo-orange hover:underline">#{{ $box->id }}</a>
+                            </td>
+                            <td class="p-4 font-mono font-medium text-middo-dark">
+                                <a href="{{ route('operation.middo-boxes.show', $box) }}" class="hover:text-middo-orange hover:underline">{{ $box->qr_code_id }}</a>
+                            </td>
                             <td class="p-4 text-gray-700">{{ str($box->box_model_type)->headline() }}</td>
                             <td class="p-4">
                                 @php
@@ -170,6 +174,12 @@
                             </td>
                             <td class="p-4 text-right">
                                 <div class="inline-flex items-center justify-end gap-2">
+                                    <a
+                                        href="{{ route('operation.middo-boxes.show', $box) }}"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-xs font-bold text-gray-700 hover:border-middo-orange hover:bg-orange-50 hover:text-middo-orange transition">
+                                        Details
+                                    </a>
+
                                     <a
                                         href="{{ route('operation.middo-boxes.print', $box) }}"
                                         target="_blank"

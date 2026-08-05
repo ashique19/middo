@@ -65,7 +65,17 @@
                                 @endif
                             </td>
                             <td class="p-4 text-right">
-                                @if($box['can_hand_to_kitchen'])
+                                @if($box['can_deliver_to_warehouse'] ?? false)
+                                    <button
+                                        type="button"
+                                        wire:click="deliverToWarehouse({{ $box['id'] }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="deliverToWarehouse({{ $box['id'] }})"
+                                        wire:confirm="Mark this box as delivered to Middo warehouse?"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
+                                        Deliver to warehouse
+                                    </button>
+                                @elseif($box['can_hand_to_kitchen'])
                                     <button
                                         type="button"
                                         wire:click="handToKitchen({{ $box['id'] }})"

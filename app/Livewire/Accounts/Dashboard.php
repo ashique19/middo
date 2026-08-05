@@ -38,6 +38,24 @@ class Dashboard extends Component
                 'route' => $prefix.'.middo-cash',
                 'stat' => '৳'.number_format($cashBalance),
             ],
+            Route::has($prefix.'.bank-ledger') ? [
+                'label' => 'Bank ledger',
+                'hint' => 'Multi-bank float & EPS net credits',
+                'route' => $prefix.'.bank-ledger',
+                'stat' => null,
+            ] : null,
+            Route::has($prefix.'.cash-positions') ? [
+                'label' => 'Cash positions',
+                'hint' => 'EPS · kitchen · riders · till',
+                'route' => $prefix.'.cash-positions',
+                'stat' => null,
+            ] : null,
+            Route::has($prefix.'.period-pnl') ? [
+                'label' => 'Period P&L',
+                'hint' => 'VAT · middo_rest · opex · Excel',
+                'route' => $prefix.'.period-pnl',
+                'stat' => null,
+            ] : null,
             [
                 'label' => 'Cash handovers',
                 'hint' => 'Accept Due · confirm reject proposals',
@@ -58,7 +76,7 @@ class Dashboard extends Component
             ],
             [
                 'label' => 'Kitchen money',
-                'hint' => 'Withdrawal approvals',
+                'hint' => 'Withdrawals + settlement batches',
                 'route' => $prefix.'.kitchen-money.index',
                 'stat' => null,
             ],

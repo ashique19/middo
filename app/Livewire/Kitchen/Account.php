@@ -7,6 +7,7 @@ use App\Models\KitchenMiddoTransfer;
 use App\Models\KitchenWithdrawalRequest;
 use App\Models\PartnerPayable;
 use App\Support\KitchenAccountLedger;
+use App\Support\PayoutChannel;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Livewire\Component;
@@ -28,6 +29,16 @@ class Account extends Component
 
     public string $withdrawNotes = '';
 
+    public string $payoutChannel = PayoutChannel::CASH;
+
+    public string $payoutBankName = '';
+
+    public string $payoutAccountName = '';
+
+    public string $payoutAccountNumber = '';
+
+    public string $payoutMobile = '';
+
     public $transferAmount = null;
 
     public string $transferReference = '';
@@ -43,6 +54,11 @@ class Account extends Component
         $this->statusMessage = '';
     }
 
+    public function updatedPayoutChannel(): void
+    {
+        $this->resetValidation();
+    }
+
     public function requestWithdrawal(): void
     {
         $this->statusMessage = '';
@@ -50,10 +66,16 @@ class Account extends Component
         $kitchenId = (int) Auth::id();
 
         try {
-            $this->validate([
+            $rules = [
                 'withdrawAmount' => 'required|integer|min:1',
                 'withdrawNotes' => 'nullable|string|max:500',
-            ]);
+                'payoutChannel' => 'required|in:'.implode(',', PayoutChannel::all()),
+            ];
+            $rules = array_merge($rules, $this->payoutDetailRules());
+            $this->validate($rules);
+
+            $details = $this->buildPayoutDetails();
+            PayoutChannel::assertValid($this->payoutChannel, $details);
 
             $amount = (int) $this->withdrawAmount;
             $balance = KitchenAccountLedger::balance($kitchenId);
@@ -76,15 +98,59 @@ class Account extends Component
                 'amount' => $amount,
                 'status' => KitchenWithdrawalRequest::STATUS_PENDING,
                 'notes' => $this->withdrawNotes ?: null,
+                'payout_channel' => $this->payoutChannel,
+                'payout_details' => $details ?: null,
             ]);
 
             $this->withdrawAmount = null;
             $this->withdrawNotes = '';
+            $this->resetPayoutFields();
             $this->statusMessage = 'Withdrawal request submitted for Middo approval.';
             $this->tab = 'withdrawals';
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not submit withdrawal.';
         }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function payoutDetailRules(): array
+    {
+        return match ($this->payoutChannel) {
+            PayoutChannel::BANK => [
+                'payoutBankName' => 'nullable|string|max:120',
+                'payoutAccountName' => 'nullable|string|max:120',
+                'payoutAccountNumber' => 'required|string|max:64',
+            ],
+            PayoutChannel::BKASH, PayoutChannel::NAGAD => [
+                'payoutAccountName' => 'nullable|string|max:120',
+                'payoutMobile' => 'required|string|max:32',
+            ],
+            default => [],
+        };
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function buildPayoutDetails(): array
+    {
+        return PayoutChannel::normalizeDetails($this->payoutChannel, [
+            'bank_name' => $this->payoutBankName,
+            'account_name' => $this->payoutAccountName,
+            'account_number' => $this->payoutAccountNumber,
+            'mobile' => $this->payoutMobile,
+        ]);
+    }
+
+    protected function resetPayoutFields(): void
+    {
+        $this->payoutChannel = PayoutChannel::CASH;
+        $this->payoutBankName = '';
+        $this->payoutAccountName = '';
+        $this->payoutAccountNumber = '';
+        $this->payoutMobile = '';
     }
 
     public function submitTransfer(): void

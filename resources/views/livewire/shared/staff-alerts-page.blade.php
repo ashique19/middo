@@ -3,7 +3,7 @@
         <div class="space-y-1">
             <h1 class="text-3xl font-bold text-middo-dark">Alerts</h1>
             <p class="text-sm font-semibold text-gray-500">
-                {{ $unreadCount }} unread · assignments, accept-window warnings, and reassignment needs.
+                {{ $unreadCount }} unread · lunch, boxes, custom runs, assignments, and reassignment needs.
             </p>
         </div>
         <button type="button" wire:click="markAllRead"

@@ -204,9 +204,13 @@ class OpsDashboardMetrics
             $riderCounts['awaiting'] > 0 ? [
                 'label' => 'Packed awaiting rider',
                 'value' => $riderCounts['awaiting'],
-                'tone' => 'amber',
+                'tone' => ($riderCounts['awaiting_aging'] ?? 0) > 0 ? 'rose' : 'amber',
                 'route' => $role.'.riders.index',
-                'hint' => 'Kitchen dispatched — no rider yet',
+                'hint' => ($riderCounts['awaiting_overdue'] ?? 0) > 0
+                    ? ($riderCounts['awaiting_overdue'].' past delivery time — no rider')
+                    : (($riderCounts['awaiting_aging'] ?? 0) > 0
+                        ? ($riderCounts['awaiting_aging'].' aging unclaimed')
+                        : 'Kitchen dispatched — no rider yet'),
             ] : null,
             $role === 'admin' && $pendingKitchens > 0 ? [
                 'label' => 'Kitchens pending onboarding',
@@ -352,6 +356,7 @@ class OpsDashboardMetrics
             ['label' => 'Active orders', 'route' => $role.'.orders.active', 'hint' => 'Group & dispatch'],
             ['label' => 'Dispatch SLA', 'route' => $role.'.sla.index', 'hint' => 'Unassigned & late'],
             ['label' => 'Rider ops', 'route' => $role.'.riders.index', 'hint' => 'Who holds what'],
+            ['label' => 'Ops day', 'route' => $role.'.ops-day.index', 'hint' => 'Date checklist a–h'],
             ['label' => 'Corporates', 'route' => $role.'.corporates.index', 'hint' => 'Accounts & history'],
             ['label' => 'Kitchens', 'route' => $role === 'admin' ? 'admin.kitchens.active' : 'operation.kitchens.index', 'hint' => 'Kitchen roster'],
             ['label' => 'Packages', 'route' => $role.'.packages.index', 'hint' => 'Rate plans'],

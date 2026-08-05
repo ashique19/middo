@@ -51,6 +51,54 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Rider unclaimed age warn
+    |--------------------------------------------------------------------------
+    |
+    | Minutes since kitchen dispatch before a packed order with no rider is
+    | treated as aging on the Riders / Coverage boards (N2).
+    |
+    */
+
+    'rider_unclaimed_age_warn_minutes' => (int) env('RIDER_UNCLAIMED_AGE_WARN_MINUTES', 30),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Kitchen → ops empty-box via rider (N5)
+    |--------------------------------------------------------------------------
+    |
+    | When false (default), kitchen "Send to Middo warehouse" teleports the box.
+    | When true, kitchen can also assign a rider (books kitchen_to_ops commission).
+    |
+    */
+    'kitchen_to_ops_via_rider' => (bool) env('KITCHEN_TO_OPS_VIA_RIDER', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Food VAT (inclusive)
+    |--------------------------------------------------------------------------
+    |
+    | Default statutory rate for food businesses. Admin Settings can edit.
+    | Applied to food only; unbundled for middo_rest / tax reporting.
+    |
+    */
+    'vat_rate_pct' => (float) env('MIDDO_VAT_RATE_PCT', 5),
+
+    /*
+    |--------------------------------------------------------------------------
+    | EPS sub-gateway fee defaults (% of gross)
+    |--------------------------------------------------------------------------
+    */
+    'eps_fee_rate_defaults' => [
+        'bank' => (float) env('EPS_FEE_BANK', 1.5),
+        'bkash' => (float) env('EPS_FEE_BKASH', 1.8),
+        'nagad' => (float) env('EPS_FEE_NAGAD', 1.8),
+        'rocket' => (float) env('EPS_FEE_ROCKET', 1.8),
+        'card' => (float) env('EPS_FEE_CARD', 2.5),
+        'other' => (float) env('EPS_FEE_OTHER', 1.5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Kitchen Tier Defaults (allowed concurrent open groups)
     |--------------------------------------------------------------------------
     |
@@ -93,6 +141,7 @@ return [
         'kitchen_to_ops' => (int) env('DELIVERY_COMMISSION_KITCHEN_TO_OPS', 25),
         'ops_to_kitchen' => (int) env('DELIVERY_COMMISSION_OPS_TO_KITCHEN', 25),
         'custom' => (int) env('DELIVERY_COMMISSION_CUSTOM', 40),
+        'mid_run_rescue' => (int) env('DELIVERY_COMMISSION_MID_RUN_RESCUE', 0),
     ],
 
     /*

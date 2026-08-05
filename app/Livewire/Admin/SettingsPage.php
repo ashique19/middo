@@ -29,6 +29,24 @@ class SettingsPage extends Component
 
     public int $commission_custom = 40;
 
+    public int $commission_mid_run_rescue = 0;
+
+    public bool $kitchen_to_ops_via_rider = false;
+
+    public float $vat_rate_pct = 5;
+
+    public float $eps_fee_bank = 1.5;
+
+    public float $eps_fee_bkash = 1.8;
+
+    public float $eps_fee_nagad = 1.8;
+
+    public float $eps_fee_rocket = 1.8;
+
+    public float $eps_fee_card = 2.5;
+
+    public float $eps_fee_other = 1.5;
+
     public string $statusMessage = '';
 
     public string $errorMessage = '';
@@ -53,6 +71,17 @@ class SettingsPage extends Component
         $this->commission_kitchen_to_ops = $commissions[DeliveryRunType::KITCHEN_TO_OPS];
         $this->commission_ops_to_kitchen = $commissions[DeliveryRunType::OPS_TO_KITCHEN];
         $this->commission_custom = $commissions[DeliveryRunType::CUSTOM];
+        $this->commission_mid_run_rescue = MiddoSettings::midRunRescueCommission();
+        $this->kitchen_to_ops_via_rider = MiddoSettings::kitchenToOpsViaRider();
+        $this->vat_rate_pct = MiddoSettings::vatRatePct();
+
+        $fees = MiddoSettings::epsFeeRates();
+        $this->eps_fee_bank = $fees['bank'];
+        $this->eps_fee_bkash = $fees['bkash'];
+        $this->eps_fee_nagad = $fees['nagad'];
+        $this->eps_fee_rocket = $fees['rocket'];
+        $this->eps_fee_card = $fees['card'];
+        $this->eps_fee_other = $fees['other'];
     }
 
     public function save(): void
@@ -71,6 +100,15 @@ class SettingsPage extends Component
             'commission_kitchen_to_ops' => 'required|integer|min:0|max:100000',
             'commission_ops_to_kitchen' => 'required|integer|min:0|max:100000',
             'commission_custom' => 'required|integer|min:0|max:100000',
+            'commission_mid_run_rescue' => 'required|integer|min:0|max:100000',
+            'kitchen_to_ops_via_rider' => 'boolean',
+            'vat_rate_pct' => 'required|numeric|min:0|max:100',
+            'eps_fee_bank' => 'required|numeric|min:0|max:100',
+            'eps_fee_bkash' => 'required|numeric|min:0|max:100',
+            'eps_fee_nagad' => 'required|numeric|min:0|max:100',
+            'eps_fee_rocket' => 'required|numeric|min:0|max:100',
+            'eps_fee_card' => 'required|numeric|min:0|max:100',
+            'eps_fee_other' => 'required|numeric|min:0|max:100',
         ]);
 
         MiddoSettings::updateMealAndKitchenDefaults([
@@ -87,6 +125,17 @@ class SettingsPage extends Component
                 DeliveryRunType::KITCHEN_TO_OPS => $this->commission_kitchen_to_ops,
                 DeliveryRunType::OPS_TO_KITCHEN => $this->commission_ops_to_kitchen,
                 DeliveryRunType::CUSTOM => $this->commission_custom,
+            ],
+            'mid_run_rescue_commission' => $this->commission_mid_run_rescue,
+            'kitchen_to_ops_via_rider' => $this->kitchen_to_ops_via_rider,
+            'vat_rate_pct' => $this->vat_rate_pct,
+            'eps_fee_rates' => [
+                'bank' => $this->eps_fee_bank,
+                'bkash' => $this->eps_fee_bkash,
+                'nagad' => $this->eps_fee_nagad,
+                'rocket' => $this->eps_fee_rocket,
+                'card' => $this->eps_fee_card,
+                'other' => $this->eps_fee_other,
             ],
         ]);
 

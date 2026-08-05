@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class UserSeeder extends Seeder
 {
@@ -138,7 +139,7 @@ class UserSeeder extends Seeder
                 'city_id' => $dhakaId,
                 'area_id' => $rider['area_id'],
             ]);
-            if (\Illuminate\Support\Facades\Schema::hasTable('area_user')) {
+            if (Schema::hasTable('area_user')) {
                 $user->areas()->sync([$rider['area_id']]);
             }
         }
@@ -163,6 +164,19 @@ class UserSeeder extends Seeder
             'role_id' => Role::where('name', 'accounts')->value('id'),
             'status' => 'active',
             'is_mobile_verified' => true,
+        ]);
+
+        User::create([
+            'first_name' => 'Ground',
+            'last_name' => 'Marketer',
+            'email' => 'marketing@middo.com',
+            'mobile' => '01310123463',
+            'password' => $password,
+            'role_id' => Role::where('name', 'ground_marketing')->value('id'),
+            'status' => 'active',
+            'is_mobile_verified' => true,
+            'city_id' => $dhakaId,
+            'area_id' => $gulshanId,
         ]);
     }
 }

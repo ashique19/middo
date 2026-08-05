@@ -3,10 +3,12 @@
 namespace App\Livewire\Operation;
 
 use App\Models\CustomRun;
+use App\Models\Order;
 use App\Models\User;
 use App\Support\DeliveryRunType;
 use App\Support\MiddoOperatingCosts;
 use App\Support\OpsRiderBoard;
+use App\Support\OpsRiderMidRunReassign;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -23,6 +25,12 @@ class RidersBoard extends Component
 
     public ?int $reassignRiderId = null;
 
+    public ?int $reassignOrderId = null;
+
+    public ?int $reassignOrderRiderId = null;
+
+    public string $reassignOrderReason = '';
+
     public function mount(): void
     {
         abort_unless(in_array(Auth::user()?->role?->name, ['admin', 'operation'], true), 403);
@@ -36,6 +44,7 @@ class RidersBoard extends Component
     public function openReassign(int $runId): void
     {
         $this->errorMessage = '';
+        $this->cancelOrderReassign();
         $this->reassignRunId = $runId;
         $this->reassignRiderId = CustomRun::query()->whereKey($runId)->value('rider_user_id');
     }
@@ -44,6 +53,49 @@ class RidersBoard extends Component
     {
         $this->reassignRunId = null;
         $this->reassignRiderId = null;
+    }
+
+    public function openOrderReassign(int $orderId): void
+    {
+        $this->errorMessage = '';
+        $this->cancelReassign();
+        $this->reassignOrderId = $orderId;
+        $this->reassignOrderRiderId = Order::query()->whereKey($orderId)->value('delivery_rider_id');
+        $this->reassignOrderReason = '';
+    }
+
+    public function cancelOrderReassign(): void
+    {
+        $this->reassignOrderId = null;
+        $this->reassignOrderRiderId = null;
+        $this->reassignOrderReason = '';
+    }
+
+    public function confirmOrderReassign(): void
+    {
+        $this->statusMessage = '';
+        $this->errorMessage = '';
+
+        try {
+            if (! $this->reassignOrderId || ! $this->reassignOrderRiderId) {
+                throw new \RuntimeException('Select a rescue rider.');
+            }
+
+            $order = Order::query()->findOrFail($this->reassignOrderId);
+            $rider = User::query()->with('role')->findOrFail((int) $this->reassignOrderRiderId);
+
+            OpsRiderMidRunReassign::reassign(
+                $order,
+                $rider,
+                Auth::user(),
+                $this->reassignOrderReason !== '' ? $this->reassignOrderReason : null
+            );
+
+            $this->statusMessage = "Order #{$order->id} reassigned to {$rider->name}. Starter keeps commission; Due does not peer-transfer.";
+            $this->cancelOrderReassign();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not reassign order.';
+        }
     }
 
     public function confirmReassign(): void
@@ -127,7 +179,7 @@ class RidersBoard extends Component
             ->whereHas('role', fn ($q) => $q->where('name', 'delivery'))
             ->where('status', 'active')
             ->orderBy('first_name')
-            ->get(['id', 'first_name', 'last_name', 'mobile']);
+            ->get(['id', 'first_name', 'last_name', 'mobile', 'rider_shift_status']);
 
         return view('livewire.operation.riders-board', [
             'counts' => $counts,

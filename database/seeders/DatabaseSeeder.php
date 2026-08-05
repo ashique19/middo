@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
             KitchenDeliveryDashboardSeeder::class,
             KitchenFeaturesTestSeeder::class,
             DeliveryFeaturesTestSeeder::class,
+            AccountsFinanceTestSeeder::class,
             OrderLogSeeder::class,
             OrderComplaintSeeder::class,
             E2eOrderLifecycleSeeder::class,

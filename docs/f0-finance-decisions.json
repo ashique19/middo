@@ -1,0 +1,70 @@
+{
+  "title": "F0 finance stretch — decisions",
+  "updated": "2026-08-05",
+  "status": "decisions_locked",
+  "note": "Product answered checklist 2026-08-05. All decision ids locked. Build via suggested_ship_slices.",
+  "invariants": [
+    "Do not invent a Middo login user",
+    "MiddoCashLedger remains the till / cash-in-hand SoT (not bank float)",
+    "Bank multi-account is a separate SoT maintained by accounts; admin CRUD of accounts",
+    "VAT is inclusive in food price; accounts/P&L must unbundle VAT from middo_rest correctly"
+  ],
+  "decided": {
+    "vat": {
+      "rate_default_pct": 5,
+      "editable": "admin Settings",
+      "inclusion": "inclusive in price",
+      "applies_to": "food only (not charges)",
+      "effective": "always (no historic rate table for now)",
+      "storage": "per order line / order snapshot at place time",
+      "accounts": "unbundle VAT from food for middo_rest / tax payable reporting"
+    },
+    "bank_sot": {
+      "model": "multi-account (different banks)",
+      "admin": "add / edit / delete bank accounts",
+      "maintainer": "accounts role posts and reconciles",
+      "inflows": ["EPS (online)", "COD → cash handovers / till"],
+      "eps_charges": {
+        "model": "% of transaction by sub-gateway (EPS→bank, EPS→bKash, EPS→Nagad, …)",
+        "accounts": "fee expense / net bank credit must be recorded"
+      }
+    },
+    "cash_positions": {
+      "poster": "accounts",
+      "buckets": [
+        "cash_at_eps — unsettled / in-gateway float",
+        "cash_receivable_kitchen — kitchen holds Middo cash / transfer pending",
+        "cash_receivable_riders — rider Due / cash bag until Middo handover",
+        "cash_in_hand — MiddoCashLedger till"
+      ],
+      "note": "Not a single till↔bank teleport; positions board + posts between buckets and into bank accounts"
+    },
+    "withdrawals": {
+      "request_channels": ["Bank", "bKash", "Nagad", "Cash"],
+      "requesters": ["kitchen", "rider"],
+      "processor": "accounts",
+      "attachments": "optional proof on process"
+    },
+    "mandate": {
+      "owner": "accounts",
+      "export": "Excel export on finance surfaces"
+    },
+    "pnl_batches": {
+      "period_pnl": "in_F0 — report + Excel export",
+      "kitchen_settlement_batches": "in_F2 — multi-payable remittance packets (single withdrawals stay as today)"
+    }
+  },
+  "open": {},
+  "suggested_ship_slices": [
+    "F0a — VAT 5% inclusive on food: Settings + order snapshot + money tree / middo_rest aware",
+    "F0b — Middo bank accounts CRUD (admin) + accounts ledger posts; EPS net + sub-gateway fee %",
+    "F0c — Cash positions board (EPS / kitchen recv / rider recv / cash in hand) + accounts posts",
+    "F0d — Withdrawal channel (Bank/bKash/Nagad/Cash) + optional attachment on accounts process",
+    "F0e — Period P&L + Excel export on cash / bank / VAT / positions",
+    "F2 — Kitchen settlement batches"
+  ],
+  "related": [
+    "docs/next-wave-completion-todo.json → F0",
+    "docs/accounts-completion-todo.json → non_goals"
+  ]
+}

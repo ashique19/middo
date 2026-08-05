@@ -19,6 +19,7 @@ class NavSeeder extends Seeder
         $deliveryId = Role::where('name', 'delivery')->value('id') ?? 4;
         $operationId = Role::where('name', 'operation')->value('id') ?? 5;
         $accountsId = Role::where('name', 'accounts')->value('id') ?? 6;
+        $marketingId = Role::where('name', 'ground_marketing')->value('id') ?? 7;
 
         // ── Admin ────────────────────────────────────────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'admin.dashboard', 'order' => 1, 'role_id' => $adminId]);
@@ -71,6 +72,7 @@ class NavSeeder extends Seeder
         Nav::create(['title' => 'Kitchens', 'route_name' => 'admin.users.kitchen', 'order' => 4, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
         Nav::create(['title' => 'Corporates', 'route_name' => 'admin.corporates.index', 'order' => 5, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
         Nav::create(['title' => 'Delivery', 'route_name' => 'admin.users.delivery', 'order' => 6, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
+        Nav::create(['title' => 'Ground marketing', 'route_name' => 'admin.users.ground_marketing', 'order' => 7, 'role_id' => $adminId, 'parent_id' => $adminUsersNav->id]);
 
         Nav::create([
             'title' => 'System Navs',
@@ -84,6 +86,30 @@ class NavSeeder extends Seeder
             'title' => 'Settings',
             'route_name' => 'admin.settings.index',
             'icon' => '⚙️',
+            'order' => 7,
+            'role_id' => $adminId,
+        ]);
+
+        Nav::create([
+            'title' => 'Bank accounts',
+            'route_name' => 'admin.bank-accounts.index',
+            'icon' => '🏦',
+            'order' => 7,
+            'role_id' => $adminId,
+        ]);
+
+        Nav::create([
+            'title' => 'Bank ledger',
+            'route_name' => 'admin.bank-ledger',
+            'icon' => '📒',
+            'order' => 7,
+            'role_id' => $adminId,
+        ]);
+
+        Nav::create([
+            'title' => 'Period P&L',
+            'route_name' => 'admin.period-pnl',
+            'icon' => '📊',
             'order' => 7,
             'role_id' => $adminId,
         ]);
@@ -165,6 +191,14 @@ class NavSeeder extends Seeder
             'route_name' => 'admin.coverage.index',
             'icon' => '📍',
             'order' => 17,
+            'role_id' => $adminId,
+        ]);
+
+        Nav::create([
+            'title' => 'Ops day',
+            'route_name' => 'admin.ops-day.index',
+            'icon' => '📅',
+            'order' => 18,
             'role_id' => $adminId,
         ]);
 
@@ -286,6 +320,14 @@ class NavSeeder extends Seeder
             'role_id' => $operationId,
         ]);
 
+        Nav::create([
+            'title' => 'Ops day',
+            'route_name' => 'operation.ops-day.index',
+            'icon' => '📅',
+            'order' => 17,
+            'role_id' => $operationId,
+        ]);
+
         // ── Accounts (A0 money shell) ─────────────────────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'accounts.dashboard', 'order' => 1, 'role_id' => $accountsId]);
         Nav::create([
@@ -303,45 +345,66 @@ class NavSeeder extends Seeder
             'role_id' => $accountsId,
         ]);
         Nav::create([
+            'title' => 'Cash positions',
+            'route_name' => 'accounts.cash-positions',
+            'icon' => '💰',
+            'order' => 3,
+            'role_id' => $accountsId,
+        ]);
+        Nav::create([
+            'title' => 'Bank ledger',
+            'route_name' => 'accounts.bank-ledger',
+            'icon' => '🏦',
+            'order' => 4,
+            'role_id' => $accountsId,
+        ]);
+        Nav::create([
+            'title' => 'Period P&L',
+            'route_name' => 'accounts.period-pnl',
+            'icon' => '📊',
+            'order' => 4,
+            'role_id' => $accountsId,
+        ]);
+        Nav::create([
             'title' => 'Rider cash handovers',
             'route_name' => 'accounts.cash-handovers',
             'icon' => '🤝',
-            'order' => 4,
+            'order' => 5,
             'role_id' => $accountsId,
         ]);
         Nav::create([
             'title' => 'COD / Due recon',
             'route_name' => 'accounts.cod-recon.index',
             'icon' => '📊',
-            'order' => 5,
+            'order' => 6,
             'role_id' => $accountsId,
         ]);
         Nav::create([
             'title' => 'Operating costs',
             'route_name' => 'accounts.operating-costs.index',
             'icon' => '📈',
-            'order' => 6,
+            'order' => 7,
             'role_id' => $accountsId,
         ]);
         Nav::create([
             'title' => 'Kitchen money',
             'route_name' => 'accounts.kitchen-money.index',
             'icon' => '💰',
-            'order' => 7,
+            'order' => 8,
             'role_id' => $accountsId,
         ]);
         Nav::create([
             'title' => 'Rider money',
             'route_name' => 'accounts.rider-money.index',
             'icon' => '🛵',
-            'order' => 8,
+            'order' => 9,
             'role_id' => $accountsId,
         ]);
         Nav::create([
             'title' => 'Corporates',
             'route_name' => 'accounts.corporates.index',
             'icon' => '🏢',
-            'order' => 9,
+            'order' => 10,
             'role_id' => $accountsId,
         ]);
 
@@ -378,5 +441,15 @@ class NavSeeder extends Seeder
         Nav::create(['title' => 'Kitchen dispatches', 'route_name' => 'delivery.kitchen-dispatches', 'order' => 2, 'role_id' => $deliveryId]);
         Nav::create(['title' => 'Middo boxes pending run', 'route_name' => 'delivery.middo-boxes.pending-run', 'order' => 3, 'role_id' => $deliveryId]);
         Nav::create(['title' => 'Delivered orders', 'route_name' => 'delivery.orders.delivered', 'order' => 4, 'role_id' => $deliveryId]);
+
+        // ── Ground marketing ──────────────────────────────────────────────────
+        Nav::create(['title' => 'Dashboard', 'route_name' => 'marketing.dashboard', 'order' => 1, 'role_id' => $marketingId]);
+        Nav::create([
+            'title' => 'Companies',
+            'route_name' => 'marketing.companies.index',
+            'icon' => '🏢',
+            'order' => 2,
+            'role_id' => $marketingId,
+        ]);
     }
 }

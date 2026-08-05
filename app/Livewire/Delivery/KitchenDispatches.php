@@ -46,6 +46,10 @@ class KitchenDispatches extends Component
                     throw new \RuntimeException('This run is outside your service areas.');
                 }
 
+                if (! $rider->canAcceptNewRuns()) {
+                    throw new \RuntimeException('You are not on shift. Set On shift on the dashboard before accepting runs.');
+                }
+
                 $boxes = $order->middoBoxes()->lockForUpdate()->get();
 
                 if ($boxes->count() !== (int) $order->quantity) {
@@ -80,6 +84,7 @@ class KitchenDispatches extends Component
 
                 OrderTransition::apply($order, OrderTransition::ON_THE_WAY_TO_DELIVERY, [
                     'delivery_rider_id' => $riderId,
+                    'original_delivery_rider_id' => $riderId,
                     'updated_by' => $riderId,
                 ]);
 

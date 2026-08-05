@@ -794,6 +794,73 @@ class MealPackageTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_cancel_remaining_refunds_unscheduled_prepaid_days_on_partial_schedule(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeCorporate([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'balance' => 100000,
+            'mobile' => '01710123666',
+        ]);
+        $ops = $this->makeOps();
+        $admin = User::create([
+            'first_name' => 'Admin',
+            'last_name' => 'User',
+            'mobile' => '01310123451',
+            'password' => '12345678',
+            'role_id' => $this->adminRole->id,
+            'status' => 'active',
+        ]);
+        $menu = $this->makeMenuItem('Partial Cancel Meal', 200);
+        $package = $this->makeRatePlan(0);
+        $workingDays = $this->workingDays('2026-08');
+        $this->assertGreaterThan(3, $workingDays);
+
+        $result = app(PackageSubscriptionService::class)->subscribe(
+            $user,
+            $package,
+            1,
+            [5, 6],
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]],
+            '2026-08',
+            'Corporate User',
+            $user->mobile,
+            'House 12, Road 5',
+            $city->id,
+            $area->id,
+            '12:00 PM',
+            'balance'
+        );
+        $subscription = $result['subscription'];
+        $prepaid = PackageRefund::subscriptionPrepaidAmount($subscription);
+        $this->assertSame(200 * $workingDays, $prepaid);
+        $balanceAfterSubscribe = (int) $user->fresh()->balance;
+
+        $available = PackageBilling::availableDatesInMonth('2026-08', [5, 6])->values();
+        $partial = app(PackageSubscriptionService::class)->assignSchedule($ops, $subscription, [
+            ['date' => $available[0], 'menu_item_id' => $menu->id],
+            ['date' => $available[1], 'menu_item_id' => $menu->id],
+        ]);
+        $this->assertSame(PackageSubscription::SCHEDULE_PARTIAL, $partial['subscription']->schedule_status);
+
+        $scheduledRefundValue = (int) array_sum(PackageRefund::packageDayRefundAllocations($partial['subscription']));
+        $expectedResidual = PackageRefund::unscheduledPrepaidResidual($partial['subscription']);
+        $this->assertSame(200 * ($workingDays - 2), $expectedResidual);
+        $this->assertSame($prepaid, $scheduledRefundValue + $expectedResidual);
+
+        $cancel = app(PackageSubscriptionService::class)->cancelRemaining($admin, $partial['subscription']->fresh());
+
+        $this->assertSame(2, $cancel['cancelled_orders']);
+        $this->assertSame($prepaid, $cancel['refunded_amount']);
+        $this->assertSame(PackageSubscription::STATUS_CANCELLED, $cancel['subscription']->status);
+        $this->assertSame($balanceAfterSubscribe + $prepaid, (int) $user->fresh()->balance);
+
+        Carbon::setTestNow();
+    }
+
     public function test_admin_can_open_package_builder(): void
     {
         $admin = User::create([

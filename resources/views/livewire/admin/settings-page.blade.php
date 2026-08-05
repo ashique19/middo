@@ -103,6 +103,17 @@
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('commission_kitchen_to_ops') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
+                <div class="sm:col-span-2">
+                    <label class="inline-flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" wire:model="kitchen_to_ops_via_rider"
+                               class="mt-1 rounded border-gray-300 text-middo-orange focus:ring-middo-orange">
+                        <span>
+                            <span class="block text-sm font-bold text-middo-dark">Kitchen → ops via rider</span>
+                            <span class="block text-[11px] text-gray-400 mt-0.5">When on, kitchen can assign a rider for empty-box returns (books the kitchen→ops rate). Direct warehouse send stays available. Default off.</span>
+                        </span>
+                    </label>
+                    @error('kitchen_to_ops_via_rider') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Ops → kitchen (box)</label>
                     <input type="number" min="0" wire:model="commission_ops_to_kitchen"
@@ -115,6 +126,57 @@
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('commission_custom') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Mid-run rescue (optional)</label>
+                    <input type="number" min="0" wire:model="commission_mid_run_rescue"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    <p class="text-[11px] text-gray-400 mt-1">Paid to rescue rider B only. Starter keeps lunch commission. Default ৳0.</p>
+                    @error('commission_mid_run_rescue') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+        </section>
+
+        <section class="space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Finance — food VAT</h2>
+                <p class="text-xs text-gray-500 mt-1">
+                    Inclusive VAT on food only (not charges). Snapshotted onto each order at place time; Middo rest uses food ex-VAT.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">VAT rate (%)</label>
+                    <input type="number" min="0" max="100" step="0.01" wire:model="vat_rate_pct"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    <p class="text-[11px] text-gray-400 mt-1">Default 5% for food business. Admin editable.</p>
+                    @error('vat_rate_pct') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+        </section>
+
+        <section class="space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">EPS gateway fees (%)</h2>
+                <p class="text-xs text-gray-500 mt-1">
+                    Percent of gross charged by EPS sub-gateway. Bank ledger credits net (gross − fee) on successful payments.
+                </p>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                @foreach([
+                    'eps_fee_bank' => 'Bank',
+                    'eps_fee_bkash' => 'bKash',
+                    'eps_fee_nagad' => 'Nagad',
+                    'eps_fee_rocket' => 'Rocket',
+                    'eps_fee_card' => 'Card',
+                    'eps_fee_other' => 'Other',
+                ] as $field => $label)
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">{{ $label }}</label>
+                        <input type="number" min="0" max="100" step="0.01" wire:model="{{ $field }}"
+                               class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                        @error($field) <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                @endforeach
             </div>
         </section>
 
