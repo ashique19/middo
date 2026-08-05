@@ -677,8 +677,14 @@ class OrderCheckoutModal extends Component
         $discountAmount = min($this->couponDiscount, $cartTotal);
         $payableCart = max(0, $cartTotal - $discountAmount);
         $chargeAmount = $this->checkoutChargeAmount($prepayment, $payableCart);
-        $allocations = CorporateOrderPrepayment::allocate($chargeAmount, $lineTotals);
+        // Allocate coupon first, then split prepaid across post-discount line nets so
+        // no line is overpaid relative to what the customer still owes on that day.
         $discountShares = app(CouponService::class)->allocateDiscount($lineTotals, $discountAmount);
+        $netLineTotals = [];
+        foreach ($lineTotals as $i => $gross) {
+            $netLineTotals[] = max(0, (int) $gross - (int) ($discountShares[$i] ?? 0));
+        }
+        $allocations = CorporateOrderPrepayment::allocate($chargeAmount, $netLineTotals);
         $couponId = null;
         if ($this->appliedCouponCode !== '' && $discountAmount > 0) {
             try {
