@@ -191,19 +191,35 @@ class FlawHuntDiagnosticTest extends TestCase
         $this->assertSame(0, $breakdown['middo_rest_amount']);
     }
 
-    public function test_multi_date_cart_without_prepay_intentionally_resolves_to_cod(): void
+    public function test_cod_available_for_up_to_three_orders_same_or_multi_day(): void
     {
-        // Product policy (shared web+API): COD picker only for single-date carts,
-        // but multi-date without forced prepay still settles residual as COD.
-        $this->assertFalse(OrderPaymentMethod::allowsCashOnDelivery(false, 2));
+        // COD tracks the active-order prepay ceiling (3): allowed for 1–3 new lines
+        // without forced prepay; blocked once prepayment is required.
+        $this->assertTrue(OrderPaymentMethod::allowsCashOnDelivery(false, 1));
+        $this->assertTrue(OrderPaymentMethod::allowsCashOnDelivery(false, 2));
+        $this->assertTrue(OrderPaymentMethod::allowsCashOnDelivery(false, 3));
+        $this->assertFalse(OrderPaymentMethod::allowsCashOnDelivery(true, 1));
+
         $this->assertSame(
-            [OrderPaymentMethod::CASH_ON_DELIVERY],
-            OrderPaymentMethod::checkoutOptions(false, 2)
+            [
+                OrderPaymentMethod::CASH_ON_DELIVERY,
+                OrderPaymentMethod::BALANCE,
+                OrderPaymentMethod::GATEWAY,
+            ],
+            OrderPaymentMethod::checkoutOptions(false, 2, 5000, 800)
         );
         $this->assertSame(
             OrderPaymentMethod::CASH_ON_DELIVERY,
-            OrderPaymentMethod::resolveCheckout(null, false, 2)
+            OrderPaymentMethod::resolveCheckout(null, false, 2, 5000, 800)
         );
+        $this->assertSame(
+            [
+                OrderPaymentMethod::CASH_ON_DELIVERY,
+                OrderPaymentMethod::GATEWAY,
+            ],
+            OrderPaymentMethod::checkoutOptions(false, 1, 0, 420)
+        );
+        $this->assertFalse(OrderPaymentMethod::balanceSelectable(0, 420));
     }
 
     public function test_auto_grouper_should_reject_order_qty_above_group_capacity(): void

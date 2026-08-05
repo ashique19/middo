@@ -59,55 +59,100 @@ class OrderPaymentMethod
     }
 
     /**
-     * COD is only offered when the cart is a single order line and prepayment is not required.
+     * COD is offered when prepayment is not required — i.e. up to the active-order
+     * threshold (3): three meals on one day, or across multiple days, as long as
+     * projected active orders stay within that limit and the receiver matches.
+     *
+     * @param  int  $activeDateCount  Kept for call-site compatibility; COD gating
+     *                                is driven by $prepaymentRequired.
      */
-    public static function allowsCashOnDelivery(bool $prepaymentRequired, int $activeDateCount): bool
+    public static function allowsCashOnDelivery(bool $prepaymentRequired, int $activeDateCount = 0): bool
     {
-        return ! $prepaymentRequired && $activeDateCount === 1;
+        return ! $prepaymentRequired;
+    }
+
+    /**
+     * Whether Middo Balance can be selected for this checkout charge.
+     */
+    public static function balanceSelectable(int $walletBalance, int $chargeAmount): bool
+    {
+        if ($chargeAmount < 1) {
+            // Choosing balance with a zero charge is pointless; still require funds on hand.
+            return $walletBalance >= 1;
+        }
+
+        return $walletBalance >= $chargeAmount;
     }
 
     /**
      * @return list<string>
      */
-    public static function checkoutOptions(bool $prepaymentRequired, int $activeDateCount): array
-    {
+    public static function checkoutOptions(
+        bool $prepaymentRequired,
+        int $activeDateCount,
+        ?int $walletBalance = null,
+        ?int $balanceChargeAmount = null
+    ): array {
         if ($prepaymentRequired) {
-            return [self::BALANCE, self::GATEWAY];
+            $options = [self::BALANCE, self::GATEWAY];
+        } else {
+            // COD + prepaid alternatives while under the 3-order COD ceiling.
+            $options = [self::CASH_ON_DELIVERY, self::BALANCE, self::GATEWAY];
         }
 
-        if (self::allowsCashOnDelivery(false, $activeDateCount)) {
-            return self::all();
+        if ($walletBalance !== null) {
+            $charge = $balanceChargeAmount ?? 1;
+            if (! self::balanceSelectable($walletBalance, $charge)) {
+                $options = array_values(array_filter(
+                    $options,
+                    fn (string $method) => $method !== self::BALANCE
+                ));
+            }
         }
 
-        return [self::CASH_ON_DELIVERY];
+        return $options;
     }
 
-    public static function resolveCheckout(?string $requested, bool $prepaymentRequired, int $activeDateCount): string
-    {
+    public static function resolveCheckout(
+        ?string $requested,
+        bool $prepaymentRequired,
+        int $activeDateCount,
+        ?int $walletBalance = null,
+        ?int $balanceChargeAmount = null
+    ): string {
         $requested = $requested !== '' ? $requested : null;
+        $options = self::checkoutOptions(
+            $prepaymentRequired,
+            $activeDateCount,
+            $walletBalance,
+            $balanceChargeAmount
+        );
+
+        if ($requested !== null && in_array($requested, $options, true)) {
+            return $requested;
+        }
 
         if ($prepaymentRequired) {
-            if (in_array($requested, [self::BALANCE, self::GATEWAY], true)) {
-                return $requested;
+            if ($requested === self::BALANCE) {
+                throw new InvalidArgumentException('Insufficient Middo Balance for this payment.');
             }
 
             throw new InvalidArgumentException('Prepayment is required. Pay from Middo Balance or payment gateway.');
         }
 
-        if (self::allowsCashOnDelivery(false, $activeDateCount)) {
-            if ($requested === null) {
-                return self::CASH_ON_DELIVERY;
-            }
-
-            if (in_array($requested, self::all(), true)) {
-                return $requested;
-            }
-
-            throw new InvalidArgumentException('Choose Cash on Delivery, Middo Balance, or online payment.');
+        if ($requested === self::BALANCE) {
+            throw new InvalidArgumentException('Insufficient Middo Balance for this payment.');
         }
 
-        // Product policy: multi-date carts without forced prepay settle each day by COD.
-        return self::CASH_ON_DELIVERY;
+        if ($requested === null) {
+            return $options[0] ?? self::CASH_ON_DELIVERY;
+        }
+
+        if (in_array($requested, self::all(), true) && ! in_array($requested, $options, true)) {
+            throw new InvalidArgumentException('That payment method is not available for this order.');
+        }
+
+        throw new InvalidArgumentException('Choose Cash on Delivery, Middo Balance, or online payment.');
     }
 
     public static function checkoutChargeAmount(
