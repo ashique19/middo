@@ -49,19 +49,6 @@
         @endif
 
         <section class="space-y-4 min-w-0">
-            <div class="flex flex-wrap items-center gap-2 min-w-0">
-                @foreach(['all' => 'All', 'classic' => 'Classic', 'veg' => 'Veg', 'vegetarian' => 'Vegetarian', 'protein' => 'Protein', 'light' => 'Light'] as $key => $label)
-                    <button type="button" wire:click="$set('filter', '{{ $key }}')"
-                        @class([
-                            'shrink-0 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition whitespace-nowrap',
-                            'bg-[#1E4630] text-white' => $filter === $key,
-                            'bg-white border border-[#DDD3BE] text-[#2B1A11] hover:bg-[#EFE9DC]' => $filter !== $key,
-                        ])>
-                        {{ $label }}
-                    </button>
-                @endforeach
-            </div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 @forelse($packages as $package)
                     <div wire:key="pkg-card-{{ $package['id'] }}" class="bg-white border border-[#DDD3BE] rounded-2xl overflow-hidden shadow-sm flex flex-col min-w-0">
@@ -74,7 +61,7 @@
                             <div class="flex items-start justify-between gap-3">
                                 <div>
                                     <h3 class="text-xl font-black tracking-tight">{{ $package['name'] }}</h3>
-                                    <p class="text-xs font-semibold text-[#635347] mt-1 capitalize">{{ $package['diet_tag'] }} · monthly rate</p>
+                                    <p class="text-xs font-semibold text-[#635347] mt-1">Monthly rate</p>
                                 </div>
                                 <div class="text-right shrink-0">
                                     <div class="text-sm font-black text-middo-orange leading-none">Menu-priced</div>
