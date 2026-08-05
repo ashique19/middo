@@ -164,7 +164,7 @@
     },
     "next_wave": {
       "see": "docs/next-wave-completion-todo.json",
-      "start": "N0 → N1 → N2"
+      "start": "N0 → N1 (shifts + mid-run reassign) → N2"
     }
   },
   "non_goals_for_now": [

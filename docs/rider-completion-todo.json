@@ -1,7 +1,7 @@
 {
   "title": "Rider / delivery portal — completion backlog",
   "version": 10,
-  "updated": "2026-08-04",
+  "updated": "2026-08-05",
   "context": {
     "existing_delivery_livewire": [
       "Dashboard",
@@ -248,7 +248,12 @@
       "priority": 1,
       "status": "done",
       "goal": "Admin can set defaults for non-lunch run types, override per rider, assign multiple areas. Lunch stays menu-priced.",
-      "build_order": ["R0.1", "R0.2", "R0.3", "R0.4"],
+      "build_order": [
+        "R0.1",
+        "R0.2",
+        "R0.3",
+        "R0.4"
+      ],
       "items": [
         {
           "id": "R0.1",
@@ -285,9 +290,14 @@
       "name": "Area-scoped portal + parcel calls",
       "priority": 2,
       "status": "done",
-      "depends_on": ["R0"],
+      "depends_on": [
+        "R0"
+      ],
       "goal": "Rider only sees / is notified for work in their areas.",
-      "build_order": ["R1.1", "R1.2"],
+      "build_order": [
+        "R1.1",
+        "R1.2"
+      ],
       "items": [
         {
           "id": "R1.1",
@@ -312,9 +322,17 @@
       "name": "Rider signed wallet + credit on run start",
       "priority": 3,
       "status": "done",
-      "depends_on": ["R0"],
+      "depends_on": [
+        "R0"
+      ],
       "goal": "Commission credited at run start (Middo owes rider); P&L records the cost without double-counting.",
-      "build_order": ["R2.1", "R2.2", "R2.3", "R2.4", "R2.5"],
+      "build_order": [
+        "R2.1",
+        "R2.2",
+        "R2.3",
+        "R2.4",
+        "R2.5"
+      ],
       "items": [
         {
           "id": "R2.1",
@@ -356,9 +374,16 @@
       "name": "Cash collect UI + due handover (keep commission)",
       "priority": 4,
       "status": "done",
-      "depends_on": ["R2"],
+      "depends_on": [
+        "R2"
+      ],
       "goal": "After collect: show Collection − Commission = Due to Middo; handover only due to kitchen or Middo; prepaid shows wallet + withdrawal.",
-      "build_order": ["R3.1", "R3.2", "R3.3", "R3.4"],
+      "build_order": [
+        "R3.1",
+        "R3.2",
+        "R3.3",
+        "R3.4"
+      ],
       "items": [
         {
           "id": "R3.1",
@@ -394,9 +419,16 @@
       "name": "Rider Account UI + withdrawals",
       "priority": 5,
       "status": "done",
-      "depends_on": ["R2", "R3"],
+      "depends_on": [
+        "R2",
+        "R3"
+      ],
       "goal": "Rider sees signed wallet; commission lines only when rate set; can request withdrawal when Middo owes them.",
-      "build_order": ["R4.1", "R4.2", "R4.3"],
+      "build_order": [
+        "R4.1",
+        "R4.2",
+        "R4.3"
+      ],
       "items": [
         {
           "id": "R4.1",
@@ -426,9 +458,15 @@
       "name": "Mobile-app-like rider shell (required)",
       "priority": 2,
       "status": "done",
-      "depends_on": ["R0"],
+      "depends_on": [
+        "R0"
+      ],
       "goal": "Thumbs-first delivery UI with clear bottom/side nav — cleaner day-to-day UX and IA for a future native rider app.",
-      "build_order": ["R5.1", "R5.2", "R5.3"],
+      "build_order": [
+        "R5.1",
+        "R5.2",
+        "R5.3"
+      ],
       "items": [
         {
           "id": "R5.1",
@@ -458,7 +496,9 @@
       "name": "Custom point X → Y runs (after core)",
       "priority": 5,
       "status": "done",
-      "depends_on": ["R2"],
+      "depends_on": [
+        "R2"
+      ],
       "goal": "Ops can create ad-hoc runs with settings/manual commission.",
       "items": [
         {
@@ -483,7 +523,11 @@
       "name": "Tests + seeders + Accounts Hub cleanup",
       "priority": 7,
       "status": "done",
-      "depends_on": ["R2", "R3", "R4"],
+      "depends_on": [
+        "R2",
+        "R3",
+        "R4"
+      ],
       "items": [
         {
           "id": "R6.1",
@@ -547,7 +591,16 @@
       "blocks": []
     }
   ],
-  "suggested_ship_order": ["R0", "R5", "R1", "R2", "R3", "R4", "R6", "R2b"],
+  "suggested_ship_order": [
+    "R0",
+    "R5",
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R6",
+    "R2b"
+  ],
   "non_goals_for_now": [
     "Changing kitchen wallet semantics (already shipped)",
     "Rider-to-rider cash transfer",
@@ -556,12 +609,13 @@
     "Native iOS/Android rider app (later — reuse R5 IA)"
   ],
   "parked_next_wave_agreed_2026_08_04": {
-    "status": "parked — revisit after ops review / backlog",
+    "status": "parked — N0/N1 sequenced in docs/next-wave-completion-todo.json (v2)",
     "deferred_product": [
       "R2.3 kitchen→ops box rider leg (settings rate ready; kitchen sendToWarehouse is direct today)",
       "Native rider app (reuse R5 IA)"
     ],
     "worth_building_next": [
+      "Rider shifts / availability — ESSENTIAL (see next-wave N1)",
       "Failed delivery / reassign / release after accept (commission accrued at start; unwind only on cancel today)",
       "Aging unclaimed lunch dispatches + coverage gaps (no rider SLA mirror of kitchen deadlines)",
       "COD reconciliation report (day × rider × collected / Due / handed / accepted)",
@@ -572,16 +626,21 @@
     ],
     "nice_to_have": [
       "POD / photo / delivery OTP",
-      "Rider shifts / availability",
       "Corporate-facing rider name + ETA",
       "Post-hoc commission adjustments",
       "Richer offline than PWA passthrough"
     ],
     "out_of_scope_or_deferred": [
       "GPS / route optimization",
-      "Rider↔rider cash",
+      "Rider↔rider cash peer transfer (Due custody only via ops/accounts ledger — next-wave N1)",
       "Insurance / float deposits (unless finance mandates)",
       "Kitchen-style capacity slots for riders"
-    ]
+    ],
+    "decided_2026_08_05_mid_run_transfer": {
+      "see": "docs/next-wave-completion-todo.json → decided_2026_08_05",
+      "parcels": "ops-mediated reassign",
+      "money": "no peer rider↔rider; Due stays on starter unless ops/accounts ledger move",
+      "commission": "starter keeps run-start accrual; B optional rescue rate only"
+    }
   }
 }
