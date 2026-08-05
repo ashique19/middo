@@ -34,6 +34,7 @@ use App\Livewire\Shared\OrderShow;
 use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
 use App\Livewire\Shared\PackageInsights;
+use App\Livewire\Shared\PeriodPnlPage;
 use App\Livewire\Shared\RecipeShow;
 use App\Livewire\Shared\RiderMoneyApprovals;
 use App\Livewire\Shared\StaffAlertsPage;
@@ -80,6 +81,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/cash-positions', CashPositionsBoard::class)->name('admin.cash-positions');
     Route::get('/bank-accounts', BankAccountsPage::class)->name('admin.bank-accounts.index');
     Route::get('/bank-ledger', MiddoBankLedgerPage::class)->name('admin.bank-ledger');
+    Route::get('/period-pnl', PeriodPnlPage::class)->name('admin.period-pnl');
     Route::get('/cash-handovers', CashHandovers::class)->name('admin.cash-handovers');
     Route::get('/sla', SlaBoard::class)->name('admin.sla.index');
     Route::get('/riders', RidersBoard::class)->name('admin.riders.index');

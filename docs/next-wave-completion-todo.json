@@ -239,7 +239,7 @@
     {
       "id": "F0",
       "title": "Accounts finance stretch — bank ledger / VAT",
-      "status": "in_progress",
+      "status": "shipped",
       "updated_at": "2026-08-05",
       "priority": "high-after-decisions",
       "owner_hint": "accounts",
@@ -252,7 +252,8 @@
         "F0b: middo_bank_accounts + middo_bank_ledger; admin CRUD; accounts/admin bank ledger page",
         "F0b: EPS fee % by sub-gateway (Settings); postEpsPayment net credit on EPS success (idempotent)",
         "F0c: CashPositions board — kitchen recv / rider Due / till + EPS note; till→bank deposit; nav",
-        "F0d: Withdrawal payout_channel Bank/bKash/Nagad/Cash + details; accounts approve with bank float debit or till; optional attachment"
+        "F0d: Withdrawal payout_channel Bank/bKash/Nagad/Cash + details; accounts approve with bank float debit or till; optional attachment",
+        "F0e: Period P&L by delivery date + opex/EPS fees; CSV Excel export; cash/bank companion rollups; nav accounts|admin|ops"
       ],
       "items": [
         "VAT 5% inclusive on food — Settings-editable; per-order snapshot; accounts unbundle",
@@ -304,5 +305,5 @@
     "Full bank ledger / VAT until docs/f0-finance-decisions.json is answered"
   ],
   "buildable_complete": false,
-  "recommended_start": "F0e (period P&L + Excel export) — F0a–F0d shipped; F2 = settlement batches later"
+  "recommended_start": "F2 (kitchen settlement batches) — F0 complete; F1 native apps deferred"
 }

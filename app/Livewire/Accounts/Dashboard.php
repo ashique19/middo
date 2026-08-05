@@ -50,6 +50,12 @@ class Dashboard extends Component
                 'route' => $prefix.'.cash-positions',
                 'stat' => null,
             ] : null,
+            Route::has($prefix.'.period-pnl') ? [
+                'label' => 'Period P&L',
+                'hint' => 'VAT · middo_rest · opex · Excel',
+                'route' => $prefix.'.period-pnl',
+                'stat' => null,
+            ] : null,
             [
                 'label' => 'Cash handovers',
                 'hint' => 'Accept Due · confirm reject proposals',

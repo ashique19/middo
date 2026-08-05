@@ -31,6 +31,7 @@ use App\Livewire\Shared\OrderShow;
 use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
 use App\Livewire\Shared\PackageInsights;
+use App\Livewire\Shared\PeriodPnlPage;
 use App\Livewire\Shared\RecipeShow;
 use App\Livewire\Shared\RiderMoneyApprovals;
 use App\Livewire\Shared\StaffAlertsPage;
@@ -79,6 +80,7 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/middo-boxes/{middoBox}/print', MiddoBoxPrintController::class)->name('operation.middo-boxes.print');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('operation.middo-cash');
     Route::get('/cash-positions', CashPositionsBoard::class)->name('operation.cash-positions');
+    Route::get('/period-pnl', PeriodPnlPage::class)->name('operation.period-pnl');
     Route::get('/cash-handovers', CashHandovers::class)->name('operation.cash-handovers');
     Route::get('/sla', SlaBoard::class)->name('operation.sla.index');
     Route::get('/riders', RidersBoard::class)->name('operation.riders.index');

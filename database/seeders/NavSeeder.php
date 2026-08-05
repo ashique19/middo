@@ -105,6 +105,14 @@ class NavSeeder extends Seeder
         ]);
 
         Nav::create([
+            'title' => 'Period P&L',
+            'route_name' => 'admin.period-pnl',
+            'icon' => '📊',
+            'order' => 7,
+            'role_id' => $adminId,
+        ]);
+
+        Nav::create([
             'title' => 'Kitchen money',
             'route_name' => 'admin.kitchen-money.index',
             'icon' => '💰',
@@ -345,6 +353,13 @@ class NavSeeder extends Seeder
             'title' => 'Bank ledger',
             'route_name' => 'accounts.bank-ledger',
             'icon' => '🏦',
+            'order' => 4,
+            'role_id' => $accountsId,
+        ]);
+        Nav::create([
+            'title' => 'Period P&L',
+            'route_name' => 'accounts.period-pnl',
+            'icon' => '📊',
             'order' => 4,
             'role_id' => $accountsId,
         ]);

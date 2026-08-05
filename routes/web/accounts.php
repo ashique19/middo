@@ -12,6 +12,7 @@ use App\Livewire\Shared\MiddoBankLedgerPage;
 use App\Livewire\Shared\MiddoCashLedgerPage;
 use App\Livewire\Shared\OperatingCostsPage;
 use App\Livewire\Shared\OrderShow;
+use App\Livewire\Shared\PeriodPnlPage;
 use App\Livewire\Shared\RiderMoneyApprovals;
 use Illuminate\Support\Facades\Route;
 
@@ -22,6 +23,7 @@ Route::middleware(['auth', 'role:accounts'])->group(function () {
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('accounts.middo-cash');
     Route::get('/cash-positions', CashPositionsBoard::class)->name('accounts.cash-positions');
     Route::get('/bank-ledger', MiddoBankLedgerPage::class)->name('accounts.bank-ledger');
+    Route::get('/period-pnl', PeriodPnlPage::class)->name('accounts.period-pnl');
     Route::get('/cash-handovers', CashHandovers::class)->name('accounts.cash-handovers');
     Route::get('/cod-recon', CodDueReconPage::class)->name('accounts.cod-recon.index');
     Route::get('/operating-costs', OperatingCostsPage::class)->name('accounts.operating-costs.index');
