@@ -12,8 +12,6 @@ use Livewire\Component;
 
 class Packages extends Component
 {
-    public string $filter = 'all';
-
     public array $packages = [];
 
     public array $subscriptions = [];
@@ -25,11 +23,6 @@ class Packages extends Component
         $this->loadPendingPaidCheckout(pokeOtp: true);
         $this->loadPackages();
         $this->loadSubscriptions();
-    }
-
-    public function updatedFilter(): void
-    {
-        $this->loadPackages();
     }
 
     #[On('package-subscribed')]
@@ -76,17 +69,12 @@ class Packages extends Component
             ->orderBy('display_order')
             ->orderBy('price_per_day');
 
-        if ($this->filter !== 'all') {
-            $query->where('diet_tag', $this->filter);
-        }
-
         $this->packages = $query->get()->map(function (MealPackage $package) {
             return [
                 'id' => $package->id,
                 'name' => $package->name,
                 'summary' => $package->summary,
                 'price_per_day' => (int) $package->price_per_day,
-                'diet_tag' => $package->diet_tag,
                 'duration_days' => (int) $package->duration_days,
                 'start_date' => optional($package->start_date)?->toDateString(),
                 'end_date' => optional($package->end_date)?->toDateString(),
