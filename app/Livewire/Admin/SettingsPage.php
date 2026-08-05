@@ -35,6 +35,18 @@ class SettingsPage extends Component
 
     public float $vat_rate_pct = 5;
 
+    public float $eps_fee_bank = 1.5;
+
+    public float $eps_fee_bkash = 1.8;
+
+    public float $eps_fee_nagad = 1.8;
+
+    public float $eps_fee_rocket = 1.8;
+
+    public float $eps_fee_card = 2.5;
+
+    public float $eps_fee_other = 1.5;
+
     public string $statusMessage = '';
 
     public string $errorMessage = '';
@@ -62,6 +74,14 @@ class SettingsPage extends Component
         $this->commission_mid_run_rescue = MiddoSettings::midRunRescueCommission();
         $this->kitchen_to_ops_via_rider = MiddoSettings::kitchenToOpsViaRider();
         $this->vat_rate_pct = MiddoSettings::vatRatePct();
+
+        $fees = MiddoSettings::epsFeeRates();
+        $this->eps_fee_bank = $fees['bank'];
+        $this->eps_fee_bkash = $fees['bkash'];
+        $this->eps_fee_nagad = $fees['nagad'];
+        $this->eps_fee_rocket = $fees['rocket'];
+        $this->eps_fee_card = $fees['card'];
+        $this->eps_fee_other = $fees['other'];
     }
 
     public function save(): void
@@ -83,6 +103,12 @@ class SettingsPage extends Component
             'commission_mid_run_rescue' => 'required|integer|min:0|max:100000',
             'kitchen_to_ops_via_rider' => 'boolean',
             'vat_rate_pct' => 'required|numeric|min:0|max:100',
+            'eps_fee_bank' => 'required|numeric|min:0|max:100',
+            'eps_fee_bkash' => 'required|numeric|min:0|max:100',
+            'eps_fee_nagad' => 'required|numeric|min:0|max:100',
+            'eps_fee_rocket' => 'required|numeric|min:0|max:100',
+            'eps_fee_card' => 'required|numeric|min:0|max:100',
+            'eps_fee_other' => 'required|numeric|min:0|max:100',
         ]);
 
         MiddoSettings::updateMealAndKitchenDefaults([
@@ -103,6 +129,14 @@ class SettingsPage extends Component
             'mid_run_rescue_commission' => $this->commission_mid_run_rescue,
             'kitchen_to_ops_via_rider' => $this->kitchen_to_ops_via_rider,
             'vat_rate_pct' => $this->vat_rate_pct,
+            'eps_fee_rates' => [
+                'bank' => $this->eps_fee_bank,
+                'bkash' => $this->eps_fee_bkash,
+                'nagad' => $this->eps_fee_nagad,
+                'rocket' => $this->eps_fee_rocket,
+                'card' => $this->eps_fee_card,
+                'other' => $this->eps_fee_other,
+            ],
         ]);
 
         $this->loadFromSettings();

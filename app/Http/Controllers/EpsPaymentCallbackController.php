@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Contracts\PaymentGateway;
 use App\Models\Order;
 use App\Support\CorporateWalletTopUp;
+use App\Support\MiddoBankLedger;
 use App\Support\OrderTransition;
 use App\Support\PackageGatewayCheckout;
 use App\Support\Payments\EpsPaymentGateway;
@@ -62,6 +63,7 @@ class EpsPaymentCallbackController extends Controller
             );
 
             if ($result['ok'] ?? false) {
+                $this->postBankSettlement($token, $result['payload'] ?? $gateway->find($token));
                 $this->fulfillPaidSession($token, $result['payload'] ?? $gateway->find($token));
             }
         }
@@ -102,6 +104,39 @@ class EpsPaymentCallbackController extends Controller
                     'eps_message' => $result['message'] ?? null,
                 ]
             )
+        );
+    }
+
+    /**
+     * Credit Middo bank float with EPS net (gross − sub-gateway fee). Idempotent on token.
+     *
+     * @param  array<string, mixed>|null  $payload
+     */
+    protected function postBankSettlement(string $token, ?array $payload): void
+    {
+        if (! is_array($payload)) {
+            return;
+        }
+
+        $gross = (int) ($payload['amount'] ?? 0);
+        if ($gross < 1) {
+            return;
+        }
+
+        $epsRaw = is_array($payload['eps_raw'] ?? null) ? $payload['eps_raw'] : [];
+        $purpose = is_string($payload['metadata']['purpose'] ?? null)
+            ? (string) $payload['metadata']['purpose']
+            : null;
+
+        MiddoBankLedger::postEpsPayment(
+            $token,
+            $gross,
+            $epsRaw,
+            is_string($payload['merchant_transaction_id'] ?? null)
+                ? (string) $payload['merchant_transaction_id']
+                : null,
+            $purpose,
+            Auth::id() ? (int) Auth::id() : null,
         );
     }
 

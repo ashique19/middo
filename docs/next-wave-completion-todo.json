@@ -248,7 +248,9 @@
       "slices": ["F0a VAT", "F0b bank+EPS fees", "F0c cash positions", "F0d withdrawal channels", "F0e period P&L+Excel"],
       "shipped": [
         "F0a: finance.vat_rate_pct Settings (default 5%); orders.vat_rate_pct + vat_amount snapshot",
-        "F0a: inclusive food VAT unbundled; middo_rest uses food ex-VAT; money tree + VAT event"
+        "F0a: inclusive food VAT unbundled; middo_rest uses food ex-VAT; money tree + VAT event",
+        "F0b: middo_bank_accounts + middo_bank_ledger; admin CRUD; accounts/admin bank ledger page",
+        "F0b: EPS fee % by sub-gateway (Settings); postEpsPayment net credit on EPS success (idempotent)"
       ],
       "items": [
         "VAT 5% inclusive on food — Settings-editable; per-order snapshot; accounts unbundle",
@@ -300,5 +302,5 @@
     "Full bank ledger / VAT until docs/f0-finance-decisions.json is answered"
   ],
   "buildable_complete": false,
-  "recommended_start": "F0a (VAT 5% inclusive) — F0 decisions locked; F2 = settlement batches later"
+  "recommended_start": "F0c (cash positions board) — F0a VAT + F0b bank/EPS shipped; F2 = settlement batches later"
 }

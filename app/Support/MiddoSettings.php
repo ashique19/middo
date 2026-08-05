@@ -24,6 +24,12 @@ class MiddoSettings
     /** Inclusive food VAT % (default 5). Snapshot onto orders at place. */
     public const KEY_VAT_RATE_PCT = 'finance.vat_rate_pct';
 
+    /** JSON map of EPS sub-gateway → fee % e.g. {"bank":1.5,"bkash":1.8}. */
+    public const KEY_EPS_FEE_RATES = 'finance.eps_fee_rates_json';
+
+    /** Prefer this middo_bank_accounts.id for EPS settlements. */
+    public const KEY_DEFAULT_EPS_BANK_ACCOUNT_ID = 'finance.default_eps_bank_account_id';
+
     protected static function tierDefaultKey(string $tier): string
     {
         return 'kitchen.tier_defaults.'.KitchenTier::normalize($tier).'.allowed_open_groups';
@@ -188,7 +194,46 @@ class MiddoSettings
     }
 
     /**
-     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool, vat_rate_pct?: float|int}  $payload
+     * @return array<string, float>
+     */
+    public static function epsFeeRates(): array
+    {
+        $defaults = config('middo.eps_fee_rate_defaults', []);
+        $raw = self::get(self::KEY_EPS_FEE_RATES, null);
+        $decoded = is_string($raw) ? json_decode($raw, true) : null;
+        $map = is_array($decoded) ? $decoded : [];
+
+        $out = [];
+        foreach (EpsSubGateway::keys() as $key) {
+            $value = $map[$key] ?? $defaults[$key] ?? 0;
+            $out[$key] = max(0, min(100, (float) $value));
+        }
+
+        return $out;
+    }
+
+    public static function epsFeeRatePct(string $subGateway): float
+    {
+        $rates = self::epsFeeRates();
+        $key = in_array($subGateway, EpsSubGateway::keys(), true) ? $subGateway : EpsSubGateway::OTHER;
+
+        return $rates[$key] ?? $rates[EpsSubGateway::OTHER] ?? 0.0;
+    }
+
+    public static function defaultEpsBankAccountId(): ?int
+    {
+        $raw = self::get(self::KEY_DEFAULT_EPS_BANK_ACCOUNT_ID, null);
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $id = (int) $raw;
+
+        return $id > 0 ? $id : null;
+    }
+
+    /**
+     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool, vat_rate_pct?: float|int, eps_fee_rates?: array<string, float|int>, default_eps_bank_account_id?: int|null}  $payload
      */
     public static function updateMealAndKitchenDefaults(array $payload): void
     {
@@ -239,6 +284,22 @@ class MiddoSettings
         if (array_key_exists('vat_rate_pct', $payload)) {
             $pct = max(0, min(100, (float) $payload['vat_rate_pct']));
             self::set(self::KEY_VAT_RATE_PCT, rtrim(rtrim(number_format($pct, 2, '.', ''), '0'), '.') ?: '0');
+        }
+
+        if (array_key_exists('eps_fee_rates', $payload) && is_array($payload['eps_fee_rates'])) {
+            $clean = [];
+            foreach (EpsSubGateway::keys() as $key) {
+                if (! array_key_exists($key, $payload['eps_fee_rates'])) {
+                    continue;
+                }
+                $clean[$key] = max(0, min(100, (float) $payload['eps_fee_rates'][$key]));
+            }
+            self::set(self::KEY_EPS_FEE_RATES, json_encode($clean, JSON_THROW_ON_ERROR));
+        }
+
+        if (array_key_exists('default_eps_bank_account_id', $payload)) {
+            $id = $payload['default_eps_bank_account_id'];
+            self::set(self::KEY_DEFAULT_EPS_BANK_ACCOUNT_ID, $id ? (string) (int) $id : null);
         }
     }
 

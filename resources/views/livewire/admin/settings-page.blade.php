@@ -154,6 +154,32 @@
             </div>
         </section>
 
+        <section class="space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">EPS gateway fees (%)</h2>
+                <p class="text-xs text-gray-500 mt-1">
+                    Percent of gross charged by EPS sub-gateway. Bank ledger credits net (gross − fee) on successful payments.
+                </p>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                @foreach([
+                    'eps_fee_bank' => 'Bank',
+                    'eps_fee_bkash' => 'bKash',
+                    'eps_fee_nagad' => 'Nagad',
+                    'eps_fee_rocket' => 'Rocket',
+                    'eps_fee_card' => 'Card',
+                    'eps_fee_other' => 'Other',
+                ] as $field => $label)
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">{{ $label }}</label>
+                        <input type="number" min="0" max="100" step="0.01" wire:model="{{ $field }}"
+                               class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                        @error($field) <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                @endforeach
+            </div>
+        </section>
+
         <div class="flex justify-end pt-2">
             <button type="submit"
                     class="inline-flex px-5 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition">

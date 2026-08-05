@@ -38,6 +38,12 @@ class Dashboard extends Component
                 'route' => $prefix.'.middo-cash',
                 'stat' => '৳'.number_format($cashBalance),
             ],
+            Route::has($prefix.'.bank-ledger') ? [
+                'label' => 'Bank ledger',
+                'hint' => 'Multi-bank float & EPS net credits',
+                'route' => $prefix.'.bank-ledger',
+                'stat' => null,
+            ] : null,
             [
                 'label' => 'Cash handovers',
                 'hint' => 'Accept Due · confirm reject proposals',

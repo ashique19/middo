@@ -85,6 +85,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | EPS sub-gateway fee defaults (% of gross)
+    |--------------------------------------------------------------------------
+    */
+    'eps_fee_rate_defaults' => [
+        'bank' => (float) env('EPS_FEE_BANK', 1.5),
+        'bkash' => (float) env('EPS_FEE_BKASH', 1.8),
+        'nagad' => (float) env('EPS_FEE_NAGAD', 1.8),
+        'rocket' => (float) env('EPS_FEE_ROCKET', 1.8),
+        'card' => (float) env('EPS_FEE_CARD', 2.5),
+        'other' => (float) env('EPS_FEE_OTHER', 1.5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Kitchen Tier Defaults (allowed concurrent open groups)
     |--------------------------------------------------------------------------
     |
