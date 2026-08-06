@@ -230,9 +230,23 @@ class PackageOpsManagementTest extends TestCase
         $subscription = $scheduled['subscription'];
         $order = $scheduled['orders']->first();
 
+        $oldGroupId = OrderGroupOrder::query()->where('order_id', $order->id)->value('order_group_id');
+        $this->assertNotNull($oldGroupId);
+        $oldGroup = \App\Models\OrderGroup::query()->findOrFail($oldGroupId);
+        $this->assertSame($menuA->id, (int) $oldGroup->menu_id);
+
         $swapped = app(PackageSubscriptionService::class)->swapDayMenu($admin, $order, $menuB->id);
         $this->assertSame($menuB->id, (int) $swapped->menu_item_id);
         $this->assertTrue(OrderGroupOrder::query()->where('order_id', $swapped->id)->exists());
+
+        $newGroupId = OrderGroupOrder::query()->where('order_id', $swapped->id)->value('order_group_id');
+        $this->assertNotNull($newGroupId);
+        $this->assertNotSame((int) $oldGroupId, (int) $newGroupId);
+        $newGroup = \App\Models\OrderGroup::query()->findOrFail($newGroupId);
+        $this->assertSame($menuB->id, (int) $newGroup->menu_id);
+        $this->assertSame($order->delivery_date->toDateString(), $newGroup->delivery_date->toDateString());
+        $this->assertSame((int) $order->area_id, (int) $newGroup->area_id);
+        $this->assertFalse(OrderGroupOrder::query()->where('order_group_id', $oldGroupId)->where('order_id', $swapped->id)->exists());
 
         $beforeBalance = (int) $user->fresh()->balance;
         $cancel = app(PackageSubscriptionService::class)->cancelRemaining($admin, $subscription->fresh());
