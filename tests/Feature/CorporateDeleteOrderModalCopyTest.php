@@ -52,7 +52,7 @@ class CorporateDeleteOrderModalCopyTest extends TestCase
             ->assertDontSee('Any prepaid amount will be credited back to your Middo Balance');
     }
 
-    public function test_unpaid_cod_delete_modal_explains_no_wallet_credit(): void
+    public function test_unpaid_cod_delete_modal_skips_refund_copy(): void
     {
         [$user, $menu] = $this->seedCorporate();
         $order = Order::create([
@@ -77,10 +77,12 @@ class CorporateDeleteOrderModalCopyTest extends TestCase
             ->dispatch('open-delete-order-modal', orderId: $order->id)
             ->assertSet('showModal', true)
             ->assertSet('isPrepaid', false)
-            ->assertSee('This unpaid COD order will be cancelled with no wallet credit.')
             ->assertSee('Tehari')
+            ->assertSee('৳420')
             ->assertSee('Are you sure?')
-            ->assertDontSee('would be added to your Middo wallet');
+            ->assertSee('Delete Order')
+            ->assertDontSee('would be added to your Middo wallet')
+            ->assertDontSee('no wallet credit');
     }
 
     /**

@@ -16,10 +16,6 @@
                             <p class="text-sm font-semibold text-[#5D4037] leading-relaxed" data-testid="delete-order-prepaid-message">
                                 Your prepaid balance ৳{{ number_format($this->refundableAmount) }} would be added to your Middo wallet. You can use this balance for future orders.
                             </p>
-                        @else
-                            <p class="text-sm font-semibold text-[#5D4037] leading-relaxed" data-testid="delete-order-cod-message">
-                                This unpaid COD order will be cancelled with no wallet credit.
-                            </p>
                         @endif
 
                         @if(!empty($order['menu_item']['name']))
