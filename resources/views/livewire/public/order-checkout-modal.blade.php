@@ -3,41 +3,32 @@
         {{-- Fullscreen Overlay Backdrop with persistent key mapping --}}
         <div wire:key="order-checkout-modal-root" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
 
-            {{-- Main Dashboard Card Layout Container --}}
-            <div class="bg-[#FDFBF7] rounded-[32px] shadow-2xl border border-amber-900/5 w-full max-w-5xl flex flex-col md:grid md:grid-cols-12 md:items-stretch text-amber-950 antialiased font-sans my-auto max-h-[90vh] overflow-y-auto md:overflow-hidden">
+            {{-- Big-screen: left = dish + delivery window, middle = dates + customer, right = finance only --}}
+            <div class="bg-[#FDFBF7] rounded-[32px] shadow-2xl border border-amber-900/5 w-full max-w-6xl flex flex-col md:grid md:grid-cols-12 md:items-stretch text-amber-950 antialiased font-sans my-auto max-h-[90vh] overflow-y-auto md:overflow-hidden md:h-[min(90vh,880px)]">
 
-                {{-- LEFT COLUMN: Dish + delivery window --}}
-                <div class="w-full md:col-span-4 bg-[#F9F6F0] p-6 flex flex-col gap-5 border-b md:border-b-0 md:border-r border-amber-900/5 md:overflow-y-auto md:min-h-0">
-                    <div>
-                        <div class="flex items-center gap-2 mb-4 text-middo-orange font-bold text-lg">
+                {{-- LEFT: dish on top, delivery timeline pinned to bottom on desktop --}}
+                <div class="w-full md:col-span-4 bg-[#F9F6F0] p-5 md:p-6 flex flex-col gap-4 border-b md:border-b-0 md:border-r border-amber-900/5 md:min-h-0 md:overflow-y-auto">
+                    <div class="shrink-0">
+                        <div class="flex items-center gap-2 mb-3 text-middo-orange font-bold text-lg">
                             <span class="text-xl">🍴</span> Middo
                         </div>
-                        <h2 class="text-xl font-extrabold text-gray-800 uppercase tracking-wide mb-4">
+                        <h2 class="text-xl font-extrabold text-gray-800 uppercase tracking-wide mb-3">
                             Your Lunch Order
                         </h2>
 
                         <div class="rounded-2xl overflow-hidden bg-white shadow-sm border border-gray-100 p-3">
                             @if($dish['thumbnail'])
-                                <img src="{{ asset($dish['thumbnail']) }}" alt="{{ $dish['name'] }}" class="w-full h-40 object-cover rounded-xl mb-3">
+                                <img src="{{ asset($dish['thumbnail']) }}" alt="{{ $dish['name'] }}" class="w-full h-36 object-cover rounded-xl mb-3">
                             @else
-                                <div class="w-full h-40 bg-gray-100 rounded-xl mb-3 flex items-center justify-center text-gray-400 font-medium">No Image Available</div>
+                                <div class="w-full h-36 bg-gray-100 rounded-xl mb-3 flex items-center justify-center text-gray-400 font-medium">No Image Available</div>
                             @endif
                             <h3 class="text-lg font-bold text-gray-800 px-1">{{ $dish['name'] }}</h3>
                             <p class="text-sm font-medium text-gray-500 px-1 mt-1">Unit Price: <span class="text-gray-800 font-bold">৳{{ number_format($dish['price'], 2) }}</span></p>
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-base font-bold text-gray-800 mb-1">Delivery window</label>
-                        <div class="mb-2 text-amber-800">
-                            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="1" y="3" width="15" height="13" rx="2" ry="2" />
-                                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-                                <circle cx="5.5" cy="18.5" r="2.5" />
-                                <circle cx="18.5" cy="18.5" r="2.5" />
-                            </svg>
-                        </div>
-
+                    <div class="shrink-0 md:mt-auto pt-2 border-t border-amber-900/5">
+                        <label class="block text-sm font-bold text-gray-800 mb-2">Delivery window</label>
                         <div class="space-y-1.5">
                             @foreach($deliveryWindows as $time)
                                 @php
@@ -63,110 +54,112 @@
                     </div>
                 </div>
 
-                {{-- MIDDLE: Dates + receiver / address --}}
-                <div class="w-full md:col-span-4 p-6 flex flex-col gap-4 bg-white border-b md:border-b-0 md:border-r border-amber-900/5 md:overflow-y-auto md:min-h-0">
-                    <div>
-                        <h4 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-3">Delivery Logistics</h4>
-                        <label class="block text-base font-bold text-gray-800 mb-2">Order for Dates & Quantities:</label>
+                {{-- MIDDLE: date grid on top, customer/address pinned to bottom on desktop --}}
+                <div class="w-full md:col-span-4 p-5 md:p-6 flex flex-col gap-3 bg-white border-b md:border-b-0 md:border-r border-amber-900/5 md:min-h-0 md:overflow-hidden">
+                    <div class="flex-1 min-h-0 md:overflow-y-auto space-y-3 pr-0.5">
+                        <div>
+                            <h4 class="text-xs font-black uppercase tracking-wider text-gray-400 mb-2">Delivery Logistics</h4>
+                            <label class="block text-base font-bold text-gray-800 mb-2">Order for Dates & Quantities:</label>
 
-                        @if(!$isPastCutoff)
-                            <div x-data="{
-                                timeLeft: '00h 00m 00s',
-                                init() {
-                                    const updateTimer = () => {
-                                        const now = new Date();
-                                        const target = new Date();
-                                        target.setHours({{ $cutoffHour }}, {{ $cutoffMinute }}, 0, 0);
-                                        const diff = target.getTime() - now.getTime();
-                                        if (diff <= 0) {
-                                            this.timeLeft = 'Closed';
-                                            $wire.call('loadOrderCheckout', { dishId: {{ $dish->id ?? 'null' }} });
-                                            return;
-                                        }
-                                        const hrs = String(Math.floor(diff / 3600000)).padStart(2, '0');
-                                        const mins = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
-                                        const secs = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
-                                        this.timeLeft = `${hrs}h ${mins}m ${secs}s`;
-                                    };
-                                    updateTimer();
-                                    const interval = setInterval(updateTimer, 1000);
-                                    $cleanup(() => clearInterval(interval));
-                                }
-                            }" class="mb-3 bg-amber-50/60 border border-amber-200/70 text-amber-900 rounded-2xl p-3 flex items-start gap-2.5 shadow-sm">
-                                <span class="text-base mt-0.5">⏳</span>
-                                <div class="text-xs">
-                                    <p class="font-bold text-gray-800">Same-Day Ordering Is Open!</p>
-                                    <p class="text-[11px] text-gray-500 mt-0.5">Today's lunch run closes in: <span class="font-mono text-middo-orange font-black" x-text="timeLeft">00h 00m 00s</span></p>
-                                </div>
-                            </div>
-                        @else
-                            <div class="mb-3 bg-gray-100/80 border border-gray-200 rounded-2xl p-3 flex items-start gap-2.5">
-                                <span class="text-xs mt-0.5">🚫</span>
-                                <div class="text-[11px] text-gray-500 leading-tight">
-                                    <p class="font-bold text-gray-700">Same-Day Cutoff Passed ({{ $this->cutoff_formatted }})</p>
-                                    <p class="mt-0.5">Displaying next available Dhaka calendar routes.</p>
-                                </div>
-                            </div>
-                        @endif
-
-                        <div class="bg-[#fcf8f2] border border-gray-200 rounded-xl p-1 shadow-inner grid grid-cols-3 divide-x divide-y divide-gray-200/80 text-center text-sm max-h-[220px] overflow-y-auto">
-                            @foreach($availableDates as $dateStr)
-                                @php
-                                    $targetDate = Carbon\Carbon::parse($dateStr);
-                                    $dateQty = $quantities[$dateStr] ?? 0;
-                                    $isActive = ($dateQty > 0);
-                                @endphp
-                                <div
-                                    wire:key="date-grid-card-{{ $dateStr }}"
-                                    class="relative p-2.5 flex flex-col justify-between items-center transition-all duration-150 select-none border-t-0 border-l-0 border-gray-200/80 min-h-[110px]
-                                        {{ $isActive ? 'bg-emerald-800 text-white shadow-sm' : 'bg-white text-gray-700 hover:bg-amber-50/20' }}"
-                                >
-                                    <button
-                                        type="button"
-                                        wire:click="toggleDateSelection('{{ $dateStr }}')"
-                                        class="w-full flex flex-col items-center focus:outline-none"
-                                    >
-                                        <span class="text-[10px] font-bold tracking-wide uppercase {{ $isActive ? 'text-emerald-200/90' : 'text-gray-400' }}">
-                                            {{ $targetDate->format('M') }}
-                                        </span>
-                                        <span class="text-xl font-black my-0.5 {{ $isActive ? 'text-white' : 'text-gray-800' }}">
-                                            {{ $targetDate->format('d') }}
-                                        </span>
-                                        <span class="text-[11px] font-medium tracking-wide lowercase block mb-1 {{ $isActive ? 'text-emerald-100/80' : 'text-gray-500' }}">
-                                            {{ $targetDate->format('D') }}
-                                        </span>
-                                    </button>
-
-                                    <div class="w-full max-w-[80px] h-6 mt-1 flex items-center justify-center">
-                                        @if($isActive)
-                                            <div class="flex items-center justify-between border border-emerald-700 rounded-lg bg-emerald-900/40 overflow-hidden w-full" wire:key="counter-{{ $dateStr }}">
-                                                <button type="button" wire:click="changeDateQuantity('{{ $dateStr }}', -1)" title="{{ $dateQty <= 1 ? 'Deselect date' : 'Decrease quantity' }}" class="px-2 py-0.5 hover:bg-emerald-700 text-white font-extrabold text-xs select-none transition">-</button>
-                                                <span class="text-xs font-black text-white px-1">{{ $dateQty }}</span>
-                                                <button type="button" wire:click="changeDateQuantity('{{ $dateStr }}', 1)" class="px-2 py-0.5 hover:bg-emerald-700 text-white font-extrabold text-xs select-none transition disabled:opacity-20" {{ $dateQty >= $this->remainingQtyForDate($dateStr) ? 'disabled' : '' }}>+</button>
-                                            </div>
-                                        @else
-                                            <button type="button" wire:click="toggleDateSelection('{{ $dateStr }}')" class="text-[11px] font-bold text-amber-700/70 hover:text-amber-700 tracking-tight transition">Select</button>
-                                        @endif
+                            @if(!$isPastCutoff)
+                                <div x-data="{
+                                    timeLeft: '00h 00m 00s',
+                                    init() {
+                                        const updateTimer = () => {
+                                            const now = new Date();
+                                            const target = new Date();
+                                            target.setHours({{ $cutoffHour }}, {{ $cutoffMinute }}, 0, 0);
+                                            const diff = target.getTime() - now.getTime();
+                                            if (diff <= 0) {
+                                                this.timeLeft = 'Closed';
+                                                $wire.call('loadOrderCheckout', { dishId: {{ $dish->id ?? 'null' }} });
+                                                return;
+                                            }
+                                            const hrs = String(Math.floor(diff / 3600000)).padStart(2, '0');
+                                            const mins = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+                                            const secs = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+                                            this.timeLeft = `${hrs}h ${mins}m ${secs}s`;
+                                        };
+                                        updateTimer();
+                                        const interval = setInterval(updateTimer, 1000);
+                                        $cleanup(() => clearInterval(interval));
+                                    }
+                                }" class="mb-3 bg-amber-50/60 border border-amber-200/70 text-amber-900 rounded-2xl p-3 flex items-start gap-2.5 shadow-sm">
+                                    <span class="text-base mt-0.5">⏳</span>
+                                    <div class="text-xs">
+                                        <p class="font-bold text-gray-800">Same-Day Ordering Is Open!</p>
+                                        <p class="text-[11px] text-gray-500 mt-0.5">Today's lunch run closes in: <span class="font-mono text-middo-orange font-black" x-text="timeLeft">00h 00m 00s</span></p>
                                     </div>
                                 </div>
-                            @endforeach
+                            @else
+                                <div class="mb-3 bg-gray-100/80 border border-gray-200 rounded-2xl p-3 flex items-start gap-2.5">
+                                    <span class="text-xs mt-0.5">🚫</span>
+                                    <div class="text-[11px] text-gray-500 leading-tight">
+                                        <p class="font-bold text-gray-700">Same-Day Cutoff Passed ({{ $this->cutoff_formatted }})</p>
+                                        <p class="mt-0.5">Displaying next available Dhaka calendar routes.</p>
+                                    </div>
+                                </div>
+                            @endif
+
+                            <div class="bg-[#fcf8f2] border border-gray-200 rounded-xl p-1 shadow-inner grid grid-cols-3 divide-x divide-y divide-gray-200/80 text-center text-sm max-h-[240px] md:max-h-none overflow-y-auto">
+                                @foreach($availableDates as $dateStr)
+                                    @php
+                                        $targetDate = Carbon\Carbon::parse($dateStr);
+                                        $dateQty = $quantities[$dateStr] ?? 0;
+                                        $isActive = ($dateQty > 0);
+                                    @endphp
+                                    <div
+                                        wire:key="date-grid-card-{{ $dateStr }}"
+                                        class="relative p-2 flex flex-col justify-between items-center transition-all duration-150 select-none border-t-0 border-l-0 border-gray-200/80 min-h-[100px]
+                                            {{ $isActive ? 'bg-emerald-800 text-white shadow-sm' : 'bg-white text-gray-700 hover:bg-amber-50/20' }}"
+                                    >
+                                        <button
+                                            type="button"
+                                            wire:click="toggleDateSelection('{{ $dateStr }}')"
+                                            class="w-full flex flex-col items-center focus:outline-none"
+                                        >
+                                            <span class="text-[10px] font-bold tracking-wide uppercase {{ $isActive ? 'text-emerald-200/90' : 'text-gray-400' }}">
+                                                {{ $targetDate->format('M') }}
+                                            </span>
+                                            <span class="text-xl font-black my-0.5 {{ $isActive ? 'text-white' : 'text-gray-800' }}">
+                                                {{ $targetDate->format('d') }}
+                                            </span>
+                                            <span class="text-[11px] font-medium tracking-wide lowercase block mb-1 {{ $isActive ? 'text-emerald-100/80' : 'text-gray-500' }}">
+                                                {{ $targetDate->format('D') }}
+                                            </span>
+                                        </button>
+
+                                        <div class="w-full max-w-[80px] h-6 mt-1 flex items-center justify-center">
+                                            @if($isActive)
+                                                <div class="flex items-center justify-between border border-emerald-700 rounded-lg bg-emerald-900/40 overflow-hidden w-full" wire:key="counter-{{ $dateStr }}">
+                                                    <button type="button" wire:click="changeDateQuantity('{{ $dateStr }}', -1)" title="{{ $dateQty <= 1 ? 'Deselect date' : 'Decrease quantity' }}" class="px-2 py-0.5 hover:bg-emerald-700 text-white font-extrabold text-xs select-none transition">-</button>
+                                                    <span class="text-xs font-black text-white px-1">{{ $dateQty }}</span>
+                                                    <button type="button" wire:click="changeDateQuantity('{{ $dateStr }}', 1)" class="px-2 py-0.5 hover:bg-emerald-700 text-white font-extrabold text-xs select-none transition disabled:opacity-20" {{ $dateQty >= $this->remainingQtyForDate($dateStr) ? 'disabled' : '' }}>+</button>
+                                                </div>
+                                            @else
+                                                <button type="button" wire:click="toggleDateSelection('{{ $dateStr }}')" class="text-[11px] font-bold text-amber-700/70 hover:text-amber-700 tracking-tight transition">Select</button>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                            @error('quantities') <span class="text-red-500 text-xs mt-1 block font-semibold">{{ $message }}</span> @enderror
+                            @error('selectedDate') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
-                        @error('quantities') <span class="text-red-500 text-xs mt-1 block font-semibold">{{ $message }}</span> @enderror
-                        @error('selectedDate') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                     </div>
 
-                    <div class="space-y-3 pt-1 border-t border-gray-100">
+                    <div class="shrink-0 space-y-2.5 pt-3 border-t border-gray-100 md:mt-auto">
                         <label class="block text-xs font-black uppercase tracking-wider text-gray-400">Receiver and address</label>
 
-                        <div class="bg-[#FDFBF7] rounded-2xl p-3 border border-gray-100">
-                            <p class="text-[11px] text-gray-400 leading-none font-medium">Desk receiver name <span class="text-gray-300">(who gets the box)</span></p>
+                        <div class="bg-[#FDFBF7] rounded-xl p-2.5 border border-gray-100">
+                            <p class="text-[11px] text-gray-400 leading-none font-medium">Desk receiver name</p>
                             <input wire:model.live="customerName" type="text" placeholder="Desk / contact person"
                                 class="mt-1 w-full border-gray-200 bg-white rounded-lg text-sm p-2 shadow-sm font-extrabold text-gray-800"
                                 {{ $isConfirmingOtp ? 'disabled' : '' }}>
                             @error('customerName') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
                             @if(auth()->check())
-                                <p class="text-[10px] text-gray-400 mt-2">
-                                    Billing account: <span class="font-bold text-gray-600">{{ auth()->user()->name ?? auth()->user()->first_name }}</span>
+                                <p class="text-[10px] text-gray-400 mt-1.5">
+                                    Billing: <span class="font-bold text-gray-600">{{ auth()->user()->name ?? auth()->user()->first_name }}</span>
                                     @if(auth()->user()->company_name) — {{ auth()->user()->company_name }}@endif
                                 </p>
                             @endif
@@ -175,7 +168,7 @@
                         <div>
                             <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Mobile Number</label>
                             <input wire:model="mobile" type="text" placeholder="e.g. 01710123456"
-                                class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500"
                                 {{ $isConfirmingOtp ? 'disabled' : '' }}>
                             @error('mobile') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
                         </div>
@@ -183,7 +176,7 @@
                         <div class="grid grid-cols-2 gap-2">
                             <div>
                                 <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">City</label>
-                                <select wire:model.live="city_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                <select wire:model.live="city_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
                                     @foreach($citiesList as $cityOption)
                                         <option value="{{ $cityOption['id'] }}">{{ $cityOption['name'] }}</option>
                                     @endforeach
@@ -193,7 +186,7 @@
 
                             <div>
                                 <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Area</label>
-                                <select wire:model.live="area_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                <select wire:model.live="area_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
                                     @if(count($areasList) === 0)
                                         <option value="">No areas available</option>
                                     @endif
@@ -207,30 +200,28 @@
 
                         <div>
                             <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Street Address</label>
-                            <input wire:model="addressLine1" type="text" placeholder="Building, Flat No., Street details" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                            <input wire:model="addressLine1" type="text" placeholder="Building, Flat No., Street details" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
                             @error('addressLine1') <span class="text-red-500 text-xs mt-0.5 block">{{ $message }}</span> @enderror
                         </div>
                     </div>
                 </div>
 
-                {{-- RIGHT: Summary, coupon, payment, confirm --}}
-                <div class="w-full md:col-span-4 p-6 bg-[#FDFBF7] flex flex-col md:min-h-0 md:overflow-hidden">
-                    <div class="flex-1 min-h-0 md:overflow-y-auto pr-0.5 space-y-3">
-                        <h4 class="text-xs font-black uppercase tracking-wider text-gray-400">Order Summary</h4>
+                {{-- RIGHT: finance only — day lines scroll; totals/coupon/payment/confirm stay pinned --}}
+                <div class="w-full md:col-span-4 p-5 md:p-6 bg-[#FDFBF7] flex flex-col md:min-h-0 md:overflow-hidden">
+                    <h4 class="shrink-0 text-xs font-black uppercase tracking-wider text-gray-400 mb-2">Order Summary</h4>
 
-                        <div class="space-y-1.5 text-xs text-gray-600 max-h-[96px] overflow-y-auto pr-1">
-                            @foreach($quantities as $date => $qty)
-                                @if($qty > 0)
-                                    <div class="flex justify-between items-center text-gray-700" wire:key="summary-row-{{ $date }}">
-                                        <span class="font-medium truncate max-w-[170px]">{{ Carbon\Carbon::parse($date)->format('M d') }} ({{ strtolower(Carbon\Carbon::parse($date)->format('D')) }}): {{ $dish['name'] }} <b class="text-gray-900">[x{{ $qty }}]</b></span>
-                                        <span class="font-bold text-gray-900">৳{{ number_format($dish['price'] * $qty, 2) }}</span>
-                                    </div>
-                                @endif
-                            @endforeach
-                        </div>
+                    <div class="flex-1 min-h-0 overflow-y-auto space-y-1.5 text-xs text-gray-600 pr-1 mb-2" data-testid="checkout-line-items">
+                        @foreach($quantities as $date => $qty)
+                            @if($qty > 0)
+                                <div class="flex justify-between items-center text-gray-700" wire:key="summary-row-{{ $date }}">
+                                    <span class="font-medium truncate max-w-[170px]">{{ Carbon\Carbon::parse($date)->format('M d') }} ({{ strtolower(Carbon\Carbon::parse($date)->format('D')) }}): {{ $dish['name'] }} <b class="text-gray-900">[x{{ $qty }}]</b></span>
+                                    <span class="font-bold text-gray-900">৳{{ number_format($dish['price'] * $qty, 2) }}</span>
+                                </div>
+                            @endif
+                        @endforeach
                     </div>
 
-                    <div class="shrink-0 space-y-2 pt-3 mt-3 border-t border-gray-200/60 bg-[#FDFBF7]">
+                    <div class="shrink-0 space-y-2 pt-3 border-t border-gray-200/60 bg-[#FDFBF7] md:max-h-[58%] md:overflow-y-auto">
                         <div class="space-y-1 text-xs">
                             <div class="flex justify-between text-gray-500">
                                 <span>Cumulative Subtotal:</span>
@@ -294,15 +285,15 @@
                         @endif
 
                         <div>
-                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1.5">Payment method</label>
-                            <div class="space-y-1.5" wire:key="payment-method-options-{{ count(array_filter($quantities, fn ($q) => $q > 0)) }}-{{ $this->codAllowed ? 'cod' : 'prepaid' }}">
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Payment method</label>
+                            <div class="space-y-1" wire:key="payment-method-options-{{ count(array_filter($quantities, fn ($q) => $q > 0)) }}-{{ $this->codAllowed ? 'cod' : 'prepaid' }}">
                                 @if($this->codAllowed)
                                     <label @class([
-                                        'flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition select-none',
+                                        'flex items-center gap-2 px-2.5 py-2 rounded-xl border cursor-pointer transition select-none',
                                         'border-emerald-700 bg-emerald-50 text-emerald-950' => $paymentMethod === 'cash_on_delivery',
                                         'border-gray-200 bg-white hover:bg-gray-50 text-gray-800' => $paymentMethod !== 'cash_on_delivery',
                                     ])>
-                                        <input type="radio" wire:model.live="paymentMethod" value="cash_on_delivery" class="mt-0.5 text-emerald-800 focus:ring-emerald-700" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                        <input type="radio" wire:model.live="paymentMethod" value="cash_on_delivery" class="text-emerald-800 focus:ring-emerald-700" {{ $isConfirmingOtp ? 'disabled' : '' }}>
                                         <span class="min-w-0">
                                             <span class="block text-xs font-black">Cash on Delivery</span>
                                             <span class="block text-[10px] font-medium text-gray-500 mt-0.5">Pay the rider on delivery. Available for up to 3 active orders.</span>
@@ -311,44 +302,37 @@
                                 @endif
 
                                 <label @class([
-                                    'flex items-start gap-2.5 p-2.5 rounded-xl border transition select-none',
+                                    'flex items-center gap-2 px-2.5 py-2 rounded-xl border transition select-none',
                                     'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50 text-gray-500' => ! $this->balancePaymentAvailable,
                                     'cursor-pointer border-emerald-700 bg-emerald-50 text-emerald-950' => $this->balancePaymentAvailable && $paymentMethod === 'balance',
                                     'cursor-pointer border-gray-200 bg-white hover:bg-gray-50 text-gray-800' => $this->balancePaymentAvailable && $paymentMethod !== 'balance',
                                 ])>
-                                    <input type="radio" wire:model.live="paymentMethod" value="balance" class="mt-0.5 text-emerald-800 focus:ring-emerald-700" {{ $isConfirmingOtp || ! $this->balancePaymentAvailable ? 'disabled' : '' }}>
+                                    <input type="radio" wire:model.live="paymentMethod" value="balance" class="text-emerald-800 focus:ring-emerald-700" {{ $isConfirmingOtp || ! $this->balancePaymentAvailable ? 'disabled' : '' }}>
                                     <span class="min-w-0">
                                         <span class="block text-xs font-black">Middo Balance</span>
-                                        <span class="block text-[10px] font-medium text-gray-500 mt-0.5">
-                                            @if($this->balancePaymentAvailable)
-                                                Pay now from wallet (৳{{ number_format($this->walletBalanceForDisplay) }} available).
-                                            @else
-                                                Unavailable — add money to your Middo wallet first.
-                                            @endif
-                                        </span>
+                                        @if(! $this->balancePaymentAvailable)
+                                            <span class="block text-[10px] font-medium text-gray-500 mt-0.5">Unavailable — add money to your Middo wallet first.</span>
+                                        @endif
                                     </span>
                                 </label>
 
                                 <label @class([
-                                    'flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition select-none',
+                                    'flex items-center gap-2 px-2.5 py-2 rounded-xl border cursor-pointer transition select-none',
                                     'border-emerald-700 bg-emerald-50 text-emerald-950' => $paymentMethod === 'gateway',
                                     'border-gray-200 bg-white hover:bg-gray-50 text-gray-800' => $paymentMethod !== 'gateway',
                                 ])>
-                                    <input type="radio" wire:model.live="paymentMethod" value="gateway" class="mt-0.5 text-emerald-800 focus:ring-emerald-700" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                    <span class="min-w-0">
-                                        <span class="block text-xs font-black">Online payment</span>
-                                        <span class="block text-[10px] font-medium text-gray-500 mt-0.5">Pay by card / mobile banking before confirming.</span>
-                                    </span>
+                                    <input type="radio" wire:model.live="paymentMethod" value="gateway" class="text-emerald-800 focus:ring-emerald-700" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                    <span class="text-xs font-black">Online payment</span>
                                 </label>
                             </div>
                             @if(! $this->balancePaymentAvailable)
                                 <p class="text-[10px] text-gray-500 mt-1">
-                                    Middo Balance is inactive until you
-                                    <button type="button" @click="$dispatch('open-wallet-top-up-modal')" class="font-bold text-middo-orange underline">add money</button>.
+                                    <button type="button" @click="$dispatch('open-wallet-top-up-modal')" class="font-bold text-middo-orange underline">Add money</button>
+                                    to enable Middo Balance.
                                 </p>
                             @endif
                             @if(! $this->codAllowed)
-                                <p class="text-[10px] text-amber-800 mt-1">Cash on Delivery is limited to 3 active orders (same day or across days). Choose Middo Balance or online payment.</p>
+                                <p class="text-[10px] text-amber-800 mt-1">Cash on Delivery is limited to 3 active orders. Choose Middo Balance or online payment.</p>
                             @endif
                             @error('paymentMethod') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
                         </div>
@@ -358,7 +342,7 @@
                                 type="button"
                                 wire:click="initiateOrderConfirmation"
                                 wire:loading.attr="disabled"
-                                class="w-full bg-middo-orange text-white py-3.5 rounded-xl font-bold hover:bg-amber-950 shadow-md transition text-sm tracking-wide"
+                                class="w-full bg-middo-orange text-white py-3 rounded-xl font-bold hover:bg-amber-950 shadow-md transition text-sm tracking-wide"
                             >
                                 <span wire:loading.remove wire:target="initiateOrderConfirmation">CONFIRM ORDER (Total: ৳{{ number_format($total, 2) }})</span>
                                 <span wire:loading wire:target="initiateOrderConfirmation">Sending Confirmation SMS...</span>
