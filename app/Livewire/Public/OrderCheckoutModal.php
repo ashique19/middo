@@ -346,6 +346,7 @@ class OrderCheckoutModal extends Component
         }
 
         $activeDates = array_filter($this->quantities, fn ($qty) => $qty > 0);
+        $cartMealQty = (int) array_sum($activeDates);
         $cartTotal = 0;
         foreach ($activeDates as $qty) {
             $cartTotal += (int) round(($this->dish['price'] ?? 0) * (int) $qty);
@@ -357,11 +358,11 @@ class OrderCheckoutModal extends Component
             $user,
             $this->customerName,
             $this->mobile !== '' ? $this->mobile : (string) $user->mobile,
-            count($activeDates),
+            $cartMealQty,
             $cartTotal
         );
 
-        $this->syncDefaultPaymentMethod(count($activeDates));
+        $this->syncDefaultPaymentMethod($cartMealQty);
     }
 
     protected function syncDefaultPaymentMethod(int $activeDateCount): void

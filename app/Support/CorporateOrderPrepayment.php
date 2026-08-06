@@ -8,7 +8,7 @@ use App\Models\User;
 class CorporateOrderPrepayment
 {
     /**
-     * Default "full prepay from N active orders" when settings/config are unavailable.
+     * Default "full prepay from N meals" when settings/config are unavailable.
      * Prefer MiddoSettings::fullPrepayFromActiveOrders().
      */
     public const ACTIVE_ORDER_PREPAY_THRESHOLD = 3;
@@ -42,16 +42,27 @@ class CorporateOrderPrepayment
         return self::normalizeMobile($user->mobile) === self::normalizeMobile($mobile);
     }
 
-    public static function activeOrderCount(int $userId): int
+    /**
+     * Sum of meal quantities on the user's currently active orders (all dates).
+     */
+    public static function activeMealQuantity(int $userId): int
     {
         return (int) Order::query()
             ->where('user_id', $userId)
             ->active()
-            ->count();
+            ->sum('quantity');
     }
 
     /**
-     * Projected active orders at/above this count require 100% prepayment.
+     * @deprecated Use activeMealQuantity(); kept for call-site compatibility.
+     */
+    public static function activeOrderCount(int $userId): int
+    {
+        return self::activeMealQuantity($userId);
+    }
+
+    /**
+     * Projected meal quantity at/above this count requires 100% prepayment.
      */
     public static function fullPrepayFromActiveOrders(): int
     {
@@ -59,6 +70,7 @@ class CorporateOrderPrepayment
     }
 
     /**
+     * @param  int  $newMealQuantity  Sum of meal quantities in the cart (same-day and multi-day).
      * @return array{
      *   required: bool,
      *   ratio: float,
@@ -79,11 +91,12 @@ class CorporateOrderPrepayment
         User $user,
         string $receiverName,
         string $mobile,
-        int $newOrderCount,
+        int $newMealQuantity,
         int $cartTotal
     ): array {
-        $active = self::activeOrderCount($user->id);
-        $projected = $active + max(0, $newOrderCount);
+        $active = self::activeMealQuantity($user->id);
+        $newQty = max(0, $newMealQuantity);
+        $projected = $active + $newQty;
         $fullPrepayFrom = self::fullPrepayFromActiveOrders();
         $reasons = [];
 
@@ -98,7 +111,7 @@ class CorporateOrderPrepayment
 
         $ratio = 0.0;
         if ($reasons !== []) {
-            // Receiver mismatch and active-order ceiling both require full prepayment.
+            // Receiver mismatch and meal-quantity ceiling both require full prepayment.
             $ratio = 1.0;
         }
 
@@ -111,7 +124,7 @@ class CorporateOrderPrepayment
             $message = 'This meal is for a different worker than your Middo buyer profile (name or mobile). Full prepayment is required via Middo Balance or payment gateway.';
         } elseif (in_array('active_order_limit', $reasons, true)) {
             $message = sprintf(
-                'You would have %d active orders. Full prepayment (৳%s) is required from %d+ active orders via Middo Balance or payment gateway.',
+                'You would have %d active meals (existing + this cart). Full prepayment (৳%s) is required from %d+ meals via Middo Balance or payment gateway.',
                 $projected,
                 number_format($amount),
                 $fullPrepayFrom
@@ -126,8 +139,9 @@ class CorporateOrderPrepayment
             'reason' => $reason,
             'reasons' => $reasons,
             'message' => $message,
+            // Keys kept for API/mobile BC; values are meal quantities, not date-line counts.
             'active_orders' => $active,
-            'new_orders' => $newOrderCount,
+            'new_orders' => $newQty,
             'projected_active' => $projected,
             'full_prepay_from' => $fullPrepayFrom,
             'balance' => $balance,

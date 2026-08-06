@@ -333,7 +333,7 @@ class CorporateMobileApiTest extends TestCase
         $this->assertSame('01310123452', $user->fresh()->mobile);
     }
 
-    public function test_three_plus_active_orders_requires_full_prepayment(): void
+    public function test_three_plus_meals_requires_full_prepayment(): void
     {
         Http::fake(['*' => Http::response(['status' => 'success'], 200)]);
 
@@ -342,21 +342,20 @@ class CorporateMobileApiTest extends TestCase
         [$city, $area] = $this->makeCityArea();
         Sanctum::actingAs($user);
 
-        foreach (range(1, 2) as $i) {
-            Order::create([
-                'user_id' => $user->id,
-                'menu_item_id' => $menu->id,
-                'quantity' => 1,
-                'delivery_date' => now('Asia/Dhaka')->addDays($i)->toDateString(),
-                'delivery_time' => '12:00 PM',
-                'total_amount' => 420,
-                'address' => 'Gulshan',
-                'order_status' => 'pending',
-                'payment_status' => 'pending',
-                'created_by' => $user->id,
-                'updated_by' => $user->id,
-            ]);
-        }
+        // Existing active meal qty 1.
+        Order::create([
+            'user_id' => $user->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => now('Asia/Dhaka')->addDay()->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 420,
+            'address' => 'Gulshan',
+            'order_status' => 'pending',
+            'payment_status' => 'pending',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
 
         $payload = [
             'menu_item_id' => $menu->id,
@@ -366,12 +365,12 @@ class CorporateMobileApiTest extends TestCase
             'address' => 'House 12, Road 5',
             'city_id' => $city->id,
             'area_id' => $area->id,
+            // Single day, qty 2 → projected meals = 1 + 2 = 3.
             'dates' => [
-                ['date' => now('Asia/Dhaka')->addDays(4)->format('Y-m-d'), 'quantity' => 2],
+                ['date' => now('Asia/Dhaka')->addDays(2)->format('Y-m-d'), 'quantity' => 2],
             ],
         ];
 
-        // 2 existing + 1 new date = 3 projected → full prepay.
         $this->postJson('/api/corporate/orders/send-otp', $payload)
             ->assertOk()
             ->assertJsonPath('prepayment.required', true)

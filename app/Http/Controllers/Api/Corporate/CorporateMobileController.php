@@ -916,8 +916,11 @@ class CorporateMobileController extends Controller
     private function prepaymentQuote(User $user, array $data, MenuItem $menuItem): array
     {
         $cartTotal = 0;
+        $cartMealQty = 0;
         foreach ($data['dates'] as $line) {
-            $cartTotal += (int) round($menuItem->price * (int) $line['quantity']);
+            $qty = (int) $line['quantity'];
+            $cartMealQty += $qty;
+            $cartTotal += (int) round($menuItem->price * $qty);
         }
         $cartTotal += (int) ($this->orderChargesQuote($data, $menuItem)['total'] ?? 0);
 
@@ -925,7 +928,7 @@ class CorporateMobileController extends Controller
             $user,
             $data['receiver_name'],
             $data['mobile'],
-            count($data['dates']),
+            $cartMealQty,
             $cartTotal
         );
     }

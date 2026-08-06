@@ -34,14 +34,14 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
-                        Full prepay from active orders
+                        Full prepay from meal quantity
                     </label>
                     <input type="number" min="1" max="100" wire:model="full_prepay_from_active_orders"
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('full_prepay_from_active_orders') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     <p class="text-xs text-gray-400 mt-1">
-                        At this many projected active orders (existing + cart dates), require 100% prepayment.
-                        Cash on Delivery stays available below this number (default 3 → COD for 1–2 only).
+                        At this many meals (sum of quantities on active orders + this cart, same day or across days), require 100% prepayment.
+                        Cash on Delivery stays available below this number (default 3 → COD for 1–2 meals only).
                     </p>
                 </div>
                 <div>

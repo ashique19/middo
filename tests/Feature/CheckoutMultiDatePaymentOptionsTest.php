@@ -76,7 +76,7 @@ class CheckoutMultiDatePaymentOptionsTest extends TestCase
         $this->assertStringContainsString('Cash on Delivery', $html);
         $this->assertStringContainsString('Middo Balance', $html);
         $this->assertStringContainsString('Online payment', $html);
-        $this->assertStringContainsString('Available for up to 2 active orders', $html);
+        $this->assertStringContainsString('Available for up to 2 meals', $html);
         $this->assertStringNotContainsString('Unavailable — add money', $html);
         // Must not regress to a payment <select>, and payment must not sit in a clipped scroller.
         $this->assertDoesNotMatchRegularExpression('/<select[^>]*(paymentMethod|payment_method)/i', $html);
@@ -145,8 +145,8 @@ class CheckoutMultiDatePaymentOptionsTest extends TestCase
         $this->assertStringNotContainsString('value="cash_on_delivery"', $html);
         $this->assertStringContainsString('value="balance"', $html);
         $this->assertStringContainsString('value="gateway"', $html);
-        $this->assertStringContainsString('Cash on Delivery is limited to 2 active orders', $html);
-        $this->assertStringContainsString('Full prepayment required from 3+', $html);
+        $this->assertStringContainsString('Cash on Delivery is limited to 2 meals', $html);
+        $this->assertStringContainsString('Full prepayment required from 3+ meals', $html);
     }
 
     public function test_four_dates_drop_cod_and_keep_prepaid_methods(): void
@@ -194,6 +194,7 @@ class CheckoutMultiDatePaymentOptionsTest extends TestCase
 
         $active = array_filter($component->get('quantities'), fn ($qty) => $qty > 0);
         $this->assertCount(4, $active);
+        $this->assertSame(4, (int) array_sum($active));
         $this->assertTrue((bool) ($component->get('prepayment')['required'] ?? false));
         $this->assertSame(1.0, (float) ($component->get('prepayment')['ratio'] ?? 0));
         $this->assertFalse($component->instance()->codAllowed);
@@ -202,7 +203,7 @@ class CheckoutMultiDatePaymentOptionsTest extends TestCase
         $this->assertStringNotContainsString('value="cash_on_delivery"', $html);
         $this->assertStringContainsString('value="balance"', $html);
         $this->assertStringContainsString('value="gateway"', $html);
-        $this->assertStringContainsString('Cash on Delivery is limited to 2 active orders', $html);
+        $this->assertStringContainsString('Cash on Delivery is limited to 2 meals', $html);
         $this->assertStringContainsString('Choose Middo Balance or online payment', $html);
     }
 }

@@ -239,8 +239,8 @@ class MiddoSettings
     }
 
     /**
-     * When projected active orders reach this count, require 100% prepayment (no COD).
-     * COD remains available for fewer than this many projected active orders.
+     * When projected active meal quantity reaches this count, require 100% prepayment (no COD).
+     * COD remains available for fewer than this many meals (existing active + cart).
      */
     public static function fullPrepayFromActiveOrders(): int
     {
@@ -251,7 +251,7 @@ class MiddoSettings
     }
 
     /**
-     * Max projected active orders that may still use Cash on Delivery.
+     * Max projected meal quantity that may still use Cash on Delivery.
      */
     public static function codMaxActiveOrders(): int
     {
