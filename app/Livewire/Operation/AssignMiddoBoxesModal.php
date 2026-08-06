@@ -240,7 +240,7 @@ class AssignMiddoBoxesModal extends Component
             }
         }
 
-        return \App\Models\Area::query()
+        return Area::query()
             ->whereIn('id', $ids)
             ->orderBy('name')
             ->pluck('name')
