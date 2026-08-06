@@ -216,10 +216,6 @@ class NavSeeder extends Seeder
         ]);
         Nav::create(['title' => 'Menu items', 'route_name' => 'operation.menu.index', 'order' => 1, 'role_id' => $operationId, 'parent_id' => $menuNav->id]);
         Nav::create(['title' => 'Meal items', 'route_name' => 'operation.meal-items.index', 'order' => 2, 'role_id' => $operationId, 'parent_id' => $menuNav->id]);
-        Nav::create(['title' => 'Packages', 'route_name' => 'operation.packages.index', 'order' => 3, 'role_id' => $operationId, 'parent_id' => $menuNav->id]);
-        Nav::create(['title' => 'Subscriptions', 'route_name' => 'operation.subscriptions.index', 'order' => 4, 'role_id' => $operationId, 'parent_id' => $menuNav->id]);
-        Nav::create(['title' => 'Package demand', 'route_name' => 'operation.packages.demand', 'order' => 5, 'role_id' => $operationId, 'parent_id' => $menuNav->id]);
-        Nav::create(['title' => 'Package insights', 'route_name' => 'operation.packages.insights', 'order' => 6, 'role_id' => $operationId, 'parent_id' => $menuNav->id]);
 
         $ordersNav = Nav::create([
             'title' => 'Orders',
@@ -232,11 +228,23 @@ class NavSeeder extends Seeder
         Nav::create(['title' => 'Order History', 'route_name' => 'operation.orders.history', 'order' => 2, 'role_id' => $operationId, 'parent_id' => $ordersNav->id]);
         Nav::create(['title' => 'Search Order', 'route_name' => 'operation.orders.search', 'order' => 3, 'role_id' => $operationId, 'parent_id' => $ordersNav->id]);
 
+        $packagesNav = Nav::create([
+            'title' => 'Packages',
+            'route_name' => null,
+            'icon' => '🍱',
+            'order' => 6,
+            'role_id' => $operationId,
+        ]);
+        Nav::create(['title' => 'Packages', 'route_name' => 'operation.packages.index', 'order' => 1, 'role_id' => $operationId, 'parent_id' => $packagesNav->id]);
+        Nav::create(['title' => 'Subscriptions', 'route_name' => 'operation.subscriptions.index', 'order' => 2, 'role_id' => $operationId, 'parent_id' => $packagesNav->id]);
+        Nav::create(['title' => 'Package demand', 'route_name' => 'operation.packages.demand', 'order' => 3, 'role_id' => $operationId, 'parent_id' => $packagesNav->id]);
+        Nav::create(['title' => 'Package insights', 'route_name' => 'operation.packages.insights', 'order' => 4, 'role_id' => $operationId, 'parent_id' => $packagesNav->id]);
+
         Nav::create([
             'title' => 'Middo Boxes',
             'route_name' => 'operation.middo-boxes.index',
             'icon' => '📦',
-            'order' => 6,
+            'order' => 7,
             'role_id' => $operationId,
         ]);
 
@@ -244,7 +252,7 @@ class NavSeeder extends Seeder
             'title' => 'Kitchen money',
             'route_name' => 'operation.kitchen-money.index',
             'icon' => '💰',
-            'order' => 7,
+            'order' => 8,
             'role_id' => $operationId,
         ]);
 
@@ -252,7 +260,7 @@ class NavSeeder extends Seeder
             'title' => 'Rider money',
             'route_name' => 'operation.rider-money.index',
             'icon' => '🛵',
-            'order' => 8,
+            'order' => 9,
             'role_id' => $operationId,
         ]);
 
@@ -260,7 +268,7 @@ class NavSeeder extends Seeder
             'title' => 'Rider cash handovers',
             'route_name' => 'operation.cash-handovers',
             'icon' => '💵',
-            'order' => 9,
+            'order' => 10,
             'role_id' => $operationId,
         ]);
 
@@ -268,7 +276,7 @@ class NavSeeder extends Seeder
             'title' => 'Custom runs',
             'route_name' => 'operation.custom-runs.index',
             'icon' => '📍',
-            'order' => 10,
+            'order' => 11,
             'role_id' => $operationId,
         ]);
 
@@ -276,7 +284,7 @@ class NavSeeder extends Seeder
             'title' => 'Alerts',
             'route_name' => 'operation.alerts.index',
             'icon' => '🔔',
-            'order' => 11,
+            'order' => 12,
             'role_id' => $operationId,
         ]);
 
@@ -284,7 +292,7 @@ class NavSeeder extends Seeder
             'title' => 'Dispatch SLA',
             'route_name' => 'operation.sla.index',
             'icon' => '⏱️',
-            'order' => 12,
+            'order' => 13,
             'role_id' => $operationId,
         ]);
 
@@ -292,7 +300,7 @@ class NavSeeder extends Seeder
             'title' => 'Rider ops',
             'route_name' => 'operation.riders.index',
             'icon' => '🛵',
-            'order' => 13,
+            'order' => 14,
             'role_id' => $operationId,
         ]);
 
@@ -300,7 +308,7 @@ class NavSeeder extends Seeder
             'title' => 'Complaints',
             'route_name' => 'operation.complaints.index',
             'icon' => '💬',
-            'order' => 14,
+            'order' => 15,
             'role_id' => $operationId,
         ]);
 
@@ -308,7 +316,7 @@ class NavSeeder extends Seeder
             'title' => 'Areas & cities',
             'route_name' => 'operation.areas.index',
             'icon' => '🗺️',
-            'order' => 15,
+            'order' => 16,
             'role_id' => $operationId,
         ]);
 
@@ -316,7 +324,7 @@ class NavSeeder extends Seeder
             'title' => 'Coverage',
             'route_name' => 'operation.coverage.index',
             'icon' => '📍',
-            'order' => 16,
+            'order' => 17,
             'role_id' => $operationId,
         ]);
 
@@ -324,7 +332,7 @@ class NavSeeder extends Seeder
             'title' => 'Ops day',
             'route_name' => 'operation.ops-day.index',
             'icon' => '📅',
-            'order' => 17,
+            'order' => 18,
             'role_id' => $operationId,
         ]);
 
