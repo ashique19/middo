@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Contracts\PaymentGateway;
 use App\Models\Order;
+use App\Support\CorporateOrderGatewayCheckout;
 use App\Support\CorporateWalletTopUp;
 use App\Support\MiddoBankLedger;
 use App\Support\OrderTransition;
@@ -94,6 +95,12 @@ class EpsPaymentCallbackController extends Controller
                 ->with('url.intended', PackageGatewayCheckout::confirmUrl($token));
         }
 
+        if ($purpose === CorporateOrderGatewayCheckout::PURPOSE && ($result['ok'] ?? false) && Auth::check()) {
+            return redirect()
+                ->to(route('corporates.dashboard'))
+                ->with('message', 'Your meal track has been scheduled successfully!');
+        }
+
         return redirect()->to(
             URL::temporarySignedRoute(
                 'corporate.gateway-prepay.show',
@@ -159,6 +166,12 @@ class EpsPaymentCallbackController extends Controller
 
         if ($purpose === PackageGatewayCheckout::PURPOSE) {
             PackageGatewayCheckout::markIntentPaid($token);
+
+            return;
+        }
+
+        if ($purpose === CorporateOrderGatewayCheckout::PURPOSE) {
+            CorporateOrderGatewayCheckout::completeIfPaid($token);
 
             return;
         }

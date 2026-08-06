@@ -52,6 +52,15 @@
                 <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
                     Payment recorded and Middo Balance updated. You can close this window and return to Middo.
                 </p>
+            @elseif($is_order_checkout ?? false)
+                <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                    Payment successful — your lunch order has been placed. You can close this window.
+                </p>
+                @auth
+                    <a href="{{ route('corporates.dashboard') }}" class="block w-full text-center bg-[#1E4630] text-white py-3.5 rounded-xl font-bold hover:opacity-90 transition">
+                        Back to dashboard
+                    </a>
+                @endauth
             @else
                 <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
                     @if($is_package ?? false)

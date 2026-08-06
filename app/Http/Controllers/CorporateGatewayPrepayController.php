@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Contracts\PaymentGateway;
 use App\Models\User;
+use App\Support\CorporateOrderGatewayCheckout;
 use App\Support\CorporateWalletTopUp;
 use App\Support\PackageGatewayCheckout;
 use Illuminate\Http\RedirectResponse;
@@ -37,6 +38,8 @@ class CorporateGatewayPrepayController extends Controller
             'purpose' => $purpose,
             'is_wallet' => $isWallet,
             'is_package' => $purpose === PackageGatewayCheckout::PURPOSE,
+            'is_order_checkout' => $purpose === CorporateOrderGatewayCheckout::PURPOSE,
+            'order_placed' => (bool) ($payload['order_placed'] ?? false),
             'redirect_url' => $payload['redirect_url'] ?? null,
             'eps_message' => $request->query('eps_message'),
             'balance' => $isWallet && ($payload['credited'] ?? false)
@@ -77,11 +80,25 @@ class CorporateGatewayPrepayController extends Controller
             }
         }
 
+        $orderPlaced = false;
+        if ($purpose === CorporateOrderGatewayCheckout::PURPOSE) {
+            $completed = CorporateOrderGatewayCheckout::completeIfPaid($token);
+            $orderPlaced = (bool) ($completed['ok'] ?? false);
+            if ($orderPlaced && Auth::check()) {
+                return redirect()
+                    ->to(route('corporates.dashboard'))
+                    ->with('message', $completed['message'] ?? 'Your meal track has been scheduled successfully!');
+            }
+        }
+
         return redirect()->to(
             URL::temporarySignedRoute(
                 'corporate.gateway-prepay.show',
                 now()->addMinutes(45),
-                ['token' => $token]
+                [
+                    'token' => $token,
+                    'order_placed' => $orderPlaced ? '1' : null,
+                ]
             )
         );
     }

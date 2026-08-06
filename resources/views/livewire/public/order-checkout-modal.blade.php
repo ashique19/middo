@@ -380,7 +380,10 @@
                                 @endif
 
                                 @if($paymentMethod === 'gateway' && $otpVerified)
-                                    <div class="rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-[11px] text-amber-950 space-y-2">
+                                    <div
+                                        class="rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-[11px] text-amber-950 space-y-2"
+                                        wire:poll.4s="checkGatewayPaymentCompletion"
+                                    >
                                         <p class="font-bold">Code verified. Pay ৳{{ number_format(!empty($prepayment['required']) ? ($prepayment['amount'] ?? 0) : $total) }} online to place this order.</p>
                                         @if($gatewayPaymentUrl)
                                             <a
@@ -392,16 +395,11 @@
                                             >
                                                 Make payment
                                             </a>
-                                            <p class="text-[10px] text-gray-500 leading-snug">After paying, return here and confirm below.</p>
                                         @endif
+                                        <p class="text-[10px] text-gray-500 leading-snug" data-testid="checkout-waiting-payment">
+                                            Waiting for payment… your order will be placed automatically once payment succeeds.
+                                        </p>
                                     </div>
-
-                                    <button type="button" wire:click="finalizeOrder" wire:loading.attr="disabled"
-                                        class="w-full px-3 py-2.5 bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-emerald-950 transition"
-                                        data-testid="checkout-place-after-payment">
-                                        <span wire:loading.remove wire:target="finalizeOrder">I've paid — Place Order</span>
-                                        <span wire:loading wire:target="finalizeOrder">Processing Order...</span>
-                                    </button>
                                 @else
                                     <div class="flex gap-2">
                                         <input wire:model="otpInput" type="text" maxlength="4" placeholder="••••"
