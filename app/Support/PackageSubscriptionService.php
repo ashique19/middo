@@ -528,7 +528,7 @@ class PackageSubscriptionService
                 $this->recordEvent(
                     $lockedSub->id,
                     PackageSubscriptionEvent::TYPE_REMAINING_CANCELLED,
-                    'Cancelled subscription before schedule. Refunded ৳'.number_format($refunded).'.',
+                    'Cancelled subscription before schedule. Refunded Tk '.number_format($refunded).'.',
                     ['cancelled_orders' => 0, 'refunded_amount' => $refunded],
                     $actor->id
                 );
@@ -572,7 +572,7 @@ class PackageSubscriptionService
             $this->recordEvent(
                 $lockedSub->id,
                 PackageSubscriptionEvent::TYPE_REMAINING_CANCELLED,
-                'Cancelled '.$cancelled.' remaining day(s). Refunded ৳'.number_format($refunded).'.',
+                'Cancelled '.$cancelled.' remaining day(s). Refunded Tk '.number_format($refunded).'.',
                 ['cancelled_orders' => $cancelled, 'refunded_amount' => $refunded],
                 $actor->id
             );
@@ -864,7 +864,7 @@ class PackageSubscriptionService
             $this->recordEvent(
                 $subscriptionId,
                 PackageSubscriptionEvent::TYPE_DAY_CANCELLED,
-                'Cancelled order #'.$locked->id.' and refunded ৳'.number_format($refund).'. Menu untagged. Reason: '.$reason,
+                'Cancelled order #'.$locked->id.' and refunded Tk '.number_format($refund).'. Menu untagged. Reason: '.$reason,
                 [
                     'order_id' => $locked->id,
                     'delivery_date' => $locked->delivery_date?->toDateString(),
@@ -1066,7 +1066,7 @@ class PackageSubscriptionService
             $this->recordEvent(
                 $lockedSub->id,
                 PackageSubscriptionEvent::TYPE_DAY_CANCELLED,
-                'Cancelled unconfirmed '.$date.' ('.$menuName.') and refunded ৳'.number_format($refund).'. Reason: '.$reason,
+                'Cancelled unconfirmed '.$date.' ('.$menuName.') and refunded Tk '.number_format($refund).'. Reason: '.$reason,
                 [
                     'order_id' => $order->id,
                     'delivery_date' => $date,
@@ -1211,7 +1211,7 @@ class PackageSubscriptionService
             $this->recordEvent(
                 (int) $locked->package_subscription_id,
                 PackageSubscriptionEvent::TYPE_DAY_REACTIVATED,
-                'Re-activated order #'.$locked->id.' ('.$menuName.') back to pending and debited ৳'.number_format($debit).'.',
+                'Re-activated order #'.$locked->id.' ('.$menuName.') back to pending and debited Tk '.number_format($debit).'.',
                 [
                     'order_id' => $locked->id,
                     'delivery_date' => $locked->delivery_date?->toDateString(),
