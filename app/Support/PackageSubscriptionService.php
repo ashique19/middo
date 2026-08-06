@@ -864,7 +864,7 @@ class PackageSubscriptionService
             $this->recordEvent(
                 $subscriptionId,
                 PackageSubscriptionEvent::TYPE_DAY_CANCELLED,
-                'Cancelled order #'.$locked->id.' and refunded Tk '.number_format($refund).'. Menu untagged. Reason: '.$reason,
+                'Cancelled order #'.$locked->id.' and refunded Tk '.number_format($refund).'. Menu untagged.',
                 [
                     'order_id' => $locked->id,
                     'delivery_date' => $locked->delivery_date?->toDateString(),
@@ -1066,7 +1066,7 @@ class PackageSubscriptionService
             $this->recordEvent(
                 $lockedSub->id,
                 PackageSubscriptionEvent::TYPE_DAY_CANCELLED,
-                'Cancelled unconfirmed '.$date.' ('.$menuName.') and refunded Tk '.number_format($refund).'. Reason: '.$reason,
+                'Cancelled unconfirmed '.$date.' ('.$menuName.') and refunded Tk '.number_format($refund).'.',
                 [
                     'order_id' => $order->id,
                     'delivery_date' => $date,

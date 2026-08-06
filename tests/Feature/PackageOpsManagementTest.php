@@ -469,7 +469,7 @@ class PackageOpsManagementTest extends TestCase
             ->latest('id')
             ->first();
         $this->assertNotNull($cancelEvent);
-        $this->assertStringContainsString('Holiday / office closed', (string) $cancelEvent->summary);
+        $this->assertStringNotContainsString('Reason:', (string) $cancelEvent->summary);
         $this->assertStringContainsString('Menu untagged', (string) $cancelEvent->summary);
         $this->assertSame('Holiday / office closed', $cancelEvent->meta['reason'] ?? null);
 
