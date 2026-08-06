@@ -60,9 +60,23 @@
         @endif
 
         @if($order->isPaid() || $amountDue <= 0)
-            <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                This order is already paid. Thank you!
-            </p>
+            @if(session('order_payment_just_completed'))
+                <div class="space-y-3" data-testid="order-payment-thank-you">
+                    <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                        Thank you for your payment
+                    </p>
+                    <a
+                        href="{{ route('corporates.dashboard') }}"
+                        class="inline-flex w-full items-center justify-center bg-[#1E4630] hover:bg-[#143021] text-white py-3.5 rounded-xl font-bold transition"
+                    >
+                        Go to Dashboard
+                    </a>
+                </div>
+            @else
+                <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                    This order is already paid. Thank you!
+                </p>
+            @endif
         @else
             <p class="text-sm text-gray-600">
                 Complete the remaining payment for this Middo delivery.

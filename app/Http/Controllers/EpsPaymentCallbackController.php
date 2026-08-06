@@ -77,13 +77,19 @@ class EpsPaymentCallbackController extends Controller
             $orderId = (int) (is_array($payload) ? ($payload['metadata']['order_id'] ?? 0) : 0);
 
             if ($orderId > 0) {
-                return redirect()->to(
+                $redirect = redirect()->to(
                     URL::temporarySignedRoute(
                         'public.order-payment',
                         now()->addDays(3),
                         ['order' => $orderId]
                     )
                 );
+
+                if ($result['ok'] ?? false) {
+                    $redirect->with('order_payment_just_completed', true);
+                }
+
+                return $redirect;
             }
         }
 
