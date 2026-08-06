@@ -48,6 +48,17 @@
                                 @if(!empty($order['is_package']) || !empty($order['package_subscription_id']))
                                     <x-package-badge :title="$order['package_name'] ?? 'Meal package'" />
                                 @endif
+                                @if(!empty($order['has_complaint']))
+                                    <span
+                                        class="inline-flex items-center gap-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
+                                        title="Complaint raised on this order"
+                                    >
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                                        </svg>
+                                        Complaint
+                                    </span>
+                                @endif
                             </div>
                         </td>
                         @if($showGroup)
