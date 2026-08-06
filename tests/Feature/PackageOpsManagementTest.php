@@ -17,6 +17,7 @@ use App\Support\PackageOrderPresenter;
 use App\Support\PackageSubscriptionService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class PackageOpsManagementTest extends TestCase
@@ -597,6 +598,55 @@ class PackageOpsManagementTest extends TestCase
         $this->assertSame(50000 - $quote['total_amount'], (int) $user->fresh()->balance);
         $this->assertSame($workingDays, (int) $subscription->fresh()->billable_days);
         $this->assertTrue(OrderGroupOrder::query()->where('order_id', $cancelled['order']->id)->exists());
+
+        Carbon::setTestNow();
+    }
+
+    public function test_livewire_cancel_pending_then_reactivate_via_modal(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeUser($this->corporateRole, [
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'mobile' => '01310123974',
+            'balance' => 50000,
+        ]);
+        $ops = $this->makeUser($this->operationRole, ['mobile' => '01310123973']);
+        $menu = $this->makeMenuItem();
+        $package = $this->makePublishedPackage($menu, 100, 8);
+
+        $result = $this->subscribeCorporate($user, $package, $city, $area, $menu);
+        $scheduled = $this->scheduleSubscription($ops, $result['subscription'], $menu);
+        $order = $scheduled['orders']->first();
+        $balanceAfterSubscribe = (int) $user->fresh()->balance;
+
+        Livewire::actingAs($ops)
+            ->test(\App\Livewire\Shared\SubscriptionShow::class, ['subscription' => $result['subscription']->id])
+            ->call('openCancelModal', $order->id)
+            ->set('cancelReason', 'Ops cancel for reactivate test')
+            ->call('confirmCancelAndRefund')
+            ->assertSet('errorMessage', null)
+            ->assertSee('Untagged · cancelled');
+
+        $this->assertSame('cancelled', $order->fresh()->order_status);
+        $this->assertGreaterThan($balanceAfterSubscribe, (int) $user->fresh()->balance);
+
+        Livewire::actingAs($ops)
+            ->test(\App\Livewire\Shared\SubscriptionShow::class, ['subscription' => $result['subscription']->id])
+            ->call('openReactivateModal', $order->id)
+            ->call('confirmReactivate')
+            ->assertSet('errorMessage', null)
+            ->assertSee('Re-activated order #'.$order->id);
+
+        $this->assertSame('pending', $order->fresh()->order_status);
+        $this->assertSame($balanceAfterSubscribe, (int) $user->fresh()->balance);
+        $this->assertTrue(OrderGroupOrder::query()->where('order_id', $order->id)->exists());
+        $this->assertDatabaseHas('package_subscription_events', [
+            'package_subscription_id' => $result['subscription']->id,
+            'type' => 'day_reactivated',
+        ]);
 
         Carbon::setTestNow();
     }

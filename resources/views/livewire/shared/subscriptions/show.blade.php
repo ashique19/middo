@@ -154,8 +154,7 @@
                                     @if($cancelledOrder)
                                         <button
                                             type="button"
-                                            wire:click="reactivateOrder({{ $cancelledOrder->id }})"
-                                            wire:confirm="Re-activate this day? ৳{{ number_format($this->orderRefundAmount($cancelledOrder)) }} will be debited from the corporate wallet."
+                                            wire:click="openReactivateModal({{ $cancelledOrder->id }})"
                                             class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">
                                             Re-activate
                                         </button>
@@ -374,6 +373,34 @@
                 <div class="flex justify-end gap-2">
                     <button type="button" wire:click="closeCancelModal" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700">Back</button>
                     <button type="button" wire:click="confirmCancelAndRefund" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold">Confirm cancel &amp; refund</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($showReactivateModal)
+        <div class="fixed inset-0 bg-gray-900/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl my-8 space-y-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800">Re-activate day</h2>
+                        <p class="text-sm text-gray-500 mt-1">
+                            @if($reactivateOrder)
+                                Order #{{ $reactivateOrder->id }} · {{ $reactivateOrder->delivery_date->format('D, M d, Y') }}
+                                · debit ৳{{ number_format($this->orderRefundAmount($reactivateOrder)) }} from corporate wallet
+                            @else
+                                Restore this cancelled day to pending.
+                            @endif
+                        </p>
+                    </div>
+                    <button type="button" wire:click="closeReactivateModal" class="text-gray-400 hover:text-gray-600 text-sm font-bold">Close</button>
+                </div>
+                <p class="text-sm text-gray-600">
+                    The menu will be tagged again and the day will return to confirmed delivery days.
+                </p>
+                <div class="flex justify-end gap-2">
+                    <button type="button" wire:click="closeReactivateModal" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700">Back</button>
+                    <button type="button" wire:click="confirmReactivate" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold">Confirm re-activate</button>
                 </div>
             </div>
         </div>

@@ -1095,6 +1095,7 @@ class PackageSubscriptionService
     public function reactivateDay(User $actor, Order $order): array
     {
         $this->assertStaffActor($actor);
+        $actor->loadMissing('role');
 
         if (! $order->package_subscription_id) {
             throw new RuntimeException('This order is not part of a meal package.');
@@ -1113,12 +1114,7 @@ class PackageSubscriptionService
             throw new RuntimeException('This delivery date is past the order cutoff and cannot be re-activated.');
         }
 
-        $debit = PackageRefund::orderRefundAmount($order);
-        if ($debit < 1) {
-            throw new RuntimeException('Cannot re-activate a day with no prepaid amount.');
-        }
-
-        return DB::transaction(function () use ($actor, $order, $debit, $subscription) {
+        return DB::transaction(function () use ($actor, $order, $subscription) {
             /** @var Order $locked */
             $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
 
@@ -1151,13 +1147,15 @@ class PackageSubscriptionService
                 ->findOrFail($subscription->id);
 
             $menuId = (int) $locked->menu_item_id;
-            $cancelMeta = PackageSubscriptionEvent::query()
+            $cancelEvent = PackageSubscriptionEvent::query()
                 ->where('package_subscription_id', $freshSub->id)
                 ->where('type', PackageSubscriptionEvent::TYPE_DAY_CANCELLED)
-                ->where('meta->order_id', $locked->id)
                 ->latest('id')
-                ->value('meta');
-            $reducedSelection = is_array($cancelMeta) && ! empty($cancelMeta['reduced_selection_day_count']);
+                ->get()
+                ->first(fn (PackageSubscriptionEvent $event) => (int) ($event->meta['order_id'] ?? 0) === (int) $locked->id);
+
+            $cancelMeta = is_array($cancelEvent?->meta) ? $cancelEvent->meta : [];
+            $reducedSelection = ! empty($cancelMeta['reduced_selection_day_count']);
 
             if ($reducedSelection) {
                 $selection = $freshSub->selections->firstWhere('menu_item_id', $menuId);
@@ -1177,6 +1175,14 @@ class PackageSubscriptionService
                 );
             }
 
+            $debit = (int) ($cancelMeta['refunded_amount'] ?? 0);
+            if ($debit < 1) {
+                $debit = PackageRefund::orderRefundAmount($locked);
+            }
+            if ($debit < 1) {
+                throw new RuntimeException('Cannot re-activate a day with no prepaid amount.');
+            }
+
             $owner = User::query()->lockForUpdate()->findOrFail($locked->user_id);
             WalletLedger::debit(
                 $owner,
@@ -1191,7 +1197,12 @@ class PackageSubscriptionService
                 'updated_by' => $actor->id,
             ]);
 
-            $fresh = $locked->fresh(['menuItem', 'user', 'packageSubscription.package']);
+            $fresh = $locked->fresh(['menuItem', 'user', 'packageSubscription.package', 'area']);
+            if (! $fresh->area_id && $fresh->user?->area_id) {
+                $fresh->update(['area_id' => $fresh->user->area_id]);
+                $fresh = $fresh->fresh(['menuItem', 'user', 'packageSubscription.package']);
+            }
+
             app(MealOrderGrouper::class)->assignOrder($fresh, $actor->id);
 
             $this->syncScheduleStatus($freshSub->fresh(['selections', 'orders']));
@@ -1302,6 +1313,7 @@ class PackageSubscriptionService
 
     protected function assertStaffActor(User $actor): void
     {
+        $actor->loadMissing('role');
         $role = $actor->role?->name;
         if (! in_array($role, ['admin', 'operation'], true)) {
             throw new RuntimeException('Only admin or operation staff can perform this action.');

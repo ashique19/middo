@@ -45,6 +45,10 @@ class SubscriptionShow extends Component
 
     public string $cancelReason = '';
 
+    public bool $showReactivateModal = false;
+
+    public ?int $reactivateOrderId = null;
+
     public ?string $statusMessage = null;
 
     public ?string $errorMessage = null;
@@ -345,15 +349,43 @@ class SubscriptionShow extends Component
         }
     }
 
-    public function reactivateOrder(int $orderId): void
+    public function openReactivateModal(int $orderId): void
     {
         abort_unless($this->canManage, 403);
 
+        $order = Order::query()->findOrFail($orderId);
+        abort_unless((int) $order->package_subscription_id === $this->subscriptionId, 404);
+        abort_unless($order->order_status === 'cancelled', 404);
+
+        $this->reactivateOrderId = $orderId;
+        $this->showReactivateModal = true;
+        $this->errorMessage = null;
+    }
+
+    public function closeReactivateModal(): void
+    {
+        $this->showReactivateModal = false;
+        $this->reactivateOrderId = null;
+    }
+
+    public function confirmReactivate(): void
+    {
+        abort_unless($this->canManage, 403);
+
+        if (! $this->reactivateOrderId) {
+            $this->errorMessage = 'Pick a cancelled day to re-activate.';
+
+            return;
+        }
+
         try {
-            $order = Order::query()->findOrFail($orderId);
-            $result = app(PackageSubscriptionService::class)->reactivateDay(Auth::user(), $order);
-            $this->statusMessage = 'Re-activated order #'.$orderId.' and debited ৳'.number_format($result['debited_amount']).' from the corporate wallet.';
+            $order = Order::query()->findOrFail($this->reactivateOrderId);
+            $actor = Auth::user();
+            $actor?->loadMissing('role');
+            $result = app(PackageSubscriptionService::class)->reactivateDay($actor, $order);
+            $this->statusMessage = 'Re-activated order #'.$this->reactivateOrderId.' and debited ৳'.number_format($result['debited_amount']).' from the corporate wallet.';
             $this->errorMessage = null;
+            $this->closeReactivateModal();
             $this->resetScheduleAssignments();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage();
@@ -482,6 +514,9 @@ class SubscriptionShow extends Component
         $cancelOrder = $this->cancelOrderId
             ? $subscription->orders->firstWhere('id', $this->cancelOrderId)
             : null;
+        $reactivateOrder = $this->reactivateOrderId
+            ? $subscription->orders->firstWhere('id', $this->reactivateOrderId)
+            : null;
 
         $auditEvents = PackageSubscriptionEvent::query()
             ->where('package_subscription_id', $subscription->id)
@@ -501,6 +536,7 @@ class SubscriptionShow extends Component
             'auditEvents' => $auditEvents,
             'swapOrder' => $swapOrder,
             'cancelOrder' => $cancelOrder,
+            'reactivateOrder' => $reactivateOrder,
             'cancelledOrdersByDate' => $this->cancelledOrdersByDate($subscription),
         ])->layout('layouts.private.app', [
             'title' => 'Subscription #'.$subscription->id,
