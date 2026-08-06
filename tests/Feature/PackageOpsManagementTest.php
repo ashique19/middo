@@ -475,7 +475,7 @@ class PackageOpsManagementTest extends TestCase
         $this->actingAs($ops)
             ->get(route('operation.subscriptions.show', $result['subscription']->id))
             ->assertOk()
-            ->assertSee('Untagged')
+            ->assertSee('Untagged · cancelled')
             ->assertSee('Confirm delivery days')
             ->assertSee('Re-activate')
             ->assertSee('Package audit log')
