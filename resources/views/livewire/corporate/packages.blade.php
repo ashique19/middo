@@ -38,8 +38,7 @@
                                     {{ ($sub['schedule_status'] ?? '') === 'awaiting_schedule' ? 'awaiting schedule' : $sub['status'] }}
                                 </span>
                             </div>
-                            <div class="mt-3 flex items-center justify-between text-xs font-bold">
-                                <span>{{ $sub['pending_days'] }} pending · {{ $sub['completed_days'] }} done</span>
+                            <div class="mt-3 flex items-center justify-end text-xs font-bold">
                                 <span class="text-middo-orange">৳{{ number_format($sub['total_amount']) }}</span>
                             </div>
                         </a>

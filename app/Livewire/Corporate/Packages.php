@@ -97,10 +97,6 @@ class Packages extends Component
             ->take(10)
             ->get()
             ->map(function (PackageSubscription $sub) {
-                $pending = $sub->orders->where('order_status', 'pending')->count();
-                $total = $sub->orders->where('order_status', '!=', 'cancelled')->count();
-                $deliveredish = $sub->orders->whereIn('order_status', ['delivered', 'delivered_and_paid'])->count();
-
                 return [
                     'id' => $sub->id,
                     'name' => $sub->package?->name ?? 'Package',
@@ -113,9 +109,6 @@ class Packages extends Component
                     'start_date' => $sub->start_date->toDateString(),
                     'end_date' => $sub->end_date->toDateString(),
                     'target_month' => $sub->target_month,
-                    'pending_days' => $pending,
-                    'active_days' => $total,
-                    'completed_days' => $deliveredish,
                 ];
             })->values()->all();
     }
