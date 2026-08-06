@@ -27,60 +27,64 @@
                         </div>
                     </div>
 
-                    <div class="shrink-0 space-y-2.5 pt-3 border-t border-amber-900/5">
-                        <label class="block text-xs font-black uppercase tracking-wider text-gray-400">Receiver and address</label>
+                    <div class="shrink-0 space-y-3 pt-3 border-t border-amber-900/5">
+                        <p class="text-xs font-black uppercase tracking-wider text-gray-400">Receiver and address</p>
 
-                        <div class="bg-white rounded-xl p-2.5 border border-gray-100 shadow-sm">
-                            <p class="text-[11px] text-gray-400 leading-none font-medium">Desk receiver name</p>
-                            <input wire:model.live="customerName" type="text" placeholder="Desk / contact person"
-                                class="mt-1 w-full border-gray-200 bg-[#FDFBF7] rounded-lg text-sm p-2 shadow-sm font-extrabold text-gray-800"
-                                {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                            @error('customerName') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
-                            @if(auth()->check())
-                                <p class="text-[10px] text-gray-400 mt-1.5">
-                                    Billing: <span class="font-bold text-gray-600">{{ auth()->user()->name ?? auth()->user()->first_name }}</span>
-                                    @if(auth()->user()->company_name) — {{ auth()->user()->company_name }}@endif
-                                </p>
-                            @endif
-                        </div>
-
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Mobile Number</label>
-                            <input wire:model="mobile" type="text" placeholder="e.g. 01710123456"
-                                class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                            @error('mobile') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-2">
+                        <div class="space-y-3">
                             <div>
-                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">City</label>
-                                <select wire:model.live="city_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                    @foreach($citiesList as $cityOption)
-                                        <option value="{{ $cityOption['id'] }}">{{ $cityOption['name'] }}</option>
-                                    @endforeach
-                                </select>
-                                @error('city_id') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
+                                <label for="checkout-receiver-name" class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1.5">Desk receiver name</label>
+                                <input id="checkout-receiver-name" wire:model.live="customerName" type="text" placeholder="Desk / contact person"
+                                    class="w-full border-gray-200 bg-white rounded-xl text-sm px-3 py-2.5 shadow-sm font-semibold text-gray-800 focus:ring-blue-500 focus:border-blue-500"
+                                    {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                @error('customerName') <span class="text-red-500 text-xs mt-1.5 font-semibold block">{{ $message }}</span> @enderror
+                                @if(auth()->check())
+                                    <p class="text-[10px] text-gray-400 mt-1.5 leading-snug">
+                                        Billing: <span class="font-bold text-gray-600">{{ auth()->user()->name ?? auth()->user()->first_name }}</span>
+                                        @if(auth()->user()->company_name) — {{ auth()->user()->company_name }}@endif
+                                    </p>
+                                @endif
                             </div>
 
                             <div>
-                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Area</label>
-                                <select wire:model.live="area_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                    @if(count($areasList) === 0)
-                                        <option value="">No areas available</option>
-                                    @endif
-                                    @foreach($areasList as $areaOption)
-                                        <option value="{{ $areaOption['id'] }}">{{ $areaOption['name'] }}</option>
-                                    @endforeach
-                                </select>
-                                @error('area_id') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
+                                <label for="checkout-receiver-mobile" class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1.5">Mobile number</label>
+                                <input id="checkout-receiver-mobile" wire:model="mobile" type="text" placeholder="e.g. 01710123456"
+                                    class="w-full border-gray-200 bg-white rounded-xl text-sm px-3 py-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                @error('mobile') <span class="text-red-500 text-xs mt-1.5 font-semibold block">{{ $message }}</span> @enderror
                             </div>
-                        </div>
 
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Street Address</label>
-                            <input wire:model="addressLine1" type="text" placeholder="Building, Flat No., Street details" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                            @error('addressLine1') <span class="text-red-500 text-xs mt-0.5 block">{{ $message }}</span> @enderror
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="min-w-0">
+                                    <label for="checkout-receiver-city" class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1.5">City</label>
+                                    <select id="checkout-receiver-city" wire:model.live="city_id" class="w-full border-gray-200 bg-white rounded-xl text-sm px-3 py-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                        @foreach($citiesList as $cityOption)
+                                            <option value="{{ $cityOption['id'] }}">{{ $cityOption['name'] }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('city_id') <span class="text-red-500 text-xs font-semibold mt-1.5 block">{{ $message }}</span> @enderror
+                                </div>
+
+                                <div class="min-w-0">
+                                    <label for="checkout-receiver-area" class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1.5">Area</label>
+                                    <select id="checkout-receiver-area" wire:model.live="area_id" class="w-full border-gray-200 bg-white rounded-xl text-sm px-3 py-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                        @if(count($areasList) === 0)
+                                            <option value="">No areas available</option>
+                                        @endif
+                                        @foreach($areasList as $areaOption)
+                                            <option value="{{ $areaOption['id'] }}">{{ $areaOption['name'] }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('area_id') <span class="text-red-500 text-xs font-semibold mt-1.5 block">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="checkout-receiver-address" class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1.5">Street address</label>
+                                <input id="checkout-receiver-address" wire:model="addressLine1" type="text" placeholder="Building, Flat No., Street details"
+                                    class="w-full border-gray-200 bg-white rounded-xl text-sm px-3 py-2.5 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                @error('addressLine1') <span class="text-red-500 text-xs mt-1.5 block">{{ $message }}</span> @enderror
+                            </div>
                         </div>
                     </div>
                 </div>
