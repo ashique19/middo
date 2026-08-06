@@ -24,53 +24,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     _future ??= AppScope.of(context).myPackageShow(widget.subscriptionId);
   }
 
-  Future<void> _reload() async {
-    setState(() {
-      _future = AppScope.of(context).myPackageShow(widget.subscriptionId);
-    });
-  }
-
-  Future<void> _skip(CorporateOrder order) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Skip this day?'),
-        content: Text(
-          '৳${order.amountPaid.toStringAsFixed(0)} will be credited to your Middo Balance.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Skip day'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    try {
-      final result = await AppScope.of(context).skipPackageDay(order.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Skipped. ৳${result.refundedAmount} credited. Balance ৳${result.balance.toStringAsFixed(0)}',
-          ),
-        ),
-      );
-      await _reload();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -148,7 +101,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               Text(
                 sub.isAwaitingSchedule
                     ? 'Prepaid. Middo operations will assign exact delivery dates next.'
-                    : 'Skip pending days before cutoff to get wallet credit.',
+                    : 'Need to cancel a day? Contact Middo operations.',
                 style: TextStyle(
                   color: MiddoColors.muted,
                   fontSize: 12,
@@ -166,7 +119,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                   ),
                 ),
               ...sub.orders.map((order) {
-                final canSkip = order.status == OrderStatus.pending;
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
@@ -174,12 +126,6 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                     subtitle: Text(
                       '${order.deliveryDate.toLocal().toString().substring(0, 10)} · ৳${order.totalAmount.toStringAsFixed(0)} · ${order.statusLabel}',
                     ),
-                    trailing: canSkip
-                        ? TextButton(
-                            onPressed: () => _skip(order),
-                            child: const Text('Skip'),
-                          )
-                        : null,
                   ),
                 );
               }),

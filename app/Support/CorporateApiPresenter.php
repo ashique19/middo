@@ -90,10 +90,10 @@ class CorporateApiPresenter
             'package_subscription_id' => $order->package_subscription_id
                 ? (string) $order->package_subscription_id
                 : null,
-            'can_skip' => $order->package_subscription_id
-                && $order->order_status === 'pending'
+            // Package day cancel/refund is ops-only; corporate cannot skip or delete those orders.
+            'can_skip' => false,
+            'can_delete' => ! $order->package_subscription_id
                 && OrderCutoff::allowsModification($order),
-            'can_delete' => OrderCutoff::allowsModification($order),
             'is_history' => optional($order->delivery_date)->lt(now('Asia/Dhaka')->startOfDay()) ?? false,
         ];
     }

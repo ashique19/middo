@@ -101,6 +101,7 @@ class DeleteOrderModal extends Component
             ->where('id', $orderId)
             ->where('user_id', Auth::id())
             ->where('order_status', 'pending')
+            ->whereNull('package_subscription_id')
             ->first();
 
         if (! $order || ! OrderCutoff::allowsModification($order)) {

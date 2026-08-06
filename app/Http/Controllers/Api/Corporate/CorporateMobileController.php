@@ -1501,35 +1501,8 @@ class CorporateMobileController extends Controller
 
     public function skipPackageDay(Request $request, int $order): JsonResponse
     {
-        $request->validate([
-            'reason' => ['required', 'string', 'max:500'],
-        ]);
-
-        $model = Order::query()
-            ->where('id', $order)
-            ->where('user_id', $request->user()->id)
-            ->whereNotNull('package_subscription_id')
-            ->firstOrFail();
-
-        try {
-            $result = app(PackageSubscriptionService::class)->skipDay(
-                $request->user(),
-                $model,
-                (string) $request->input('reason')
-            );
-            $refund = (int) $result['refunded_amount'];
-            $updated = $result['order'];
-        } catch (\Throwable $e) {
-            throw ValidationException::withMessages([
-                'order' => [$e->getMessage()],
-            ]);
-        }
-
         return response()->json([
-            'message' => 'Day cancelled. Amount credited to Middo Balance.',
-            'refunded_amount' => $refund,
-            'order' => CorporateApiPresenter::order($updated),
-            'balance' => (float) $request->user()->fresh()->balance,
-        ]);
+            'message' => 'Package day cancel and refund is handled by Middo operations only.',
+        ], 403);
     }
 }

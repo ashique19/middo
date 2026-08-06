@@ -4,10 +4,8 @@ namespace App\Livewire\Corporate;
 
 use App\Models\Order;
 use App\Models\PackageSubscription;
-use App\Support\OrderCutoff;
 use App\Support\PackageBilling;
 use App\Support\PackageRefund;
-use App\Support\PackageSubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -20,16 +18,6 @@ class PackageShow extends Component
     public array $days = [];
 
     public array $selections = [];
-
-    public string $errorMessage = '';
-
-    public string $successMessage = '';
-
-    public bool $showCancelModal = false;
-
-    public ?int $cancelOrderId = null;
-
-    public string $cancelReason = '';
 
     public function mount(int $subscriptionId): void
     {
@@ -88,82 +76,9 @@ class PackageShow extends Component
                     'amount_paid' => (int) $order->amount_paid,
                     'refund_amount' => $refunds[(int) $order->id] ?? PackageRefund::orderRefundAmount($order),
                     'order_status' => $order->order_status,
-                    'can_skip' => $order->order_status === 'pending' && OrderCutoff::allowsModification($order),
                 ];
             })
             ->all();
-    }
-
-    public function openCancelModal(int $orderId): void
-    {
-        $this->errorMessage = '';
-        $this->successMessage = '';
-
-        $order = Order::query()
-            ->where('id', $orderId)
-            ->where('user_id', Auth::id())
-            ->where('package_subscription_id', $this->subscriptionId)
-            ->first();
-
-        if (! $order) {
-            $this->errorMessage = 'Day not found.';
-
-            return;
-        }
-
-        $this->cancelOrderId = $order->id;
-        $this->cancelReason = '';
-        $this->showCancelModal = true;
-    }
-
-    public function closeCancelModal(): void
-    {
-        $this->showCancelModal = false;
-        $this->cancelOrderId = null;
-        $this->cancelReason = '';
-    }
-
-    public function confirmCancelAndRefund(): void
-    {
-        $this->errorMessage = '';
-        $this->successMessage = '';
-
-        if (! $this->cancelOrderId) {
-            $this->errorMessage = 'Day not found.';
-
-            return;
-        }
-
-        $reason = trim($this->cancelReason);
-        if ($reason === '') {
-            $this->errorMessage = 'Enter a cancellation reason.';
-
-            return;
-        }
-
-        $order = Order::query()
-            ->where('id', $this->cancelOrderId)
-            ->where('user_id', Auth::id())
-            ->where('package_subscription_id', $this->subscriptionId)
-            ->first();
-
-        if (! $order) {
-            $this->errorMessage = 'Day not found.';
-
-            return;
-        }
-
-        try {
-            $result = app(PackageSubscriptionService::class)->skipDay(Auth::user(), $order, $reason);
-            $refund = (int) $result['refunded_amount'];
-            $this->successMessage = 'Day cancelled. ৳'.number_format($refund).' credited to your Middo Balance.';
-            $this->closeCancelModal();
-            $this->dispatch('corporate-orders-changed');
-        } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage();
-        }
-
-        $this->loadSubscription();
     }
 
     public function omittedLabels(): string

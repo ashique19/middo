@@ -458,11 +458,7 @@ class PackageSubscriptionService
      */
     public function skipDay(User $user, Order $order, string $reason = ''): array
     {
-        if ((int) $order->user_id !== (int) $user->id) {
-            throw new RuntimeException('Order not found.');
-        }
-
-        return $this->skipDayInternal($user, $order, $user->id, $reason);
+        throw new RuntimeException('Package day cancel and refund is handled by Middo operations only.');
     }
 
     /**

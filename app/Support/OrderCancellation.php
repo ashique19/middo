@@ -35,6 +35,12 @@ class OrderCancellation
                 ]);
             }
 
+            if ($order->package_subscription_id) {
+                throw ValidationException::withMessages([
+                    'order' => ['Package days can only be cancelled by Middo operations.'],
+                ]);
+            }
+
             if ($order->order_status !== 'pending') {
                 throw ValidationException::withMessages([
                     'order' => ['Only pending orders can be cancelled.'],

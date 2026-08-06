@@ -480,7 +480,7 @@ class MealPackageTest extends TestCase
             ->orderBy('delivery_date')
             ->first();
         $refund = (int) $order->amount_paid;
-        app(PackageSubscriptionService::class)->skipDay($user, $order, 'Corporate cancelled this day');
+        app(PackageSubscriptionService::class)->skipDayAsStaff($ops, $order, 'Ops cancelled this day');
 
         $order->refresh();
         $user->refresh();
@@ -492,10 +492,20 @@ class MealPackageTest extends TestCase
             'amount' => $refund,
         ]);
 
+        $this->actingAs($user)
+            ->get(route('corporates.packages.show', ['subscriptionId' => $subscription->id]))
+            ->assertOk()
+            ->assertDontSee('Cancel and Refund');
+
+        Sanctum::actingAs($user);
+        $this->postJson('/api/corporate/orders/'.$order->id.'/skip-package-day', [
+            'reason' => 'Corporate should not cancel package days',
+        ])->assertForbidden();
+
         Carbon::setTestNow();
     }
 
-    public function test_discounted_package_skip_refunds_allocated_net_amount_via_api(): void
+    public function test_discounted_package_skip_refunds_allocated_net_amount_via_ops(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
 
@@ -548,13 +558,13 @@ class MealPackageTest extends TestCase
 
         $this->assertLessThan((int) $order->amount_paid, $expectedRefund);
 
-        Sanctum::actingAs($user);
-        $this->postJson('/api/corporate/orders/'.$order->id.'/skip-package-day', [
-            'reason' => 'API cancel for discount refund test',
-        ])
-            ->assertOk()
-            ->assertJsonPath('refunded_amount', $expectedRefund);
+        $result = app(PackageSubscriptionService::class)->skipDayAsStaff(
+            $ops,
+            $order,
+            'Ops cancel for discount refund test'
+        );
 
+        $this->assertSame($expectedRefund, (int) $result['refunded_amount']);
         $this->assertSame('cancelled', $order->fresh()->order_status);
         $this->assertSame($beforeBalance + $expectedRefund, (int) $user->fresh()->balance);
         $this->assertDatabaseHas('wallet_transactions', [
