@@ -75,7 +75,13 @@
         </div>
         <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Receiver</p>
-            <p class="text-lg font-bold text-gray-800">{{ $subscription->receiver_name }}</p>
+            @if($corporateUrl = $this->corporateShowRoute($subscription))
+                <p class="text-lg font-bold">
+                    <a href="{{ $corporateUrl }}" class="text-middo-orange hover:underline">{{ $subscription->receiver_name }}</a>
+                </p>
+            @else
+                <p class="text-lg font-bold text-gray-800">{{ $subscription->receiver_name }}</p>
+            @endif
             <p class="text-xs text-gray-500 mt-1">{{ $subscription->receiver_mobile }} · {{ $subscription->area?->name }}</p>
         </div>
     </div>

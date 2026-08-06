@@ -8,6 +8,7 @@ use App\Support\PackageBilling;
 use App\Support\PackageRefund;
 use App\Support\PackageSubscriptionService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 use Livewire\Component;
 
 class SubscriptionShow extends Component
@@ -67,7 +68,7 @@ class SubscriptionShow extends Component
     protected function subscription(): PackageSubscription
     {
         return PackageSubscription::with([
-            'user',
+            'user.role',
             'package',
             'area.city',
             'selections.menuItem',
@@ -359,6 +360,23 @@ class SubscriptionShow extends Component
         return Auth::user()?->role?->name === 'admin'
             ? route('admin.subscriptions.index')
             : route('operation.subscriptions.index');
+    }
+
+    public function corporateShowRoute(?PackageSubscription $subscription = null): ?string
+    {
+        $subscription ??= $this->subscription();
+        $user = $subscription->user;
+
+        if (! $user || $user->role?->name !== 'corporate') {
+            return null;
+        }
+
+        $role = Auth::user()?->role?->name;
+        $routeName = $role === 'admin' ? 'admin.corporates.show' : 'operation.corporates.show';
+
+        return Route::has($routeName)
+            ? route($routeName, $user)
+            : null;
     }
 
     public function orderRefundAmount(Order $order): int
