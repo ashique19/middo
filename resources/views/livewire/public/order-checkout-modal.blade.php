@@ -360,35 +360,70 @@
                                 <span wire:loading wire:target="initiateOrderConfirmation">Sending Confirmation SMS...</span>
                             </button>
                         @else
-                            <div class="bg-amber-50/70 border border-amber-200 p-3 rounded-xl space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-150" wire:key="checkout-confirmation-panel">
-                                <div class="flex justify-between items-center">
-                                    <p class="text-[11px] text-amber-950 font-bold">Verification SMS Sent! Enter 4-Digit Code:</p>
-                                    <button type="button" wire:click="$set('isConfirmingOtp', false)" class="text-[10px] text-gray-400 hover:text-gray-600 underline font-semibold">Change Info</button>
+                            <div class="bg-amber-50/70 border border-amber-200 p-3 rounded-xl space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-150" wire:key="checkout-confirmation-panel">
+                                <div class="flex justify-between items-center gap-2">
+                                    <p class="text-[11px] text-amber-950 font-bold">
+                                        @if($paymentMethod === 'gateway' && $otpVerified)
+                                            Payment step
+                                        @else
+                                            Verification SMS Sent! Enter 4-Digit Code:
+                                        @endif
+                                    </p>
+                                    <button type="button" wire:click="cancelConfirmation" class="text-[10px] text-gray-400 hover:text-gray-600 underline font-semibold shrink-0">Change Info</button>
                                 </div>
 
-                                @if($paymentMethod === 'gateway' && $gatewayPaymentUrl)
-                                    <div class="rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] text-amber-950 space-y-1">
-                                        <p class="font-bold">Complete online payment (৳{{ number_format(!empty($prepayment['required']) ? ($prepayment['amount'] ?? 0) : $total) }}) first:</p>
-                                        <a href="{{ $gatewayPaymentUrl }}" target="_blank" rel="noopener" class="text-middo-orange font-bold underline break-all">Open payment page</a>
-                                    </div>
-                                @endif
-                                @if($paymentMethod === 'cash_on_delivery')
+                                @if($paymentMethod === 'cash_on_delivery' && ! $otpVerified)
                                     <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-950">
                                         <p class="font-bold">Cash on Delivery selected</p>
                                         <p class="mt-0.5">Pay the rider when your meal arrives.</p>
                                     </div>
                                 @endif
 
-                                <div class="flex gap-2">
-                                    <input wire:model="otpInput" type="text" maxlength="4" placeholder="••••"
-                                        class="w-24 border-gray-200 bg-white rounded-xl text-center text-sm font-bold tracking-widest p-2 shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+                                @if($paymentMethod === 'gateway' && $otpVerified)
+                                    <div class="rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-[11px] text-amber-950 space-y-2">
+                                        <p class="font-bold">Code verified. Pay ৳{{ number_format(!empty($prepayment['required']) ? ($prepayment['amount'] ?? 0) : $total) }} online to place this order.</p>
+                                        @if($gatewayPaymentUrl)
+                                            <a
+                                                href="{{ $gatewayPaymentUrl }}"
+                                                target="_blank"
+                                                rel="noopener"
+                                                class="inline-flex w-full items-center justify-center rounded-xl bg-middo-orange px-3 py-2.5 text-sm font-black text-white hover:bg-amber-950 transition"
+                                                data-testid="checkout-make-payment"
+                                            >
+                                                Make payment
+                                            </a>
+                                            <p class="text-[10px] text-gray-500 leading-snug">After paying, return here and confirm below.</p>
+                                        @endif
+                                    </div>
 
                                     <button type="button" wire:click="finalizeOrder" wire:loading.attr="disabled"
-                                        class="flex-1 px-3 py-2 bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-emerald-950 transition">
-                                        <span wire:loading.remove wire:target="finalizeOrder">Verify & Place Order</span>
+                                        class="w-full px-3 py-2.5 bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-emerald-950 transition"
+                                        data-testid="checkout-place-after-payment">
+                                        <span wire:loading.remove wire:target="finalizeOrder">I've paid — Place Order</span>
                                         <span wire:loading wire:target="finalizeOrder">Processing Order...</span>
                                     </button>
-                                </div>
+                                @else
+                                    <div class="flex gap-2">
+                                        <input wire:model="otpInput" type="text" maxlength="4" placeholder="••••"
+                                            class="w-24 border-gray-200 bg-white rounded-xl text-center text-sm font-bold tracking-widest p-2 shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
+
+                                        @if($paymentMethod === 'gateway')
+                                            <button type="button" wire:click="verifyGatewayOtp" wire:loading.attr="disabled"
+                                                class="flex-1 px-3 py-2 bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-emerald-950 transition"
+                                                data-testid="checkout-verify-otp">
+                                                <span wire:loading.remove wire:target="verifyGatewayOtp">Verify code</span>
+                                                <span wire:loading wire:target="verifyGatewayOtp">Verifying...</span>
+                                            </button>
+                                        @else
+                                            <button type="button" wire:click="finalizeOrder" wire:loading.attr="disabled"
+                                                class="flex-1 px-3 py-2 bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-emerald-950 transition">
+                                                <span wire:loading.remove wire:target="finalizeOrder">Verify & Place Order</span>
+                                                <span wire:loading wire:target="finalizeOrder">Processing Order...</span>
+                                            </button>
+                                        @endif
+                                    </div>
+                                @endif
+
                                 @error('otpInput') <span class="text-red-500 text-xs font-semibold block">{{ $message }}</span> @enderror
                                 @error('paymentMethod') <span class="text-red-500 text-xs font-semibold block">{{ $message }}</span> @enderror
                             </div>
