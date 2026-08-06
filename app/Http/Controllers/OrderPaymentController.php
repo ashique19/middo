@@ -107,6 +107,6 @@ class OrderPaymentController extends Controller
                 now()->addDays(3),
                 ['order' => $order->id]
             )
-        );
+        )->with('order_payment_just_completed', true);
     }
 }
