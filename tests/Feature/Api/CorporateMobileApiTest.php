@@ -333,7 +333,7 @@ class CorporateMobileApiTest extends TestCase
         $this->assertSame('01310123452', $user->fresh()->mobile);
     }
 
-    public function test_three_plus_meals_requires_full_prepayment(): void
+    public function test_meals_above_cod_ceiling_require_full_prepayment(): void
     {
         Http::fake(['*' => Http::response(['status' => 'success'], 200)]);
 
@@ -365,9 +365,9 @@ class CorporateMobileApiTest extends TestCase
             'address' => 'House 12, Road 5',
             'city_id' => $city->id,
             'area_id' => $area->id,
-            // Single day, qty 2 → projected meals = 1 + 2 = 3.
+            // Single day, qty 3 → projected meals = 1 + 3 = 4 (above COD ceiling of 3).
             'dates' => [
-                ['date' => now('Asia/Dhaka')->addDays(2)->format('Y-m-d'), 'quantity' => 2],
+                ['date' => now('Asia/Dhaka')->addDays(2)->format('Y-m-d'), 'quantity' => 3],
             ],
         ];
 
@@ -375,8 +375,8 @@ class CorporateMobileApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('prepayment.required', true)
             ->assertJsonPath('prepayment.ratio', 1)
-            ->assertJsonPath('prepayment.amount', 840)
-            ->assertJsonPath('prepayment.projected_active', 3)
+            ->assertJsonPath('prepayment.amount', 1260)
+            ->assertJsonPath('prepayment.projected_active', 4)
             ->assertJsonPath('prepayment.full_prepay_from', 3);
 
         $this->postJson('/api/corporate/orders', $payload + [
@@ -384,9 +384,9 @@ class CorporateMobileApiTest extends TestCase
             'payment_method' => 'balance',
         ])->assertCreated()
             ->assertJsonPath('orders.0.payment_status', 'paid')
-            ->assertJsonPath('orders.0.amount_paid', 840);
+            ->assertJsonPath('orders.0.amount_paid', 1260);
 
-        $this->assertSame(9160, $user->fresh()->balance);
+        $this->assertSame(8740, $user->fresh()->balance);
     }
 
     public function test_gateway_prepay_token_can_complete_mismatch_order(): void

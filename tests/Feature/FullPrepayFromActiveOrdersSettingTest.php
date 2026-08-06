@@ -20,24 +20,22 @@ class FullPrepayFromActiveOrdersSettingTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_default_requires_full_prepay_from_three_meals_not_date_lines(): void
+    public function test_third_meal_allows_cod_fourth_requires_full_prepay(): void
     {
         $user = $this->makeCorporate('01310123452');
 
-        // Two meals total (e.g. one day qty 2, or two days qty 1) → COD OK.
-        $under = CorporateOrderPrepayment::evaluate($user, 'Corporate User', '01310123452', 2, 1000);
-        $this->assertFalse($under['required']);
-        $this->assertSame(0.0, $under['ratio']);
-        $this->assertSame(3, $under['full_prepay_from']);
-        $this->assertSame(2, $under['projected_active']);
+        $atThree = CorporateOrderPrepayment::evaluate($user, 'Corporate User', '01310123452', 3, 1000);
+        $this->assertFalse($atThree['required']);
+        $this->assertSame(0.0, $atThree['ratio']);
+        $this->assertSame(3, $atThree['full_prepay_from']);
+        $this->assertSame(3, $atThree['projected_active']);
 
-        // Three meals on a single cart day → full prepay.
-        $atLimit = CorporateOrderPrepayment::evaluate($user, 'Corporate User', '01310123452', 3, 1000);
-        $this->assertTrue($atLimit['required']);
-        $this->assertSame(1.0, $atLimit['ratio']);
-        $this->assertSame(1000, $atLimit['amount']);
-        $this->assertSame('active_order_limit', $atLimit['reason']);
-        $this->assertSame(3, $atLimit['projected_active']);
+        $atFour = CorporateOrderPrepayment::evaluate($user, 'Corporate User', '01310123452', 4, 1000);
+        $this->assertTrue($atFour['required']);
+        $this->assertSame(1.0, $atFour['ratio']);
+        $this->assertSame(1000, $atFour['amount']);
+        $this->assertSame('active_order_limit', $atFour['reason']);
+        $this->assertSame(4, $atFour['projected_active']);
     }
 
     public function test_existing_active_meal_quantity_counts_toward_threshold(): void
@@ -66,16 +64,19 @@ class FullPrepayFromActiveOrdersSettingTest extends TestCase
             'updated_by' => $user->id,
         ]);
 
-        // Existing qty 2 + cart qty 1 = 3 meals → full prepay even for a single new date line.
-        $quote = CorporateOrderPrepayment::evaluate($user, 'Corporate User', '01310123453', 1, 420);
-        $this->assertTrue($quote['required']);
-        $this->assertSame(1.0, $quote['ratio']);
-        $this->assertSame(2, $quote['active_orders']);
-        $this->assertSame(1, $quote['new_orders']);
-        $this->assertSame(3, $quote['projected_active']);
+        // Existing qty 2 + cart qty 1 = 3 → still COD.
+        $atThree = CorporateOrderPrepayment::evaluate($user, 'Corporate User', '01310123453', 1, 420);
+        $this->assertFalse($atThree['required']);
+        $this->assertSame(3, $atThree['projected_active']);
+
+        // Existing qty 2 + cart qty 2 = 4 → full prepay.
+        $atFour = CorporateOrderPrepayment::evaluate($user, 'Corporate User', '01310123453', 2, 840);
+        $this->assertTrue($atFour['required']);
+        $this->assertSame(1.0, $atFour['ratio']);
+        $this->assertSame(4, $atFour['projected_active']);
     }
 
-    public function test_checkout_modal_single_day_qty_three_requires_full_prepay(): void
+    public function test_checkout_modal_single_day_qty_three_keeps_cod_qty_four_requires_prepay(): void
     {
         $user = $this->makeCorporate('01310123454');
         $menu = MenuItem::create([
@@ -108,13 +109,18 @@ class FullPrepayFromActiveOrdersSettingTest extends TestCase
         }
 
         $this->assertSame(3, (int) ($component->get('quantities')[$keep] ?? 0));
+        $this->assertFalse((bool) ($component->get('prepayment')['required'] ?? false));
+        $this->assertTrue($component->instance()->codAllowed);
+
+        $component->call('changeDateQuantity', $keep, 1);
+        $this->assertSame(4, (int) ($component->get('quantities')[$keep] ?? 0));
         $this->assertTrue((bool) ($component->get('prepayment')['required'] ?? false));
         $this->assertSame(1.0, (float) ($component->get('prepayment')['ratio'] ?? 0));
-        $this->assertSame(3, (int) ($component->get('prepayment')['projected_active'] ?? 0));
+        $this->assertSame(4, (int) ($component->get('prepayment')['projected_active'] ?? 0));
         $this->assertFalse($component->instance()->codAllowed);
     }
 
-    public function test_admin_can_raise_full_prepay_threshold(): void
+    public function test_admin_can_raise_cod_meal_ceiling(): void
     {
         $adminRole = Role::create(['name' => 'admin']);
         $admin = User::create([
@@ -134,17 +140,17 @@ class FullPrepayFromActiveOrdersSettingTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertSame(5, MiddoSettings::fullPrepayFromActiveOrders());
-        $this->assertSame(4, MiddoSettings::codMaxActiveOrders());
+        $this->assertSame(5, MiddoSettings::codMaxActiveOrders());
 
         $user = $this->makeCorporate('01310123455');
-        $three = CorporateOrderPrepayment::evaluate($user, 'Corporate User', '01310123455', 3, 1000);
-        $this->assertFalse($three['required']);
+        $five = CorporateOrderPrepayment::evaluate($user, 'Corporate User', '01310123455', 5, 1000);
+        $this->assertFalse($five['required']);
 
-        $five = CorporateOrderPrepayment::evaluate($user, 'Corporate User', '01310123455', 5, 800);
-        $this->assertTrue($five['required']);
-        $this->assertSame(1.0, $five['ratio']);
-        $this->assertSame(800, $five['amount']);
-        $this->assertSame(5, $five['full_prepay_from']);
+        $six = CorporateOrderPrepayment::evaluate($user, 'Corporate User', '01310123455', 6, 800);
+        $this->assertTrue($six['required']);
+        $this->assertSame(1.0, $six['ratio']);
+        $this->assertSame(800, $six['amount']);
+        $this->assertSame(5, $six['full_prepay_from']);
     }
 
     private function makeCorporate(string $mobile): User
