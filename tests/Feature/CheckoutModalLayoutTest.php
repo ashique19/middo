@@ -53,15 +53,15 @@ class CheckoutModalLayoutTest extends TestCase
             ->assertSee('Receiver and address')
             ->html();
 
-        // Delivery window lives in the left column (before the middle dates grid).
+        // Left: dish + receiver; middle: dates + delivery window.
         $windowPos = strpos($html, 'Delivery window');
         $datesPos = strpos($html, 'Order for Dates');
         $receiverPos = strpos($html, 'Receiver and address');
         $this->assertNotFalse($windowPos);
         $this->assertNotFalse($datesPos);
         $this->assertNotFalse($receiverPos);
-        $this->assertLessThan($datesPos, $windowPos);
-        $this->assertGreaterThan($datesPos, $receiverPos);
+        $this->assertLessThan($datesPos, $receiverPos);
+        $this->assertLessThan($windowPos, $datesPos);
 
         // Coupon / payment live in the pinned footer after the line-item scroller.
         $couponPos = strpos($html, 'Coupon code');
@@ -76,7 +76,7 @@ class CheckoutModalLayoutTest extends TestCase
         $this->assertGreaterThan($totalsPos, $couponPos);
         $this->assertGreaterThan($couponPos, $paymentPos);
 
-        // Big-screen columns: dish+window | dates+customer | finance-only height budget.
+        // Big-screen columns: dish+receiver | dates+window | finance-only height budget.
         $this->assertStringContainsString('md:h-[min(90vh,880px)]', $html);
         $this->assertStringContainsString('md:mt-auto', $html);
 

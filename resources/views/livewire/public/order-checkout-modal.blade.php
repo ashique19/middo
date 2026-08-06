@@ -3,10 +3,10 @@
         {{-- Fullscreen Overlay Backdrop with persistent key mapping --}}
         <div wire:key="order-checkout-modal-root" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
 
-            {{-- Big-screen: left = dish + delivery window, middle = dates + customer, right = finance only --}}
+            {{-- Big-screen: left = dish + receiver, middle = dates + delivery window, right = finance only --}}
             <div class="bg-[#FDFBF7] rounded-[32px] shadow-2xl border border-amber-900/5 w-full max-w-6xl flex flex-col md:grid md:grid-cols-12 md:items-stretch text-amber-950 antialiased font-sans my-auto max-h-[90vh] overflow-y-auto md:overflow-hidden md:h-[min(90vh,880px)]">
 
-                {{-- LEFT: dish on top, delivery timeline pinned to bottom on desktop --}}
+                {{-- LEFT: dish, then receiver / address --}}
                 <div class="w-full md:col-span-4 bg-[#F9F6F0] p-5 md:p-6 flex flex-col gap-4 border-b md:border-b-0 md:border-r border-amber-900/5 md:min-h-0 md:overflow-y-auto">
                     <div class="shrink-0">
                         <div class="flex items-center gap-2 mb-3 text-middo-orange font-bold text-lg">
@@ -27,34 +27,65 @@
                         </div>
                     </div>
 
-                    <div class="shrink-0 md:mt-auto pt-2 border-t border-amber-900/5">
-                        <label class="block text-sm font-bold text-gray-800 mb-2">Delivery window</label>
-                        <div class="space-y-1.5">
-                            @foreach($deliveryWindows as $time)
-                                @php
-                                    $isTimeSelected = ($deliveryWindow === $time);
-                                @endphp
-                                <label
-                                    wire:key="delivery-window-{{ Str::slug($time) }}"
-                                    class="flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition shadow-sm select-none
-                                        {{ $isTimeSelected ? 'border-amber-800 bg-amber-900 text-white font-bold' : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-800' }}"
-                                >
-                                    <input
-                                        type="radio"
-                                        name="delivery_window_option"
-                                        value="{{ $time }}"
-                                        wire:model.live="deliveryWindow"
-                                        class="w-3.5 h-3.5 text-amber-900 focus:ring-amber-700 border-gray-300 {{ $isTimeSelected ? 'accent-white' : 'accent-amber-900' }}"
-                                        {{ $isConfirmingOtp ? 'disabled' : '' }}
-                                    >
-                                    <span class="text-xs font-bold tracking-wide">Timeline - {{ $time }}</span>
-                                </label>
-                            @endforeach
+                    <div class="shrink-0 space-y-2.5 pt-3 border-t border-amber-900/5">
+                        <label class="block text-xs font-black uppercase tracking-wider text-gray-400">Receiver and address</label>
+
+                        <div class="bg-white rounded-xl p-2.5 border border-gray-100 shadow-sm">
+                            <p class="text-[11px] text-gray-400 leading-none font-medium">Desk receiver name</p>
+                            <input wire:model.live="customerName" type="text" placeholder="Desk / contact person"
+                                class="mt-1 w-full border-gray-200 bg-[#FDFBF7] rounded-lg text-sm p-2 shadow-sm font-extrabold text-gray-800"
+                                {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                            @error('customerName') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
+                            @if(auth()->check())
+                                <p class="text-[10px] text-gray-400 mt-1.5">
+                                    Billing: <span class="font-bold text-gray-600">{{ auth()->user()->name ?? auth()->user()->first_name }}</span>
+                                    @if(auth()->user()->company_name) — {{ auth()->user()->company_name }}@endif
+                                </p>
+                            @endif
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Mobile Number</label>
+                            <input wire:model="mobile" type="text" placeholder="e.g. 01710123456"
+                                class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                            @error('mobile') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">City</label>
+                                <select wire:model.live="city_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                    @foreach($citiesList as $cityOption)
+                                        <option value="{{ $cityOption['id'] }}">{{ $cityOption['name'] }}</option>
+                                    @endforeach
+                                </select>
+                                @error('city_id') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Area</label>
+                                <select wire:model.live="area_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                    @if(count($areasList) === 0)
+                                        <option value="">No areas available</option>
+                                    @endif
+                                    @foreach($areasList as $areaOption)
+                                        <option value="{{ $areaOption['id'] }}">{{ $areaOption['name'] }}</option>
+                                    @endforeach
+                                </select>
+                                @error('area_id') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Street Address</label>
+                            <input wire:model="addressLine1" type="text" placeholder="Building, Flat No., Street details" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                            @error('addressLine1') <span class="text-red-500 text-xs mt-0.5 block">{{ $message }}</span> @enderror
                         </div>
                     </div>
                 </div>
 
-                {{-- MIDDLE: date grid on top, customer/address pinned to bottom on desktop --}}
+                {{-- MIDDLE: date grid on top, delivery window pinned to bottom on desktop --}}
                 <div class="w-full md:col-span-4 p-5 md:p-6 flex flex-col gap-3 bg-white border-b md:border-b-0 md:border-r border-amber-900/5 md:min-h-0 md:overflow-hidden">
                     <div class="flex-1 min-h-0 md:overflow-y-auto space-y-3 pr-0.5">
                         <div>
@@ -148,60 +179,29 @@
                         </div>
                     </div>
 
-                    <div class="shrink-0 space-y-2.5 pt-3 border-t border-gray-100 md:mt-auto">
-                        <label class="block text-xs font-black uppercase tracking-wider text-gray-400">Receiver and address</label>
-
-                        <div class="bg-[#FDFBF7] rounded-xl p-2.5 border border-gray-100">
-                            <p class="text-[11px] text-gray-400 leading-none font-medium">Desk receiver name</p>
-                            <input wire:model.live="customerName" type="text" placeholder="Desk / contact person"
-                                class="mt-1 w-full border-gray-200 bg-white rounded-lg text-sm p-2 shadow-sm font-extrabold text-gray-800"
-                                {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                            @error('customerName') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
-                            @if(auth()->check())
-                                <p class="text-[10px] text-gray-400 mt-1.5">
-                                    Billing: <span class="font-bold text-gray-600">{{ auth()->user()->name ?? auth()->user()->first_name }}</span>
-                                    @if(auth()->user()->company_name) — {{ auth()->user()->company_name }}@endif
-                                </p>
-                            @endif
-                        </div>
-
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Mobile Number</label>
-                            <input wire:model="mobile" type="text" placeholder="e.g. 01710123456"
-                                class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                            @error('mobile') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">City</label>
-                                <select wire:model.live="city_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                    @foreach($citiesList as $cityOption)
-                                        <option value="{{ $cityOption['id'] }}">{{ $cityOption['name'] }}</option>
-                                    @endforeach
-                                </select>
-                                @error('city_id') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
-                            </div>
-
-                            <div>
-                                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Area</label>
-                                <select wire:model.live="area_id" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                    @if(count($areasList) === 0)
-                                        <option value="">No areas available</option>
-                                    @endif
-                                    @foreach($areasList as $areaOption)
-                                        <option value="{{ $areaOption['id'] }}">{{ $areaOption['name'] }}</option>
-                                    @endforeach
-                                </select>
-                                @error('area_id') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Street Address</label>
-                            <input wire:model="addressLine1" type="text" placeholder="Building, Flat No., Street details" class="w-full border-gray-200 bg-white rounded-xl text-sm p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                            @error('addressLine1') <span class="text-red-500 text-xs mt-0.5 block">{{ $message }}</span> @enderror
+                    <div class="shrink-0 pt-3 border-t border-gray-100 md:mt-auto">
+                        <label class="block text-sm font-bold text-gray-800 mb-2">Delivery window</label>
+                        <div class="space-y-1.5">
+                            @foreach($deliveryWindows as $time)
+                                @php
+                                    $isTimeSelected = ($deliveryWindow === $time);
+                                @endphp
+                                <label
+                                    wire:key="delivery-window-{{ Str::slug($time) }}"
+                                    class="flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition shadow-sm select-none
+                                        {{ $isTimeSelected ? 'border-amber-800 bg-amber-900 text-white font-bold' : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-800' }}"
+                                >
+                                    <input
+                                        type="radio"
+                                        name="delivery_window_option"
+                                        value="{{ $time }}"
+                                        wire:model.live="deliveryWindow"
+                                        class="w-3.5 h-3.5 text-amber-900 focus:ring-amber-700 border-gray-300 {{ $isTimeSelected ? 'accent-white' : 'accent-amber-900' }}"
+                                        {{ $isConfirmingOtp ? 'disabled' : '' }}
+                                    >
+                                    <span class="text-xs font-bold tracking-wide">Timeline - {{ $time }}</span>
+                                </label>
+                            @endforeach
                         </div>
                     </div>
                 </div>
