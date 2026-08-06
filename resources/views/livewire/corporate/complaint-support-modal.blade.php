@@ -10,6 +10,16 @@
                         <p class="text-xs font-semibold text-[#635347] mt-0.5">
                             Order #{{ $orderId }}
                             · {{ $order['menu_item']['name'] ?? 'Custom Selection' }}
+                            @if($hasExistingComplaint)
+                                ·
+                                <span @class([
+                                    'font-bold',
+                                    'text-amber-700' => ! $complaintResolved,
+                                    'text-emerald-700' => $complaintResolved,
+                                ])>
+                                    {{ $complaintResolved ? 'Complete' : 'Open' }}
+                                </span>
+                            @endif
                         </p>
                     </div>
                     <button type="button" wire:click="closeModal" class="p-1.5 rounded-lg text-gray-400 hover:text-[#2B1A11] hover:bg-[#F7F4EB] transition" aria-label="Close">
@@ -31,6 +41,11 @@
                             {{ $successMessage }}
                         </div>
                     @endif
+                    @if($errorMessage)
+                        <div class="bg-rose-50 border border-rose-200 text-rose-800 text-sm font-bold px-4 py-3 rounded-xl leading-relaxed">
+                            {{ $errorMessage }}
+                        </div>
+                    @endif
 
                     @if(count($thread) > 0)
                         <div class="space-y-3">
@@ -48,7 +63,7 @@
                                             </time>
                                         </div>
 
-                                        @if(!$entry['is_reply'] && !empty($entry['category']))
+                                        @if(!$entry['is_reply'] && !empty($entry['category']) && $loop->first)
                                             <p class="text-[10px] font-bold mb-1 {{ $entry['is_reply'] ? 'text-emerald-100' : 'text-[#635347]' }}">
                                                 {{ $this->categoryLabel($entry['category']) }}
                                             </p>
@@ -72,7 +87,7 @@
                         </div>
                     @endif
 
-                    @if(!$hasExistingComplaint && !$successMessage)
+                    @if(!$hasExistingComplaint)
                         <div class="space-y-4 pt-1">
                             <div>
                                 <label for="complaint-category" class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-2">Issue Category</label>
@@ -108,20 +123,23 @@
                                 @endif
                             </div>
                         </div>
-                    @elseif($hasExistingComplaint && !$successMessage)
-                        <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-sm font-semibold text-[#5D4037] leading-relaxed">
-                            A complaint has already been submitted for this order. You can follow the conversation above while our team responds.
+                    @elseif($complaintResolved)
+                        <div class="bg-emerald-50 border border-emerald-200/80 rounded-xl p-4 text-sm font-semibold text-emerald-900 leading-relaxed">
+                            This complaint is marked complete. You can still read the conversation above.
+                        </div>
+                    @else
+                        <div class="space-y-3 pt-1 border-t border-[#EBE3D3]">
+                            <label for="complaint-reply" class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight">Your reply</label>
+                            <textarea id="complaint-reply" wire:model="message" rows="3"
+                                      placeholder="Add a follow-up message…"
+                                      class="w-full rounded-xl border border-[#EBE3D3] bg-[#FDFBF7] px-3 py-2.5 text-sm font-semibold text-[#2B1A11] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-middo-orange/30 resize-none"></textarea>
+                            @error('message') <span class="text-red-500 text-xs font-semibold mt-1 block">{{ $message }}</span> @enderror
                         </div>
                     @endif
                 </div>
 
                 <div class="p-5 border-t border-[#EBE3D3] shrink-0 flex gap-3">
-                    @if($hasExistingComplaint || $successMessage)
-                        <button type="button" wire:click="closeModal"
-                                class="w-full py-3 rounded-xl bg-[#1E4630] hover:bg-[#143021] text-white text-sm font-black transition">
-                            Close
-                        </button>
-                    @else
+                    @if(!$hasExistingComplaint)
                         <button type="button" wire:click="closeModal"
                                 class="flex-1 py-3 rounded-xl border border-[#EBE3D3] text-sm font-bold text-[#635347] bg-[#F7F4EB] hover:bg-[#EFE9DC] transition">
                             Cancel
@@ -130,6 +148,21 @@
                                 class="flex-1 py-3 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-black transition disabled:opacity-60">
                             <span wire:loading.remove wire:target="submit,attachment">Submit Request</span>
                             <span wire:loading wire:target="submit,attachment">Submitting...</span>
+                        </button>
+                    @elseif($complaintResolved)
+                        <button type="button" wire:click="closeModal"
+                                class="w-full py-3 rounded-xl bg-[#1E4630] hover:bg-[#143021] text-white text-sm font-black transition">
+                            Close
+                        </button>
+                    @else
+                        <button type="button" wire:click="closeModal"
+                                class="flex-1 py-3 rounded-xl border border-[#EBE3D3] text-sm font-bold text-[#635347] bg-[#F7F4EB] hover:bg-[#EFE9DC] transition">
+                            Close
+                        </button>
+                        <button type="button" wire:click="reply" wire:loading.attr="disabled" wire:target="reply"
+                                class="flex-1 py-3 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-black transition disabled:opacity-60">
+                            <span wire:loading.remove wire:target="reply">Post reply</span>
+                            <span wire:loading wire:target="reply">Posting...</span>
                         </button>
                     @endif
                 </div>

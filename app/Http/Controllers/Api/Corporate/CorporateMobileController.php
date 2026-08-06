@@ -1095,6 +1095,8 @@ class CorporateMobileController extends Controller
         return response()->json([
             'order' => CorporateApiPresenter::order($model),
             'has_existing_complaint' => (bool) $root,
+            'status' => $root?->status ?? null,
+            'is_resolved' => $root?->isResolved() ?? false,
             'messages' => $messages,
         ]);
     }
@@ -1106,10 +1108,36 @@ class CorporateMobileController extends Controller
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
 
-        if (OrderComplaint::threadForOrder($model->id)) {
+        $root = OrderComplaint::threadForOrder($model->id);
+
+        if ($root) {
+            if ($root->isResolved()) {
+                return response()->json([
+                    'message' => 'This complaint is complete. You can no longer reply.',
+                ], 422);
+            }
+
+            $data = $request->validate([
+                'message' => ['required', 'string', 'min:5', 'max:2000'],
+            ]);
+
+            $entry = OrderComplaint::create([
+                'order_id' => $model->id,
+                'parent_id' => $root->id,
+                'is_reply' => false,
+                'status' => OrderComplaint::STATUS_OPEN,
+                'category' => $root->category,
+                'message' => $data['message'],
+                'created_by' => $request->user()->id,
+                'updated_by' => $request->user()->id,
+            ]);
+
+            $entry->load('createdBy:id,first_name,last_name');
+
             return response()->json([
-                'message' => 'A support request already exists for this order.',
-            ], 422);
+                'message' => 'Reply posted.',
+                'entry' => CorporateApiPresenter::supportMessage($entry),
+            ], 201);
         }
 
         $data = $request->validate([
@@ -1121,6 +1149,7 @@ class CorporateMobileController extends Controller
             'order_id' => $model->id,
             'parent_id' => null,
             'is_reply' => false,
+            'status' => OrderComplaint::STATUS_OPEN,
             'category' => $data['category'],
             'message' => $data['message'],
             'created_by' => $request->user()->id,

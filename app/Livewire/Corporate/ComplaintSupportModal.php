@@ -24,6 +24,8 @@ class ComplaintSupportModal extends Component
 
     public bool $hasExistingComplaint = false;
 
+    public bool $complaintResolved = false;
+
     public string $category = 'delivery';
 
     public string $message = '';
@@ -31,6 +33,8 @@ class ComplaintSupportModal extends Component
     public $attachment = null;
 
     public string $successMessage = '';
+
+    public ?string $errorMessage = null;
 
     #[On('open-complaint-support-modal')]
     public function openModal($orderId): void
@@ -88,6 +92,7 @@ class ComplaintSupportModal extends Component
             'order_id' => $this->orderId,
             'parent_id' => null,
             'is_reply' => false,
+            'status' => OrderComplaint::STATUS_OPEN,
             'category' => $this->category,
             'message' => $this->message,
             'created_by' => $userId,
@@ -102,9 +107,53 @@ class ComplaintSupportModal extends Component
         }
 
         $this->successMessage = 'Your complaint/support request has been submitted. Our team will get back to you shortly.';
+        $this->errorMessage = null;
         $this->category = 'delivery';
         $this->message = '';
         $this->attachment = null;
+        $this->loadThread();
+        $this->dispatch('corporate-orders-changed');
+    }
+
+    public function reply(): void
+    {
+        $this->successMessage = '';
+        $this->errorMessage = null;
+
+        $root = OrderComplaint::threadForOrder((int) $this->orderId);
+        if (! $root) {
+            $this->errorMessage = 'No complaint thread found for this order.';
+
+            return;
+        }
+
+        if ($root->isResolved()) {
+            $this->errorMessage = 'This complaint is complete. You can no longer reply.';
+            $this->loadThread();
+
+            return;
+        }
+
+        $this->validate([
+            'message' => 'required|string|min:5|max:2000',
+        ], [
+            'message.required' => 'Write a reply message.',
+            'message.min' => 'Please provide at least 5 characters.',
+        ]);
+
+        OrderComplaint::create([
+            'order_id' => $root->order_id,
+            'parent_id' => $root->id,
+            'is_reply' => false,
+            'status' => OrderComplaint::STATUS_OPEN,
+            'category' => $root->category,
+            'message' => $this->message,
+            'created_by' => Auth::id(),
+            'updated_by' => Auth::id(),
+        ]);
+
+        $this->message = '';
+        $this->successMessage = 'Reply posted.';
         $this->loadThread();
         $this->dispatch('corporate-orders-changed');
     }
@@ -126,12 +175,14 @@ class ComplaintSupportModal extends Component
 
         if (! $root) {
             $this->hasExistingComplaint = false;
+            $this->complaintResolved = false;
             $this->thread = [];
 
             return;
         }
 
         $this->hasExistingComplaint = true;
+        $this->complaintResolved = $root->isResolved();
         $this->thread = $root->threadMessages()
             ->map(fn (OrderComplaint $entry) => [
                 'id' => $entry->id,
@@ -178,10 +229,12 @@ class ComplaintSupportModal extends Component
         $this->resetErrorBag();
         $this->thread = [];
         $this->hasExistingComplaint = false;
+        $this->complaintResolved = false;
         $this->category = 'delivery';
         $this->message = '';
         $this->attachment = null;
         $this->successMessage = '';
+        $this->errorMessage = null;
     }
 
     public function render()

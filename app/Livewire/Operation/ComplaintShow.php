@@ -37,6 +37,12 @@ class ComplaintShow extends Component
         $this->statusMessage = null;
         $this->errorMessage = null;
 
+        if ($this->complaint->isResolved()) {
+            $this->errorMessage = 'This complaint is marked complete. Replies are closed.';
+
+            return;
+        }
+
         $this->validate([
             'replyMessage' => 'required|string|min:5|max:2000',
         ]);
@@ -45,6 +51,7 @@ class ComplaintShow extends Component
             'order_id' => $this->complaint->order_id,
             'parent_id' => $this->complaint->id,
             'is_reply' => true,
+            'status' => OrderComplaint::STATUS_OPEN,
             'category' => $this->complaint->category,
             'message' => $this->replyMessage,
             'created_by' => Auth::id(),
@@ -54,6 +61,22 @@ class ComplaintShow extends Component
         $this->replyMessage = '';
         $this->statusMessage = 'Reply posted.';
         $this->complaint->refresh();
+    }
+
+    public function markComplete(): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        if ($this->complaint->isResolved()) {
+            $this->statusMessage = 'Already marked complete.';
+
+            return;
+        }
+
+        $this->complaint->markResolved(Auth::id());
+        $this->complaint->refresh();
+        $this->statusMessage = 'Complaint marked complete.';
     }
 
     protected function rolePrefix(): string

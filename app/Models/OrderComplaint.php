@@ -8,10 +8,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OrderComplaint extends Model
 {
+    public const STATUS_OPEN = 'open';
+
+    public const STATUS_RESOLVED = 'resolved';
+
     protected $fillable = [
         'order_id',
         'parent_id',
         'is_reply',
+        'status',
         'category',
         'message',
         'attachment',
@@ -46,6 +51,24 @@ class OrderComplaint extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function isOpen(): bool
+    {
+        return ($this->status ?? self::STATUS_OPEN) === self::STATUS_OPEN;
+    }
+
+    public function isResolved(): bool
+    {
+        return ($this->status ?? self::STATUS_OPEN) === self::STATUS_RESOLVED;
+    }
+
+    public function markResolved(?int $actorId = null): void
+    {
+        $this->update([
+            'status' => self::STATUS_RESOLVED,
+            'updated_by' => $actorId,
+        ]);
     }
 
     public static function threadForOrder(int $orderId): ?self

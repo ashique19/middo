@@ -26,6 +26,7 @@
                         <th class="p-4">Corporate</th>
                         <th class="p-4">Kitchen</th>
                         <th class="p-4">Category</th>
+                        <th class="p-4">Status</th>
                         <th class="p-4">Message</th>
                         <th class="p-4">When</th>
                         <th class="p-4 text-right">Open</th>
@@ -44,6 +45,15 @@
                             <td class="p-4">{{ $complaint->order?->user?->name ?? '—' }}</td>
                             <td class="p-4">{{ $complaint->order?->orderGroup?->kitchen?->name ?? '—' }}</td>
                             <td class="p-4">{{ \App\Support\KitchenComplaints::categoryLabel($complaint->category) }}</td>
+                            <td class="p-4">
+                                <span @class([
+                                    'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border',
+                                    'bg-amber-50 text-amber-800 border-amber-200' => $complaint->isOpen(),
+                                    'bg-emerald-50 text-emerald-800 border-emerald-200' => $complaint->isResolved(),
+                                ])>
+                                    {{ $complaint->isResolved() ? 'Complete' : 'Open' }}
+                                </span>
+                            </td>
                             <td class="p-4 text-gray-600 max-w-xs truncate">{{ $complaint->message }}</td>
                             <td class="p-4 text-xs text-gray-500 whitespace-nowrap">
                                 {{ $complaint->created_at?->timezone('Asia/Dhaka')->format('M j, g:i A') }}
@@ -55,7 +65,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="p-10 text-center text-sm text-gray-400 italic">
+                            <td colspan="8" class="p-10 text-center text-sm text-gray-400 italic">
                                 No open complaint threads.
                             </td>
                         </tr>

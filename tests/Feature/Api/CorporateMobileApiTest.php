@@ -8,6 +8,7 @@ use App\Models\City;
 use App\Models\DeviceToken;
 use App\Models\MenuItem;
 use App\Models\Order;
+use App\Models\OrderComplaint;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\OrderConfirmationOtp;
@@ -611,8 +612,16 @@ class CorporateMobileApiTest extends TestCase
         ])->assertCreated();
 
         $this->postJson("/api/corporate/orders/{$order->id}/support", [
-            'category' => 'delivery',
-            'message' => 'Another complaint should be rejected by the API.',
+            'message' => 'Following up — still waiting on a response.',
+        ])->assertCreated();
+
+        $this->assertSame(2, OrderComplaint::query()->where('order_id', $order->id)->count());
+
+        $root = OrderComplaint::threadForOrder($order->id);
+        $root->markResolved($user->id);
+
+        $this->postJson("/api/corporate/orders/{$order->id}/support", [
+            'message' => 'Should fail after complete.',
         ])->assertStatus(422);
     }
 

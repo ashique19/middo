@@ -20,15 +20,17 @@
             </div>
 
             @if(!empty($order['has_complaint']))
-                <div
-                    class="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm"
-                    title="A complaint or support request was raised on this order"
+                <button
+                    type="button"
+                    @click="$dispatch('open-complaint-support-modal', { orderId: {{ (int) $order['id'] }} })"
+                    class="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm transition"
+                    title="View complaint conversation"
                 >
                     <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
                     </svg>
                     <span>Complaint</span>
-                </div>
+                </button>
             @endif
     </div>
 
