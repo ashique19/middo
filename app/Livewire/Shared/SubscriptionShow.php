@@ -85,44 +85,55 @@ class SubscriptionShow extends Component
     protected function resetScheduleAssignments(?PackageSubscription $model = null): void
     {
         $model ??= $this->subscription();
-        $this->scheduleAssignments = [];
 
         $cancelledOpen = $model->orders
             ->where('order_status', 'cancelled')
             ->filter(fn ($order) => OrderCutoff::deliveryDateStillOpen($order));
 
-        if (! $model->canReceiveScheduleAssignments() && $cancelledOpen->isEmpty()) {
-            return;
-        }
+        $next = [];
 
-        $month = (string) ($model->target_month ?: $model->start_date->format('Y-m'));
-        $dates = PackageBilling::availableDatesInMonth($month, $model->omitted_weekdays ?? []);
-        $confirmedDates = $model->orders
-            ->where('order_status', '!=', 'cancelled')
-            ->map(fn ($order) => $order->delivery_date->toDateString())
-            ->all();
+        if ($model->canReceiveScheduleAssignments() || $cancelledOpen->isNotEmpty()) {
+            $month = (string) ($model->target_month ?: $model->start_date->format('Y-m'));
+            $dates = PackageBilling::availableDatesInMonth($month, $model->omitted_weekdays ?? []);
+            $confirmedDates = $model->orders
+                ->where('order_status', '!=', 'cancelled')
+                ->map(fn ($order) => $order->delivery_date->toDateString())
+                ->all();
 
-        $openDates = [];
-        $cancelledDates = [];
+            $openDates = [];
+            $cancelledDates = [];
 
-        foreach ($dates as $date) {
-            if (in_array($date, $confirmedDates, true)) {
-                continue;
+            foreach ($dates as $date) {
+                if (in_array($date, $confirmedDates, true)) {
+                    continue;
+                }
+
+                $cancelledForDate = $cancelledOpen->first(
+                    fn ($order) => $order->delivery_date->toDateString() === $date
+                );
+
+                if ($cancelledForDate) {
+                    // Keep prior menu id for display; row stays cancelled until Re-activate.
+                    $cancelledDates[$date] = (int) $cancelledForDate->menu_item_id;
+                } elseif ($model->canReceiveScheduleAssignments()) {
+                    $openDates[$date] = null;
+                }
             }
 
-            $cancelledForDate = $cancelledOpen->first(
-                fn ($order) => $order->delivery_date->toDateString() === $date
-            );
+            // Open unconfirmed days first; cancelled days (re-activate) at the end.
+            $next = $openDates + $cancelledDates;
+        }
 
-            if ($cancelledForDate) {
-                $cancelledDates[$date] = null;
-            } elseif ($model->canReceiveScheduleAssignments()) {
-                $openDates[$date] = null;
+        // Drop stale Livewire keys so reactivated dates leave the pending list.
+        foreach (array_keys($this->scheduleAssignments) as $existingDate) {
+            if (! array_key_exists($existingDate, $next)) {
+                unset($this->scheduleAssignments[$existingDate]);
             }
         }
 
-        // Open unconfirmed days first; cancelled days (re-activate) at the end.
-        $this->scheduleAssignments = $openDates + $cancelledDates;
+        foreach ($next as $date => $menuId) {
+            $this->scheduleAssignments[$date] = $menuId;
+        }
     }
 
     /**
@@ -383,10 +394,11 @@ class SubscriptionShow extends Component
             $actor = Auth::user();
             $actor?->loadMissing('role');
             $result = app(PackageSubscriptionService::class)->reactivateDay($actor, $order);
-            $this->statusMessage = 'Re-activated order #'.$this->reactivateOrderId.' and debited ৳'.number_format($result['debited_amount']).' from the corporate wallet.';
+            $menuName = $result['order']->menuItem?->name ?? 'menu';
+            $this->statusMessage = 'Re-activated order #'.$this->reactivateOrderId.' ('.$menuName.') — moved back to delivery days. Debited Tk '.number_format($result['debited_amount']).'.';
             $this->errorMessage = null;
             $this->closeReactivateModal();
-            $this->resetScheduleAssignments();
+            $this->resetScheduleAssignments($this->subscription());
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage();
             $this->statusMessage = null;

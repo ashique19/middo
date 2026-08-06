@@ -138,7 +138,12 @@
                                 <td class="p-3 text-gray-500">{{ \Carbon\Carbon::parse($date)->format('D') }}</td>
                                 <td class="p-3">
                                     @if($cancelledOrder)
-                                        <span class="text-gray-400 font-medium">Untagged · cancelled</span>
+                                        <div class="space-y-1">
+                                            <p class="text-gray-400 font-medium text-xs uppercase tracking-wide">Cancelled · untagged</p>
+                                            <p class="text-sm font-semibold text-gray-700">
+                                                Will restore: {{ $cancelledOrder->menuItem?->name ?? 'previous menu' }}
+                                            </p>
+                                        </div>
                                     @else
                                         <select
                                             wire:model="scheduleAssignments.{{ $date }}"
@@ -396,7 +401,7 @@
                     <button type="button" wire:click="closeReactivateModal" class="text-gray-400 hover:text-gray-600 text-sm font-bold">Close</button>
                 </div>
                 <p class="text-sm text-gray-600">
-                    The menu will be tagged again and the day will return to confirmed delivery days.
+                    This restores the previous menu, moves the day back into Delivery days, and debits the corporate wallet.
                 </p>
                 <div class="flex justify-end gap-2">
                     <button type="button" wire:click="closeReactivateModal" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700">Back</button>

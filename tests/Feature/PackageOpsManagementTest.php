@@ -476,7 +476,8 @@ class PackageOpsManagementTest extends TestCase
         $this->actingAs($ops)
             ->get(route('operation.subscriptions.show', $result['subscription']->id))
             ->assertOk()
-            ->assertSee('Untagged · cancelled')
+            ->assertSee('Cancelled · untagged')
+            ->assertSee('Will restore:')
             ->assertSee('Confirm delivery days')
             ->assertSee('Re-activate')
             ->assertSee('Package audit log')
@@ -628,7 +629,8 @@ class PackageOpsManagementTest extends TestCase
             ->set('cancelReason', 'Ops cancel for reactivate test')
             ->call('confirmCancelAndRefund')
             ->assertSet('errorMessage', null)
-            ->assertSee('Untagged · cancelled');
+            ->assertSee('Cancelled · untagged')
+            ->assertSee('Will restore:');
 
         $this->assertSame('cancelled', $order->fresh()->order_status);
         $this->assertGreaterThan($balanceAfterSubscribe, (int) $user->fresh()->balance);
@@ -638,11 +640,14 @@ class PackageOpsManagementTest extends TestCase
             ->call('openReactivateModal', $order->id)
             ->call('confirmReactivate')
             ->assertSet('errorMessage', null)
-            ->assertSee('Re-activated order #'.$order->id);
+            ->assertSee('moved back to delivery days')
+            ->assertSee($menu->name)
+            ->assertDontSee('Cancelled · untagged');
 
         $this->assertSame('pending', $order->fresh()->order_status);
         $this->assertSame($balanceAfterSubscribe, (int) $user->fresh()->balance);
         $this->assertTrue(OrderGroupOrder::query()->where('order_id', $order->id)->exists());
+        $this->assertSame($menu->id, (int) $order->fresh()->menu_item_id);
         $this->assertDatabaseHas('package_subscription_events', [
             'package_subscription_id' => $result['subscription']->id,
             'type' => 'day_reactivated',
