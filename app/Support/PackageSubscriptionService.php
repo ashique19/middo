@@ -257,7 +257,17 @@ class PackageSubscriptionService
                 'is_mobile_verified' => true,
             ];
             if ($profileMatches) {
-                $profileUpdate['mobile'] = CorporateOrderPrepayment::normalizeMobile($receiverMobile);
+                // Persist local 01… only — never SMS-normalized 880… on users.mobile.
+                $localMobile = CorporateOrderPrepayment::toLocalMobile($receiverMobile);
+                if ($localMobile !== '' && $localMobile !== (string) $locked->mobile) {
+                    $taken = User::query()
+                        ->where('mobile', $localMobile)
+                        ->whereKeyNot($locked->id)
+                        ->exists();
+                    if (! $taken) {
+                        $profileUpdate['mobile'] = $localMobile;
+                    }
+                }
             }
             $locked->update($profileUpdate);
 

@@ -26,6 +26,29 @@ class CorporateOrderPrepayment
     }
 
     /**
+     * Canonical mobile for users.mobile / profile storage (local BD 01XXXXXXXXX).
+     * Never persist SMS E.164 (880…) on the users table — that breaks users_mobile_unique
+     * when another row already holds the same number in local form (or vice versa).
+     */
+    public static function toLocalMobile(?string $mobile): string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $mobile) ?? '';
+
+        if ($digits === '') {
+            return '';
+        }
+
+        if (str_starts_with($digits, '880') && strlen($digits) >= 13) {
+            $digits = '0'.substr($digits, 3);
+        } elseif (str_starts_with($digits, '88') && ! str_starts_with($digits, '880') && strlen($digits) >= 12) {
+            // 88 + 01XXXXXXXXX from formatMobile(01…)
+            $digits = substr($digits, 2);
+        }
+
+        return preg_match('/^01[3-9]\d{8}$/', $digits) === 1 ? $digits : '';
+    }
+
+    /**
      * Detect whether the Middo account holder and the meal receiver are the same person.
      * Compares normalized profile name + mobile to checkout receiver name + mobile.
      * If either differs, full prepayment is required (see evaluate()).
