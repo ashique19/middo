@@ -59,8 +59,8 @@ class OrderPaymentMethod
     }
 
     /**
-     * COD is offered when prepayment is not required — i.e. projected active
-     * orders stay below MiddoSettings::fullPrepayFromActiveOrders() and the
+     * COD is offered when prepayment is not required — i.e. projected meal
+     * quantity stays below MiddoSettings::fullPrepayFromActiveOrders() and the
      * receiver matches the buyer profile.
      *
      * @param  int  $activeDateCount  Kept for call-site compatibility; COD gating

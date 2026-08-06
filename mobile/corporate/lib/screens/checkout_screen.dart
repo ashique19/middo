@@ -643,7 +643,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         child: const Text(
           'Different receiver name/mobile than your profile requires full prepayment. '
-          'Reaching 3+ active orders also requires full prepayment (admin-configurable).',
+          'Reaching 3+ meals (same day or across days) also requires full prepayment (admin-configurable).',
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,

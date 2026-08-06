@@ -160,12 +160,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Full prepayment from active order count
+    | Full prepayment from meal quantity
     |--------------------------------------------------------------------------
     |
-    | When projected active orders (existing + cart dates) reach this count,
-    | require 100% prepayment via Middo Balance or online payment (no COD).
-    | Admin Settings can override. Default 3 → COD only for 1–2 orders.
+    | When projected meal quantity (sum of quantities on active orders + cart,
+    | same day or across days) reaches this count, require 100% prepayment via
+    | Middo Balance or online payment (no COD). Admin Settings can override.
+    | Default 3 → COD only while total meals stay at 1–2.
     |
     */
 

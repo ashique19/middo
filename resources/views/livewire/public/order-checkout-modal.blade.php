@@ -302,7 +302,7 @@
                                         <input type="radio" name="checkout_payment_method" wire:model.live="paymentMethod" value="cash_on_delivery" class="shrink-0 w-4 h-4 text-emerald-800 focus:ring-emerald-700 border-gray-300" {{ $isConfirmingOtp ? 'disabled' : '' }}>
                                         <span class="min-w-0">
                                             <span class="block text-sm font-black leading-tight">Cash on Delivery</span>
-                                            <span class="block text-[10px] font-medium text-gray-500 mt-0.5 leading-snug">Pay the rider on delivery. Available for up to {{ $this->codMaxActiveOrders }} active orders.</span>
+                                            <span class="block text-[10px] font-medium text-gray-500 mt-0.5 leading-snug">Pay the rider on delivery. Available for up to {{ $this->codMaxActiveOrders }} meals.</span>
                                         </span>
                                     </label>
                                 @endif
@@ -343,7 +343,7 @@
                                 </p>
                             @endif
                             @if(! $this->codAllowed)
-                                <p class="text-[10px] text-amber-800 mt-1">Cash on Delivery is limited to {{ $this->codMaxActiveOrders }} active orders. Full prepayment required from {{ $this->fullPrepayFromActiveOrders }}+. Choose Middo Balance or online payment.</p>
+                                <p class="text-[10px] text-amber-800 mt-1">Cash on Delivery is limited to {{ $this->codMaxActiveOrders }} meals. Full prepayment required from {{ $this->fullPrepayFromActiveOrders }}+ meals. Choose Middo Balance or online payment.</p>
                             @endif
                             @error('paymentMethod') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
                         </div>
