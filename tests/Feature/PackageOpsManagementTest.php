@@ -197,7 +197,7 @@ class PackageOpsManagementTest extends TestCase
         $this->assertTrue(OrderGroupOrder::query()->where('order_id', $order->id)->exists());
 
         $refund = (int) $order->amount_paid;
-        app(PackageSubscriptionService::class)->skipDayAsStaff($ops, $order);
+        app(PackageSubscriptionService::class)->skipDayAsStaff($ops, $order, 'Ops cancelled — customer request');
 
         $order->refresh();
         $user->refresh();
@@ -447,11 +447,23 @@ class PackageOpsManagementTest extends TestCase
         $order = $scheduled['orders']->first();
         $refund = (int) $order->amount_paid;
 
-        $skip = app(PackageSubscriptionService::class)->skipDayAsStaff($ops, $order);
+        $skip = app(PackageSubscriptionService::class)->skipDayAsStaff($ops, $order, 'Holiday / office closed');
         $this->assertSame($refund, $skip['refunded_amount']);
         $this->assertSame('cancelled', $order->fresh()->order_status);
         $this->assertSame(50000 - $quote['total_amount'] + $refund, (int) $user->fresh()->balance);
         $this->assertSame(0, $result['subscription']->fresh()->remainingBillableDays());
+        $this->assertDatabaseHas('package_subscription_events', [
+            'package_subscription_id' => $result['subscription']->id,
+            'type' => 'day_cancelled',
+        ]);
+        $cancelEvent = \App\Models\PackageSubscriptionEvent::query()
+            ->where('package_subscription_id', $result['subscription']->id)
+            ->where('type', 'day_cancelled')
+            ->latest('id')
+            ->first();
+        $this->assertNotNull($cancelEvent);
+        $this->assertStringContainsString('Holiday / office closed', (string) $cancelEvent->summary);
+        $this->assertSame('Holiday / office closed', $cancelEvent->meta['reason'] ?? null);
 
         $reactivate = app(PackageSubscriptionService::class)->reactivateDay($ops, $order->fresh());
         $this->assertSame($refund, $reactivate['debited_amount']);

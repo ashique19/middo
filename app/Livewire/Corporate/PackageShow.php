@@ -25,6 +25,12 @@ class PackageShow extends Component
 
     public string $successMessage = '';
 
+    public bool $showCancelModal = false;
+
+    public ?int $cancelOrderId = null;
+
+    public string $cancelReason = '';
+
     public function mount(int $subscriptionId): void
     {
         $this->subscriptionId = $subscriptionId;
@@ -88,7 +94,7 @@ class PackageShow extends Component
             ->all();
     }
 
-    public function skipDay(int $orderId): void
+    public function openCancelModal(int $orderId): void
     {
         $this->errorMessage = '';
         $this->successMessage = '';
@@ -105,10 +111,53 @@ class PackageShow extends Component
             return;
         }
 
+        $this->cancelOrderId = $order->id;
+        $this->cancelReason = '';
+        $this->showCancelModal = true;
+    }
+
+    public function closeCancelModal(): void
+    {
+        $this->showCancelModal = false;
+        $this->cancelOrderId = null;
+        $this->cancelReason = '';
+    }
+
+    public function confirmCancelAndRefund(): void
+    {
+        $this->errorMessage = '';
+        $this->successMessage = '';
+
+        if (! $this->cancelOrderId) {
+            $this->errorMessage = 'Day not found.';
+
+            return;
+        }
+
+        $reason = trim($this->cancelReason);
+        if ($reason === '') {
+            $this->errorMessage = 'Enter a cancellation reason.';
+
+            return;
+        }
+
+        $order = Order::query()
+            ->where('id', $this->cancelOrderId)
+            ->where('user_id', Auth::id())
+            ->where('package_subscription_id', $this->subscriptionId)
+            ->first();
+
+        if (! $order) {
+            $this->errorMessage = 'Day not found.';
+
+            return;
+        }
+
         try {
-            $result = app(PackageSubscriptionService::class)->skipDay(Auth::user(), $order);
+            $result = app(PackageSubscriptionService::class)->skipDay(Auth::user(), $order, $reason);
             $refund = (int) $result['refunded_amount'];
-            $this->successMessage = 'Day skipped. ৳'.number_format($refund).' credited to your Middo Balance.';
+            $this->successMessage = 'Day cancelled. ৳'.number_format($refund).' credited to your Middo Balance.';
+            $this->closeCancelModal();
             $this->dispatch('corporate-orders-changed');
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage();

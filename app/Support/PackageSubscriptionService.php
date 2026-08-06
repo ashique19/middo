@@ -457,13 +457,13 @@ class PackageSubscriptionService
      *
      * @return array{order: Order, refunded_amount: int}
      */
-    public function skipDay(User $user, Order $order): array
+    public function skipDay(User $user, Order $order, string $reason = ''): array
     {
         if ((int) $order->user_id !== (int) $user->id) {
             throw new RuntimeException('Order not found.');
         }
 
-        return $this->skipDayInternal($user, $order, $user->id);
+        return $this->skipDayInternal($user, $order, $user->id, $reason);
     }
 
     /**
@@ -471,13 +471,13 @@ class PackageSubscriptionService
      *
      * @return array{order: Order, refunded_amount: int}
      */
-    public function skipDayAsStaff(User $actor, Order $order): array
+    public function skipDayAsStaff(User $actor, Order $order, string $reason = ''): array
     {
         $this->assertStaffActor($actor);
 
         $owner = User::query()->findOrFail($order->user_id);
 
-        return $this->skipDayInternal($owner, $order, $actor->id);
+        return $this->skipDayInternal($owner, $order, $actor->id, $reason);
     }
 
     /**
@@ -815,7 +815,7 @@ class PackageSubscriptionService
         return $subscription->fresh(['package', 'user']);
     }
 
-    protected function skipDayInternal(User $walletOwner, Order $order, int $actorId): array
+    protected function skipDayInternal(User $walletOwner, Order $order, int $actorId, string $reason = ''): array
     {
         if (! $order->package_subscription_id) {
             throw new RuntimeException('This order is not part of a meal package.');
@@ -829,7 +829,16 @@ class PackageSubscriptionService
             throw new RuntimeException(OrderCutoff::modificationDeniedMessage());
         }
 
-        return DB::transaction(function () use ($walletOwner, $order, $actorId) {
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw new RuntimeException('A cancellation reason is required.');
+        }
+
+        if (mb_strlen($reason) > 500) {
+            throw new RuntimeException('Cancellation reason must be 500 characters or fewer.');
+        }
+
+        return DB::transaction(function () use ($walletOwner, $order, $actorId, $reason) {
             /** @var Order $locked */
             $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
 
@@ -856,11 +865,12 @@ class PackageSubscriptionService
             $this->recordEvent(
                 $subscriptionId,
                 PackageSubscriptionEvent::TYPE_DAY_CANCELLED,
-                'Cancelled order #'.$locked->id.' and refunded ৳'.number_format($refund).'.',
+                'Cancelled order #'.$locked->id.' and refunded ৳'.number_format($refund).'. Reason: '.$reason,
                 [
                     'order_id' => $locked->id,
                     'delivery_date' => $locked->delivery_date?->toDateString(),
                     'refunded_amount' => $refund,
+                    'reason' => $reason,
                 ],
                 $actorId
             );

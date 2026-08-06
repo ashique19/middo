@@ -206,7 +206,7 @@
                                 @if($canManage && $order->order_status === 'pending')
                                     <button type="button" wire:click="openSwapModal({{ $order->id }})" class="text-xs font-bold text-sky-700 hover:underline">Swap</button>
                                     <button type="button" wire:click="unconfirmOrder({{ $order->id }})" wire:confirm="Undo confirmation for this day? It will return to the unconfirmed list (no refund)." class="text-xs font-bold text-amber-700 hover:underline">Undo</button>
-                                    <button type="button" wire:click="skipOrder({{ $order->id }})" wire:confirm="Cancel this day and refund ৳{{ number_format($this->orderRefundAmount($order)) }} to the corporate wallet?" class="text-xs font-bold text-red-600 hover:underline">Cancel and Refund</button>
+                                    <button type="button" wire:click="openCancelModal({{ $order->id }})" class="text-xs font-bold text-red-600 hover:underline">Cancel and Refund</button>
                                 @elseif($canManage && $order->order_status === 'cancelled' && \App\Support\OrderCutoff::deliveryDateStillOpen($order) && $subscription->status === 'active')
                                     <button type="button" wire:click="reactivateOrder({{ $order->id }})" wire:confirm="Re-activate this day? ৳{{ number_format($this->orderRefundAmount($order)) }} will be debited from the corporate wallet." class="text-xs font-bold text-emerald-700 hover:underline">Re-activate</button>
                                 @endif
@@ -279,6 +279,42 @@
                 <div class="flex justify-end gap-2">
                     <button type="button" wire:click="closeSwapModal" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700">Cancel</button>
                     <button type="button" wire:click="confirmSwap" class="px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold">Confirm swap</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($showCancelModal)
+        <div class="fixed inset-0 bg-gray-900/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl my-8 space-y-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800">Cancel and Refund</h2>
+                        <p class="text-sm text-gray-500 mt-1">
+                            @if($cancelOrder)
+                                Order #{{ $cancelOrder->id }} · {{ $cancelOrder->delivery_date->format('D, M d') }}
+                                · {{ $cancelOrder->menuItem?->name }}
+                                · refund ৳{{ number_format($this->orderRefundAmount($cancelOrder)) }}
+                            @else
+                                Cancel this delivery day and refund the corporate wallet.
+                            @endif
+                        </p>
+                    </div>
+                    <button type="button" wire:click="closeCancelModal" class="text-gray-400 hover:text-gray-600 text-sm font-bold">Close</button>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Reason</label>
+                    <textarea
+                        wire:model="cancelReason"
+                        rows="3"
+                        maxlength="500"
+                        placeholder="Why is this day being cancelled?"
+                        class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Required. Saved to the package audit log.</p>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" wire:click="closeCancelModal" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700">Back</button>
+                    <button type="button" wire:click="confirmCancelAndRefund" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold">Confirm cancel &amp; refund</button>
                 </div>
             </div>
         </div>

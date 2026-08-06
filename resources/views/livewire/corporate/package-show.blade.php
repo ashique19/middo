@@ -103,8 +103,7 @@
                                 <span class="text-[10px] font-black uppercase text-gray-400">Cancelled</span>
                             @elseif($day['can_skip'])
                                 <button type="button"
-                                        wire:click="skipDay({{ $day['id'] }})"
-                                        wire:confirm="Cancel this day and refund? ৳{{ number_format($day['refund_amount']) }} will be credited to your wallet."
+                                        wire:click="openCancelModal({{ $day['id'] }})"
                                         class="text-[11px] font-black uppercase tracking-wider text-middo-orange hover:underline">
                                     Cancel and Refund
                                 </button>
@@ -125,4 +124,39 @@
             </div>
         </div>
     </div>
+
+    @if($showCancelModal)
+        @php
+            $cancelDay = collect($days)->firstWhere('id', $cancelOrderId);
+        @endphp
+        <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl p-5 w-full max-w-md shadow-2xl space-y-4 border border-[#DDD3BE]">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-black">Cancel and Refund</h2>
+                        <p class="text-xs text-[#635347] mt-1 font-semibold">
+                            @if($cancelDay)
+                                {{ $cancelDay['menu_name'] }} · {{ \Carbon\Carbon::parse($cancelDay['date'])->format('D, M d') }}
+                                · ৳{{ number_format($cancelDay['refund_amount']) }} to Middo Balance
+                            @endif
+                        </p>
+                    </div>
+                    <button type="button" wire:click="closeCancelModal" class="text-xs font-bold text-[#635347]">Close</button>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-black uppercase tracking-wider text-[#635347] mb-1">Reason</label>
+                    <textarea
+                        wire:model="cancelReason"
+                        rows="3"
+                        maxlength="500"
+                        placeholder="Why are you cancelling this day?"
+                        class="w-full rounded-xl border border-[#DDD3BE] px-3 py-2 text-sm"></textarea>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" wire:click="closeCancelModal" class="px-4 py-2 rounded-xl border border-[#DDD3BE] text-xs font-black uppercase">Back</button>
+                    <button type="button" wire:click="confirmCancelAndRefund" class="px-4 py-2 rounded-xl bg-middo-orange text-white text-xs font-black uppercase">Confirm cancel &amp; refund</button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

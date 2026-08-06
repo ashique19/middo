@@ -1472,6 +1472,10 @@ class CorporateMobileController extends Controller
 
     public function skipPackageDay(Request $request, int $order): JsonResponse
     {
+        $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
         $model = Order::query()
             ->where('id', $order)
             ->where('user_id', $request->user()->id)
@@ -1479,7 +1483,11 @@ class CorporateMobileController extends Controller
             ->firstOrFail();
 
         try {
-            $result = app(PackageSubscriptionService::class)->skipDay($request->user(), $model);
+            $result = app(PackageSubscriptionService::class)->skipDay(
+                $request->user(),
+                $model,
+                (string) $request->input('reason')
+            );
             $refund = (int) $result['refunded_amount'];
             $updated = $result['order'];
         } catch (\Throwable $e) {
@@ -1489,7 +1497,7 @@ class CorporateMobileController extends Controller
         }
 
         return response()->json([
-            'message' => 'Day skipped. Amount credited to Middo Balance.',
+            'message' => 'Day cancelled. Amount credited to Middo Balance.',
             'refunded_amount' => $refund,
             'order' => CorporateApiPresenter::order($updated),
             'balance' => (float) $request->user()->fresh()->balance,

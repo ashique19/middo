@@ -32,6 +32,12 @@ class SubscriptionShow extends Component
 
     public ?int $swapMenuItemId = null;
 
+    public bool $showCancelModal = false;
+
+    public ?int $cancelOrderId = null;
+
+    public string $cancelReason = '';
+
     public ?string $statusMessage = null;
 
     public ?string $errorMessage = null;
@@ -183,15 +189,53 @@ class SubscriptionShow extends Component
         }
     }
 
-    public function skipOrder(int $orderId): void
+    public function openCancelModal(int $orderId): void
     {
         abort_unless($this->canManage, 403);
 
+        $order = Order::query()->findOrFail($orderId);
+        abort_unless((int) $order->package_subscription_id === $this->subscriptionId, 404);
+
+        $this->cancelOrderId = $orderId;
+        $this->cancelReason = '';
+        $this->showCancelModal = true;
+        $this->errorMessage = null;
+    }
+
+    public function closeCancelModal(): void
+    {
+        $this->showCancelModal = false;
+        $this->cancelOrderId = null;
+        $this->cancelReason = '';
+    }
+
+    public function confirmCancelAndRefund(): void
+    {
+        abort_unless($this->canManage, 403);
+
+        if (! $this->cancelOrderId) {
+            $this->errorMessage = 'Pick a delivery day to cancel.';
+
+            return;
+        }
+
+        $reason = trim($this->cancelReason);
+        if ($reason === '') {
+            $this->errorMessage = 'Enter a cancellation reason.';
+
+            return;
+        }
+
         try {
-            $order = Order::query()->findOrFail($orderId);
-            $result = app(PackageSubscriptionService::class)->skipDayAsStaff(Auth::user(), $order);
-            $this->statusMessage = 'Cancelled package day order #'.$orderId.' and refunded ৳'.number_format($result['refunded_amount']).' to the corporate wallet.';
+            $order = Order::query()->findOrFail($this->cancelOrderId);
+            $result = app(PackageSubscriptionService::class)->skipDayAsStaff(
+                Auth::user(),
+                $order,
+                $reason
+            );
+            $this->statusMessage = 'Cancelled package day order #'.$this->cancelOrderId.' and refunded ৳'.number_format($result['refunded_amount']).' to the corporate wallet.';
             $this->errorMessage = null;
+            $this->closeCancelModal();
             $this->resetScheduleAssignments();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage();
@@ -310,6 +354,9 @@ class SubscriptionShow extends Component
         $swapOrder = $this->swapOrderId
             ? $subscription->orders->firstWhere('id', $this->swapOrderId)
             : null;
+        $cancelOrder = $this->cancelOrderId
+            ? $subscription->orders->firstWhere('id', $this->cancelOrderId)
+            : null;
 
         return view('livewire.shared.subscriptions.show', [
             'subscription' => $subscription,
@@ -321,6 +368,7 @@ class SubscriptionShow extends Component
             'daySummary' => $daySummary,
             'auditEvents' => $subscription->events,
             'swapOrder' => $swapOrder,
+            'cancelOrder' => $cancelOrder,
         ])->layout('layouts.private.app', [
             'title' => 'Subscription #'.$subscription->id,
         ]);

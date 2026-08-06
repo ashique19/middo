@@ -480,7 +480,7 @@ class MealPackageTest extends TestCase
             ->orderBy('delivery_date')
             ->first();
         $refund = (int) $order->amount_paid;
-        app(PackageSubscriptionService::class)->skipDay($user, $order);
+        app(PackageSubscriptionService::class)->skipDay($user, $order, 'Corporate cancelled this day');
 
         $order->refresh();
         $user->refresh();
@@ -549,7 +549,9 @@ class MealPackageTest extends TestCase
         $this->assertLessThan((int) $order->amount_paid, $expectedRefund);
 
         Sanctum::actingAs($user);
-        $this->postJson('/api/corporate/orders/'.$order->id.'/skip-package-day')
+        $this->postJson('/api/corporate/orders/'.$order->id.'/skip-package-day', [
+            'reason' => 'API cancel for discount refund test',
+        ])
             ->assertOk()
             ->assertJsonPath('refunded_amount', $expectedRefund);
 
