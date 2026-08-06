@@ -111,7 +111,7 @@ class CheckoutModalLayoutTest extends TestCase
             ->call('loadOrderCheckout', $menu->id)
             ->assertSet('paymentMethod', 'cash_on_delivery')
             ->assertSee('Middo Balance')
-            ->assertSee('unavailable — no funds')
+            ->assertSee('Unavailable — add money to your Middo wallet first.')
             ->assertSeeHtml('value="balance"')
             ->assertSeeHtml('disabled');
     }

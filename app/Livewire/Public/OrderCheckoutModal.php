@@ -408,6 +408,11 @@ class OrderCheckoutModal extends Component
         return (int) (Auth::user()?->balance ?? 0);
     }
 
+    public function getWalletBalanceForDisplayProperty(): int
+    {
+        return $this->walletBalance();
+    }
+
     /**
      * Amount Middo Balance would debit if selected (full cart, or required prepay).
      */
