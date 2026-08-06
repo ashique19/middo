@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Support\CorporateOrderGatewayCheckout;
 use App\Support\CorporateWalletTopUp;
 use App\Support\MiddoBankLedger;
+use App\Support\OrderPaymentMethod;
 use App\Support\OrderTransition;
 use App\Support\PackageGatewayCheckout;
 use App\Support\Payments\EpsPaymentGateway;
@@ -200,6 +201,7 @@ class EpsPaymentCallbackController extends Controller
                 $attributes = [
                     'amount_paid' => $locked->netTotalAmount(),
                     'payment_status' => 'paid',
+                    'payment_method' => OrderPaymentMethod::GATEWAY,
                 ];
 
                 if ($locked->isDelivered()) {

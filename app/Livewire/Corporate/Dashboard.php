@@ -181,13 +181,7 @@ class Dashboard extends Component
 
     protected function presentOrder(Order $order): array
     {
-        $row = $order->toArray();
-        $party = $order->partyPayload();
-        $row['payment_method'] = $party['payment_method'];
-        $row['payment_method_label'] = $party['payment_method_label'];
-        $row['has_complaint'] = (bool) ($order->has_complaint ?? false);
-
-        return $row;
+        return \App\Support\CorporateOrderPresentation::present($order);
     }
 
     #[On('corporate-orders-changed')]

@@ -118,9 +118,26 @@
                             </span>
                         </td>
                         <td class="p-4">
-                            <span class="inline-flex px-2 py-1 rounded-md text-[11px] font-bold tracking-wide bg-sky-50 text-sky-800 border border-sky-200/70">
-                                {{ $methodLabel }}
-                            </span>
+                            <div class="flex flex-col items-start gap-1.5">
+                                <span class="inline-flex px-2 py-1 rounded-md text-[11px] font-bold tracking-wide bg-sky-50 text-sky-800 border border-sky-200/70">
+                                    {{ $methodLabel }}
+                                </span>
+                                @if(!empty($order['can_pay_online']) && !empty($order['online_payment_url']))
+                                    @php
+                                        $payLabel = 'Make Payment';
+                                        if (! empty($order['amount_due'])) {
+                                            $payLabel .= ' · ৳'.number_format((int) $order['amount_due'], 0);
+                                        }
+                                    @endphp
+                                    <a
+                                        href="{{ $order['online_payment_url'] }}"
+                                        data-testid="make-payment-button"
+                                        class="inline-flex items-center gap-1 rounded-lg bg-middo-orange hover:bg-[#733614] text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 shadow-sm transition"
+                                    >
+                                        {{ $payLabel }}
+                                    </a>
+                                @endif
+                            </div>
                         </td>
                         <td class="p-4 text-right font-mono font-bold text-gray-900">
                             ৳{{ number_format($order['total_amount'] ?? 0, 0) }}

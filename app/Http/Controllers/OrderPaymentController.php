@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Contracts\PaymentGateway;
 use App\Models\Order;
+use App\Support\OrderPaymentMethod;
 use App\Support\OrderTransition;
 use App\Support\Payments\EpsPaymentGateway;
 use Illuminate\Http\RedirectResponse;
@@ -87,6 +88,7 @@ class OrderPaymentController extends Controller
             $attributes = [
                 'amount_paid' => $locked->netTotalAmount(),
                 'payment_status' => 'paid',
+                'payment_method' => OrderPaymentMethod::GATEWAY,
                 // Online residual is not rider cash — leave cash_collected unchanged.
             ];
 
