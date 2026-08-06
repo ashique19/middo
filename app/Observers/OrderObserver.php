@@ -89,7 +89,15 @@ class OrderObserver
             return 'order_status_changed';
         }
 
-        if ($keys === ['payment_status']) {
+        // Corporate online residual pay (and rider cash settle) update payment_status
+        // together with amount_paid / payment_method / order_status. Prefer a payment
+        // tracking event so Track Order shows "Payment Updated", not a generic update.
+        if (
+            array_key_exists('payment_status', $diff)
+            || array_key_exists('amount_paid', $diff)
+            || array_key_exists('prepaid_amount', $diff)
+            || array_key_exists('cash_collected', $diff)
+        ) {
             return 'payment_status_changed';
         }
 

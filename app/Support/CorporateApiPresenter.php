@@ -282,7 +282,9 @@ class CorporateApiPresenter
                 'Payment changed from %s to %s.',
                 ucfirst(str_replace('_', ' ', $metadata['changes']['payment_status']['from'] ?? 'unknown')),
                 ucfirst(str_replace('_', ' ', $metadata['changes']['payment_status']['to'] ?? 'unknown')),
-            ),
+            ).(isset($metadata['changes']['amount_paid']['to'])
+                ? sprintf(' Amount paid is now ৳%s.', number_format((int) $metadata['changes']['amount_paid']['to']))
+                : ''),
             'quantity_changed' => sprintf(
                 'Quantity changed from %d to %d.',
                 $metadata['changes']['quantity']['from'] ?? 0,
