@@ -375,6 +375,9 @@ class KitchenMiddoBoxesTest extends TestCase
 
         $this->kitchen->update(['area_id' => $kitchenArea->id]);
         $this->rider->update(['area_id' => $riderArea->id]);
+        if (\Illuminate\Support\Facades\Schema::hasTable('area_user')) {
+            $this->rider->areas()->sync([$riderArea->id]);
+        }
 
         $box = $this->makeBox([
             'asset_status' => 'at_middo_warehouse',
@@ -399,6 +402,15 @@ class KitchenMiddoBoxesTest extends TestCase
 
         $riderIds = collect($component->get('riders'))->pluck('id')->all();
         $this->assertContains($this->rider->id, $riderIds);
+
+        $riderRow = collect($component->get('riders'))->firstWhere('id', $this->rider->id);
+        $this->assertNotNull($riderRow);
+        $this->assertArrayHasKey('areas_label', $riderRow);
+        $this->assertStringContainsString('Mirpur', (string) $riderRow['areas_label']);
+
+        $kitchenRow = collect($component->get('kitchens'))->firstWhere('id', $this->kitchen->id);
+        $this->assertNotNull($kitchenRow);
+        $this->assertArrayHasKey('search', $kitchenRow);
 
         $component
             ->set('selectedRiderId', $this->rider->id)

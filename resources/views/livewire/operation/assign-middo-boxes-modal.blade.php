@@ -19,37 +19,186 @@
                 </div>
 
                 <form wire:submit="save" class="space-y-5">
-                    <div>
-                        <label for="kitchen-select" class="block text-sm font-semibold text-gray-700 mb-2">
+                    <div
+                        x-data="{
+                            open: false,
+                            search: '',
+                            items: @js($kitchens),
+                            selectedId: @entangle('selectedKitchenId').live,
+                            get selected() {
+                                return this.items.find(i => String(i.id) === String(this.selectedId)) || null;
+                            },
+                            get filtered() {
+                                const q = this.search.trim().toLowerCase();
+                                if (!q) return this.items;
+                                return this.items.filter(i => (i.search || i.name.toLowerCase()).includes(q));
+                            },
+                            pick(item) {
+                                this.selectedId = item.id;
+                                this.search = '';
+                                this.open = false;
+                            },
+                            clear() {
+                                this.selectedId = null;
+                                this.search = '';
+                                this.open = true;
+                            }
+                        }"
+                        @keydown.escape.window="open = false"
+                        class="relative"
+                    >
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
                             Destination kitchen
                         </label>
-                        <select
-                            id="kitchen-select"
-                            wire:model.live="selectedKitchenId"
-                            class="w-full border border-gray-300 rounded-xl shadow-sm focus:border-middo-orange focus:ring-middo-orange p-3 text-sm">
-                            <option value="">Select a kitchen</option>
-                            @foreach($kitchens as $kitchen)
-                                <option value="{{ $kitchen['id'] }}">{{ $kitchen['name'] }}</option>
-                            @endforeach
-                        </select>
+                        <div class="relative">
+                            <button
+                                type="button"
+                                @click="open = !open; if (open) $nextTick(() => $refs.kitchenSearch.focus())"
+                                class="w-full border border-gray-300 rounded-xl shadow-sm p-3 text-sm text-left hover:border-middo-orange focus:outline-none focus:ring-2 focus:ring-middo-orange/30 focus:border-middo-orange"
+                            >
+                                <template x-if="selected">
+                                    <div>
+                                        <div class="font-semibold text-gray-800" x-text="selected.name"></div>
+                                        <div class="text-xs text-gray-400 mt-0.5" x-show="selected.subtitle" x-text="selected.subtitle"></div>
+                                    </div>
+                                </template>
+                                <template x-if="!selected">
+                                    <span class="text-gray-400">Search kitchen…</span>
+                                </template>
+                            </button>
+                            <button
+                                type="button"
+                                x-show="selected"
+                                @click.stop="clear()"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+                            >Clear</button>
+                        </div>
+
+                        <div
+                            x-show="open"
+                            x-cloak
+                            @click.outside="open = false"
+                            class="absolute z-20 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden"
+                        >
+                            <div class="p-2 border-b border-gray-100">
+                                <input
+                                    x-ref="kitchenSearch"
+                                    type="search"
+                                    x-model="search"
+                                    placeholder="Type to search…"
+                                    class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange"
+                                >
+                            </div>
+                            <ul class="max-h-52 overflow-y-auto">
+                                <template x-for="item in filtered" :key="item.id">
+                                    <li>
+                                        <button
+                                            type="button"
+                                            @click="pick(item)"
+                                            class="w-full text-left px-3 py-2.5 hover:bg-orange-50 transition"
+                                            :class="String(selectedId) === String(item.id) ? 'bg-orange-50' : ''"
+                                        >
+                                            <div class="text-sm font-semibold text-gray-800" x-text="item.name"></div>
+                                            <div class="text-[11px] text-gray-400 mt-0.5" x-show="item.subtitle" x-text="item.subtitle"></div>
+                                        </button>
+                                    </li>
+                                </template>
+                                <li x-show="filtered.length === 0" class="px-3 py-3 text-sm text-gray-400">No kitchens match.</li>
+                            </ul>
+                        </div>
                         @error('selectedKitchenId')
                             <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
                         @enderror
                     </div>
 
-                    <div>
-                        <label for="rider-select" class="block text-sm font-semibold text-gray-700 mb-2">
+                    <div
+                        wire:key="send-boxes-rider-picker-{{ $selectedKitchenId ?: 'none' }}-{{ count($riders) }}"
+                        x-data="{
+                            open: false,
+                            search: '',
+                            items: @js($riders),
+                            selectedId: @entangle('selectedRiderId'),
+                            get selected() {
+                                return this.items.find(i => String(i.id) === String(this.selectedId)) || null;
+                            },
+                            get filtered() {
+                                const q = this.search.trim().toLowerCase();
+                                if (!q) return this.items;
+                                return this.items.filter(i => (i.search || i.name.toLowerCase()).includes(q));
+                            },
+                            pick(item) {
+                                this.selectedId = item.id;
+                                this.search = '';
+                                this.open = false;
+                            },
+                            clear() {
+                                this.selectedId = null;
+                                this.search = '';
+                                this.open = true;
+                            }
+                        }"
+                        @keydown.escape.window="open = false"
+                        class="relative"
+                    >
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
                             Rider
                         </label>
-                        <select
-                            id="rider-select"
-                            wire:model="selectedRiderId"
-                            class="w-full border border-gray-300 rounded-xl shadow-sm focus:border-middo-orange focus:ring-middo-orange p-3 text-sm">
-                            <option value="">Select a rider</option>
-                            @foreach($riders as $rider)
-                                <option value="{{ $rider['id'] }}">{{ $rider['name'] }}</option>
-                            @endforeach
-                        </select>
+                        <div class="relative">
+                            <button
+                                type="button"
+                                @click="open = !open; if (open) $nextTick(() => $refs.riderSearch.focus())"
+                                class="w-full border border-gray-300 rounded-xl shadow-sm p-3 text-sm text-left hover:border-middo-orange focus:outline-none focus:ring-2 focus:ring-middo-orange/30 focus:border-middo-orange"
+                            >
+                                <template x-if="selected">
+                                    <div>
+                                        <div class="font-semibold text-gray-800" x-text="selected.name"></div>
+                                        <div class="text-[11px] text-gray-400 mt-0.5 leading-snug" x-text="selected.areas_label"></div>
+                                    </div>
+                                </template>
+                                <template x-if="!selected">
+                                    <span class="text-gray-400">Search rider…</span>
+                                </template>
+                            </button>
+                            <button
+                                type="button"
+                                x-show="selected"
+                                @click.stop="clear()"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold"
+                            >Clear</button>
+                        </div>
+
+                        <div
+                            x-show="open"
+                            x-cloak
+                            @click.outside="open = false"
+                            class="absolute z-20 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden"
+                        >
+                            <div class="p-2 border-b border-gray-100">
+                                <input
+                                    x-ref="riderSearch"
+                                    type="search"
+                                    x-model="search"
+                                    placeholder="Type name or area…"
+                                    class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange"
+                                >
+                            </div>
+                            <ul class="max-h-56 overflow-y-auto">
+                                <template x-for="item in filtered" :key="item.id">
+                                    <li>
+                                        <button
+                                            type="button"
+                                            @click="pick(item)"
+                                            class="w-full text-left px-3 py-2.5 hover:bg-orange-50 transition"
+                                            :class="String(selectedId) === String(item.id) ? 'bg-orange-50' : ''"
+                                        >
+                                            <div class="text-sm font-semibold text-gray-800" x-text="item.name"></div>
+                                            <div class="text-[11px] text-gray-400 mt-0.5 leading-snug" x-text="item.areas_label"></div>
+                                        </button>
+                                    </li>
+                                </template>
+                                <li x-show="filtered.length === 0" class="px-3 py-3 text-sm text-gray-400">No riders match.</li>
+                            </ul>
+                        </div>
                         @error('selectedRiderId')
                             <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
                         @enderror

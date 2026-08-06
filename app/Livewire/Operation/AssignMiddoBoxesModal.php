@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operation;
 
+use App\Models\Area;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Models\User;
@@ -164,7 +165,7 @@ class AssignMiddoBoxesModal extends Component
         }
 
         return User::query()
-            ->with(['role', 'areas'])
+            ->with(['role', 'areas', 'area'])
             ->whereHas('role', fn ($query) => $query->where('name', 'delivery'))
             ->where('status', 'active')
             ->orderBy('first_name')
@@ -178,25 +179,72 @@ class AssignMiddoBoxesModal extends Component
                 return $user->servesArea($kitchenAreaId) ? 0 : 1;
             })
             ->values()
-            ->map(fn (User $user) => [
-                'id' => $user->id,
-                'name' => $user->name,
-            ])
+            ->map(function (User $user) {
+                $areaNames = $this->coverageAreaNames($user);
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'areas_label' => $areaNames === [] ? 'No coverage areas' : implode(', ', $areaNames),
+                    'search' => strtolower(trim($user->name.' '.implode(' ', $areaNames))),
+                ];
+            })
             ->all();
     }
 
     protected function fetchKitchens(): array
     {
         return User::query()
+            ->with(['area', 'city'])
             ->whereHas('role', fn ($query) => $query->where('name', 'kitchen'))
             ->where('status', 'active')
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get()
-            ->map(fn (User $user) => [
-                'id' => $user->id,
-                'name' => $user->name,
-            ])
+            ->map(function (User $user) {
+                $area = trim((string) ($user->area?->name ?? ''));
+                $city = trim((string) ($user->city?->name ?? ''));
+                $location = collect([$area, $city])->filter()->implode(', ');
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'subtitle' => $location !== '' ? $location : null,
+                    'search' => strtolower(trim($user->name.' '.$location)),
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function coverageAreaNames(User $user): array
+    {
+        $ids = $user->serviceAreaIds();
+        if ($ids === []) {
+            return [];
+        }
+
+        if ($user->relationLoaded('areas') && $user->areas->isNotEmpty()) {
+            $names = $user->areas
+                ->whereIn('id', $ids)
+                ->sortBy('name')
+                ->pluck('name')
+                ->map(fn ($name) => (string) $name)
+                ->values()
+                ->all();
+
+            if ($names !== []) {
+                return $names;
+            }
+        }
+
+        return \App\Models\Area::query()
+            ->whereIn('id', $ids)
+            ->orderBy('name')
+            ->pluck('name')
+            ->map(fn ($name) => (string) $name)
             ->all();
     }
 
