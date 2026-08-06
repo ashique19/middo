@@ -27,6 +27,7 @@ use App\Livewire\Shared\MealItemShow;
 use App\Livewire\Shared\MenuShow;
 use App\Livewire\Shared\MiddoCashLedgerPage;
 use App\Livewire\Shared\OperatingCostsPage;
+use App\Livewire\Shared\OrderGroupShow;
 use App\Livewire\Shared\OrderShow;
 use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
@@ -74,6 +75,7 @@ Route::middleware(['auth', 'role:operation'])->group(function () {
     Route::get('/orders/history', OrderHistory::class)->name('operation.orders.history');
     Route::get('/orders/search', SearchOrder::class)->name('operation.orders.search');
     Route::get('/orders/{order}', OrderShow::class)->name('operation.orders.show');
+    Route::get('/order-groups/{orderGroup}', OrderGroupShow::class)->name('operation.order-groups.show');
 
     Route::get('/middo-boxes', MiddoBoxes::class)->name('operation.middo-boxes.index');
     Route::get('/middo-boxes/{middoBox}', MiddoBoxShow::class)->name('operation.middo-boxes.show');

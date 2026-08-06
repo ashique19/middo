@@ -396,6 +396,7 @@ class ActiveOrders extends Component
             'receiver_mobile' => $party['receiver_mobile'],
             'has_separate_receiver' => $party['has_separate_receiver'],
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
+            'order_group_id' => $order->orderGroup?->id,
             'group_name' => $order->orderGroup?->name,
         ], PackageOrderPresenter::fields($order));
     }
@@ -407,6 +408,7 @@ class ActiveOrders extends Component
             foreach ($section['groups'] as $group) {
                 foreach ($group['orders'] as $order) {
                     $rows[] = array_merge($order, [
+                        'order_group_id' => $group['id'],
                         'group_name' => $group['name'],
                         'delivery_date' => $section['date'],
                     ]);
@@ -414,6 +416,7 @@ class ActiveOrders extends Component
             }
             foreach ($section['ungrouped'] as $order) {
                 $rows[] = array_merge($order, [
+                    'order_group_id' => null,
                     'group_name' => 'Ungrouped',
                     'delivery_date' => $section['date'],
                 ]);

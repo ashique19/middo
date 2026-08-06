@@ -89,7 +89,9 @@
                 @if($group)
                     <div>
                         <dt class="text-[11px] font-bold uppercase text-gray-400">Order group</dt>
-                        <dd class="font-semibold text-gray-800">{{ $group->name }}</dd>
+                        <dd>
+                            <x-orders.group-link :group-id="$group->id" :name="$group->name" class="text-gray-800" />
+                        </dd>
                     </div>
                     <div>
                         <dt class="text-[11px] font-bold uppercase text-gray-400">Group menu</dt>
@@ -114,7 +116,11 @@
         @else
             <p class="text-sm text-gray-400 italic">No kitchen assigned yet.</p>
             @if($group)
-                <p class="text-xs text-gray-500">Group: {{ $group->name }} (unassigned kitchen)</p>
+                <p class="text-xs text-gray-500">
+                    Group:
+                    <x-orders.group-link :group-id="$group->id" :name="$group->name" class="text-xs text-gray-500" />
+                    (unassigned kitchen)
+                </p>
             @endif
         @endif
     </div>

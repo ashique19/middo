@@ -155,7 +155,10 @@ class KitchenAllOrders extends Component
         $groupNodes = $this->buildGroupNodes($groups);
         $flatOrders = collect($groupNodes)
             ->flatMap(fn (array $group) => collect($group['orders'])->map(
-                fn (array $order) => array_merge($order, ['group_name' => $group['name']])
+                fn (array $order) => array_merge($order, [
+                    'order_group_id' => $group['id'],
+                    'group_name' => $group['name'],
+                ])
             ))
             ->values()
             ->all();

@@ -47,6 +47,7 @@
                                 : ($order['receiver_name'] ?? 'N/A'));
                         $menuName = $order['menu_item']['name'] ?? ($order['menu_name'] ?? 'Custom Selection');
                         $groupName = $order['order_group']['name'] ?? ($order['group_name'] ?? '—');
+                        $groupId = $order['order_group']['id'] ?? ($order['order_group_id'] ?? null);
                     @endphp
                     <tr wire:key="operation-order-row-{{ $order['id'] }}" class="hover:bg-gray-50/70 transition">
                         <td class="p-4 font-mono font-semibold text-gray-800">
@@ -73,8 +74,12 @@
                             </div>
                         </td>
                         @if($showGroup)
-                            <td class="p-4 text-xs font-semibold text-middo-orange">
-                                {{ $groupName }}
+                            <td class="p-4 text-xs">
+                                @if($groupId && $groupName !== '—' && $groupName !== 'Ungrouped')
+                                    <x-orders.group-link :group-id="$groupId" :name="$groupName" class="text-xs" />
+                                @else
+                                    <span class="font-semibold text-middo-orange">{{ $groupName }}</span>
+                                @endif
                             </td>
                         @endif
                         <td class="p-4 font-medium text-gray-700">

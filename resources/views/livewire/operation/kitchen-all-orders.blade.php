@@ -20,7 +20,9 @@
             wire:key="kitchen-all-group-{{ $group['id'] }}"
             class="rounded-xl border {{ $group['color'] }} overflow-hidden bg-white shadow-sm">
             <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-inherit bg-white/40">
-                <span class="text-sm font-black text-middo-dark">{{ $group['name'] }}</span>
+                <span class="text-sm font-black text-middo-dark">
+                    <x-orders.group-link :group-id="$group['id']" :name="$group['name']" class="text-sm font-black text-middo-dark" />
+                </span>
                 <span class="text-xs font-semibold text-gray-600">{{ $group['menu_name'] }}</span>
                 <span class="text-xs font-medium text-gray-500">{{ $group['date_label'] }}</span>
                 <span class="text-xs font-bold text-middo-orange">Qty {{ $group['total_quantity'] }}</span>

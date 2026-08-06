@@ -30,6 +30,7 @@ use App\Livewire\Shared\MenuShow;
 use App\Livewire\Shared\MiddoBankLedgerPage;
 use App\Livewire\Shared\MiddoCashLedgerPage;
 use App\Livewire\Shared\OperatingCostsPage;
+use App\Livewire\Shared\OrderGroupShow;
 use App\Livewire\Shared\OrderShow;
 use App\Livewire\Shared\PackageBuilder;
 use App\Livewire\Shared\PackageDemand;
@@ -74,6 +75,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/orders/history', OrderHistory::class)->name('admin.orders.history');
     Route::get('/orders/search', SearchOrder::class)->name('admin.orders.search');
     Route::get('/orders/{order}', OrderShow::class)->name('admin.orders.show');
+    Route::get('/order-groups/{orderGroup}', OrderGroupShow::class)->name('admin.order-groups.show');
 
     Route::get('/navs-roles', [NavRoleController::class, 'index'])->name('admin.navrole.index');
     Route::get('/settings', SettingsPage::class)->name('admin.settings.index');

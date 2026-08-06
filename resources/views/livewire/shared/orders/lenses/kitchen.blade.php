@@ -22,7 +22,13 @@
         <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
                 <dt class="text-[11px] font-bold uppercase text-gray-400">Group</dt>
-                <dd class="font-semibold text-gray-800 mt-0.5">{{ $lensContext['group_name'] ?? '—' }}</dd>
+                <dd class="mt-0.5">
+                    <x-orders.group-link
+                        :group-id="$lensContext['group_id'] ?? null"
+                        :name="$lensContext['group_name'] ?? '—'"
+                        class="text-gray-800"
+                    />
+                </dd>
             </div>
             <div>
                 <dt class="text-[11px] font-bold uppercase text-gray-400">Menu</dt>

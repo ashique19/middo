@@ -235,6 +235,7 @@ class OrderHistory extends Component
                 foreach ($section['groups'] as $group) {
                     foreach ($group['orders'] as $order) {
                         $rows[] = array_merge($order, [
+                            'order_group_id' => $group['id'],
                             'group_name' => $group['name'],
                             'delivery_date' => $section['date'],
                         ]);
@@ -242,6 +243,7 @@ class OrderHistory extends Component
                 }
                 foreach ($section['ungrouped'] as $order) {
                     $rows[] = array_merge($order, [
+                        'order_group_id' => null,
                         'group_name' => 'Ungrouped',
                         'delivery_date' => $section['date'],
                     ]);

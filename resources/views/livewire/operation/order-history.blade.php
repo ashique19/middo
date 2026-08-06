@@ -56,7 +56,9 @@
                             wire:key="history-group-{{ $section['date'] }}-{{ $group['id'] }}"
                             class="rounded-xl border {{ $group['color'] }} overflow-hidden">
                             <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-inherit bg-white/40">
-                                <span class="text-sm font-black text-middo-dark">{{ $group['name'] }}</span>
+                                <span class="text-sm font-black text-middo-dark">
+                                    <x-orders.group-link :group-id="$group['id']" :name="$group['name']" class="text-sm font-black text-middo-dark" />
+                                </span>
                                 <button
                                     type="button"
                                     @click="$dispatch('open-assign-kitchen-modal', { orderGroupId: {{ $group['id'] }} })"
