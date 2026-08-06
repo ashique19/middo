@@ -517,6 +517,7 @@ class PackageOpsManagementTest extends TestCase
             ->assertSee('Cancel and Refund')
             ->assertSee('Package audit log')
             ->assertSee(route('operation.corporates.show', $user), false)
+            ->assertSee('Wallet ৳')
             ->assertDontSee('Open active orders')
             ->assertDontSee('Cancel remaining')
             ->assertDontSee('Swap menu for a pending day')

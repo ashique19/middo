@@ -82,6 +82,11 @@
             @else
                 <p class="text-lg font-bold text-gray-800">{{ $subscription->receiver_name }}</p>
             @endif
+            @if($subscription->user)
+                <p class="text-sm font-semibold text-gray-800 mt-1">
+                    Wallet ৳{{ number_format((int) $subscription->user->balance) }}
+                </p>
+            @endif
             <p class="text-xs text-gray-500 mt-1">{{ $subscription->receiver_mobile }} · {{ $subscription->area?->name }}</p>
         </div>
     </div>
