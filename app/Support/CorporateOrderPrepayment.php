@@ -7,7 +7,10 @@ use App\Models\User;
 
 class CorporateOrderPrepayment
 {
-    /** Active order count above this requires 50% prepayment. */
+    /**
+     * Default "full prepay from N active orders" when settings/config are unavailable.
+     * Prefer MiddoSettings::fullPrepayFromActiveOrders().
+     */
     public const ACTIVE_ORDER_PREPAY_THRESHOLD = 3;
 
     public static function normalizeName(?string $name): string
@@ -48,7 +51,14 @@ class CorporateOrderPrepayment
     }
 
     /**
-     * @param  list<array{date?: string, quantity?: int}|int>  $datesOrCount
+     * Projected active orders at/above this count require 100% prepayment.
+     */
+    public static function fullPrepayFromActiveOrders(): int
+    {
+        return MiddoSettings::fullPrepayFromActiveOrders();
+    }
+
+    /**
      * @return array{
      *   required: bool,
      *   ratio: float,
@@ -60,6 +70,7 @@ class CorporateOrderPrepayment
      *   active_orders: int,
      *   new_orders: int,
      *   projected_active: int,
+     *   full_prepay_from: int,
      *   balance: int,
      *   balance_sufficient: bool
      * }
@@ -73,6 +84,7 @@ class CorporateOrderPrepayment
     ): array {
         $active = self::activeOrderCount($user->id);
         $projected = $active + max(0, $newOrderCount);
+        $fullPrepayFrom = self::fullPrepayFromActiveOrders();
         $reasons = [];
 
         $mismatch = ! self::profileMatchesReceiver($user, $receiverName, $mobile);
@@ -80,15 +92,14 @@ class CorporateOrderPrepayment
             $reasons[] = 'receiver_mismatch';
         }
 
-        if ($projected > self::ACTIVE_ORDER_PREPAY_THRESHOLD) {
+        if ($projected >= $fullPrepayFrom) {
             $reasons[] = 'active_order_limit';
         }
 
         $ratio = 0.0;
-        if (in_array('receiver_mismatch', $reasons, true)) {
+        if ($reasons !== []) {
+            // Receiver mismatch and active-order ceiling both require full prepayment.
             $ratio = 1.0;
-        } elseif (in_array('active_order_limit', $reasons, true)) {
-            $ratio = 0.5;
         }
 
         $amount = (int) round($cartTotal * $ratio);
@@ -96,14 +107,14 @@ class CorporateOrderPrepayment
         $reason = $reasons[0] ?? null;
 
         $message = null;
-        if ($ratio >= 1.0) {
+        if (in_array('receiver_mismatch', $reasons, true)) {
             $message = 'This meal is for a different worker than your Middo buyer profile (name or mobile). Full prepayment is required via Middo Balance or payment gateway.';
-        } elseif ($ratio >= 0.5) {
+        } elseif (in_array('active_order_limit', $reasons, true)) {
             $message = sprintf(
-                'You would have %d active orders (limit %d without prepayment). 50%% prepayment (৳%s) is required via Middo Balance or payment gateway.',
+                'You would have %d active orders. Full prepayment (৳%s) is required from %d+ active orders via Middo Balance or payment gateway.',
                 $projected,
-                self::ACTIVE_ORDER_PREPAY_THRESHOLD,
-                number_format($amount)
+                number_format($amount),
+                $fullPrepayFrom
             );
         }
 
@@ -118,6 +129,7 @@ class CorporateOrderPrepayment
             'active_orders' => $active,
             'new_orders' => $newOrderCount,
             'projected_active' => $projected,
+            'full_prepay_from' => $fullPrepayFrom,
             'balance' => $balance,
             'balance_sufficient' => $balance >= $amount,
         ];

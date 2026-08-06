@@ -14,6 +14,7 @@ use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
 use App\Support\CouponService;
 use App\Support\MealOrderGrouper;
+use App\Support\MiddoSettings;
 use App\Support\OrderConfirmationOtp;
 use App\Support\OrderCutoff;
 use App\Support\OrderPaymentMethod;
@@ -401,6 +402,16 @@ class OrderCheckoutModal extends Component
             $this->walletBalance(),
             $this->balanceChargeAmount()
         );
+    }
+
+    public function getCodMaxActiveOrdersProperty(): int
+    {
+        return MiddoSettings::codMaxActiveOrders();
+    }
+
+    public function getFullPrepayFromActiveOrdersProperty(): int
+    {
+        return MiddoSettings::fullPrepayFromActiveOrders();
     }
 
     protected function walletBalance(): int

@@ -158,4 +158,17 @@ return [
     'order_cutoff_hour' => (int) env('ORDER_CUTOFF_HOUR', 15),
     'order_cutoff_minute' => (int) env('ORDER_CUTOFF_MINUTE', 28),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Full prepayment from active order count
+    |--------------------------------------------------------------------------
+    |
+    | When projected active orders (existing + cart dates) reach this count,
+    | require 100% prepayment via Middo Balance or online payment (no COD).
+    | Admin Settings can override. Default 3 → COD only for 1–2 orders.
+    |
+    */
+
+    'full_prepay_from_active_orders' => (int) env('FULL_PREPAY_FROM_ACTIVE_ORDERS', 3),
+
 ];

@@ -333,7 +333,7 @@ class CorporateMobileApiTest extends TestCase
         $this->assertSame('01310123452', $user->fresh()->mobile);
     }
 
-    public function test_more_than_three_active_orders_requires_half_prepayment(): void
+    public function test_three_plus_active_orders_requires_full_prepayment(): void
     {
         Http::fake(['*' => Http::response(['status' => 'success'], 200)]);
 
@@ -342,7 +342,7 @@ class CorporateMobileApiTest extends TestCase
         [$city, $area] = $this->makeCityArea();
         Sanctum::actingAs($user);
 
-        foreach (range(1, 3) as $i) {
+        foreach (range(1, 2) as $i) {
             Order::create([
                 'user_id' => $user->id,
                 'menu_item_id' => $menu->id,
@@ -371,21 +371,23 @@ class CorporateMobileApiTest extends TestCase
             ],
         ];
 
+        // 2 existing + 1 new date = 3 projected → full prepay.
         $this->postJson('/api/corporate/orders/send-otp', $payload)
             ->assertOk()
             ->assertJsonPath('prepayment.required', true)
-            ->assertJsonPath('prepayment.ratio', 0.5)
-            ->assertJsonPath('prepayment.amount', 420)
-            ->assertJsonPath('prepayment.projected_active', 4);
+            ->assertJsonPath('prepayment.ratio', 1)
+            ->assertJsonPath('prepayment.amount', 840)
+            ->assertJsonPath('prepayment.projected_active', 3)
+            ->assertJsonPath('prepayment.full_prepay_from', 3);
 
         $this->postJson('/api/corporate/orders', $payload + [
             'otp' => '1234',
             'payment_method' => 'balance',
         ])->assertCreated()
-            ->assertJsonPath('orders.0.payment_status', 'pending')
-            ->assertJsonPath('orders.0.amount_paid', 420);
+            ->assertJsonPath('orders.0.payment_status', 'paid')
+            ->assertJsonPath('orders.0.amount_paid', 840);
 
-        $this->assertSame(9580, $user->fresh()->balance);
+        $this->assertSame(9160, $user->fresh()->balance);
     }
 
     public function test_gateway_prepay_token_can_complete_mismatch_order(): void
