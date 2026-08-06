@@ -200,8 +200,7 @@ class CheckoutMultiDatePaymentOptionsTest extends TestCase
         $this->assertStringNotContainsString('value="cash_on_delivery"', $html);
         $this->assertStringContainsString('value="balance"', $html);
         $this->assertStringContainsString('value="gateway"', $html);
-        $this->assertStringContainsString('Cash on Delivery is limited to 3 meals', $html);
-        $this->assertStringContainsString('Full prepayment required above 3 meals', $html);
-        $this->assertStringContainsString('Choose Middo Balance or online payment', $html);
+        $this->assertStringNotContainsString('Cash on Delivery is limited to', $html);
+        $this->assertStringNotContainsString('Full prepayment required above', $html);
     }
 }
