@@ -327,7 +327,6 @@ class PackageSubscriptionService
             }
 
             $alreadyDated = $lockedSub->orders()
-                ->where('order_status', '!=', 'cancelled')
                 ->get()
                 ->mapWithKeys(fn (Order $order) => [
                     $order->delivery_date->toDateString() => true,
@@ -865,10 +864,11 @@ class PackageSubscriptionService
             $this->recordEvent(
                 $subscriptionId,
                 PackageSubscriptionEvent::TYPE_DAY_CANCELLED,
-                'Cancelled order #'.$locked->id.' and refunded ৳'.number_format($refund).'. Reason: '.$reason,
+                'Cancelled order #'.$locked->id.' and refunded ৳'.number_format($refund).'. Menu untagged. Reason: '.$reason,
                 [
                     'order_id' => $locked->id,
                     'delivery_date' => $locked->delivery_date?->toDateString(),
+                    'menu_item_id' => (int) $locked->menu_item_id,
                     'refunded_amount' => $refund,
                     'reason' => $reason,
                 ],
@@ -1005,6 +1005,15 @@ class PackageSubscriptionService
                 );
             }
 
+            $freshSub = $subscription->fresh(['selections', 'orders']);
+            $remaining = $freshSub->remainingSelectionCounts();
+            $menuId = (int) $locked->menu_item_id;
+            if (! array_key_exists($menuId, $remaining) || (int) $remaining[$menuId] < 1) {
+                throw new RuntimeException(
+                    'No remaining prepaid quota for this menu. Unconfirm or cancel another day first.'
+                );
+            }
+
             $owner = User::query()->lockForUpdate()->findOrFail($locked->user_id);
             WalletLedger::debit(
                 $owner,
@@ -1022,15 +1031,17 @@ class PackageSubscriptionService
             $fresh = $locked->fresh(['menuItem', 'user', 'packageSubscription.package']);
             app(MealOrderGrouper::class)->assignOrder($fresh, $actor->id);
 
-            $this->syncScheduleStatus($subscription->fresh(['selections', 'orders']));
+            $this->syncScheduleStatus($freshSub->fresh(['selections', 'orders']));
 
+            $menuName = $fresh->menuItem?->name ?? ('#'.$menuId);
             $this->recordEvent(
                 (int) $locked->package_subscription_id,
                 PackageSubscriptionEvent::TYPE_DAY_REACTIVATED,
-                'Re-activated order #'.$locked->id.' and debited ৳'.number_format($debit).'.',
+                'Re-activated order #'.$locked->id.' ('.$menuName.') back to pending and debited ৳'.number_format($debit).'.',
                 [
                     'order_id' => $locked->id,
                     'delivery_date' => $locked->delivery_date?->toDateString(),
+                    'menu_item_id' => $menuId,
                     'debited_amount' => $debit,
                 ],
                 $actor->id

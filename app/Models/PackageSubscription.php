@@ -201,9 +201,8 @@ class PackageSubscription extends Model
     }
 
     /**
-     * Remaining prepaid menu-day quotas after confirmed or cancelled orders.
-     * Cancelled days still consume prepaid slots (refunded) until re-activated;
-     * undo (delete) frees a slot back to the unconfirmed list.
+     * Remaining prepaid menu-day quotas after non-cancelled confirmed orders.
+     * Cancel and Refund untags the menu (frees a prepaid slot); re-activate tags it again.
      *
      * @return array<int, int> menu_item_id => remaining day count
      */
@@ -211,17 +210,18 @@ class PackageSubscription extends Model
     {
         $this->loadMissing('selections');
 
-        $used = $this->orders()
-            ->selectRaw('menu_item_id, COUNT(*) as used_count')
+        $confirmed = $this->orders()
+            ->where('order_status', '!=', 'cancelled')
+            ->selectRaw('menu_item_id, COUNT(*) as confirmed_count')
             ->groupBy('menu_item_id')
-            ->pluck('used_count', 'menu_item_id');
+            ->pluck('confirmed_count', 'menu_item_id');
 
         $remaining = [];
         foreach ($this->selections as $selection) {
             $menuId = (int) $selection->menu_item_id;
             $remaining[$menuId] = max(
                 0,
-                (int) $selection->day_count - (int) ($used[$menuId] ?? 0)
+                (int) $selection->day_count - (int) ($confirmed[$menuId] ?? 0)
             );
         }
 

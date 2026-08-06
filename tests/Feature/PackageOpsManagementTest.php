@@ -451,7 +451,13 @@ class PackageOpsManagementTest extends TestCase
         $this->assertSame($refund, $skip['refunded_amount']);
         $this->assertSame('cancelled', $order->fresh()->order_status);
         $this->assertSame(50000 - $quote['total_amount'] + $refund, (int) $user->fresh()->balance);
-        $this->assertSame(0, $result['subscription']->fresh()->remainingBillableDays());
+        $subscriptionAfterCancel = $result['subscription']->fresh(['selections', 'orders']);
+        $this->assertSame(1, $subscriptionAfterCancel->remainingBillableDays());
+        $this->assertTrue($subscriptionAfterCancel->canReceiveScheduleAssignments());
+        $this->assertSame(
+            max(0, (int) $subscriptionAfterCancel->selections->first()->day_count - ($workingDays - 1)),
+            (int) ($subscriptionAfterCancel->remainingSelectionCounts()[$menu->id] ?? 0)
+        );
         $this->assertDatabaseHas('package_subscription_events', [
             'package_subscription_id' => $result['subscription']->id,
             'type' => 'day_cancelled',
@@ -463,6 +469,7 @@ class PackageOpsManagementTest extends TestCase
             ->first();
         $this->assertNotNull($cancelEvent);
         $this->assertStringContainsString('Holiday / office closed', (string) $cancelEvent->summary);
+        $this->assertStringContainsString('Menu untagged', (string) $cancelEvent->summary);
         $this->assertSame('Holiday / office closed', $cancelEvent->meta['reason'] ?? null);
 
         $reactivate = app(PackageSubscriptionService::class)->reactivateDay($ops, $order->fresh());
@@ -470,10 +477,19 @@ class PackageOpsManagementTest extends TestCase
         $this->assertSame('pending', $order->fresh()->order_status);
         $this->assertSame(50000 - $quote['total_amount'], (int) $user->fresh()->balance);
         $this->assertTrue(OrderGroupOrder::query()->where('order_id', $order->id)->exists());
+        $this->assertSame(0, $result['subscription']->fresh()->remainingBillableDays());
+        $this->assertSame(PackageSubscription::SCHEDULE_SCHEDULED, $result['subscription']->fresh()->schedule_status);
         $this->assertDatabaseHas('package_subscription_events', [
             'package_subscription_id' => $result['subscription']->id,
             'type' => 'day_reactivated',
         ]);
+        $reactivateEvent = \App\Models\PackageSubscriptionEvent::query()
+            ->where('package_subscription_id', $result['subscription']->id)
+            ->where('type', 'day_reactivated')
+            ->latest('id')
+            ->first();
+        $this->assertNotNull($reactivateEvent);
+        $this->assertStringContainsString('back to pending', (string) $reactivateEvent->summary);
 
         Carbon::setTestNow();
     }

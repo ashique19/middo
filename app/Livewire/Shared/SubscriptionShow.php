@@ -83,13 +83,14 @@ class SubscriptionShow extends Component
 
         $month = (string) ($model->target_month ?: $model->start_date->format('Y-m'));
         $dates = PackageBilling::availableDatesInMonth($month, $model->omitted_weekdays ?? []);
-        $confirmedDates = $model->orders
-            ->where('order_status', '!=', 'cancelled')
+        // Cancelled days keep their calendar date reserved for re-activate (not re-confirm).
+        // Undo (delete) is what returns a date to this unconfirmed list.
+        $occupiedDates = $model->orders
             ->map(fn ($order) => $order->delivery_date->toDateString())
             ->all();
 
         foreach ($dates as $date) {
-            if (in_array($date, $confirmedDates, true)) {
+            if (in_array($date, $occupiedDates, true)) {
                 continue;
             }
             $this->scheduleAssignments[$date] = null;
