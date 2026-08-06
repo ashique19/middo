@@ -322,19 +322,34 @@ class CorporateApiPresenter
         $haystack = strtolower(($item->name ?? '').' '.($item->summary ?? ''));
         $tags = [];
 
-        if (str_contains($haystack, 'veg') || str_contains($haystack, 'paneer')) {
+        if (str_contains($haystack, 'veg') || str_contains($haystack, 'niramish') || str_contains($haystack, 'shobji')) {
             $tags[] = 'Veg';
         }
-        if (str_contains($haystack, 'thali') || str_contains($haystack, 'combo')) {
-            $tags[] = 'Thalis';
+        if (
+            str_contains($haystack, 'thali')
+            || str_contains($haystack, 'combo')
+            || str_contains($haystack, 'bhaat')
+            || str_contains($haystack, 'khichuri')
+            || str_contains($haystack, 'meal')
+            || str_contains($haystack, 'plate')
+        ) {
+            $tags[] = 'Meals';
         }
         if (str_contains($haystack, 'light') || str_contains($haystack, 'salad') || str_contains($haystack, 'bowl')) {
             $tags[] = 'Light';
         }
-        if (str_contains($haystack, 'chicken') || str_contains($haystack, 'beef') || str_contains($haystack, 'fish') || str_contains($haystack, 'mutton')) {
+        if (
+            str_contains($haystack, 'chicken')
+            || str_contains($haystack, 'murgi')
+            || str_contains($haystack, 'beef')
+            || str_contains($haystack, 'mangsho')
+            || str_contains($haystack, 'fish')
+            || str_contains($haystack, 'machh')
+            || str_contains($haystack, 'mutton')
+        ) {
             $tags[] = 'Protein';
         }
 
-        return $tags !== [] ? $tags : ['Thalis'];
+        return $tags !== [] ? $tags : ['Meals'];
     }
 }

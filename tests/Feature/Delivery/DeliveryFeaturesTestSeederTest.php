@@ -58,11 +58,11 @@ class DeliveryFeaturesTestSeederTest extends TestCase
                 ->exists()
         );
         $this->assertDatabaseHas('menu_items', [
-            'name' => 'Vegetable Khichdi Thali',
+            'name' => 'Soft Khichuri Meal',
         ]);
         $this->assertGreaterThan(
             0,
-            (int) \App\Models\MenuItem::query()->where('name', 'Vegetable Khichdi Thali')->value('delivery_commission')
+            (int) \App\Models\MenuItem::query()->where('name', 'Soft Khichuri Meal')->value('delivery_commission')
         );
 
         $this->assertDatabaseHas('custom_runs', [

@@ -142,11 +142,11 @@ class MealItemTestSeeder extends Seeder
         }
 
         $attachments = [
-            'Vegetable Khichdi Thali' => ['Rice', 'Daal', 'Potato Mash', 'Salad', 'Mixed Veg'],
-            'Traditional Vegetarian Thali' => ['Rice', 'Daal', 'Potato Mash', 'Salad', 'Mixed Veg', 'Raita'],
-            'Royal Indian Thali' => ['Rice', 'Daal', 'Potato Mash', 'Salad', 'Beef Curry', 'Mixed Veg', 'Raita'],
-            'Chicken Curry Thali' => ['Rice', 'Daal', 'Potato Mash', 'Salad', 'Chicken Curry'],
-            'Bengali Fish Thali' => ['Rice', 'Daal', 'Potato Mash', 'Salad', 'Fish Curry'],
+            'Soft Khichuri Meal' => ['Rice', 'Daal', 'Potato Mash', 'Salad', 'Mixed Veg'],
+            'Niramish Bhaat Plate' => ['Rice', 'Daal', 'Potato Mash', 'Salad', 'Mixed Veg', 'Raita'],
+            'Special Mangsho Bhaat' => ['Rice', 'Daal', 'Potato Mash', 'Salad', 'Beef Curry', 'Mixed Veg', 'Raita'],
+            'Murgir Curry Bhaat' => ['Rice', 'Daal', 'Potato Mash', 'Salad', 'Chicken Curry'],
+            'Machher Jhol Bhaat' => ['Rice', 'Daal', 'Potato Mash', 'Salad', 'Fish Curry'],
         ];
 
         foreach ($menus as $menu) {

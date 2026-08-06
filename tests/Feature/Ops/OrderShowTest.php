@@ -157,7 +157,7 @@ class OrderShowTest extends TestCase
     {
         $ops = $this->user('operation', ['mobile' => '01310888007']);
         $menu = MenuItem::create([
-            'name' => 'Vegetable Khichdi Thali',
+            'name' => 'Soft Khichuri Meal',
             'price' => 280,
             'summary' => 'Comfort bowl',
             'meals_cost' => 100,
@@ -168,7 +168,7 @@ class OrderShowTest extends TestCase
         $this->actingAs($ops)
             ->get(route('operation.menu.show', $menu))
             ->assertOk()
-            ->assertSee('Vegetable Khichdi Thali')
+            ->assertSee('Soft Khichuri Meal')
             ->assertSee('Comfort bowl')
             ->assertSee('৳280');
     }
