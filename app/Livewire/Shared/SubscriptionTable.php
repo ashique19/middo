@@ -107,7 +107,6 @@ class SubscriptionTable extends Component
                 });
             })
             ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
-            ->when($this->paymentFilter !== 'all', fn ($q) => $q->where('payment_status', $this->paymentFilter))
             ->when($this->packageFilter, fn ($q) => $q->where('meal_package_id', $this->packageFilter))
             ->orderByDesc('id')
             ->paginate(15);
