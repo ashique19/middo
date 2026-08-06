@@ -126,6 +126,33 @@ class CorporateCodMakePaymentTest extends TestCase
             ->assertSee('Go to Dashboard')
             ->assertSee(route('corporates.dashboard'), false)
             ->assertDontSee('This order is already paid. Thank you!');
+
+        $this->assertDatabaseHas('order_logs', [
+            'order_id' => $order->id,
+            'event' => 'payment_status_changed',
+        ]);
+    }
+
+    public function test_corporate_online_payment_appears_as_payment_updated_in_track_modal(): void
+    {
+        [$user, $menu] = $this->seedCorporate();
+        $order = $this->createCodOrder($user, $menu, total: 420);
+
+        $confirmUrl = URL::temporarySignedRoute(
+            'public.order-payment.confirm',
+            now()->addDay(),
+            ['order' => $order->id]
+        );
+        $this->post($confirmUrl)->assertRedirect();
+
+        Livewire::actingAs($user)
+            ->test(\App\Livewire\Corporate\TrackOrderModal::class)
+            ->dispatch('open-track-order-modal', orderId: $order->id)
+            ->assertSet('showModal', true)
+            ->assertSee('Payment Updated')
+            ->assertSee('Payment changed from Pending to Paid')
+            ->assertSee('Amount paid is now ৳420')
+            ->assertDontSee('Order details were updated.');
     }
 
     public function test_already_paid_order_page_keeps_generic_message_without_fresh_payment_flash(): void
