@@ -66,16 +66,23 @@ class CheckoutModalLayoutTest extends TestCase
         // Coupon / payment live in the pinned footer after the line-item scroller.
         $couponPos = strpos($html, 'Coupon code');
         $paymentPos = strpos($html, 'Payment method');
-        $scrollMarkerPos = strpos($html, 'max-h-[96px] overflow-y-auto');
+        $scrollMarkerPos = strpos($html, 'data-testid="checkout-line-items"');
+        $totalsPos = strpos($html, 'Cumulative Subtotal');
         $this->assertNotFalse($couponPos);
         $this->assertNotFalse($paymentPos);
         $this->assertNotFalse($scrollMarkerPos);
-        $this->assertGreaterThan($scrollMarkerPos, $couponPos);
-        $this->assertGreaterThan($scrollMarkerPos, $paymentPos);
+        $this->assertNotFalse($totalsPos);
+        $this->assertGreaterThan($scrollMarkerPos, $totalsPos);
+        $this->assertGreaterThan($totalsPos, $couponPos);
+        $this->assertGreaterThan($couponPos, $paymentPos);
 
-        $scrollChunk = substr($html, $scrollMarkerPos, 800);
-        $this->assertStringNotContainsString('Coupon code', $scrollChunk);
-        $this->assertStringNotContainsString('Payment method', $scrollChunk);
+        // Big-screen columns: dish+window | dates+customer | finance-only height budget.
+        $this->assertStringContainsString('md:h-[min(90vh,880px)]', $html);
+        $this->assertStringContainsString('md:mt-auto', $html);
+
+        $lineItemsChunk = substr($html, $scrollMarkerPos, max(0, $totalsPos - $scrollMarkerPos));
+        $this->assertStringNotContainsString('Coupon code', $lineItemsChunk);
+        $this->assertStringNotContainsString('Payment method', $lineItemsChunk);
     }
 
     public function test_empty_wallet_disables_middo_balance_option(): void
@@ -111,7 +118,7 @@ class CheckoutModalLayoutTest extends TestCase
             ->call('loadOrderCheckout', $menu->id)
             ->assertSet('paymentMethod', 'cash_on_delivery')
             ->assertSee('Middo Balance')
-            ->assertSee('unavailable — no funds')
+            ->assertSee('Unavailable — add money to your Middo wallet first.')
             ->assertSeeHtml('value="balance"')
             ->assertSeeHtml('disabled');
     }
