@@ -10,6 +10,7 @@ use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\ChargeService;
+use App\Support\CorporateOrderGatewayCheckout;
 use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
 use App\Support\CouponService;
@@ -666,27 +667,49 @@ class OrderCheckoutModal extends Component
             return;
         }
 
-        $fingerprint = [
-            'menu_item_id' => (int) ($this->dish['id'] ?? 0),
-            'receiver_name' => CorporateOrderPrepayment::normalizeName($this->customerName),
-            'mobile' => CorporateOrderPrepayment::normalizeMobile($this->mobile),
-            'dates' => collect($activeOrders)->map(fn ($qty, $date) => [
-                'date' => $date,
-                'quantity' => (int) $qty,
-            ])->values()->all(),
-            'amount' => $chargeAmount,
-        ];
-
-        $checkout = app(PaymentGateway::class)->createCheckout(
-            (int) Auth::id(),
+        $checkout = CorporateOrderGatewayCheckout::start(
+            Auth::user(),
+            $activeOrders,
+            (int) ($this->dish['id'] ?? 0),
+            $this->customerName,
+            $this->mobile,
+            $this->addressLine1,
+            (int) $this->city_id,
+            (int) $this->area_id,
+            $this->deliveryWindow,
             $chargeAmount,
-            $fingerprint
+            $this->appliedCouponCode,
+            $this->couponDiscount
         );
 
         $this->gatewayPaymentToken = $checkout['token'];
         $this->gatewayPaymentUrl = $checkout['payment_url'];
         $this->otpVerified = true;
         $this->resetErrorBag('otpInput');
+    }
+
+    /**
+     * Poll after Make payment: place order as soon as the gateway marks the session paid.
+     */
+    public function checkGatewayPaymentCompletion()
+    {
+        if ($this->paymentMethod !== OrderPaymentMethod::GATEWAY
+            || ! $this->otpVerified
+            || ! filled($this->gatewayPaymentToken)) {
+            return null;
+        }
+
+        $result = CorporateOrderGatewayCheckout::completeIfPaid($this->gatewayPaymentToken);
+        if (! ($result['ok'] ?? false)) {
+            return null;
+        }
+
+        $this->showModal = false;
+        $this->isConfirmingOtp = false;
+        $this->otpVerified = false;
+        session()->flash('message', $result['message'] ?? 'Your meal track has been scheduled successfully!');
+
+        return redirect()->to(route('corporates.dashboard'));
     }
 
     /**
