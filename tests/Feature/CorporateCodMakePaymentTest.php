@@ -110,13 +110,53 @@ class CorporateCodMakePaymentTest extends TestCase
             ['order' => $order->id]
         );
 
-        $this->post($confirmUrl)->assertRedirect();
+        $response = $this->post($confirmUrl);
+        $response->assertRedirect();
+        $response->assertSessionHas('order_payment_just_completed', true);
 
         $order->refresh();
         $this->assertTrue($order->isPaid());
         $this->assertSame(420, (int) $order->amount_paid);
         $this->assertSame(OrderPaymentMethod::GATEWAY, $order->payment_method);
         $this->assertSame('paid', $order->payment_status);
+
+        $this->followRedirects($response)
+            ->assertOk()
+            ->assertSee('Thank you for your payment')
+            ->assertSee('Go to Dashboard')
+            ->assertSee(route('corporates.dashboard'), false)
+            ->assertDontSee('This order is already paid. Thank you!');
+    }
+
+    public function test_already_paid_order_page_keeps_generic_message_without_fresh_payment_flash(): void
+    {
+        [$user, $menu] = $this->seedCorporate();
+        $order = Order::create([
+            'user_id' => $user->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => now('Asia/Dhaka')->addDay()->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 420,
+            'amount_paid' => 420,
+            'address' => 'Gulshan',
+            'order_status' => 'pending',
+            'payment_status' => 'paid',
+            'payment_method' => OrderPaymentMethod::GATEWAY,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $url = URL::temporarySignedRoute(
+            'public.order-payment',
+            now()->addDay(),
+            ['order' => $order->id]
+        );
+
+        $this->get($url)
+            ->assertOk()
+            ->assertSee('This order is already paid. Thank you!')
+            ->assertDontSee('Thank you for your payment');
     }
 
     /**
