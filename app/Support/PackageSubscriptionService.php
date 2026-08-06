@@ -1263,17 +1263,13 @@ class PackageSubscriptionService
         ?array $meta = null,
         ?int $actorId = null,
     ): void {
-        try {
-            PackageSubscriptionEvent::create([
-                'package_subscription_id' => $subscriptionId,
-                'type' => $type,
-                'summary' => $summary,
-                'meta' => $meta,
-                'created_by' => $actorId,
-            ]);
-        } catch (\Throwable $e) {
-            report($e);
-        }
+        PackageSubscriptionEvent::create([
+            'package_subscription_id' => $subscriptionId,
+            'type' => $type,
+            'summary' => $summary,
+            'meta' => $meta,
+            'created_by' => $actorId,
+        ]);
     }
 
     protected function cancelPackageOrder(

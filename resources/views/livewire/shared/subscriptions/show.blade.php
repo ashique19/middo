@@ -273,8 +273,13 @@
         <div class="divide-y divide-gray-100">
             @forelse($auditEvents as $event)
                 <div wire:key="pkg-event-{{ $event->id }}" class="px-5 py-3 flex flex-wrap items-start justify-between gap-2">
-                    <div>
+                    <div class="min-w-0 flex-1">
                         <p class="text-sm font-semibold text-gray-800">{{ $event->summary }}</p>
+                        @if(!empty($event->meta['reason']))
+                            <p class="text-sm text-gray-700 mt-1">
+                                <span class="font-semibold text-gray-500">Reason:</span> {{ $event->meta['reason'] }}
+                            </p>
+                        @endif
                         <p class="text-xs text-gray-500 mt-0.5">
                             {{ str_replace('_', ' ', $event->type) }}
                             @if($event->createdBy)

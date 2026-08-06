@@ -4,6 +4,7 @@ namespace App\Livewire\Shared;
 
 use App\Models\Order;
 use App\Models\PackageSubscription;
+use App\Models\PackageSubscriptionEvent;
 use App\Support\OrderCutoff;
 use App\Support\PackageBilling;
 use App\Support\PackageRefund;
@@ -74,7 +75,6 @@ class SubscriptionShow extends Component
             'area.city',
             'selections.menuItem',
             'orders' => fn ($q) => $q->with(['menuItem', 'orderGroup'])->orderBy('delivery_date'),
-            'events' => fn ($q) => $q->with('createdBy')->latest()->limit(100),
         ])->findOrFail($this->subscriptionId);
     }
 
@@ -483,6 +483,13 @@ class SubscriptionShow extends Component
             ? $subscription->orders->firstWhere('id', $this->cancelOrderId)
             : null;
 
+        $auditEvents = PackageSubscriptionEvent::query()
+            ->where('package_subscription_id', $subscription->id)
+            ->with('createdBy')
+            ->latest('id')
+            ->limit(100)
+            ->get();
+
         return view('livewire.shared.subscriptions.show', [
             'subscription' => $subscription,
             'menuItems' => $selectionMenus,
@@ -491,7 +498,7 @@ class SubscriptionShow extends Component
             'assignedCount' => collect($this->scheduleAssignments)->filter()->count(),
             'remainingDays' => $subscription->remainingBillableDays(),
             'daySummary' => $daySummary,
-            'auditEvents' => $subscription->events,
+            'auditEvents' => $auditEvents,
             'swapOrder' => $swapOrder,
             'cancelOrder' => $cancelOrder,
             'cancelledOrdersByDate' => $this->cancelledOrdersByDate($subscription),

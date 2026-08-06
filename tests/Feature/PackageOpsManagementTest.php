@@ -478,6 +478,9 @@ class PackageOpsManagementTest extends TestCase
             ->assertSee('Untagged')
             ->assertSee('Confirm delivery days')
             ->assertSee('Re-activate')
+            ->assertSee('Package audit log')
+            ->assertSee('day cancelled', false)
+            ->assertSee('Holiday / office closed')
             ->assertSee(\Carbon\Carbon::parse($order->delivery_date)->format('M d, Y'));
 
         $reactivate = app(PackageSubscriptionService::class)->reactivateDay($ops, $order->fresh());
@@ -498,6 +501,12 @@ class PackageOpsManagementTest extends TestCase
             ->first();
         $this->assertNotNull($reactivateEvent);
         $this->assertStringContainsString('back to pending', (string) $reactivateEvent->summary);
+
+        $this->actingAs($ops)
+            ->get(route('operation.subscriptions.show', $result['subscription']->id))
+            ->assertOk()
+            ->assertSee('day reactivated', false)
+            ->assertSee('back to pending');
 
         Carbon::setTestNow();
     }
