@@ -11,21 +11,29 @@
                         </svg>
                     </div>
 
-                    <div class="space-y-2">
-                        <p class="text-sm font-semibold text-[#5D4037] leading-relaxed">
-                            Any prepaid amount will be credited back to your Middo Balance. Unpaid COD orders are cancelled with no wallet credit.
-                        </p>
+                    <div class="space-y-3">
+                        @if($this->isPrepaid)
+                            <p class="text-sm font-semibold text-[#5D4037] leading-relaxed" data-testid="delete-order-prepaid-message">
+                                Your prepaid balance ৳{{ number_format($this->refundableAmount) }} would be added to your Middo wallet. You can use this balance for future orders.
+                            </p>
+                        @else
+                            <p class="text-sm font-semibold text-[#5D4037] leading-relaxed" data-testid="delete-order-cod-message">
+                                This unpaid COD order will be cancelled with no wallet credit.
+                            </p>
+                        @endif
+
+                        @if(!empty($order['menu_item']['name']))
+                            <div class="rounded-xl border border-[#EBE3D3] bg-[#F7F4EB] px-4 py-3 space-y-0.5" data-testid="delete-order-menu-summary">
+                                <p class="text-base font-black text-[#2B1A11]">{{ $order['menu_item']['name'] }}</p>
+                                <p class="text-sm font-bold text-[#635347]">৳{{ number_format($order['total_amount'], 0) }}</p>
+                            </div>
+                        @endif
+
                         <p class="text-lg font-black text-[#2B1A11]">Are you sure?</p>
                     </div>
 
                     @if($errorMessage !== '')
                         <p class="text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{{ $errorMessage }}</p>
-                    @endif
-
-                    @if(!empty($order['menu_item']['name']))
-                        <p class="text-xs font-bold text-[#635347]">
-                            {{ $order['menu_item']['name'] }} · ৳{{ number_format($order['total_amount'], 0) }}
-                        </p>
                     @endif
 
                     <div class="flex gap-3 pt-2">

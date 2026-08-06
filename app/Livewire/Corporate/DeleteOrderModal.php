@@ -49,6 +49,25 @@ class DeleteOrderModal extends Component
         $this->errorMessage = '';
     }
 
+    public function getRefundableAmountProperty(): int
+    {
+        if (empty($this->order)) {
+            return 0;
+        }
+
+        $amountPaid = (int) ($this->order['amount_paid'] ?? 0);
+        if ($amountPaid > 0) {
+            return $amountPaid;
+        }
+
+        return (int) ($this->order['prepaid_amount'] ?? 0);
+    }
+
+    public function getIsPrepaidProperty(): bool
+    {
+        return $this->refundableAmount > 0;
+    }
+
     public function confirmDelete()
     {
         if (! $this->orderId || ! Auth::user()) {
