@@ -33,13 +33,7 @@
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
             </select>
-            <select wire:model.live="paymentFilter" class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold">
-                <option value="all">All payments</option>
-                <option value="paid">Paid</option>
-                <option value="pending">Pending</option>
-                <option value="failed">Failed</option>
-            </select>
-            <select wire:model.live="packageFilter" class="md:col-span-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold">
+            <select wire:model.live="packageFilter" class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold">
                 <option value="">All packages</option>
                 @foreach($packages as $package)
                     <option value="{{ $package->id }}">{{ $package->name }}</option>

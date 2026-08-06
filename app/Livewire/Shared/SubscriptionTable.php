@@ -17,8 +17,6 @@ class SubscriptionTable extends Component
 
     public string $statusFilter = 'all';
 
-    public string $paymentFilter = 'all';
-
     public ?int $packageFilter = null;
 
     public string $bulkSkipDate = '';
@@ -45,11 +43,6 @@ class SubscriptionTable extends Component
     }
 
     public function updatingStatusFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingPaymentFilter(): void
     {
         $this->resetPage();
     }
