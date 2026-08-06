@@ -108,13 +108,14 @@
         </div>
     @endif
 
-    @if($canManage && $subscription->canReceiveScheduleAssignments())
+    @if($canManage && (count($scheduleAssignments) > 0))
         <div class="bg-white border border-amber-200 rounded-2xl p-5 shadow-sm space-y-4">
             <div>
                 <h2 class="text-lg font-bold text-gray-800">Confirm delivery days</h2>
                 <p class="text-sm text-gray-500 mt-1">
                     Pick a menu and save each day individually.
                     {{ $remainingDays }} prepaid day(s) still unconfirmed.
+                    Cancelled days appear at the end with Re-activate.
                     Past cutoff dates are hidden and not editable.
                 </p>
             </div>
@@ -131,32 +132,47 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100 text-sm">
                         @foreach($scheduleAssignments as $date => $menuId)
-                            <tr wire:key="sched-{{ $date }}">
+                            @php $cancelledOrder = $cancelledOrdersByDate[$date] ?? null; @endphp
+                            <tr wire:key="sched-{{ $date }}" @class(['bg-red-50/40' => $cancelledOrder])>
                                 <td class="p-3 font-semibold">{{ \Carbon\Carbon::parse($date)->format('M d, Y') }}</td>
                                 <td class="p-3 text-gray-500">{{ \Carbon\Carbon::parse($date)->format('D') }}</td>
                                 <td class="p-3">
-                                    <select
-                                        wire:model="scheduleAssignments.{{ $date }}"
-                                        class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                                        <option value="">— leave empty —</option>
-                                        @foreach($selectionMenus as $menu)
-                                            <option value="{{ $menu->id }}">{{ $menu->name }}</option>
-                                        @endforeach
-                                    </select>
+                                    @if($cancelledOrder)
+                                        <span class="text-gray-400 font-medium">Untagged · cancelled</span>
+                                    @else
+                                        <select
+                                            wire:model="scheduleAssignments.{{ $date }}"
+                                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                                            <option value="">— leave empty —</option>
+                                            @foreach($selectionMenus as $menu)
+                                                <option value="{{ $menu->id }}">{{ $menu->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    @endif
                                 </td>
                                 <td class="p-3 text-right space-x-2 whitespace-nowrap">
-                                    <button
-                                        type="button"
-                                        wire:click="saveScheduleDate('{{ $date }}')"
-                                        class="px-3 py-1.5 rounded-lg bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold">
-                                        Save
-                                    </button>
-                                    <button
-                                        type="button"
-                                        wire:click="openCancelUnscheduledModal('{{ $date }}')"
-                                        class="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-bold">
-                                        Cancel and Refund
-                                    </button>
+                                    @if($cancelledOrder)
+                                        <button
+                                            type="button"
+                                            wire:click="reactivateOrder({{ $cancelledOrder->id }})"
+                                            wire:confirm="Re-activate this day? ৳{{ number_format($this->orderRefundAmount($cancelledOrder)) }} will be debited from the corporate wallet."
+                                            class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">
+                                            Re-activate
+                                        </button>
+                                    @else
+                                        <button
+                                            type="button"
+                                            wire:click="saveScheduleDate('{{ $date }}')"
+                                            class="px-3 py-1.5 rounded-lg bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold">
+                                            Save
+                                        </button>
+                                        <button
+                                            type="button"
+                                            wire:click="openCancelUnscheduledModal('{{ $date }}')"
+                                            class="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-bold">
+                                            Cancel and Refund
+                                        </button>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
@@ -230,8 +246,6 @@
                                     <button type="button" wire:click="openSwapModal({{ $order->id }})" class="text-xs font-bold text-sky-700 hover:underline">Swap</button>
                                     <button type="button" wire:click="unconfirmOrder({{ $order->id }})" wire:confirm="Undo confirmation for this day? It will return to the unconfirmed list (no refund)." class="text-xs font-bold text-amber-700 hover:underline">Undo</button>
                                     <button type="button" wire:click="openCancelModal({{ $order->id }})" class="text-xs font-bold text-red-600 hover:underline">Cancel and Refund</button>
-                                @elseif($canManage && $order->order_status === 'cancelled' && \App\Support\OrderCutoff::deliveryDateStillOpen($order) && $subscription->status === 'active')
-                                    <button type="button" wire:click="reactivateOrder({{ $order->id }})" wire:confirm="Re-activate this day? ৳{{ number_format($this->orderRefundAmount($order)) }} will be debited from the corporate wallet." class="text-xs font-bold text-emerald-700 hover:underline">Re-activate</button>
                                 @endif
                             </td>
                         </tr>

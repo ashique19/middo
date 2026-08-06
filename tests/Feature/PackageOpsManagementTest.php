@@ -475,7 +475,10 @@ class PackageOpsManagementTest extends TestCase
         $this->actingAs($ops)
             ->get(route('operation.subscriptions.show', $result['subscription']->id))
             ->assertOk()
-            ->assertSee('Untagged');
+            ->assertSee('Untagged')
+            ->assertSee('Confirm delivery days')
+            ->assertSee('Re-activate')
+            ->assertSee(\Carbon\Carbon::parse($order->delivery_date)->format('M d, Y'));
 
         $reactivate = app(PackageSubscriptionService::class)->reactivateDay($ops, $order->fresh());
         $this->assertSame($refund, $reactivate['debited_amount']);

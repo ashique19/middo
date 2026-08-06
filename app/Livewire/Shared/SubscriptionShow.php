@@ -4,6 +4,7 @@ namespace App\Livewire\Shared;
 
 use App\Models\Order;
 use App\Models\PackageSubscription;
+use App\Support\OrderCutoff;
 use App\Support\PackageBilling;
 use App\Support\PackageRefund;
 use App\Support\PackageSubscriptionService;
@@ -82,24 +83,58 @@ class SubscriptionShow extends Component
         $model ??= $this->subscription();
         $this->scheduleAssignments = [];
 
-        if (! $model->canReceiveScheduleAssignments()) {
+        $cancelledOpen = $model->orders
+            ->where('order_status', 'cancelled')
+            ->filter(fn ($order) => OrderCutoff::deliveryDateStillOpen($order));
+
+        if (! $model->canReceiveScheduleAssignments() && $cancelledOpen->isEmpty()) {
             return;
         }
 
         $month = (string) ($model->target_month ?: $model->start_date->format('Y-m'));
         $dates = PackageBilling::availableDatesInMonth($month, $model->omitted_weekdays ?? []);
-        // Cancelled days keep their calendar date reserved for re-activate (not re-confirm).
-        // Undo (delete) is what returns a date to this unconfirmed list.
-        $occupiedDates = $model->orders
+        $confirmedDates = $model->orders
+            ->where('order_status', '!=', 'cancelled')
             ->map(fn ($order) => $order->delivery_date->toDateString())
             ->all();
 
+        $openDates = [];
+        $cancelledDates = [];
+
         foreach ($dates as $date) {
-            if (in_array($date, $occupiedDates, true)) {
+            if (in_array($date, $confirmedDates, true)) {
                 continue;
             }
-            $this->scheduleAssignments[$date] = null;
+
+            $cancelledForDate = $cancelledOpen->first(
+                fn ($order) => $order->delivery_date->toDateString() === $date
+            );
+
+            if ($cancelledForDate) {
+                $cancelledDates[$date] = null;
+            } elseif ($model->canReceiveScheduleAssignments()) {
+                $openDates[$date] = null;
+            }
         }
+
+        // Open unconfirmed days first; cancelled days (re-activate) at the end.
+        $this->scheduleAssignments = $openDates + $cancelledDates;
+    }
+
+    /**
+     * @return array<string, Order>
+     */
+    public function cancelledOrdersByDate(PackageSubscription $subscription): array
+    {
+        $map = [];
+        foreach ($subscription->orders->where('order_status', 'cancelled') as $order) {
+            if (! OrderCutoff::deliveryDateStillOpen($order)) {
+                continue;
+            }
+            $map[$order->delivery_date->toDateString()] = $order;
+        }
+
+        return $map;
     }
 
     public function assignDateMenu(string $date, $menuItemId): void
@@ -122,6 +157,12 @@ class SubscriptionShow extends Component
 
         if (! array_key_exists($date, $this->scheduleAssignments)) {
             $this->errorMessage = 'That date is not available to confirm.';
+
+            return;
+        }
+
+        if (isset($this->cancelledOrdersByDate($this->subscription())[$date])) {
+            $this->errorMessage = 'That day was cancelled. Use Re-activate instead of Save.';
 
             return;
         }
@@ -453,6 +494,7 @@ class SubscriptionShow extends Component
             'auditEvents' => $subscription->events,
             'swapOrder' => $swapOrder,
             'cancelOrder' => $cancelOrder,
+            'cancelledOrdersByDate' => $this->cancelledOrdersByDate($subscription),
         ])->layout('layouts.private.app', [
             'title' => 'Subscription #'.$subscription->id,
         ]);
