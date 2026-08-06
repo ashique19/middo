@@ -37,15 +37,7 @@ class ScheduledOrders extends Component
             ->orderBy('delivery_date', 'asc')
             ->orderBy('delivery_time', 'asc')
             ->get()
-            ->map(function (Order $order) {
-                $row = $order->toArray();
-                $party = $order->partyPayload();
-                $row['payment_method'] = $party['payment_method'];
-                $row['payment_method_label'] = $party['payment_method_label'];
-                $row['has_complaint'] = (bool) ($order->has_complaint ?? false);
-
-                return $row;
-            })
+            ->map(fn (Order $order) => \App\Support\CorporateOrderPresentation::present($order))
             ->all();
     }
 

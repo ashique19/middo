@@ -131,6 +131,23 @@
         {{-- CONTEXTUAL WORKFLOW ACTION BUTTON FOOTERS --}}
         @if($showActions)
         <div class="pt-3.5 border-t border-dashed border-gray-100 mt-3 space-y-2">
+            @if(!empty($order['can_pay_online']) && !empty($order['online_payment_url']))
+                @php
+                    $payLabel = 'Make Payment';
+                    if (! empty($order['amount_due'])) {
+                        $payLabel .= ' · ৳'.number_format((int) $order['amount_due'], 0);
+                    }
+                @endphp
+                <a
+                    href="{{ $order['online_payment_url'] }}"
+                    data-testid="make-payment-button"
+                    class="w-full text-xs font-black text-white bg-middo-orange hover:bg-[#733614] py-2.5 px-1 rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+                    </svg>
+                    <span>{{ $payLabel }}</span>
+                </a>
+            @endif
             <div class="grid grid-cols-2 gap-2">
                 @php
                     $repeatDishId = $order['menu_item_id'] ?? ($order['menu_item']['id'] ?? null);
