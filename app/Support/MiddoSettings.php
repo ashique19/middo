@@ -30,6 +30,12 @@ class MiddoSettings
     /** Prefer this middo_bank_accounts.id for EPS settlements. */
     public const KEY_DEFAULT_EPS_BANK_ACCOUNT_ID = 'finance.default_eps_bank_account_id';
 
+    /**
+     * Full (100%) prepayment is required when projected active orders reach this count.
+     * Default 3 → COD allowed for 1–2 active orders only.
+     */
+    public const KEY_FULL_PREPAY_FROM_ACTIVE_ORDERS = 'order.full_prepay_from_active_orders';
+
     protected static function tierDefaultKey(string $tier): string
     {
         return 'kitchen.tier_defaults.'.KitchenTier::normalize($tier).'.allowed_open_groups';
@@ -233,7 +239,27 @@ class MiddoSettings
     }
 
     /**
-     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool, vat_rate_pct?: float|int, eps_fee_rates?: array<string, float|int>, default_eps_bank_account_id?: int|null}  $payload
+     * When projected active orders reach this count, require 100% prepayment (no COD).
+     * COD remains available for fewer than this many projected active orders.
+     */
+    public static function fullPrepayFromActiveOrders(): int
+    {
+        return max(1, (int) self::get(
+            self::KEY_FULL_PREPAY_FROM_ACTIVE_ORDERS,
+            config('middo.full_prepay_from_active_orders', 3)
+        ));
+    }
+
+    /**
+     * Max projected active orders that may still use Cash on Delivery.
+     */
+    public static function codMaxActiveOrders(): int
+    {
+        return max(0, self::fullPrepayFromActiveOrders() - 1);
+    }
+
+    /**
+     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool, vat_rate_pct?: float|int, eps_fee_rates?: array<string, float|int>, default_eps_bank_account_id?: int|null, full_prepay_from_active_orders?: int}  $payload
      */
     public static function updateMealAndKitchenDefaults(array $payload): void
     {
@@ -300,6 +326,13 @@ class MiddoSettings
         if (array_key_exists('default_eps_bank_account_id', $payload)) {
             $id = $payload['default_eps_bank_account_id'];
             self::set(self::KEY_DEFAULT_EPS_BANK_ACCOUNT_ID, $id ? (string) (int) $id : null);
+        }
+
+        if (array_key_exists('full_prepay_from_active_orders', $payload)) {
+            self::set(
+                self::KEY_FULL_PREPAY_FROM_ACTIVE_ORDERS,
+                max(1, (int) $payload['full_prepay_from_active_orders'])
+            );
         }
     }
 

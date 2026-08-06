@@ -47,6 +47,8 @@ class SettingsPage extends Component
 
     public float $eps_fee_other = 1.5;
 
+    public int $full_prepay_from_active_orders = 3;
+
     public string $statusMessage = '';
 
     public string $errorMessage = '';
@@ -74,6 +76,7 @@ class SettingsPage extends Component
         $this->commission_mid_run_rescue = MiddoSettings::midRunRescueCommission();
         $this->kitchen_to_ops_via_rider = MiddoSettings::kitchenToOpsViaRider();
         $this->vat_rate_pct = MiddoSettings::vatRatePct();
+        $this->full_prepay_from_active_orders = MiddoSettings::fullPrepayFromActiveOrders();
 
         $fees = MiddoSettings::epsFeeRates();
         $this->eps_fee_bank = $fees['bank'];
@@ -109,6 +112,7 @@ class SettingsPage extends Component
             'eps_fee_rocket' => 'required|numeric|min:0|max:100',
             'eps_fee_card' => 'required|numeric|min:0|max:100',
             'eps_fee_other' => 'required|numeric|min:0|max:100',
+            'full_prepay_from_active_orders' => 'required|integer|min:1|max:100',
         ]);
 
         MiddoSettings::updateMealAndKitchenDefaults([
@@ -129,6 +133,7 @@ class SettingsPage extends Component
             'mid_run_rescue_commission' => $this->commission_mid_run_rescue,
             'kitchen_to_ops_via_rider' => $this->kitchen_to_ops_via_rider,
             'vat_rate_pct' => $this->vat_rate_pct,
+            'full_prepay_from_active_orders' => $this->full_prepay_from_active_orders,
             'eps_fee_rates' => [
                 'bank' => $this->eps_fee_bank,
                 'bkash' => $this->eps_fee_bkash,

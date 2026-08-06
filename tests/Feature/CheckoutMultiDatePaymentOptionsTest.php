@@ -76,7 +76,7 @@ class CheckoutMultiDatePaymentOptionsTest extends TestCase
         $this->assertStringContainsString('Cash on Delivery', $html);
         $this->assertStringContainsString('Middo Balance', $html);
         $this->assertStringContainsString('Online payment', $html);
-        $this->assertStringContainsString('Available for up to 3 active orders', $html);
+        $this->assertStringContainsString('Available for up to 2 active orders', $html);
         $this->assertStringNotContainsString('Unavailable — add money', $html);
         // Must not regress to a payment <select>, and payment must not sit in a clipped scroller.
         $this->assertDoesNotMatchRegularExpression('/<select[^>]*(paymentMethod|payment_method)/i', $html);
@@ -90,6 +90,63 @@ class CheckoutMultiDatePaymentOptionsTest extends TestCase
             ],
             OrderPaymentMethod::checkoutOptions(false, 2, 50000, 840)
         );
+    }
+
+    public function test_three_dates_require_full_prepayment_and_drop_cod(): void
+    {
+        $role = Role::create(['name' => 'corporate']);
+        $city = City::create(['name' => 'Dhaka']);
+        $area = Area::create(['name' => 'Gulshan', 'city_id' => $city->id]);
+        $user = User::create([
+            'first_name' => 'Corporate',
+            'last_name' => 'User',
+            'company_name' => 'Acme',
+            'mobile' => '01310123452',
+            'password' => '12345678',
+            'role_id' => $role->id,
+            'status' => 'active',
+            'is_mobile_verified' => true,
+            'balance' => 50000,
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'address' => 'House 12, Road 5',
+        ]);
+        $menu = MenuItem::create([
+            'name' => 'Tehari',
+            'summary' => 'Test',
+            'price' => 100,
+            'thumbnail' => 'img/menu/menu-1.jpg',
+            'is_featured' => true,
+            'display_order' => 1,
+        ]);
+
+        $component = Livewire::actingAs($user)
+            ->test(OrderCheckoutModal::class)
+            ->call('loadOrderCheckout', $menu->id);
+
+        $dates = $component->get('availableDates');
+        $this->assertGreaterThanOrEqual(3, count($dates));
+
+        foreach ($dates as $index => $date) {
+            $selected = ($component->get('quantities')[$date] ?? 0) > 0;
+            $shouldKeep = $index < 3;
+            if ($selected !== $shouldKeep) {
+                $component->call('toggleDateSelection', $date);
+            }
+        }
+
+        $active = array_filter($component->get('quantities'), fn ($qty) => $qty > 0);
+        $this->assertCount(3, $active);
+        $this->assertTrue((bool) ($component->get('prepayment')['required'] ?? false));
+        $this->assertSame(1.0, (float) ($component->get('prepayment')['ratio'] ?? 0));
+        $this->assertFalse($component->instance()->codAllowed);
+
+        $html = $component->html();
+        $this->assertStringNotContainsString('value="cash_on_delivery"', $html);
+        $this->assertStringContainsString('value="balance"', $html);
+        $this->assertStringContainsString('value="gateway"', $html);
+        $this->assertStringContainsString('Cash on Delivery is limited to 2 active orders', $html);
+        $this->assertStringContainsString('Full prepayment required from 3+', $html);
     }
 
     public function test_four_dates_drop_cod_and_keep_prepaid_methods(): void
@@ -138,13 +195,14 @@ class CheckoutMultiDatePaymentOptionsTest extends TestCase
         $active = array_filter($component->get('quantities'), fn ($qty) => $qty > 0);
         $this->assertCount(4, $active);
         $this->assertTrue((bool) ($component->get('prepayment')['required'] ?? false));
+        $this->assertSame(1.0, (float) ($component->get('prepayment')['ratio'] ?? 0));
         $this->assertFalse($component->instance()->codAllowed);
 
         $html = $component->html();
         $this->assertStringNotContainsString('value="cash_on_delivery"', $html);
         $this->assertStringContainsString('value="balance"', $html);
         $this->assertStringContainsString('value="gateway"', $html);
-        $this->assertStringContainsString('Cash on Delivery is limited to 3 active orders', $html);
+        $this->assertStringContainsString('Cash on Delivery is limited to 2 active orders', $html);
         $this->assertStringContainsString('Choose Middo Balance or online payment', $html);
     }
 }

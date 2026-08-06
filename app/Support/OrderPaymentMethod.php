@@ -59,9 +59,9 @@ class OrderPaymentMethod
     }
 
     /**
-     * COD is offered when prepayment is not required — i.e. up to the active-order
-     * threshold (3): three meals on one day, or across multiple days, as long as
-     * projected active orders stay within that limit and the receiver matches.
+     * COD is offered when prepayment is not required — i.e. projected active
+     * orders stay below MiddoSettings::fullPrepayFromActiveOrders() and the
+     * receiver matches the buyer profile.
      *
      * @param  int  $activeDateCount  Kept for call-site compatibility; COD gating
      *                                is driven by $prepaymentRequired.
@@ -96,7 +96,7 @@ class OrderPaymentMethod
         if ($prepaymentRequired) {
             $options = [self::BALANCE, self::GATEWAY];
         } else {
-            // COD + prepaid alternatives while under the 3-order COD ceiling.
+            // COD + prepaid alternatives while under the active-order full-prepay ceiling.
             $options = [self::CASH_ON_DELIVERY, self::BALANCE, self::GATEWAY];
         }
 
