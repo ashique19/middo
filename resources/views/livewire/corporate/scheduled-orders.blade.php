@@ -26,7 +26,7 @@
         </div>
 
         @if($viewMode === 'list')
-            <x-operation.orders.table :orders="$orders" empty-message="No upcoming lunch schedules found." />
+            <x-operation.orders.table :orders="$orders" :show-view-action="false" empty-message="No upcoming lunch schedules found." />
         @else
             {{-- Orders Grid --}}
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
