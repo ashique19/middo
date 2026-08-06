@@ -281,37 +281,83 @@
                                                 class="w-full border border-gray-200 bg-white text-gray-700 font-black text-xs uppercase tracking-wider py-3 rounded-xl disabled:opacity-60"
                                                 {{ $monthLocked ? 'disabled' : '' }}>
                                             <span wire:loading.remove wire:target="startGatewayPayment">Pay online</span>
-                                            <span wire:loading wire:target="startGatewayPayment">Redirecting…</span>
+                                            <span wire:loading wire:target="startGatewayPayment">Sending code…</span>
                                         </button>
                                     @else
                                         <button type="button" wire:click="startGatewayPayment" wire:loading.attr="disabled"
                                                 class="w-full bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl transition disabled:opacity-60"
                                                 {{ $monthLocked ? 'disabled' : '' }}>
                                             <span wire:loading.remove wire:target="startGatewayPayment">Pay online</span>
-                                            <span wire:loading wire:target="startGatewayPayment">Redirecting…</span>
+                                            <span wire:loading wire:target="startGatewayPayment">Sending code…</span>
                                         </button>
                                     @endif
                                 </div>
                             @else
-                                <div class="space-y-3">
-                                    <p class="text-xs font-semibold text-gray-600">Enter the 4-digit OTP sent to {{ $mobile }}</p>
-                                    @if($debugOtp)
+                                <div class="space-y-3" wire:key="package-confirmation-panel">
+                                    <div class="flex justify-between items-center gap-2">
+                                        <p class="text-xs font-semibold text-gray-600">
+                                            @if($paymentMethod === 'gateway' && $otpVerified)
+                                                Payment step
+                                            @else
+                                                Enter the 4-digit OTP sent to {{ $mobile }}
+                                            @endif
+                                        </p>
+                                        <button type="button" wire:click="cancelConfirmation" class="text-[10px] text-gray-400 hover:text-gray-600 underline font-semibold shrink-0">
+                                            Change info
+                                        </button>
+                                    </div>
+                                    @if($debugOtp && ! $otpVerified)
                                         <p class="text-xs font-black text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
                                             Debug OTP: {{ $debugOtp }}
                                         </p>
                                     @endif
-                                    <input wire:model.live="otpInput" type="text" inputmode="numeric" maxlength="4" class="w-full border-gray-200 rounded-xl text-sm p-2.5 tracking-[0.4em] text-center font-black" placeholder="••••">
-                                    @error('otpInput')
-                                        <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
-                                    @enderror
-                                    <button type="button" wire:click="finalizeSubscribe" wire:loading.attr="disabled"
-                                            class="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl disabled:opacity-60">
-                                        <span wire:loading.remove wire:target="finalizeSubscribe">Prepaid & create package</span>
-                                        <span wire:loading wire:target="finalizeSubscribe">Creating…</span>
-                                    </button>
-                                    <button type="button" wire:click="resendOtp" class="w-full text-xs font-bold text-middo-orange underline">
-                                        Resend OTP
-                                    </button>
+
+                                    @if($paymentMethod === 'gateway' && $otpVerified)
+                                        <div
+                                            class="rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-3 space-y-2"
+                                            wire:poll.4s="checkGatewayPaymentCompletion"
+                                        >
+                                            <p class="text-xs font-bold text-amber-950">
+                                                Code verified. Pay ৳{{ number_format($this->payableTotal()) }} online to create your package.
+                                            </p>
+                                            @if($gatewayPaymentUrl)
+                                                <a
+                                                    href="{{ $gatewayPaymentUrl }}"
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    class="inline-flex w-full items-center justify-center rounded-xl bg-middo-orange px-3 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-[#733614] transition"
+                                                    data-testid="package-make-payment"
+                                                >
+                                                    Make payment
+                                                </a>
+                                            @endif
+                                            <p class="text-[10px] text-gray-500 leading-snug" data-testid="package-waiting-payment">
+                                                Waiting for payment… your package will be created automatically once payment succeeds.
+                                            </p>
+                                        </div>
+                                    @else
+                                        <input wire:model.live="otpInput" type="text" inputmode="numeric" maxlength="4" class="w-full border-gray-200 rounded-xl text-sm p-2.5 tracking-[0.4em] text-center font-black" placeholder="••••">
+                                        @error('otpInput')
+                                            <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
+                                        @enderror
+                                        @if($paymentMethod === 'gateway')
+                                            <button type="button" wire:click="verifyGatewayOtp" wire:loading.attr="disabled"
+                                                    class="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl disabled:opacity-60"
+                                                    data-testid="package-verify-otp">
+                                                <span wire:loading.remove wire:target="verifyGatewayOtp">Verify code</span>
+                                                <span wire:loading wire:target="verifyGatewayOtp">Verifying…</span>
+                                            </button>
+                                        @else
+                                            <button type="button" wire:click="finalizeSubscribe" wire:loading.attr="disabled"
+                                                    class="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl disabled:opacity-60">
+                                                <span wire:loading.remove wire:target="finalizeSubscribe">Prepaid & create package</span>
+                                                <span wire:loading wire:target="finalizeSubscribe">Creating…</span>
+                                            </button>
+                                        @endif
+                                        <button type="button" wire:click="resendOtp" class="w-full text-xs font-bold text-middo-orange underline">
+                                            Resend OTP
+                                        </button>
+                                    @endif
                                 </div>
                             @endif
                         </div>

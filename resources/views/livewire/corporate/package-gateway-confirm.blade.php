@@ -2,20 +2,20 @@
     <div class="max-w-md mx-auto w-full space-y-6">
         <div>
             <a href="{{ route('corporates.packages.index') }}" class="text-xs font-bold text-middo-orange hover:underline">← Meal packages</a>
-            <p class="text-[11px] font-black uppercase tracking-wider text-middo-orange mt-3">Confirm package</p>
+            <p class="text-[11px] font-black uppercase tracking-wider text-middo-orange mt-3">Package checkout</p>
             <h1 class="text-2xl font-black tracking-tight mt-1">{{ $packageName ?: 'Monthly package' }}</h1>
             <p class="text-sm font-semibold text-[#635347] mt-1">
                 @if($paid)
-                    Payment received · enter OTP to finish
+                    Payment received · finishing your package
                 @else
-                    Complete payment, then confirm with OTP
+                    Complete payment to create your package
                 @endif
             </p>
         </div>
 
         <div class="bg-white border border-[#DDD3BE] rounded-2xl p-5 space-y-4 shadow-sm">
             <div class="flex justify-between gap-3 text-sm">
-                <span class="text-gray-500 font-semibold">Amount paid</span>
+                <span class="text-gray-500 font-semibold">Amount</span>
                 <span class="font-black text-middo-orange">৳{{ number_format($amount) }}</span>
             </div>
             <div class="flex justify-between gap-3 text-sm">
@@ -40,64 +40,29 @@
             </div>
         @endif
 
-        @if(! $paid)
-            @if($errorMessage || $errors->any())
-                <div id="pkg-confirm-feedback" class="rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm font-semibold px-4 py-3" role="alert">
-                    @if($errorMessage)
-                        {{ $errorMessage }}
-                    @else
-                        <ul class="list-disc pl-4 space-y-1">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    @endif
-                </div>
-            @endif
-            @if($paymentUrl)
-                <a href="{{ $paymentUrl }}"
-                   class="block w-full text-center bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider py-3.5 rounded-xl transition">
-                    Continue to payment · ৳{{ number_format($amount) }}
-                </a>
-            @endif
-        @else
-            <div class="bg-white border border-[#DDD3BE] rounded-2xl p-5 space-y-3 shadow-sm">
-                @if($errorMessage || $errors->any())
-                    <div id="pkg-confirm-feedback" class="rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm font-semibold px-3 py-2" role="alert">
-                        @if($errorMessage)
-                            {{ $errorMessage }}
-                        @else
-                            <ul class="list-disc pl-4 space-y-1">
-                                @foreach ($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        @endif
-                    </div>
-                @endif
-                <p class="text-xs font-semibold text-gray-600">Enter the 4-digit OTP sent to {{ $mobile }}</p>
-                @if($debugOtp)
-                    <p class="text-xs font-black text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-                        Debug OTP: {{ $debugOtp }}
-                    </p>
-                @endif
-                <input wire:model.live="otpInput" type="text" inputmode="numeric" maxlength="4"
-                       class="w-full border-gray-200 rounded-xl text-sm p-2.5 tracking-[0.4em] text-center font-black"
-                       placeholder="••••" autocomplete="one-time-code">
-                @error('otpInput')
-                    <p class="text-xs font-semibold text-red-600">{{ $message }}</p>
-                @enderror
-                <button type="button" wire:click="createPackage" wire:loading.attr="disabled"
-                        class="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl disabled:opacity-60">
-                    <span wire:loading.remove wire:target="createPackage">Create package</span>
-                    <span wire:loading wire:target="createPackage">Creating…</span>
-                </button>
-                <button type="button" wire:click="resendOtp" wire:loading.attr="disabled"
-                        class="w-full text-xs font-bold text-middo-orange underline disabled:opacity-60">
-                    <span wire:loading.remove wire:target="resendOtp">Resend OTP</span>
-                    <span wire:loading wire:target="resendOtp">Sending…</span>
-                </button>
+        @if($errorMessage)
+            <div class="rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm font-semibold px-4 py-3" role="alert">
+                {{ $errorMessage }}
             </div>
         @endif
+
+        @if(! $paid && $paymentUrl)
+            <a href="{{ $paymentUrl }}"
+               class="block w-full text-center bg-middo-orange hover:bg-[#733614] text-white font-black text-xs uppercase tracking-wider py-3.5 rounded-xl transition">
+                Continue to payment · ৳{{ number_format($amount) }}
+            </a>
+        @elseif($paid)
+            <button type="button" wire:click="retryCompletion" wire:loading.attr="disabled"
+                    class="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xs uppercase tracking-wider py-3 rounded-xl disabled:opacity-60"
+                    data-testid="package-confirm-retry">
+                <span wire:loading.remove wire:target="retryCompletion">Finish package creation</span>
+                <span wire:loading wire:target="retryCompletion">Creating…</span>
+            </button>
+        @endif
+
+        <a href="{{ route('corporates.dashboard') }}"
+           class="inline-flex w-full items-center justify-center border border-[#EBE3D3] bg-[#F7F4EB] hover:bg-[#EFE9DC] text-[#635347] py-3 rounded-xl text-sm font-bold transition">
+            Go to Dashboard
+        </a>
     </div>
 </div>

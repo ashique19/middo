@@ -47,8 +47,12 @@ class Dashboard extends Component
             return;
         }
 
-        PackageGatewayCheckout::pokeOtp($intent);
-        $intent->refresh();
+        $completed = PackageGatewayCheckout::completeIfPaid($intent->payment_token);
+        if ($completed['ok'] ?? false) {
+            $this->pendingPaidCheckout = null;
+
+            return;
+        }
 
         $this->pendingPaidCheckout = [
             'token' => $intent->payment_token,

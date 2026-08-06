@@ -58,6 +58,8 @@ class PackageSubscribeModal extends Component
 
     public bool $isConfirmingOtp = false;
 
+    public bool $otpVerified = false;
+
     public string $otpInput = '';
 
     public string $paymentMethod = 'balance';
@@ -153,6 +155,7 @@ class PackageSubscribeModal extends Component
         $this->area_id = $user->area_id;
         $this->deliveryWindow = '12:00 PM';
         $this->isConfirmingOtp = false;
+        $this->otpVerified = false;
         $this->otpInput = '';
         $this->paymentMethod = 'balance';
         $this->gatewayPaymentToken = null;
@@ -627,6 +630,16 @@ class PackageSubscribeModal extends Component
     public function resendOtp(): void
     {
         $this->errorMessage = '';
+        $this->otpVerified = false;
+        $this->gatewayPaymentToken = null;
+        $this->gatewayPaymentUrl = null;
+
+        if ($this->paymentMethod === 'gateway') {
+            $this->startGatewayPayment();
+
+            return;
+        }
+
         $this->payWithWallet();
     }
 
@@ -683,30 +696,38 @@ class PackageSubscribeModal extends Component
         }
 
         $this->isConfirmingOtp = true;
+        $this->otpVerified = false;
         $this->otpInput = '';
+        $this->gatewayPaymentToken = null;
+        $this->gatewayPaymentUrl = null;
         $this->debugOtp = isset($otpResult['debug_otp']) ? (string) $otpResult['debug_otp'] : null;
         $this->statusMessage = $this->debugOtp
             ? 'OTP sent. Debug code: '.$this->debugOtp
             : 'OTP sent to '.$this->mobile.'. Enter the 4-digit code to confirm.';
     }
 
+    /**
+     * Online payment: send OTP first (same as menu checkout). Gateway session starts after verify.
+     */
     public function startGatewayPayment(): void
+    {
+        $this->paymentMethod = 'gateway';
+        $this->initiateConfirmation();
+    }
+
+    /**
+     * Gateway path: verify OTP, then create payment session for Make payment.
+     */
+    public function verifyGatewayOtp(): void
     {
         $this->errorMessage = '';
         $this->statusMessage = '';
         $this->resetErrorBag();
-        $this->refreshQuote();
+        $this->otpInput = trim((string) $this->otpInput);
 
         try {
             $this->validate([
-                'customerName' => 'required|string|min:2|max:120',
-                'mobile' => 'required|string|min:11|max:20',
-                'addressLine1' => 'required|string|min:5|max:500',
-                'city_id' => 'required|exists:cities,id',
-                'area_id' => 'required|exists:areas,id',
-                'deliveryWindow' => 'required|in:12:00 PM,11:30 AM',
-                'quantity' => 'required|integer|min:1|max:'.(int) config('middo.max_order_qty_allowed', 5),
-                'targetMonth' => 'required|date_format:Y-m',
+                'otpInput' => 'required|string|size:4',
             ]);
         } catch (ValidationException $e) {
             $this->errorMessage = collect($e->validator->errors()->all())->implode(' ');
@@ -714,6 +735,21 @@ class PackageSubscribeModal extends Component
 
             return;
         }
+
+        if ($this->paymentMethod !== 'gateway') {
+            $this->finalizeSubscribe();
+
+            return;
+        }
+
+        if (! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
+            $this->errorMessage = 'Invalid or expired confirmation code. Request a new OTP and try again.';
+            $this->addError('otpInput', 'Invalid or expired confirmation code.');
+
+            return;
+        }
+
+        $this->refreshQuote();
 
         try {
             PackageBilling::assertSelectionsFillMonth($this->quote);
@@ -729,50 +765,12 @@ class PackageSubscribeModal extends Component
             return;
         }
 
-        // Paid-but-unconfirmed online checkout must be finished before starting another.
-        $pendingPaid = PackageGatewayCheckout::latestPaidAwaitingOtp((int) Auth::id());
-        if ($pendingPaid) {
-            PackageGatewayCheckout::pokeOtp($pendingPaid, cooldownSeconds: 0);
-            $this->redirect($pendingPaid->confirmUrl());
-
-            return;
-        }
-
         $total = $this->payableTotal();
-        if ($total < 1 && $this->couponDiscount < 1) {
-            $this->errorMessage = 'Nothing to pay.';
-
-            return;
-        }
-
-        // Fully discounted packages skip gateway and confirm via wallet/OTP path.
         if ($total < 1) {
+            // Fully discounted — create via wallet/OTP finalize path.
             $this->paymentMethod = 'balance';
-            $this->initiateConfirmation();
-
-            return;
-        }
-
-        $metadata = PackageGatewayCheckout::cartMetadata(
-            (int) $this->packageId,
-            $this->quantity,
-            $this->omittedWeekdays,
-            $this->targetMonth,
-            $this->selectionPayload(),
-            $total,
-            (int) $this->area_id
-        );
-
-        $checkout = app(PaymentGateway::class)->createCheckout(
-            (int) Auth::id(),
-            $total,
-            $metadata
-        );
-
-        $token = (string) ($checkout['token'] ?? '');
-        $paymentUrl = (string) ($checkout['payment_url'] ?? '');
-        if ($token === '' || $paymentUrl === '') {
-            $this->errorMessage = 'Could not start online payment. Try again.';
+            $this->otpVerified = true;
+            $this->finalizeSubscribe();
 
             return;
         }
@@ -787,10 +785,75 @@ class PackageSubscribeModal extends Component
             'coupon_code' => $this->appliedCouponCode !== '' ? $this->appliedCouponCode : null,
         ];
 
-        PackageGatewayCheckout::rememberIntent((int) Auth::id(), $token, $metadata, $draft);
+        try {
+            $checkout = PackageGatewayCheckout::start(
+                Auth::user(),
+                (int) $this->packageId,
+                $this->quantity,
+                $this->omittedWeekdays,
+                $this->targetMonth,
+                $this->selectionPayload(),
+                $total,
+                $draft
+            );
+        } catch (\Throwable $e) {
+            report($e);
+            $this->errorMessage = $e->getMessage() ?: 'Could not start online payment. Try again.';
 
-        // Leave the build modal — payment first, OTP after success on the confirm screen.
-        $this->redirect($paymentUrl);
+            return;
+        }
+
+        $token = (string) ($checkout['token'] ?? '');
+        $paymentUrl = (string) ($checkout['payment_url'] ?? '');
+        if ($token === '' || $paymentUrl === '') {
+            $this->errorMessage = 'Could not start online payment. Try again.';
+
+            return;
+        }
+
+        $this->gatewayPaymentToken = $token;
+        $this->gatewayPaymentUrl = $paymentUrl;
+        $this->otpVerified = true;
+        $this->statusMessage = 'Code verified. Complete payment to create your package.';
+    }
+
+    /**
+     * Poll after Make payment: create package as soon as the gateway marks the session paid.
+     */
+    public function checkGatewayPaymentCompletion()
+    {
+        if ($this->paymentMethod !== 'gateway'
+            || ! $this->otpVerified
+            || ! filled($this->gatewayPaymentToken)) {
+            return null;
+        }
+
+        $result = PackageGatewayCheckout::completeIfPaid($this->gatewayPaymentToken);
+        if (! ($result['ok'] ?? false)) {
+            return null;
+        }
+
+        $subscriptionId = (int) ($result['subscription_id'] ?? 0);
+        session()->flash('message', $result['message'] ?? 'Package prepaid successfully.');
+
+        if ($subscriptionId > 0) {
+            return $this->redirect(route('corporates.packages.show', ['subscriptionId' => $subscriptionId]));
+        }
+
+        return $this->redirect(route('corporates.packages.index'));
+    }
+
+    public function cancelConfirmation(): void
+    {
+        $this->isConfirmingOtp = false;
+        $this->otpVerified = false;
+        $this->otpInput = '';
+        $this->gatewayPaymentToken = null;
+        $this->gatewayPaymentUrl = null;
+        $this->errorMessage = '';
+        $this->statusMessage = '';
+        $this->debugOtp = null;
+        $this->resetErrorBag();
     }
 
     public function finalizeSubscribe(): void
@@ -800,16 +863,22 @@ class PackageSubscribeModal extends Component
         $this->resetErrorBag();
         $this->otpInput = trim((string) $this->otpInput);
 
+        // Already verified in verifyGatewayOtp before flipping to balance for free carts.
+        $skipOtp = $this->otpVerified && $this->paymentMethod === 'balance';
+
         try {
-            $this->validate([
-                'otpInput' => 'required|string|size:4',
+            $rules = [
                 'customerName' => 'required|string|min:2|max:120',
                 'paymentMethod' => 'required|in:balance',
                 'city_id' => 'required|exists:cities,id',
                 'area_id' => 'required|exists:areas,id',
                 'addressLine1' => 'required|string|min:5|max:500',
                 'targetMonth' => 'required|date_format:Y-m',
-            ]);
+            ];
+            if (! $skipOtp) {
+                $rules['otpInput'] = 'required|string|size:4';
+            }
+            $this->validate($rules);
         } catch (ValidationException $e) {
             $this->errorMessage = collect($e->validator->errors()->all())->implode(' ');
             $this->setErrorBag($e->validator->errors());
@@ -817,7 +886,7 @@ class PackageSubscribeModal extends Component
             return;
         }
 
-        if (! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
+        if (! $skipOtp && ! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
             $this->errorMessage = 'Invalid or expired confirmation code. Request a new OTP and try again.';
             $this->addError('otpInput', 'Invalid or expired confirmation code.');
             $this->isConfirmingOtp = true;

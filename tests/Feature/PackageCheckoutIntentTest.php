@@ -14,6 +14,7 @@ use App\Models\PackageCheckoutIntent;
 use App\Models\PackageSubscription;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\OrderConfirmationOtp;
 use App\Support\OrderCutoff;
 use App\Support\PackageBilling;
 use App\Support\PackageGatewayCheckout;
@@ -94,8 +95,16 @@ class PackageCheckoutIntentTest extends TestCase
         return PackageBilling::availableDatesInMonth($month, $omitted)->count();
     }
 
-    private function startPaidCheckout(User $user, MealPackage $package, MenuItem $menu, City $city, Area $area): string
-    {
+    /**
+     * OTP → verify → make payment session → pay → auto-create package.
+     */
+    private function otpThenPayCreatesPackage(
+        User $user,
+        MealPackage $package,
+        MenuItem $menu,
+        City $city,
+        Area $area
+    ): string {
         $workingDays = $this->workingDays('2026-07');
 
         $component = Livewire::actingAs($user)
@@ -111,26 +120,30 @@ class PackageCheckoutIntentTest extends TestCase
             $component->call('changeMenuDays', $menu->id, 1);
         }
 
-        $component->call('startGatewayPayment')->assertRedirect();
+        $component
+            ->call('startGatewayPayment')
+            ->assertSet('isConfirmingOtp', true)
+            ->assertSet('otpVerified', false)
+            ->assertSet('gatewayPaymentUrl', null)
+            ->assertSee('Verify code');
 
-        $redirectUrl = $component->effects['redirect'] ?? null;
-        $this->assertIsString($redirectUrl);
+        OrderConfirmationOtp::generate($user->mobile);
 
-        $token = null;
-        if (preg_match('#/pay/[^/]+/([^/?]+)#', $redirectUrl, $matches)) {
-            $token = $matches[1];
-        }
-        if (! $token && preg_match('#[?&]token=([^&]+)#', $redirectUrl, $matches)) {
-            $token = urldecode($matches[1]);
-        }
-        if (! $token && preg_match('#/([^/?]+)\?#', parse_url($redirectUrl, PHP_URL_PATH) ?? '', $matches)) {
-            $maybe = $matches[1];
-            if (strlen($maybe) >= 20) {
-                $token = $maybe;
-            }
-        }
+        $component
+            ->set('otpInput', '1234')
+            ->call('verifyGatewayOtp')
+            ->assertSet('otpVerified', true)
+            ->assertNotSet('gatewayPaymentUrl', null)
+            ->assertSee('Make payment');
 
-        $this->assertNotEmpty($token, 'Expected payment token in redirect URL: '.$redirectUrl);
+        $token = (string) $component->get('gatewayPaymentToken');
+        $this->assertNotEmpty($token);
+
+        $this->assertDatabaseHas('package_checkout_intents', [
+            'payment_token' => $token,
+            'status' => PackageCheckoutIntent::STATUS_AWAITING_PAYMENT,
+            'user_id' => $user->id,
+        ]);
 
         $confirmUrl = URL::temporarySignedRoute(
             'corporate.gateway-prepay.confirm',
@@ -139,18 +152,18 @@ class PackageCheckoutIntentTest extends TestCase
         );
         $this->actingAs($user)
             ->post($confirmUrl)
-            ->assertRedirect(route('corporates.packages.confirm', ['token' => $token]));
+            ->assertRedirect();
 
         $this->assertDatabaseHas('package_checkout_intents', [
             'payment_token' => $token,
-            'status' => PackageCheckoutIntent::STATUS_PAID_AWAITING_OTP,
+            'status' => PackageCheckoutIntent::STATUS_COMPLETED,
             'user_id' => $user->id,
         ]);
 
         return $token;
     }
 
-    public function test_gateway_start_persists_checkout_intent_row(): void
+    public function test_gateway_verify_otp_persists_checkout_intent_awaiting_payment(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
 
@@ -177,7 +190,9 @@ class PackageCheckoutIntentTest extends TestCase
             $component->call('changeMenuDays', $menu->id, 1);
         }
 
-        $component->call('startGatewayPayment')->assertRedirect();
+        $component->call('startGatewayPayment')->assertSet('isConfirmingOtp', true);
+        OrderConfirmationOtp::generate('01710123123');
+        $component->set('otpInput', '1234')->call('verifyGatewayOtp');
 
         $this->assertDatabaseHas('package_checkout_intents', [
             'user_id' => $user->id,
@@ -188,7 +203,7 @@ class PackageCheckoutIntentTest extends TestCase
         Carbon::setTestNow();
     }
 
-    public function test_paid_intent_survives_cache_expiry_and_can_complete_with_otp(): void
+    public function test_paid_intent_survives_cache_expiry_and_confirm_page_completes(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
 
@@ -200,30 +215,55 @@ class PackageCheckoutIntentTest extends TestCase
         ]);
         $menu = $this->makeMenuItem();
         $package = $this->makeRatePlan(79);
+        $workingDays = $this->workingDays('2026-07');
+        $quote = PackageBilling::quoteFromSelections(
+            $package,
+            1,
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]],
+            [5, 6],
+            '2026-07'
+        );
+        $charges = app(\App\Support\ChargeService::class)->quotePackage(
+            $area->id,
+            1,
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]]
+        );
+        $amount = (int) $quote['total_amount'] + (int) ($charges['total'] ?? 0);
 
-        $token = $this->startPaidCheckout($user, $package, $menu, $city, $area);
+        $draft = [
+            'customer_name' => 'Dev Signature',
+            'mobile' => $user->mobile,
+            'address_line1' => 'Mirpur dhaka',
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'delivery_window' => '12:00 PM',
+            'coupon_code' => null,
+        ];
+        $checkout = PackageGatewayCheckout::start(
+            $user,
+            $package->id,
+            1,
+            [5, 6],
+            '2026-07',
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]],
+            $amount,
+            $draft
+        );
+        $token = $checkout['token'];
+        app(PaymentGateway::class)->markPaid($token);
+        PackageGatewayCheckout::markIntentPaid($token);
 
-        // Simulate browser abandon: gateway cache + draft expire, but DB intent remains.
         Cache::forget('payment_gateway_checkout_'.$token);
         Cache::forget('package_gateway_draft_'.$token);
+        Cache::forget('package_gateway_done_'.$token);
 
-        $this->assertNull(app(PaymentGateway::class)->find($token));
         $this->assertDatabaseHas('package_checkout_intents', [
             'payment_token' => $token,
             'status' => PackageCheckoutIntent::STATUS_PAID_AWAITING_OTP,
         ]);
 
-        $confirm = Livewire::actingAs($user)
+        Livewire::actingAs($user)
             ->test(PackageGatewayConfirm::class, ['token' => $token])
-            ->assertSet('paid', true)
-            ->assertSee('Enter the 4-digit OTP');
-
-        $debugOtp = $confirm->get('debugOtp');
-        $this->assertNotEmpty($debugOtp);
-
-        $confirm
-            ->set('otpInput', $debugOtp)
-            ->call('createPackage')
             ->assertRedirect();
 
         $subscription = PackageSubscription::query()->where('user_id', $user->id)->latest('id')->first();
@@ -239,7 +279,7 @@ class PackageCheckoutIntentTest extends TestCase
         Carbon::setTestNow();
     }
 
-    public function test_packages_page_surfaces_paid_awaiting_otp_and_blocks_new_subscribe(): void
+    public function test_packages_page_auto_finishes_paid_pending_intent(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
 
@@ -251,38 +291,56 @@ class PackageCheckoutIntentTest extends TestCase
         ]);
         $menu = $this->makeMenuItem();
         $package = $this->makeRatePlan(79);
+        $workingDays = $this->workingDays('2026-07');
+        $quote = PackageBilling::quoteFromSelections(
+            $package,
+            1,
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]],
+            [5, 6],
+            '2026-07'
+        );
+        $charges = app(\App\Support\ChargeService::class)->quotePackage(
+            $area->id,
+            1,
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]]
+        );
+        $amount = (int) $quote['total_amount'] + (int) ($charges['total'] ?? 0);
 
-        $token = $this->startPaidCheckout($user, $package, $menu, $city, $area);
+        $checkout = PackageGatewayCheckout::start(
+            $user,
+            $package->id,
+            1,
+            [5, 6],
+            '2026-07',
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]],
+            $amount,
+            [
+                'customer_name' => 'Dev Signature',
+                'mobile' => $user->mobile,
+                'address_line1' => 'Mirpur dhaka',
+                'city_id' => $city->id,
+                'area_id' => $area->id,
+                'delivery_window' => '12:00 PM',
+                'coupon_code' => null,
+            ]
+        );
+        $token = $checkout['token'];
+        app(PaymentGateway::class)->markPaid($token);
+        PackageGatewayCheckout::markIntentPaid($token);
 
         Livewire::actingAs($user)
             ->test(Packages::class)
-            ->assertSet('pendingPaidCheckout.token', $token)
-            ->assertSee('Payment received')
-            ->assertSee('Enter OTP');
+            ->assertSet('pendingPaidCheckout', null);
 
-        // Starting another gateway checkout redirects back to the unpaid OTP confirm.
-        $workingDays = $this->workingDays('2026-07');
-        $component = Livewire::actingAs($user)
-            ->test(PackageSubscribeModal::class)
-            ->call('open', $package->id)
-            ->set('customerName', 'Dev Signature')
-            ->set('mobile', '01710123125')
-            ->set('addressLine1', 'Mirpur dhaka')
-            ->set('city_id', $city->id)
-            ->set('area_id', $area->id);
-
-        for ($i = 0; $i < $workingDays; $i++) {
-            $component->call('changeMenuDays', $menu->id, 1);
-        }
-
-        $component
-            ->call('startGatewayPayment')
-            ->assertRedirect(route('corporates.packages.confirm', ['token' => $token]));
+        $this->assertDatabaseHas('package_checkout_intents', [
+            'payment_token' => $token,
+            'status' => PackageCheckoutIntent::STATUS_COMPLETED,
+        ]);
 
         Carbon::setTestNow();
     }
 
-    public function test_packages_page_pokes_otp_for_abandoned_paid_checkout(): void
+    public function test_otp_then_pay_end_to_end_creates_package(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
 
@@ -291,21 +349,14 @@ class PackageCheckoutIntentTest extends TestCase
             'city_id' => $city->id,
             'area_id' => $area->id,
             'mobile' => '01710123126',
+            'balance' => 0,
         ]);
         $menu = $this->makeMenuItem();
         $package = $this->makeRatePlan(79);
 
-        $token = $this->startPaidCheckout($user, $package, $menu, $city, $area);
+        $this->otpThenPayCreatesPackage($user, $package, $menu, $city, $area);
 
-        $intent = PackageCheckoutIntent::query()->where('payment_token', $token)->firstOrFail();
-        $intent->update(['otp_last_sent_at' => now()->subMinutes(10)]);
-
-        Livewire::actingAs($user)
-            ->test(Packages::class)
-            ->assertSet('pendingPaidCheckout.token', $token);
-
-        $intent->refresh();
-        $this->assertTrue($intent->otp_last_sent_at->gt(now()->subMinute()));
+        $this->assertSame(1, PackageSubscription::query()->where('user_id', $user->id)->count());
 
         Carbon::setTestNow();
     }

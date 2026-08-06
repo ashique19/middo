@@ -26,6 +26,16 @@ class CorporateGatewayPrepayController extends Controller
         $isWallet = $purpose === CorporateWalletTopUp::PURPOSE;
 
         if ($purpose === PackageGatewayCheckout::PURPOSE && ($payload['paid'] ?? false) && Auth::check()) {
+            $completed = PackageGatewayCheckout::completeIfPaid($token);
+            if ($completed['ok'] ?? false) {
+                $subscriptionId = (int) ($completed['subscription_id'] ?? 0);
+                $redirect = $subscriptionId > 0
+                    ? redirect()->to(route('corporates.packages.show', ['subscriptionId' => $subscriptionId]))
+                    : redirect()->to(route('corporates.packages.index'));
+
+                return $redirect->with('message', $completed['message'] ?? 'Package prepaid successfully.');
+            }
+
             return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
         }
 
@@ -74,6 +84,15 @@ class CorporateGatewayPrepayController extends Controller
         }
 
         if ($purpose === PackageGatewayCheckout::PURPOSE) {
+            $completed = PackageGatewayCheckout::completeIfPaid($token);
+            if (($completed['ok'] ?? false) && Auth::check()) {
+                $subscriptionId = (int) ($completed['subscription_id'] ?? 0);
+                $redirect = $subscriptionId > 0
+                    ? redirect()->to(route('corporates.packages.show', ['subscriptionId' => $subscriptionId]))
+                    : redirect()->to(route('corporates.packages.index'));
+
+                return $redirect->with('message', $completed['message'] ?? 'Package prepaid successfully.');
+            }
             PackageGatewayCheckout::markIntentPaid($token);
             if (Auth::check()) {
                 return redirect()->to(PackageGatewayCheckout::confirmUrl($token));

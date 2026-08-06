@@ -99,6 +99,16 @@ class EpsPaymentCallbackController extends Controller
         }
 
         if ($purpose === PackageGatewayCheckout::PURPOSE && ($result['ok'] ?? false)) {
+            $completed = PackageGatewayCheckout::completeIfPaid($token);
+            if (($completed['ok'] ?? false) && Auth::check()) {
+                $subscriptionId = (int) ($completed['subscription_id'] ?? 0);
+                $redirect = $subscriptionId > 0
+                    ? redirect()->to(route('corporates.packages.show', ['subscriptionId' => $subscriptionId]))
+                    : redirect()->to(route('corporates.packages.index'));
+
+                return $redirect->with('message', $completed['message'] ?? 'Package prepaid successfully.');
+            }
+
             if (Auth::check()) {
                 return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
             }
@@ -177,6 +187,10 @@ class EpsPaymentCallbackController extends Controller
         }
 
         if ($purpose === PackageGatewayCheckout::PURPOSE) {
+            $completed = PackageGatewayCheckout::completeIfPaid($token);
+            if ($completed['ok'] ?? false) {
+                return;
+            }
             PackageGatewayCheckout::markIntentPaid($token);
 
             return;

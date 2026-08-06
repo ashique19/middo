@@ -10,14 +10,184 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Package online checkout: pay first, then OTP.
- * Persists intents in DB so paid-but-abandoned OTP flows remain traceable.
+ * Package online checkout: OTP first, then pay; on success create the package.
+ * Persists intents in DB so paid sessions remain traceable if completion is retried.
  */
 class PackageGatewayCheckout
 {
     public const PURPOSE = 'package_subscribe';
 
     public const PAID_SESSION_TTL_DAYS = 14;
+
+    protected static function doneKey(string $token): string
+    {
+        return 'package_gateway_done_'.$token;
+    }
+
+    /**
+     * Create gateway session + intent after OTP has been verified.
+     *
+     * @param  array<int, array{menu_item_id: int, day_count: int}>  $selections
+     * @param  array<int, int>  $omittedWeekdays
+     * @param  array{
+     *   customer_name: string,
+     *   mobile: string,
+     *   address_line1: string,
+     *   city_id: int,
+     *   area_id: int,
+     *   delivery_window: string,
+     *   coupon_code?: string|null
+     * }  $draft
+     * @return array{token: string, amount: int, paid: bool, payment_url: string}
+     */
+    public static function start(
+        \App\Models\User $user,
+        int $mealPackageId,
+        int $quantity,
+        array $omittedWeekdays,
+        string $targetMonth,
+        array $selections,
+        int $amount,
+        array $draft
+    ): array {
+        $metadata = self::cartMetadata(
+            $mealPackageId,
+            $quantity,
+            $omittedWeekdays,
+            $targetMonth,
+            $selections,
+            $amount,
+            (int) ($draft['area_id'] ?? 0) ?: null
+        );
+
+        $checkout = app(PaymentGateway::class)->createCheckout(
+            (int) $user->id,
+            $amount,
+            $metadata
+        );
+
+        $token = (string) ($checkout['token'] ?? '');
+        self::rememberIntent((int) $user->id, $token, $metadata, $draft);
+        Cache::forget(self::doneKey($token));
+
+        return $checkout;
+    }
+
+    /**
+     * After gateway marks the session paid, create the package subscription.
+     *
+     * @return array{
+     *   ok: bool,
+     *   message?: string,
+     *   already_done?: bool,
+     *   subscription_id?: int,
+     *   billable_days?: int
+     * }
+     */
+    public static function completeIfPaid(string $token): array
+    {
+        $done = Cache::get(self::doneKey($token));
+        if (is_array($done) && ($done['ok'] ?? false)) {
+            return [
+                'ok' => true,
+                'already_done' => true,
+                'subscription_id' => (int) ($done['subscription_id'] ?? 0),
+                'billable_days' => (int) ($done['billable_days'] ?? 0),
+                'message' => $done['message'] ?? 'Package already created.',
+            ];
+        }
+
+        $intent = self::findIntent($token);
+        if ($intent && $intent->status === PackageCheckoutIntent::STATUS_COMPLETED && $intent->package_subscription_id) {
+            $payload = [
+                'ok' => true,
+                'already_done' => true,
+                'subscription_id' => (int) $intent->package_subscription_id,
+                'billable_days' => 0,
+                'message' => 'Package already created.',
+            ];
+            Cache::put(self::doneKey($token), $payload, now()->addDays(self::PAID_SESSION_TTL_DAYS));
+
+            return $payload;
+        }
+
+        $gateway = app(PaymentGateway::class);
+        $payload = $gateway->find($token);
+        $metadata = is_array($payload) && is_array($payload['metadata'] ?? null)
+            ? $payload['metadata']
+            : null;
+
+        if (is_array($metadata) && ($metadata['purpose'] ?? null) !== self::PURPOSE) {
+            return ['ok' => false, 'message' => 'Not a package checkout payment.'];
+        }
+
+        $paidViaGateway = is_array($payload) && (bool) ($payload['paid'] ?? false);
+        $paidViaIntent = $intent && $intent->isPaidAwaitingOtp();
+
+        if (! $paidViaGateway && ! $paidViaIntent) {
+            return ['ok' => false, 'message' => 'Payment is not completed yet.'];
+        }
+
+        if ($paidViaGateway) {
+            $intent = self::markIntentPaid($token) ?? $intent;
+        } elseif ($paidViaIntent) {
+            self::extendPaidGatewaySession($token, $intent);
+            $intent = $intent->fresh() ?? $intent;
+        }
+
+        if (! $intent) {
+            return ['ok' => false, 'message' => 'Checkout intent missing. Start package checkout again.'];
+        }
+
+        $user = \App\Models\User::query()->find((int) $intent->user_id);
+        if (! $user) {
+            return ['ok' => false, 'message' => 'Account not found for this payment.'];
+        }
+
+        $package = MealPackage::query()->find((int) $intent->meal_package_id);
+        if (! $package) {
+            return ['ok' => false, 'message' => 'Package not found for this payment.'];
+        }
+
+        try {
+            $result = app(PackageSubscriptionService::class)->subscribe(
+                $user,
+                $package,
+                (int) $intent->quantity,
+                $intent->omitted_weekdays ?? [5, 6],
+                $intent->selections ?? [],
+                (string) $intent->target_month,
+                (string) $intent->customer_name,
+                (string) $intent->mobile,
+                (string) $intent->address_line1,
+                (int) $intent->city_id,
+                (int) $intent->area_id,
+                (string) $intent->delivery_window,
+                'gateway',
+                $token,
+                filled($draftCoupon = (self::findDraft($token)['coupon_code'] ?? null))
+                    ? (string) $draftCoupon
+                    : null
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'Could not create the package.'];
+        }
+
+        self::markCompleted($token, $result['subscription']);
+
+        $response = [
+            'ok' => true,
+            'subscription_id' => (int) $result['subscription']->id,
+            'billable_days' => (int) $result['subscription']->billable_days,
+            'message' => 'Package prepaid for '.(int) $result['subscription']->billable_days
+                .' days. Middo operations will assign exact delivery dates next.',
+        ];
+        Cache::put(self::doneKey($token), $response, now()->addDays(self::PAID_SESSION_TTL_DAYS));
+
+        return $response;
+    }
 
     /**
      * Cart fingerprint metadata stored on the payment session.

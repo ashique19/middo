@@ -43,9 +43,12 @@ class Packages extends Component
             return;
         }
 
-        if ($pokeOtp) {
-            PackageGatewayCheckout::pokeOtp($intent);
-            $intent->refresh();
+        // OTP-first flow auto-creates on pay; finish any leftover paid intent.
+        $completed = PackageGatewayCheckout::completeIfPaid($intent->payment_token);
+        if ($completed['ok'] ?? false) {
+            $this->pendingPaidCheckout = null;
+
+            return;
         }
 
         $this->pendingPaidCheckout = [
@@ -121,7 +124,16 @@ class Packages extends Component
     {
         $pending = PackageGatewayCheckout::latestPaidAwaitingOtp((int) Auth::id());
         if ($pending) {
-            PackageGatewayCheckout::pokeOtp($pending);
+            $completed = PackageGatewayCheckout::completeIfPaid($pending->payment_token);
+            if ($completed['ok'] ?? false) {
+                $subscriptionId = (int) ($completed['subscription_id'] ?? 0);
+                if ($subscriptionId > 0) {
+                    $this->redirect(route('corporates.packages.show', ['subscriptionId' => $subscriptionId]));
+
+                    return;
+                }
+            }
+
             $this->redirect($pending->confirmUrl());
 
             return;

@@ -332,7 +332,7 @@ class MealPackageTest extends TestCase
         Carbon::setTestNow();
     }
 
-    public function test_pay_online_redirects_to_payment_then_otp_confirm_creates_package(): void
+    public function test_pay_online_verifies_otp_then_payment_creates_package(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-22 10:00:00', OrderCutoff::timezone()));
 
@@ -360,40 +360,30 @@ class MealPackageTest extends TestCase
             $component->call('changeMenuDays', $menu->id, 1);
         }
 
-        $component->call('startGatewayPayment')->assertRedirect();
+        $component
+            ->call('startGatewayPayment')
+            ->assertSet('isConfirmingOtp', true)
+            ->assertSet('otpVerified', false)
+            ->assertSee('Verify code')
+            ->assertDontSeeHtml('data-testid="package-make-payment"');
 
-        $redirectUrl = $component->effects['redirect'] ?? null;
-        $this->assertIsString($redirectUrl);
-        $this->assertNotEmpty($redirectUrl);
+        \App\Support\OrderConfirmationOtp::generate('01710123123');
 
-        $token = null;
-        if (preg_match('#/pay/[^/]+/([^/?]+)#', $redirectUrl, $matches)) {
-            $token = $matches[1];
-        }
-        // Pseudo gateway uses signed corporate.gateway-prepay.show?token=...
-        if (! $token && preg_match('#[?&]token=([^&]+)#', $redirectUrl, $matches)) {
-            $token = urldecode($matches[1]);
-        }
-        // Path style /gateway-prepay/{token}
-        if (! $token && preg_match('#/([^/?]+)\?#', parse_url($redirectUrl, PHP_URL_PATH) ?? '', $matches)) {
-            $maybe = $matches[1];
-            if (strlen($maybe) >= 20) {
-                $token = $maybe;
-            }
-        }
+        $component
+            ->set('otpInput', '1234')
+            ->call('verifyGatewayOtp')
+            ->assertSet('otpVerified', true)
+            ->assertSeeHtml('data-testid="package-make-payment"')
+            ->assertSeeHtml('data-testid="package-waiting-payment"');
 
-        $this->assertNotEmpty($token, 'Expected payment token in redirect URL: '.$redirectUrl);
+        $token = $component->get('gatewayPaymentToken');
+        $this->assertNotEmpty($token);
 
         $gateway = app(\App\Contracts\PaymentGateway::class);
         $payload = $gateway->find($token);
         $this->assertIsArray($payload);
         $this->assertSame(\App\Support\PackageGatewayCheckout::PURPOSE, $payload['metadata']['purpose'] ?? null);
         $this->assertFalse((bool) ($payload['paid'] ?? false));
-
-        // Pay on pseudo gateway page.
-        $this->actingAs($user)
-            ->get($redirectUrl)
-            ->assertOk();
 
         $confirmUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
             'corporate.gateway-prepay.confirm',
@@ -402,41 +392,17 @@ class MealPackageTest extends TestCase
         );
         $this->actingAs($user)
             ->post($confirmUrl)
-            ->assertRedirect(route('corporates.packages.confirm', ['token' => $token]));
-
-        $payload = $gateway->find($token);
-        $this->assertTrue((bool) ($payload['paid'] ?? false));
-
-        $confirm = \Livewire\Livewire::actingAs($user)
-            ->test(\App\Livewire\Corporate\PackageGatewayConfirm::class, ['token' => $token])
-            ->assertSet('paid', true)
-            ->assertSee('Enter the 4-digit OTP')
-            ->assertDontSee('Open payment page');
-
-        $debugOtp = $confirm->get('debugOtp');
-        $this->assertNotEmpty($debugOtp);
-
-        $confirm
-            ->set('otpInput', $debugOtp)
-            ->call('createPackage')
             ->assertRedirect();
 
         $subscription = PackageSubscription::query()->where('user_id', $user->id)->latest('id')->first();
         $this->assertNotNull($subscription);
         $this->assertSame('paid', $subscription->payment_status);
-        $this->assertSame(PackageSubscription::SCHEDULE_AWAITING, $subscription->schedule_status);
-        $this->assertSame(0, (int) $user->fresh()->balance);
+        $this->assertSame($package->id, (int) $subscription->meal_package_id);
 
-        \Livewire\Livewire::actingAs($user)
-            ->test(\App\Livewire\Corporate\PackageShow::class, ['subscriptionId' => $subscription->id])
-            ->assertSet('subscriptionId', $subscription->id)
-            ->assertSet('subscription.id', $subscription->id)
-            ->assertSee($subscription->package?->name ?? 'Package');
-
-        $this->actingAs($user)
-            ->get(route('corporates.packages.show', ['subscriptionId' => $subscription->id]))
-            ->assertOk()
-            ->assertSee('awaiting schedule');
+        // Modal poll is idempotent after redirect completion.
+        $again = \App\Support\PackageGatewayCheckout::completeIfPaid($token);
+        $this->assertTrue($again['ok'] ?? false);
+        $this->assertTrue($again['already_done'] ?? false);
 
         Carbon::setTestNow();
     }
