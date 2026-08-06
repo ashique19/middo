@@ -17,8 +17,8 @@ return new class extends Migration
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
-            $table->index(['package_subscription_id', 'created_at']);
-            $table->index(['package_subscription_id', 'type']);
+            $table->index(['package_subscription_id', 'created_at'], 'pkg_sub_events_sub_created_idx');
+            $table->index(['package_subscription_id', 'type'], 'pkg_sub_events_sub_type_idx');
         });
     }
 
