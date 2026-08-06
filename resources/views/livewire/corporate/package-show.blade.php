@@ -92,7 +92,13 @@
                             <div class="w-12 h-12 rounded-xl bg-[#F7F4EB] shrink-0"></div>
                         @endif
                         <div class="flex-1 min-w-0">
-                            <div class="font-bold text-sm truncate">{{ $day['menu_name'] }}</div>
+                            <div class="font-bold text-sm truncate">
+                                @if($day['order_status'] === 'cancelled')
+                                    <span class="text-gray-400">Untagged</span>
+                                @else
+                                    {{ $day['menu_name'] }}
+                                @endif
+                            </div>
                             <div class="text-xs text-[#635347]">
                                 {{ $day['weekday'] }}, {{ \Carbon\Carbon::parse($day['date'])->format('M d, Y') }}
                                 · x{{ $day['quantity'] }} · ৳{{ number_format($day['total_amount']) }}

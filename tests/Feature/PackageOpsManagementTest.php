@@ -472,6 +472,11 @@ class PackageOpsManagementTest extends TestCase
         $this->assertStringContainsString('Menu untagged', (string) $cancelEvent->summary);
         $this->assertSame('Holiday / office closed', $cancelEvent->meta['reason'] ?? null);
 
+        $this->actingAs($ops)
+            ->get(route('operation.subscriptions.show', $result['subscription']->id))
+            ->assertOk()
+            ->assertSee('Untagged');
+
         $reactivate = app(PackageSubscriptionService::class)->reactivateDay($ops, $order->fresh());
         $this->assertSame($refund, $reactivate['debited_amount']);
         $this->assertSame('pending', $order->fresh()->order_status);

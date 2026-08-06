@@ -215,7 +215,13 @@
                                 </div>
                             </td>
                             <td class="p-4">{{ $order->delivery_date->format('D, M d') }} · {{ $order->delivery_time }}</td>
-                            <td class="p-4 font-semibold">{{ $order->menuItem?->name ?? '—' }}</td>
+                            <td class="p-4 font-semibold">
+                                @if($order->order_status === 'cancelled')
+                                    <span class="text-gray-400 font-medium">Untagged</span>
+                                @else
+                                    {{ $order->menuItem?->name ?? '—' }}
+                                @endif
+                            </td>
                             <td class="p-4 text-xs text-middo-orange font-semibold">{{ $order->orderGroup?->name ?? 'Ungrouped' }}</td>
                             <td class="p-4 capitalize">{{ $order->order_status }}</td>
                             <td class="p-4 text-right">৳{{ number_format($order->total_amount) }}</td>
