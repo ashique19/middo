@@ -65,6 +65,9 @@ class OrderCheckoutModal extends Component
 
     public string $otpInput = '';
 
+    /** OTP passed for gateway checkout; next step is Make payment / place order. */
+    public bool $otpVerified = false;
+
     public string $paymentMethod = 'cash_on_delivery';
 
     public array $prepayment = [];
@@ -164,6 +167,7 @@ class OrderCheckoutModal extends Component
 
         $this->isConfirmingOtp = false;
         $this->otpInput = '';
+        $this->otpVerified = false;
         $this->paymentMethod = OrderPaymentMethod::CASH_ON_DELIVERY;
         $this->prepayment = [];
         $this->gatewayPaymentToken = null;
@@ -588,29 +592,9 @@ class OrderCheckoutModal extends Component
 
         $this->gatewayPaymentToken = null;
         $this->gatewayPaymentUrl = null;
+        $this->otpVerified = false;
 
-        if ($chargeAmount > 0 && $this->paymentMethod === OrderPaymentMethod::GATEWAY) {
-            $fingerprint = [
-                'menu_item_id' => (int) ($this->dish['id'] ?? 0),
-                'receiver_name' => CorporateOrderPrepayment::normalizeName($this->customerName),
-                'mobile' => CorporateOrderPrepayment::normalizeMobile($this->mobile),
-                'dates' => collect($activeOrders)->map(fn ($qty, $date) => [
-                    'date' => $date,
-                    'quantity' => (int) $qty,
-                ])->values()->all(),
-                'amount' => $chargeAmount,
-            ];
-
-            $checkout = app(PaymentGateway::class)->createCheckout(
-                (int) Auth::id(),
-                $chargeAmount,
-                $fingerprint
-            );
-
-            $this->gatewayPaymentToken = $checkout['token'];
-            $this->gatewayPaymentUrl = $checkout['payment_url'];
-        }
-
+        // Online payment: OTP first. Gateway checkout is created only after OTP verifies.
         $result = OrderConfirmationOtp::send($this->mobile);
 
         if (! ($result['ok'] ?? false)) {
@@ -624,18 +608,124 @@ class OrderCheckoutModal extends Component
     }
 
     /**
+     * Gateway path only: verify OTP, then create the payment session for Make payment.
+     */
+    public function verifyGatewayOtp(): void
+    {
+        $this->validate([
+            'otpInput' => 'required|string|size:4',
+        ]);
+
+        if ($this->paymentMethod !== OrderPaymentMethod::GATEWAY) {
+            $this->finalizeOrder();
+
+            return;
+        }
+
+        if (! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
+            $this->addError('otpInput', 'Invalid or expired confirmation token code.');
+
+            return;
+        }
+
+        $activeOrders = array_filter($this->quantities, fn ($qty) => $qty > 0);
+        if (empty($activeOrders)) {
+            $this->addError('quantities', 'Please select a quantity for at least one delivery date.');
+
+            return;
+        }
+
+        $this->refreshPrepaymentQuote();
+        $resolved = $this->resolveCheckoutPaymentMethod($this->prepayment, count($activeOrders));
+        if ($resolved === null) {
+            return;
+        }
+        $this->paymentMethod = $resolved;
+
+        if ($this->paymentMethod !== OrderPaymentMethod::GATEWAY) {
+            // Method flipped away from gateway after OTP — place with the resolved method.
+            $this->otpVerified = true;
+            $this->finalizeOrder();
+
+            return;
+        }
+
+        $cartTotal = 0;
+        foreach ($activeOrders as $qty) {
+            $cartTotal += (int) round(($this->dish['price'] ?? 0) * (int) $qty);
+        }
+        $cartTotal += (int) round($this->taxesAndFees);
+        $this->revalidateAppliedCoupon();
+        $cartTotal = max(0, $cartTotal - $this->couponDiscount);
+        $chargeAmount = $this->checkoutChargeAmount($this->prepayment, $cartTotal);
+
+        if ($chargeAmount < 1) {
+            $this->otpVerified = true;
+            $this->finalizeOrder();
+
+            return;
+        }
+
+        $fingerprint = [
+            'menu_item_id' => (int) ($this->dish['id'] ?? 0),
+            'receiver_name' => CorporateOrderPrepayment::normalizeName($this->customerName),
+            'mobile' => CorporateOrderPrepayment::normalizeMobile($this->mobile),
+            'dates' => collect($activeOrders)->map(fn ($qty, $date) => [
+                'date' => $date,
+                'quantity' => (int) $qty,
+            ])->values()->all(),
+            'amount' => $chargeAmount,
+        ];
+
+        $checkout = app(PaymentGateway::class)->createCheckout(
+            (int) Auth::id(),
+            $chargeAmount,
+            $fingerprint
+        );
+
+        $this->gatewayPaymentToken = $checkout['token'];
+        $this->gatewayPaymentUrl = $checkout['payment_url'];
+        $this->otpVerified = true;
+        $this->resetErrorBag('otpInput');
+    }
+
+    /**
+     * Reset confirmation panel back to editable checkout form.
+     */
+    public function cancelConfirmation(): void
+    {
+        $this->isConfirmingOtp = false;
+        $this->otpVerified = false;
+        $this->otpInput = '';
+        $this->gatewayPaymentToken = null;
+        $this->gatewayPaymentUrl = null;
+        $this->resetErrorBag();
+    }
+
+    /**
      * Step 2: Finalizes verification token confirmation and creates individual orders.
      */
     public function finalizeOrder()
     {
-        $this->validate([
-            'otpInput' => 'required|string|size:4',
+        $requiresOtpNow = ! $this->otpVerified;
+
+        $rules = [
             'customerName' => 'required|string|min:2|max:120',
             'paymentMethod' => 'nullable|in:balance,gateway,cash_on_delivery',
-        ]);
+        ];
+        if ($requiresOtpNow) {
+            $rules['otpInput'] = 'required|string|size:4';
+        }
+        $this->validate($rules);
 
-        if (! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
+        if ($requiresOtpNow && ! OrderConfirmationOtp::verify($this->mobile, $this->otpInput)) {
             $this->addError('otpInput', 'Invalid or expired confirmation token code.');
+
+            return;
+        }
+
+        if ($this->paymentMethod === OrderPaymentMethod::GATEWAY && ! $this->otpVerified) {
+            $this->addError('otpInput', 'Verify the confirmation code before making payment.');
 
             return;
         }
