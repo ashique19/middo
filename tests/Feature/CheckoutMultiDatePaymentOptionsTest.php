@@ -68,6 +68,8 @@ class CheckoutMultiDatePaymentOptionsTest extends TestCase
         $this->assertTrue($component->instance()->balancePaymentAvailable);
 
         $html = $component->html();
+        $this->assertStringContainsString('data-testid="checkout-payment-methods"', $html);
+        $this->assertStringContainsString('role="radiogroup"', $html);
         $this->assertStringContainsString('value="cash_on_delivery"', $html);
         $this->assertStringContainsString('value="balance"', $html);
         $this->assertStringContainsString('value="gateway"', $html);
@@ -76,6 +78,9 @@ class CheckoutMultiDatePaymentOptionsTest extends TestCase
         $this->assertStringContainsString('Online payment', $html);
         $this->assertStringContainsString('Available for up to 3 active orders', $html);
         $this->assertStringNotContainsString('Unavailable — add money', $html);
+        // Must not regress to a payment <select>, and payment must not sit in a clipped scroller.
+        $this->assertDoesNotMatchRegularExpression('/<select[^>]*(paymentMethod|payment_method)/i', $html);
+        $this->assertStringNotContainsString('md:max-h-[58%]', $html);
 
         $this->assertSame(
             [

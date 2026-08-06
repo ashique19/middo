@@ -206,7 +206,7 @@
                     </div>
                 </div>
 
-                {{-- RIGHT: finance only — day lines scroll; totals/coupon/payment/confirm stay pinned --}}
+                {{-- RIGHT: line items scroll; totals + payment + confirm stay fully visible (never nest payment in a clipped scroller) --}}
                 <div class="w-full md:col-span-4 p-5 md:p-6 bg-[#FDFBF7] flex flex-col md:min-h-0 md:overflow-hidden">
                     <h4 class="shrink-0 text-xs font-black uppercase tracking-wider text-gray-400 mb-2">Order Summary</h4>
 
@@ -221,7 +221,7 @@
                         @endforeach
                     </div>
 
-                    <div class="shrink-0 space-y-2 pt-3 border-t border-gray-200/60 bg-[#FDFBF7] md:max-h-[58%] md:overflow-y-auto">
+                    <div class="shrink-0 space-y-2 pt-3 border-t border-gray-200/60 bg-[#FDFBF7]">
                         <div class="space-y-1 text-xs">
                             <div class="flex justify-between text-gray-500">
                                 <span>Cumulative Subtotal:</span>
@@ -284,45 +284,56 @@
                             </div>
                         @endif
 
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Payment method</label>
-                            <div class="space-y-1" wire:key="payment-method-options-{{ count(array_filter($quantities, fn ($q) => $q > 0)) }}-{{ $this->codAllowed ? 'cod' : 'prepaid' }}">
+                        {{-- Always-visible radio list (not a <select>); must stay outside any max-height scroller --}}
+                        <div data-testid="checkout-payment-methods">
+                            <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1.5">Payment method</label>
+                            <div
+                                class="grid gap-1.5"
+                                role="radiogroup"
+                                aria-label="Payment method"
+                                wire:key="payment-method-options-{{ count(array_filter($quantities, fn ($q) => $q > 0)) }}-{{ $this->codAllowed ? 'cod' : 'prepaid' }}"
+                            >
                                 @if($this->codAllowed)
                                     <label @class([
-                                        'flex items-center gap-2 px-2.5 py-2 rounded-xl border cursor-pointer transition select-none',
-                                        'border-emerald-700 bg-emerald-50 text-emerald-950' => $paymentMethod === 'cash_on_delivery',
+                                        'flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition select-none',
+                                        'border-emerald-700 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-700/30' => $paymentMethod === 'cash_on_delivery',
                                         'border-gray-200 bg-white hover:bg-gray-50 text-gray-800' => $paymentMethod !== 'cash_on_delivery',
                                     ])>
-                                        <input type="radio" wire:model.live="paymentMethod" value="cash_on_delivery" class="text-emerald-800 focus:ring-emerald-700" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                        <input type="radio" name="checkout_payment_method" wire:model.live="paymentMethod" value="cash_on_delivery" class="shrink-0 w-4 h-4 text-emerald-800 focus:ring-emerald-700 border-gray-300" {{ $isConfirmingOtp ? 'disabled' : '' }}>
                                         <span class="min-w-0">
-                                            <span class="block text-xs font-black">Cash on Delivery</span>
-                                            <span class="block text-[10px] font-medium text-gray-500 mt-0.5">Pay the rider on delivery. Available for up to 3 active orders.</span>
+                                            <span class="block text-sm font-black leading-tight">Cash on Delivery</span>
+                                            <span class="block text-[10px] font-medium text-gray-500 mt-0.5 leading-snug">Pay the rider on delivery. Available for up to 3 active orders.</span>
                                         </span>
                                     </label>
                                 @endif
 
                                 <label @class([
-                                    'flex items-center gap-2 px-2.5 py-2 rounded-xl border transition select-none',
+                                    'flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition select-none',
                                     'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50 text-gray-500' => ! $this->balancePaymentAvailable,
-                                    'cursor-pointer border-emerald-700 bg-emerald-50 text-emerald-950' => $this->balancePaymentAvailable && $paymentMethod === 'balance',
+                                    'cursor-pointer border-emerald-700 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-700/30' => $this->balancePaymentAvailable && $paymentMethod === 'balance',
                                     'cursor-pointer border-gray-200 bg-white hover:bg-gray-50 text-gray-800' => $this->balancePaymentAvailable && $paymentMethod !== 'balance',
                                 ])>
-                                    <input type="radio" wire:model.live="paymentMethod" value="balance" class="text-emerald-800 focus:ring-emerald-700" {{ $isConfirmingOtp || ! $this->balancePaymentAvailable ? 'disabled' : '' }}>
+                                    <input type="radio" name="checkout_payment_method" wire:model.live="paymentMethod" value="balance" class="shrink-0 w-4 h-4 text-emerald-800 focus:ring-emerald-700 border-gray-300" {{ $isConfirmingOtp || ! $this->balancePaymentAvailable ? 'disabled' : '' }}>
                                     <span class="min-w-0">
-                                        <span class="block text-xs font-black">Middo Balance</span>
+                                        <span class="block text-sm font-black leading-tight">Middo Balance</span>
                                         @if(! $this->balancePaymentAvailable)
-                                            <span class="block text-[10px] font-medium text-gray-500 mt-0.5">Unavailable — add money to your Middo wallet first.</span>
+                                            <span class="block text-[10px] font-medium text-gray-500 mt-0.5 leading-snug">Unavailable — add money to your Middo wallet first.</span>
+                                        @else
+                                            <span class="block text-[10px] font-medium text-gray-500 mt-0.5 leading-snug">Wallet ৳{{ number_format($this->walletBalanceForDisplay) }}</span>
                                         @endif
                                     </span>
                                 </label>
 
                                 <label @class([
-                                    'flex items-center gap-2 px-2.5 py-2 rounded-xl border cursor-pointer transition select-none',
-                                    'border-emerald-700 bg-emerald-50 text-emerald-950' => $paymentMethod === 'gateway',
+                                    'flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition select-none',
+                                    'border-emerald-700 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-700/30' => $paymentMethod === 'gateway',
                                     'border-gray-200 bg-white hover:bg-gray-50 text-gray-800' => $paymentMethod !== 'gateway',
                                 ])>
-                                    <input type="radio" wire:model.live="paymentMethod" value="gateway" class="text-emerald-800 focus:ring-emerald-700" {{ $isConfirmingOtp ? 'disabled' : '' }}>
-                                    <span class="text-xs font-black">Online payment</span>
+                                    <input type="radio" name="checkout_payment_method" wire:model.live="paymentMethod" value="gateway" class="shrink-0 w-4 h-4 text-emerald-800 focus:ring-emerald-700 border-gray-300" {{ $isConfirmingOtp ? 'disabled' : '' }}>
+                                    <span class="min-w-0">
+                                        <span class="block text-sm font-black leading-tight">Online payment</span>
+                                        <span class="block text-[10px] font-medium text-gray-500 mt-0.5 leading-snug">Pay now by card or mobile banking.</span>
+                                    </span>
                                 </label>
                             </div>
                             @if(! $this->balancePaymentAvailable)
