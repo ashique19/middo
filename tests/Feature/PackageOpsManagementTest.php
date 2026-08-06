@@ -379,6 +379,15 @@ class PackageOpsManagementTest extends TestCase
         $order = $scheduled['orders']->first();
         $balanceBefore = (int) $user->fresh()->balance;
 
+        $assignEvent = \App\Models\PackageSubscriptionEvent::query()
+            ->where('package_subscription_id', $result['subscription']->id)
+            ->where('type', 'schedule_assigned')
+            ->latest('id')
+            ->first();
+        $this->assertNotNull($assignEvent);
+        $this->assertStringContainsString($menu->name, (string) $assignEvent->summary);
+        $this->assertStringContainsString($order->delivery_date->format('M d, Y'), (string) $assignEvent->summary);
+
         app(PackageSubscriptionService::class)->unconfirmDay($ops, $order);
 
         $this->assertDatabaseMissing('orders', ['id' => $order->id]);

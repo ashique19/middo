@@ -405,7 +405,11 @@ class PackageSubscriptionService
             }
 
             $grouper = app(MealOrderGrouper::class);
-            $orders = Order::query()->whereIn('id', $createdOrderIds)->orderBy('delivery_date')->get();
+            $orders = Order::query()
+                ->whereIn('id', $createdOrderIds)
+                ->with('menuItem')
+                ->orderBy('delivery_date')
+                ->get();
             foreach ($orders as $order) {
                 $grouper->assignOrder($order->load('user'), $actor->id);
             }
@@ -413,13 +417,30 @@ class PackageSubscriptionService
             $freshSub = $lockedSub->fresh(['selections', 'orders']);
             $this->syncScheduleStatus($freshSub);
 
+            $dayParts = $orders->map(function (Order $order) {
+                $date = $order->delivery_date?->format('M d, Y') ?? 'unknown date';
+                $menu = $order->menuItem?->name ?? ('menu #'.$order->menu_item_id);
+
+                return $date.' — '.$menu;
+            })->values()->all();
+
+            $summary = count($dayParts) === 1
+                ? 'Confirmed '.$dayParts[0].'.'
+                : 'Confirmed '.count($dayParts).' delivery day(s): '.implode('; ', $dayParts).'.';
+
             $this->recordEvent(
                 $lockedSub->id,
                 PackageSubscriptionEvent::TYPE_SCHEDULE_ASSIGNED,
-                'Confirmed '.$orders->count().' delivery day(s).',
+                $summary,
                 [
                     'order_ids' => $createdOrderIds,
                     'dates' => $orders->map(fn (Order $o) => $o->delivery_date->toDateString())->values()->all(),
+                    'menus' => $orders->map(fn (Order $o) => [
+                        'order_id' => $o->id,
+                        'date' => $o->delivery_date->toDateString(),
+                        'menu_item_id' => (int) $o->menu_item_id,
+                        'menu_name' => $o->menuItem?->name,
+                    ])->values()->all(),
                 ],
                 $actor->id
             );
