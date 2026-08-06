@@ -20,7 +20,7 @@
     @endif
 
     <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <input
                 wire:model.live.debounce.300ms="search"
                 type="search"
@@ -32,12 +32,6 @@
                 <option value="active">Active</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
-            </select>
-            <select wire:model.live="packageFilter" class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold">
-                <option value="">All packages</option>
-                @foreach($packages as $package)
-                    <option value="{{ $package->id }}">{{ $package->name }}</option>
-                @endforeach
             </select>
         </div>
 

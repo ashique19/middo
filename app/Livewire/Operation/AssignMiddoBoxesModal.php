@@ -155,6 +155,8 @@ class AssignMiddoBoxesModal extends Component
 
     protected function fetchRiders(?int $kitchenId = null): array
     {
+        // Ops→kitchen box runs are not customer deliveries: show every active
+        // rider. Area-matched riders are listed first when a kitchen is chosen.
         $kitchenAreaId = null;
         if ($kitchenId) {
             $kitchenAreaId = User::query()->whereKey($kitchenId)->value('area_id');
@@ -168,10 +170,13 @@ class AssignMiddoBoxesModal extends Component
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get()
-            ->when(
-                $kitchenAreaId !== null,
-                fn ($riders) => $riders->filter(fn (User $user) => $user->servesArea($kitchenAreaId))
-            )
+            ->sortBy(function (User $user) use ($kitchenAreaId) {
+                if ($kitchenAreaId === null) {
+                    return 1;
+                }
+
+                return $user->servesArea($kitchenAreaId) ? 0 : 1;
+            })
             ->values()
             ->map(fn (User $user) => [
                 'id' => $user->id,

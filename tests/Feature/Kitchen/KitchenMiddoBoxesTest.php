@@ -366,4 +366,46 @@ class KitchenMiddoBoxesTest extends TestCase
         $this->assertSame($this->rider->id, $box->held_by_user_id);
         $this->assertTrue($box->isIncomingToKitchen($this->kitchen->id));
     }
+
+    public function test_send_boxes_modal_lists_riders_even_when_kitchen_area_does_not_match(): void
+    {
+        $city = \App\Models\City::create(['name' => 'Dhaka']);
+        $kitchenArea = \App\Models\Area::create(['name' => 'Banani', 'city_id' => $city->id]);
+        $riderArea = \App\Models\Area::create(['name' => 'Mirpur', 'city_id' => $city->id]);
+
+        $this->kitchen->update(['area_id' => $kitchenArea->id]);
+        $this->rider->update(['area_id' => $riderArea->id]);
+
+        $box = $this->makeBox([
+            'asset_status' => 'at_middo_warehouse',
+            'held_by_user_id' => null,
+            'kitchen_id' => null,
+        ]);
+
+        $operationRole = Role::firstOrCreate(['name' => 'operation']);
+        $operator = User::create([
+            'first_name' => 'Ops',
+            'last_name' => 'Two',
+            'mobile' => '01710000005',
+            'password' => 'password',
+            'role_id' => $operationRole->id,
+            'status' => 'active',
+        ]);
+
+        $component = Livewire::actingAs($operator)
+            ->test(AssignMiddoBoxesModal::class)
+            ->call('openModal', ['boxIds' => [$box->id]])
+            ->set('selectedKitchenId', $this->kitchen->id);
+
+        $riderIds = collect($component->get('riders'))->pluck('id')->all();
+        $this->assertContains($this->rider->id, $riderIds);
+
+        $component
+            ->set('selectedRiderId', $this->rider->id)
+            ->call('save')
+            ->assertSet('showModal', false)
+            ->assertHasNoErrors();
+
+        $this->assertSame($this->rider->id, (int) $box->fresh()->held_by_user_id);
+    }
 }

@@ -25,7 +25,7 @@
                         </label>
                         <select
                             id="kitchen-select"
-                            wire:model="selectedKitchenId"
+                            wire:model.live="selectedKitchenId"
                             class="w-full border border-gray-300 rounded-xl shadow-sm focus:border-middo-orange focus:ring-middo-orange p-3 text-sm">
                             <option value="">Select a kitchen</option>
                             @foreach($kitchens as $kitchen)
@@ -62,7 +62,7 @@
                             @elseif($kitchens === [])
                                 No active kitchens found. Activate a kitchen user first.
                             @else
-                                No delivery riders found. Add a user with the delivery role first.
+                                No active delivery riders found. Activate a delivery user first.
                             @endif
                         </p>
                     @endif

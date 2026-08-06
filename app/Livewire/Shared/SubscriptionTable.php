@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Shared;
 
-use App\Models\MealPackage;
 use App\Models\PackageSubscription;
 use App\Support\PackageSubscriptionService;
 use Illuminate\Support\Facades\Auth;
@@ -16,8 +15,6 @@ class SubscriptionTable extends Component
     public string $search = '';
 
     public string $statusFilter = 'all';
-
-    public ?int $packageFilter = null;
 
     public string $bulkSkipDate = '';
 
@@ -43,11 +40,6 @@ class SubscriptionTable extends Component
     }
 
     public function updatingStatusFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingPackageFilter(): void
     {
         $this->resetPage();
     }
@@ -107,15 +99,11 @@ class SubscriptionTable extends Component
                 });
             })
             ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
-            ->when($this->packageFilter, fn ($q) => $q->where('meal_package_id', $this->packageFilter))
             ->orderByDesc('id')
             ->paginate(15);
 
-        $packages = MealPackage::query()->orderBy('name')->get(['id', 'name']);
-
         return view('livewire.shared.subscriptions.table', [
             'subscriptions' => $subscriptions,
-            'packages' => $packages,
         ]);
     }
 }
