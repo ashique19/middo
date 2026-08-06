@@ -523,4 +523,62 @@ class PackageOpsManagementTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    public function test_cancel_unscheduled_day_refunds_and_can_reactivate(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeUser($this->corporateRole, [
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'mobile' => '01310123976',
+            'balance' => 50000,
+        ]);
+        $ops = $this->makeUser($this->operationRole, ['mobile' => '01310123975']);
+        $menu = $this->makeMenuItem();
+        $package = $this->makePublishedPackage($menu, 100, 8);
+        $workingDays = $this->workingDays('2026-08');
+        $quote = PackageBilling::quoteFromSelections(
+            $package,
+            1,
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]],
+            [5, 6],
+            '2026-08'
+        );
+
+        $result = $this->subscribeCorporate($user, $package, $city, $area, $menu);
+        $subscription = $result['subscription'];
+        $available = PackageBilling::availableDatesInMonth('2026-08', [5, 6]);
+        $date = $available->first();
+
+        $this->actingAs($ops)
+            ->get(route('operation.subscriptions.show', $subscription->id))
+            ->assertOk()
+            ->assertSee('Confirm delivery days')
+            ->assertSee('Cancel and Refund');
+
+        $cancelled = app(PackageSubscriptionService::class)->cancelUnscheduledDay(
+            $ops,
+            $subscription,
+            $date,
+            $menu->id,
+            'Customer closed that day'
+        );
+
+        $this->assertSame('cancelled', $cancelled['order']->order_status);
+        $this->assertGreaterThan(0, $cancelled['refunded_amount']);
+        $this->assertSame(50000 - $quote['total_amount'] + $cancelled['refunded_amount'], (int) $user->fresh()->balance);
+        $this->assertSame($workingDays - 1, (int) $subscription->fresh()->billable_days);
+        $this->assertSame($workingDays - 1, (int) $subscription->fresh()->selections->first()->day_count);
+
+        $reactivate = app(PackageSubscriptionService::class)->reactivateDay($ops, $cancelled['order']->fresh());
+        $this->assertSame('pending', $cancelled['order']->fresh()->order_status);
+        $this->assertSame($cancelled['refunded_amount'], $reactivate['debited_amount']);
+        $this->assertSame(50000 - $quote['total_amount'], (int) $user->fresh()->balance);
+        $this->assertSame($workingDays, (int) $subscription->fresh()->billable_days);
+        $this->assertTrue(OrderGroupOrder::query()->where('order_id', $cancelled['order']->id)->exists());
+
+        Carbon::setTestNow();
+    }
 }

@@ -949,6 +949,145 @@ class PackageSubscriptionService
     }
 
     /**
+     * Cancel an unconfirmed prepaid day: create a cancelled order placeholder, refund,
+     * and shrink the menu selection quota so the day is not free to reassign.
+     *
+     * @return array{order: Order, refunded_amount: int, subscription: PackageSubscription}
+     */
+    public function cancelUnscheduledDay(
+        User $actor,
+        PackageSubscription $subscription,
+        string $date,
+        int $menuItemId,
+        string $reason = '',
+    ): array {
+        $this->assertStaffActor($actor);
+
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw new RuntimeException('A cancellation reason is required.');
+        }
+
+        if (mb_strlen($reason) > 500) {
+            throw new RuntimeException('Cancellation reason must be 500 characters or fewer.');
+        }
+
+        $date = Carbon::parse($date)->toDateString();
+
+        return DB::transaction(function () use ($actor, $subscription, $date, $menuItemId, $reason) {
+            /** @var PackageSubscription $lockedSub */
+            $lockedSub = PackageSubscription::query()
+                ->with('selections')
+                ->lockForUpdate()
+                ->findOrFail($subscription->id);
+
+            if ($lockedSub->status !== PackageSubscription::STATUS_ACTIVE) {
+                throw new RuntimeException('Only active subscriptions can cancel prepaid days.');
+            }
+
+            $occupied = $lockedSub->orders()
+                ->whereDate('delivery_date', $date)
+                ->exists();
+            if ($occupied) {
+                throw new RuntimeException($date.' already has a delivery day on this package.');
+            }
+
+            $omitted = PackageBilling::normalizeOmittedWeekdays($lockedSub->omitted_weekdays ?? []);
+            $available = PackageBilling::availableDatesInMonth(
+                (string) ($lockedSub->target_month ?: $lockedSub->start_date->format('Y-m')),
+                $omitted
+            );
+            if (! $available->contains($date)) {
+                throw new RuntimeException(
+                    $date.' is not an eligible delivery date (outside month, omitted weekday, or past cutoff).'
+                );
+            }
+
+            $remaining = $lockedSub->remainingSelectionCounts();
+            if (! array_key_exists($menuItemId, $remaining) || (int) $remaining[$menuItemId] < 1) {
+                throw new RuntimeException('No remaining prepaid quota for the selected menu.');
+            }
+
+            /** @var PackageSubscriptionSelection|null $selection */
+            $selection = $lockedSub->selections->firstWhere('menu_item_id', $menuItemId);
+            if (! $selection || (int) $selection->day_count < 1) {
+                throw new RuntimeException('Selected menu is not part of this package.');
+            }
+
+            $unitPrice = (int) $selection->unit_price;
+            if ($unitPrice < 1) {
+                $unitPrice = (int) (MenuItem::query()->whereKey($menuItemId)->value('price') ?? 0);
+            }
+            $qty = max(1, (int) $lockedSub->quantity);
+            $lineTotal = $unitPrice * $qty;
+
+            $order = Order::create([
+                'user_id' => $lockedSub->user_id,
+                'menu_item_id' => $menuItemId,
+                'package_subscription_id' => $lockedSub->id,
+                'quantity' => $qty,
+                'delivery_date' => $date,
+                'delivery_time' => $lockedSub->delivery_time,
+                'total_amount' => $lineTotal,
+                'amount_paid' => $lineTotal,
+                'prepaid_amount' => $lineTotal,
+                'cash_collected' => 0,
+                'address' => $lockedSub->address,
+                'receiver_name' => $lockedSub->receiver_name,
+                'receiver_mobile' => $lockedSub->receiver_mobile,
+                'area_id' => $lockedSub->area_id,
+                'order_status' => 'cancelled',
+                'payment_status' => 'paid',
+                'payment_method' => 'balance',
+                'created_by' => $actor->id,
+                'updated_by' => $actor->id,
+            ]);
+
+            $refund = PackageRefund::orderRefundAmount($order->fresh('packageSubscription'));
+            $owner = User::query()->lockForUpdate()->findOrFail($lockedSub->user_id);
+            if ($refund > 0) {
+                WalletLedger::credit(
+                    $owner,
+                    $refund,
+                    WalletTransaction::TYPE_REFUND,
+                    'Package unconfirmed day cancelled — refund for order #'.$order->id,
+                    $order
+                );
+            }
+
+            $selection->update(['day_count' => max(0, (int) $selection->day_count - 1)]);
+            $lockedSub->update([
+                'billable_days' => max(0, (int) $lockedSub->billable_days - 1),
+            ]);
+
+            $this->syncScheduleStatus($lockedSub->fresh(['selections', 'orders']));
+
+            $menuName = MenuItem::query()->whereKey($menuItemId)->value('name') ?? ('#'.$menuItemId);
+            $this->recordEvent(
+                $lockedSub->id,
+                PackageSubscriptionEvent::TYPE_DAY_CANCELLED,
+                'Cancelled unconfirmed '.$date.' ('.$menuName.') and refunded ৳'.number_format($refund).'. Reason: '.$reason,
+                [
+                    'order_id' => $order->id,
+                    'delivery_date' => $date,
+                    'menu_item_id' => $menuItemId,
+                    'refunded_amount' => $refund,
+                    'reason' => $reason,
+                    'unscheduled' => true,
+                    'reduced_selection_day_count' => true,
+                ],
+                $actor->id
+            );
+
+            return [
+                'order' => $order->fresh('menuItem'),
+                'refunded_amount' => $refund,
+                'subscription' => $lockedSub->fresh(['package', 'user', 'selections.menuItem', 'orders.menuItem']),
+            ];
+        });
+    }
+
+    /**
      * Re-activate a cancelled package day (future only): debit the prior refund and restore pending.
      *
      * @return array{order: Order, debited_amount: int}
@@ -1005,9 +1144,33 @@ class PackageSubscriptionService
                 );
             }
 
-            $freshSub = $subscription->fresh(['selections', 'orders']);
-            $remaining = $freshSub->remainingSelectionCounts();
+            /** @var PackageSubscription $freshSub */
+            $freshSub = PackageSubscription::query()
+                ->with(['selections', 'orders'])
+                ->lockForUpdate()
+                ->findOrFail($subscription->id);
+
             $menuId = (int) $locked->menu_item_id;
+            $cancelMeta = PackageSubscriptionEvent::query()
+                ->where('package_subscription_id', $freshSub->id)
+                ->where('type', PackageSubscriptionEvent::TYPE_DAY_CANCELLED)
+                ->where('meta->order_id', $locked->id)
+                ->latest('id')
+                ->value('meta');
+            $reducedSelection = is_array($cancelMeta) && ! empty($cancelMeta['reduced_selection_day_count']);
+
+            if ($reducedSelection) {
+                $selection = $freshSub->selections->firstWhere('menu_item_id', $menuId);
+                if ($selection) {
+                    $selection->update(['day_count' => (int) $selection->day_count + 1]);
+                }
+                $freshSub->update([
+                    'billable_days' => (int) $freshSub->billable_days + 1,
+                ]);
+                $freshSub = $freshSub->fresh(['selections', 'orders']);
+            }
+
+            $remaining = $freshSub->remainingSelectionCounts();
             if (! array_key_exists($menuId, $remaining) || (int) $remaining[$menuId] < 1) {
                 throw new RuntimeException(
                     'No remaining prepaid quota for this menu. Unconfirm or cancel another day first.'

@@ -36,6 +36,10 @@ class SubscriptionShow extends Component
 
     public ?int $cancelOrderId = null;
 
+    public ?string $cancelDate = null;
+
+    public ?int $cancelMenuItemId = null;
+
     public string $cancelReason = '';
 
     public ?string $statusMessage = null;
@@ -198,6 +202,27 @@ class SubscriptionShow extends Component
         abort_unless((int) $order->package_subscription_id === $this->subscriptionId, 404);
 
         $this->cancelOrderId = $orderId;
+        $this->cancelDate = null;
+        $this->cancelMenuItemId = null;
+        $this->cancelReason = '';
+        $this->showCancelModal = true;
+        $this->errorMessage = null;
+    }
+
+    public function openCancelUnscheduledModal(string $date): void
+    {
+        abort_unless($this->canManage, 403);
+
+        if (! array_key_exists($date, $this->scheduleAssignments)) {
+            $this->errorMessage = 'That date is not available to cancel.';
+
+            return;
+        }
+
+        $draftMenu = $this->scheduleAssignments[$date] ?? null;
+        $this->cancelOrderId = null;
+        $this->cancelDate = $date;
+        $this->cancelMenuItemId = filled($draftMenu) ? (int) $draftMenu : null;
         $this->cancelReason = '';
         $this->showCancelModal = true;
         $this->errorMessage = null;
@@ -207,18 +232,14 @@ class SubscriptionShow extends Component
     {
         $this->showCancelModal = false;
         $this->cancelOrderId = null;
+        $this->cancelDate = null;
+        $this->cancelMenuItemId = null;
         $this->cancelReason = '';
     }
 
     public function confirmCancelAndRefund(): void
     {
         abort_unless($this->canManage, 403);
-
-        if (! $this->cancelOrderId) {
-            $this->errorMessage = 'Pick a delivery day to cancel.';
-
-            return;
-        }
 
         $reason = trim($this->cancelReason);
         if ($reason === '') {
@@ -228,13 +249,35 @@ class SubscriptionShow extends Component
         }
 
         try {
-            $order = Order::query()->findOrFail($this->cancelOrderId);
-            $result = app(PackageSubscriptionService::class)->skipDayAsStaff(
-                Auth::user(),
-                $order,
-                $reason
-            );
-            $this->statusMessage = 'Cancelled package day order #'.$this->cancelOrderId.' and refunded ৳'.number_format($result['refunded_amount']).' to the corporate wallet.';
+            if ($this->cancelOrderId) {
+                $order = Order::query()->findOrFail($this->cancelOrderId);
+                $result = app(PackageSubscriptionService::class)->skipDayAsStaff(
+                    Auth::user(),
+                    $order,
+                    $reason
+                );
+                $this->statusMessage = 'Cancelled package day order #'.$this->cancelOrderId.' and refunded ৳'.number_format($result['refunded_amount']).' to the corporate wallet.';
+            } elseif ($this->cancelDate) {
+                if (! $this->cancelMenuItemId) {
+                    $this->errorMessage = 'Pick which prepaid menu day to cancel.';
+
+                    return;
+                }
+
+                $result = app(PackageSubscriptionService::class)->cancelUnscheduledDay(
+                    Auth::user(),
+                    $this->subscription(),
+                    $this->cancelDate,
+                    (int) $this->cancelMenuItemId,
+                    $reason
+                );
+                $this->statusMessage = 'Cancelled unconfirmed '.$this->cancelDate.' and refunded ৳'.number_format($result['refunded_amount']).' to the corporate wallet.';
+            } else {
+                $this->errorMessage = 'Pick a delivery day to cancel.';
+
+                return;
+            }
+
             $this->errorMessage = null;
             $this->closeCancelModal();
             $this->resetScheduleAssignments();
@@ -321,6 +364,28 @@ class SubscriptionShow extends Component
     public function orderRefundAmount(Order $order): int
     {
         return PackageRefund::orderRefundAmount($order);
+    }
+
+    public function estimatedUnscheduledRefund(?int $menuItemId = null): int
+    {
+        $menuItemId ??= $this->cancelMenuItemId;
+        if (! $menuItemId) {
+            return 0;
+        }
+
+        $subscription = $this->subscription();
+        $selection = $subscription->selections->firstWhere('menu_item_id', (int) $menuItemId);
+        if (! $selection) {
+            return 0;
+        }
+
+        $qty = max(1, (int) $subscription->quantity);
+        $dayFood = (int) $selection->unit_price * $qty;
+        $days = max(1, (int) $subscription->billable_days);
+        $chargeShare = (int) floor(((int) ($subscription->charges_amount ?? 0)) / $days);
+        $discountShare = (int) floor(((int) ($subscription->discount_amount ?? 0)) / $days);
+
+        return max(0, $dayFood + $chargeShare - $discountShare);
     }
 
     public function selectionRemaining(PackageSubscription $subscription): array

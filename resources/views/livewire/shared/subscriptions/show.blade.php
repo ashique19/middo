@@ -133,12 +133,18 @@
                                         @endforeach
                                     </select>
                                 </td>
-                                <td class="p-3 text-right">
+                                <td class="p-3 text-right space-x-2 whitespace-nowrap">
                                     <button
                                         type="button"
                                         wire:click="saveScheduleDate('{{ $date }}')"
                                         class="px-3 py-1.5 rounded-lg bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold">
                                         Save
+                                    </button>
+                                    <button
+                                        type="button"
+                                        wire:click="openCancelUnscheduledModal('{{ $date }}')"
+                                        class="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-bold">
+                                        Cancel and Refund
                                     </button>
                                 </td>
                             </tr>
@@ -295,6 +301,11 @@
                                 Order #{{ $cancelOrder->id }} · {{ $cancelOrder->delivery_date->format('D, M d') }}
                                 · {{ $cancelOrder->menuItem?->name }}
                                 · refund ৳{{ number_format($this->orderRefundAmount($cancelOrder)) }}
+                            @elseif($cancelDate)
+                                Unconfirmed {{ \Carbon\Carbon::parse($cancelDate)->format('D, M d, Y') }}
+                                @if($cancelMenuItemId)
+                                    · estimated refund ৳{{ number_format($this->estimatedUnscheduledRefund()) }}
+                                @endif
                             @else
                                 Cancel this delivery day and refund the corporate wallet.
                             @endif
@@ -302,6 +313,21 @@
                     </div>
                     <button type="button" wire:click="closeCancelModal" class="text-gray-400 hover:text-gray-600 text-sm font-bold">Close</button>
                 </div>
+                @if($cancelDate && ! $cancelOrderId)
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Prepaid menu to cancel</label>
+                        <select wire:model.live="cancelMenuItemId" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                            <option value="">Select menu…</option>
+                            @foreach($selectionRemaining as $sel)
+                                @if($sel['remaining'] > 0)
+                                    <option value="{{ $sel['menu_item_id'] }}">
+                                        {{ $sel['name'] }} ({{ $sel['remaining'] }} left · ৳{{ number_format($sel['unit_price']) }}/day)
+                                    </option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Reason</label>
                     <textarea
