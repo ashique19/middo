@@ -71,7 +71,7 @@
                         Complete this checkout to prepay your monthly meal package. After payment you will confirm with OTP.
                     @else
                         Complete this prepayment to schedule meals when the receiver differs from the account holder,
-                        or when you reach {{ \App\Support\MiddoSettings::fullPrepayFromActiveOrders() }}+ meals (active + cart quantities).
+                        or when you go above {{ \App\Support\MiddoSettings::fullPrepayFromActiveOrders() }} meals (active + cart quantities).
                     @endif
                 @endif
             </p>

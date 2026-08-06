@@ -160,13 +160,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Full prepayment from meal quantity
+    | COD meal ceiling / full prepayment above
     |--------------------------------------------------------------------------
     |
-    | When projected meal quantity (sum of quantities on active orders + cart,
-    | same day or across days) reaches this count, require 100% prepayment via
-    | Middo Balance or online payment (no COD). Admin Settings can override.
-    | Default 3 → COD only while total meals stay at 1–2.
+    | Cash on Delivery is allowed while projected meal quantity (active orders
+    | + cart, same day or across days) is at or below this number. Full
+    | prepayment is required when the total exceeds it. Default 3 → COD for
+    | 1–3 meals; the 4th meal triggers 100% prepay. Admin Settings can override.
     |
     */
 

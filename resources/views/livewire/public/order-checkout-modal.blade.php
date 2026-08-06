@@ -343,7 +343,7 @@
                                 </p>
                             @endif
                             @if(! $this->codAllowed)
-                                <p class="text-[10px] text-amber-800 mt-1">Cash on Delivery is limited to {{ $this->codMaxActiveOrders }} meals. Full prepayment required from {{ $this->fullPrepayFromActiveOrders }}+ meals. Choose Middo Balance or online payment.</p>
+                                <p class="text-[10px] text-amber-800 mt-1">Cash on Delivery is limited to {{ $this->codMaxActiveOrders }} meals. Full prepayment required above {{ $this->fullPrepayFromActiveOrders }} meals. Choose Middo Balance or online payment.</p>
                             @endif
                             @error('paymentMethod') <span class="text-red-500 text-xs mt-1 font-semibold block">{{ $message }}</span> @enderror
                         </div>

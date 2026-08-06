@@ -62,7 +62,7 @@ class CorporateOrderPrepayment
     }
 
     /**
-     * Projected meal quantity at/above this count requires 100% prepayment.
+     * COD meal ceiling (inclusive). Full prepay when projected meal quantity exceeds this.
      */
     public static function fullPrepayFromActiveOrders(): int
     {
@@ -105,7 +105,7 @@ class CorporateOrderPrepayment
             $reasons[] = 'receiver_mismatch';
         }
 
-        if ($projected >= $fullPrepayFrom) {
+        if ($projected > $fullPrepayFrom) {
             $reasons[] = 'active_order_limit';
         }
 
@@ -124,7 +124,7 @@ class CorporateOrderPrepayment
             $message = 'This meal is for a different worker than your Middo buyer profile (name or mobile). Full prepayment is required via Middo Balance or payment gateway.';
         } elseif (in_array('active_order_limit', $reasons, true)) {
             $message = sprintf(
-                'You would have %d active meals (existing + this cart). Full prepayment (৳%s) is required from %d+ meals via Middo Balance or payment gateway.',
+                'You would have %d active meals (existing + this cart). Full prepayment (৳%s) is required above %d meals via Middo Balance or payment gateway.',
                 $projected,
                 number_format($amount),
                 $fullPrepayFrom
