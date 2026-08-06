@@ -207,7 +207,7 @@
                                     <button type="button" wire:click="openSwapModal({{ $order->id }})" class="text-xs font-bold text-sky-700 hover:underline">Swap</button>
                                     <button type="button" wire:click="unconfirmOrder({{ $order->id }})" wire:confirm="Undo confirmation for this day? It will return to the unconfirmed list (no refund)." class="text-xs font-bold text-amber-700 hover:underline">Undo</button>
                                     <button type="button" wire:click="skipOrder({{ $order->id }})" wire:confirm="Cancel this day and refund ৳{{ number_format($this->orderRefundAmount($order)) }} to the corporate wallet?" class="text-xs font-bold text-red-600 hover:underline">Cancel and Refund</button>
-                                @elseif($canManage && $order->order_status === 'cancelled' && \App\Support\OrderCutoff::allowsModification($order) && $subscription->status === 'active')
+                                @elseif($canManage && $order->order_status === 'cancelled' && \App\Support\OrderCutoff::deliveryDateStillOpen($order) && $subscription->status === 'active')
                                     <button type="button" wire:click="reactivateOrder({{ $order->id }})" wire:confirm="Re-activate this day? ৳{{ number_format($this->orderRefundAmount($order)) }} will be debited from the corporate wallet." class="text-xs font-bold text-emerald-700 hover:underline">Re-activate</button>
                                 @endif
                             </td>

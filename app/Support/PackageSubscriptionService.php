@@ -939,7 +939,7 @@ class PackageSubscriptionService
             throw new RuntimeException('Only active subscriptions can re-activate delivery days.');
         }
 
-        if (! OrderCutoff::allowsModification($order)) {
+        if (! OrderCutoff::deliveryDateStillOpen($order)) {
             throw new RuntimeException('This delivery date is past the order cutoff and cannot be re-activated.');
         }
 
@@ -956,7 +956,7 @@ class PackageSubscriptionService
                 throw new RuntimeException('Only cancelled package days can be re-activated.');
             }
 
-            if (! OrderCutoff::allowsModification($locked)) {
+            if (! OrderCutoff::deliveryDateStillOpen($locked)) {
                 throw new RuntimeException('This delivery date is past the order cutoff and cannot be re-activated.');
             }
 

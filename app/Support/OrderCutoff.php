@@ -59,6 +59,14 @@ class OrderCutoff
             return false;
         }
 
+        return self::deliveryDateStillOpen($order, $now);
+    }
+
+    /**
+     * Whether the delivery calendar day is still before the order cutoff (status-agnostic).
+     */
+    public static function deliveryDateStillOpen(Order $order, ?CarbonInterface $now = null): bool
+    {
         return ! self::isPastForDeliveryDate($order->delivery_date, $now);
     }
 
