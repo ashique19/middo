@@ -46,7 +46,7 @@
                 </p>
             @else
                 <p class="text-[11px] text-gray-500 mt-3">
-                    Need to cancel a day? Contact Middo operations — package cancel and refund is handled by our team.
+                    Need to cancel a day? Contact Middo.
                 </p>
             @endif
         </div>

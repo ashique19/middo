@@ -101,7 +101,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               Text(
                 sub.isAwaitingSchedule
                     ? 'Prepaid. Middo operations will assign exact delivery dates next.'
-                    : 'Need to cancel a day? Contact Middo operations.',
+                    : 'Need to cancel a day? Contact Middo.',
                 style: TextStyle(
                   color: MiddoColors.muted,
                   fontSize: 12,
