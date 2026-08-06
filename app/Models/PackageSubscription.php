@@ -202,7 +202,8 @@ class PackageSubscription extends Model
 
     /**
      * Remaining prepaid menu-day quotas after non-cancelled confirmed orders.
-     * Cancel and Refund untags the menu (frees a prepaid slot); re-activate tags it again.
+     * Cancel and Refund shrinks prepaid day_count (menu stays on the cancelled order);
+     * re-activate restores day_count and tags the day again.
      *
      * @return array<int, int> menu_item_id => remaining day count
      */

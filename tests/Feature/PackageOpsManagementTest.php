@@ -453,12 +453,10 @@ class PackageOpsManagementTest extends TestCase
         $this->assertSame('cancelled', $order->fresh()->order_status);
         $this->assertSame(50000 - $quote['total_amount'] + $refund, (int) $user->fresh()->balance);
         $subscriptionAfterCancel = $result['subscription']->fresh(['selections', 'orders']);
-        $this->assertSame(1, $subscriptionAfterCancel->remainingBillableDays());
-        $this->assertTrue($subscriptionAfterCancel->canReceiveScheduleAssignments());
-        $this->assertSame(
-            max(0, (int) $subscriptionAfterCancel->selections->first()->day_count - ($workingDays - 1)),
-            (int) ($subscriptionAfterCancel->remainingSelectionCounts()[$menu->id] ?? 0)
-        );
+        $this->assertSame(0, $subscriptionAfterCancel->remainingBillableDays());
+        $this->assertSame($workingDays - 1, (int) $subscriptionAfterCancel->billable_days);
+        $this->assertSame($workingDays - 1, (int) $subscriptionAfterCancel->selections->first()->day_count);
+        $this->assertSame(0, (int) ($subscriptionAfterCancel->remainingSelectionCounts()[$menu->id] ?? 0));
         $this->assertDatabaseHas('package_subscription_events', [
             'package_subscription_id' => $result['subscription']->id,
             'type' => 'day_cancelled',
@@ -470,14 +468,15 @@ class PackageOpsManagementTest extends TestCase
             ->first();
         $this->assertNotNull($cancelEvent);
         $this->assertStringNotContainsString('Reason:', (string) $cancelEvent->summary);
-        $this->assertStringContainsString('Menu untagged', (string) $cancelEvent->summary);
+        $this->assertStringNotContainsString('Menu untagged', (string) $cancelEvent->summary);
+        $this->assertTrue((bool) ($cancelEvent->meta['reduced_selection_day_count'] ?? false));
         $this->assertSame('Holiday / office closed', $cancelEvent->meta['reason'] ?? null);
 
         $this->actingAs($ops)
             ->get(route('operation.subscriptions.show', $result['subscription']->id))
             ->assertOk()
-            ->assertSee('Cancelled · untagged')
-            ->assertSee('Will restore:')
+            ->assertSee('Cancelled')
+            ->assertSee('Menu:')
             ->assertSee('Confirm delivery days')
             ->assertSee('Re-activate')
             ->assertSee('Package audit log')
@@ -629,8 +628,8 @@ class PackageOpsManagementTest extends TestCase
             ->set('cancelReason', 'Ops cancel for reactivate test')
             ->call('confirmCancelAndRefund')
             ->assertSet('errorMessage', null)
-            ->assertSee('Cancelled · untagged')
-            ->assertSee('Will restore:');
+            ->assertSee('Cancelled')
+            ->assertSee('Menu:');
 
         $this->assertSame('cancelled', $order->fresh()->order_status);
         $this->assertGreaterThan($balanceAfterSubscribe, (int) $user->fresh()->balance);
@@ -641,8 +640,7 @@ class PackageOpsManagementTest extends TestCase
             ->call('confirmReactivate')
             ->assertSet('errorMessage', null)
             ->assertSee('moved back to delivery days')
-            ->assertSee($menu->name)
-            ->assertDontSee('Cancelled · untagged');
+            ->assertSee($menu->name);
 
         $this->assertSame('pending', $order->fresh()->order_status);
         $this->assertSame($balanceAfterSubscribe, (int) $user->fresh()->balance);

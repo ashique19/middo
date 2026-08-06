@@ -845,9 +845,10 @@ class PackageSubscriptionService
                 throw new RuntimeException(OrderCutoff::modificationDeniedMessage());
             }
 
-            $locked->loadMissing('packageSubscription.orders');
+            $locked->loadMissing('packageSubscription.selections');
             $refund = PackageRefund::orderRefundAmount($locked);
             $subscriptionId = (int) $locked->package_subscription_id;
+            $menuItemId = (int) $locked->menu_item_id;
             $this->cancelPackageOrder(
                 $locked,
                 $walletOwner,
@@ -856,21 +857,34 @@ class PackageSubscriptionService
                 'Package day cancelled — refund for order #'.$locked->id
             );
 
-            $subscription = PackageSubscription::query()->find($subscriptionId);
+            // Keep the menu tagged on the cancelled order and shrink prepaid quota
+            // (do not free the slot for another date — same as unconfirmed cancel).
+            $subscription = PackageSubscription::query()
+                ->with('selections')
+                ->lockForUpdate()
+                ->find($subscriptionId);
             if ($subscription) {
-                $this->syncScheduleStatus($subscription);
+                $selection = $subscription->selections->firstWhere('menu_item_id', $menuItemId);
+                if ($selection && (int) $selection->day_count > 0) {
+                    $selection->update(['day_count' => (int) $selection->day_count - 1]);
+                }
+                $subscription->update([
+                    'billable_days' => max(0, (int) $subscription->billable_days - 1),
+                ]);
+                $this->syncScheduleStatus($subscription->fresh(['selections', 'orders']));
             }
 
             $this->recordEvent(
                 $subscriptionId,
                 PackageSubscriptionEvent::TYPE_DAY_CANCELLED,
-                'Cancelled order #'.$locked->id.' and refunded Tk '.number_format($refund).'. Menu untagged.',
+                'Cancelled order #'.$locked->id.' and refunded Tk '.number_format($refund).'.',
                 [
                     'order_id' => $locked->id,
                     'delivery_date' => $locked->delivery_date?->toDateString(),
-                    'menu_item_id' => (int) $locked->menu_item_id,
+                    'menu_item_id' => $menuItemId,
                     'refunded_amount' => $refund,
                     'reason' => $reason,
+                    'reduced_selection_day_count' => true,
                 ],
                 $actorId
             );

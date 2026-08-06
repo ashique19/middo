@@ -139,9 +139,9 @@
                                 <td class="p-3">
                                     @if($cancelledOrder)
                                         <div class="space-y-1">
-                                            <p class="text-gray-400 font-medium text-xs uppercase tracking-wide">Cancelled · untagged</p>
+                                            <p class="text-gray-400 font-medium text-xs uppercase tracking-wide">Cancelled</p>
                                             <p class="text-sm font-semibold text-gray-700">
-                                                Will restore: {{ $cancelledOrder->menuItem?->name ?? 'previous menu' }}
+                                                Menu: {{ $cancelledOrder->menuItem?->name ?? 'previous menu' }}
                                             </p>
                                         </div>
                                     @else
