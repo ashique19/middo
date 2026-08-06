@@ -113,8 +113,9 @@ class SubscriptionShow extends Component
                 );
 
                 if ($cancelledForDate) {
-                    // Keep prior menu id for display; row stays cancelled until Re-activate.
-                    $cancelledDates[$date] = (int) $cancelledForDate->menu_item_id;
+                    // Placeholder key only — menu display comes from cancelledOrdersByDate.
+                    // Do not store menu_item_id here or it is counted as a draft assignment.
+                    $cancelledDates[$date] = null;
                 } elseif ($model->canReceiveScheduleAssignments()) {
                     $openDates[$date] = null;
                 }
@@ -493,7 +494,9 @@ class SubscriptionShow extends Component
 
     public function selectionRemaining(PackageSubscription $subscription): array
     {
+        $cancelledDates = array_keys($this->cancelledOrdersByDate($subscription));
         $draftAssigned = collect($this->scheduleAssignments)
+            ->reject(fn ($id, $date) => in_array((string) $date, $cancelledDates, true))
             ->filter()
             ->countBy(fn ($id) => (int) $id);
 
@@ -501,24 +504,56 @@ class SubscriptionShow extends Component
 
         return $subscription->selections->map(function ($sel) use ($draftAssigned, $remaining) {
             $menuId = (int) $sel->menu_item_id;
+            $dayCount = (int) $sel->day_count;
             $left = (int) ($remaining[$menuId] ?? 0);
             $draft = (int) ($draftAssigned[$menuId] ?? 0);
+            $confirmed = max(0, $dayCount - $left);
 
             return [
                 'menu_item_id' => $menuId,
                 'name' => $sel->menuItem?->name ?? 'Menu',
                 'unit_price' => (int) $sel->unit_price,
-                'day_count' => (int) $sel->day_count,
-                'assigned' => max(0, (int) $sel->day_count - $left) + $draft,
+                'day_count' => $dayCount,
+                // Confirmed only — drafts must not push assigned above day_count (e.g. 3/2).
+                'assigned' => $confirmed,
                 'remaining' => max(0, $left - $draft),
             ];
         })->values()->all();
+    }
+
+    /**
+     * Menus still available to pick for an unconfirmed date (full quotas omitted).
+     *
+     * @return list<\App\Models\MenuItem>
+     */
+    public function availableMenusForDate(PackageSubscription $subscription, string $date): array
+    {
+        $current = $this->scheduleAssignments[$date] ?? null;
+        $currentId = filled($current) ? (int) $current : null;
+
+        $remainingByMenu = collect($this->selectionRemaining($subscription))
+            ->keyBy('menu_item_id');
+
+        return $subscription->selections
+            ->pluck('menuItem')
+            ->filter()
+            ->filter(function ($menu) use ($remainingByMenu, $currentId) {
+                $menuId = (int) $menu->id;
+                if ($currentId !== null && $menuId === $currentId) {
+                    return true;
+                }
+
+                return (int) ($remainingByMenu[$menuId]['remaining'] ?? 0) > 0;
+            })
+            ->values()
+            ->all();
     }
 
     public function render()
     {
         $subscription = $this->subscription();
         $selectionMenus = $subscription->selections->pluck('menuItem')->filter()->values();
+        $selectionRemaining = $this->selectionRemaining($subscription);
         $daySummary = $subscription->daySummary();
         $swapOrder = $this->swapOrderId
             ? $subscription->orders->firstWhere('id', $this->swapOrderId)
@@ -537,11 +572,17 @@ class SubscriptionShow extends Component
             ->limit(100)
             ->get();
 
+        $menusByDate = [];
+        foreach (array_keys($this->scheduleAssignments) as $date) {
+            $menusByDate[$date] = $this->availableMenusForDate($subscription, (string) $date);
+        }
+
         return view('livewire.shared.subscriptions.show', [
             'subscription' => $subscription,
             'menuItems' => $selectionMenus,
             'selectionMenus' => $selectionMenus,
-            'selectionRemaining' => $this->selectionRemaining($subscription),
+            'selectionRemaining' => $selectionRemaining,
+            'menusByDate' => $menusByDate,
             'assignedCount' => collect($this->scheduleAssignments)->filter()->count(),
             'remainingDays' => $subscription->remainingBillableDays(),
             'daySummary' => $daySummary,

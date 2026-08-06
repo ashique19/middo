@@ -653,4 +653,85 @@ class PackageOpsManagementTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    public function test_menu_quota_display_and_full_menu_hidden_from_confirm_dropdown(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeUser($this->corporateRole, [
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'mobile' => '01310123972',
+            'balance' => 50000,
+        ]);
+        $ops = $this->makeUser($this->operationRole, ['mobile' => '01310123971']);
+        $fullMenu = $this->makeMenuItem('Vegetable Khichdi Thali', 350);
+        $openMenu = $this->makeMenuItem('Office Thali', 150);
+        $package = $this->makePublishedPackage($fullMenu, 100, 8);
+        $workingDays = $this->workingDays('2026-08');
+
+        $result = app(PackageSubscriptionService::class)->subscribe(
+            $user,
+            $package,
+            1,
+            [5, 6],
+            [
+                ['menu_item_id' => $fullMenu->id, 'day_count' => 2],
+                ['menu_item_id' => $openMenu->id, 'day_count' => $workingDays - 2],
+            ],
+            '2026-08',
+            'Corporate User',
+            $user->mobile,
+            'House 12, Road 5',
+            $city->id,
+            $area->id,
+            '12:00 PM',
+            'balance'
+        );
+
+        $subscription = $result['subscription'];
+        $available = PackageBilling::availableDatesInMonth('2026-08', [5, 6])->values();
+        $assignments = [
+            ['date' => $available[0], 'menu_item_id' => $fullMenu->id],
+            ['date' => $available[1], 'menu_item_id' => $fullMenu->id],
+        ];
+        app(PackageSubscriptionService::class)->assignSchedule($ops, $subscription, $assignments);
+
+        $cancelled = app(PackageSubscriptionService::class)->skipDayAsStaff(
+            $ops,
+            $subscription->fresh(['orders'])->orders->firstWhere('menu_item_id', $fullMenu->id),
+            'Office closed'
+        );
+
+        $component = Livewire::actingAs($ops)
+            ->test(\App\Livewire\Shared\SubscriptionShow::class, ['subscription' => $subscription->id]);
+
+        $remaining = collect($component->instance()->selectionRemaining($subscription->fresh(['selections', 'orders', 'selections.menuItem'])))
+            ->keyBy('menu_item_id');
+
+        $fullSel = $remaining[$fullMenu->id];
+        $this->assertSame(1, $fullSel['day_count']);
+        $this->assertSame(1, $fullSel['assigned']);
+        $this->assertSame(0, $fullSel['remaining']);
+        $this->assertLessThanOrEqual($fullSel['day_count'], $fullSel['assigned']);
+
+        $component
+            ->assertSee('1/1')
+            ->assertDontSee('2/1')
+            ->assertDontSee('3/2');
+
+        $openDate = $available[2];
+        $menusForOpenDate = $component->instance()->availableMenusForDate(
+            $subscription->fresh(['selections.menuItem', 'orders']),
+            $openDate
+        );
+        $menuIds = collect($menusForOpenDate)->pluck('id')->all();
+        $this->assertNotContains($fullMenu->id, $menuIds);
+        $this->assertContains($openMenu->id, $menuIds);
+
+        $this->assertSame('cancelled', $cancelled['order']->order_status);
+
+        Carbon::setTestNow();
+    }
 }

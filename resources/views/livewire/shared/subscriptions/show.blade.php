@@ -149,7 +149,7 @@
                                             wire:model="scheduleAssignments.{{ $date }}"
                                             class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
                                             <option value="">— leave empty —</option>
-                                            @foreach($selectionMenus as $menu)
+                                            @foreach(($menusByDate[$date] ?? []) as $menu)
                                                 <option value="{{ $menu->id }}">{{ $menu->name }}</option>
                                             @endforeach
                                         </select>
