@@ -42,9 +42,18 @@
         </div>
 
         @if(!empty($eps_message) && ! $paid)
-            <p class="text-sm font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                {{ $eps_message }}
-            </p>
+            <div class="space-y-3" data-testid="gateway-prepay-failed">
+                <p class="text-sm font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                    {{ $eps_message }}
+                </p>
+                <a
+                    href="{{ route('corporates.dashboard') }}"
+                    class="inline-flex w-full items-center justify-center bg-[#1E4630] hover:bg-[#143021] text-white py-3.5 rounded-xl font-bold transition"
+                    data-testid="gateway-prepay-dashboard-link"
+                >
+                    Go to Dashboard
+                </a>
+            </div>
         @endif
 
         @if($paid)

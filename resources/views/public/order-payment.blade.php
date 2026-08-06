@@ -54,7 +54,7 @@
         </div>
 
         @if(session('payment_error'))
-            <p class="text-sm font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <p class="text-sm font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3" data-testid="order-payment-error">
                 {{ session('payment_error') }}
             </p>
         @endif
@@ -68,6 +68,7 @@
                     <a
                         href="{{ route('corporates.dashboard') }}"
                         class="inline-flex w-full items-center justify-center bg-[#1E4630] hover:bg-[#143021] text-white py-3.5 rounded-xl font-bold transition"
+                        data-testid="order-payment-dashboard-link"
                     >
                         Go to Dashboard
                     </a>
@@ -98,6 +99,15 @@
                     Pseudo checkout for development and automated tests.
                 @endif
             </p>
+            @if(session('order_payment_failed_or_cancelled') || session('payment_error'))
+                <a
+                    href="{{ route('corporates.dashboard') }}"
+                    class="inline-flex w-full items-center justify-center bg-[#1E4630] hover:bg-[#143021] text-white py-3.5 rounded-xl font-bold transition"
+                    data-testid="order-payment-dashboard-link"
+                >
+                    Go to Dashboard
+                </a>
+            @endif
         @endif
     </div>
 </body>

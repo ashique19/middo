@@ -87,6 +87,11 @@ class EpsPaymentCallbackController extends Controller
 
                 if ($result['ok'] ?? false) {
                     $redirect->with('order_payment_just_completed', true);
+                } else {
+                    $redirect->with(
+                        'payment_error',
+                        $result['message'] ?? 'Payment was not completed.'
+                    )->with('order_payment_failed_or_cancelled', true);
                 }
 
                 return $redirect;
