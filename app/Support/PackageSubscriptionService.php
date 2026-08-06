@@ -10,6 +10,7 @@ use App\Models\MealPackage;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\PackageSubscription;
+use App\Models\PackageSubscriptionEvent;
 use App\Models\PackageSubscriptionSelection;
 use App\Models\User;
 use App\Models\WalletTransaction;
@@ -410,22 +411,18 @@ class PackageSubscriptionService
             }
 
             $freshSub = $lockedSub->fresh(['selections', 'orders']);
-            $remainingAfter = $freshSub->remainingBillableDays();
-            $allDates = $freshSub->orders()
-                ->where('order_status', '!=', 'cancelled')
-                ->orderBy('delivery_date')
-                ->pluck('delivery_date')
-                ->map(fn ($d) => $d->toDateString())
-                ->values()
-                ->all();
+            $this->syncScheduleStatus($freshSub);
 
-            $lockedSub->update([
-                'schedule_status' => $remainingAfter > 0
-                    ? PackageSubscription::SCHEDULE_PARTIAL
-                    : PackageSubscription::SCHEDULE_SCHEDULED,
-                'start_date' => $allDates[0] ?? $lockedSub->start_date,
-                'end_date' => $allDates[array_key_last($allDates)] ?? $lockedSub->end_date,
-            ]);
+            $this->recordEvent(
+                $lockedSub->id,
+                PackageSubscriptionEvent::TYPE_SCHEDULE_ASSIGNED,
+                'Confirmed '.$orders->count().' delivery day(s).',
+                [
+                    'order_ids' => $createdOrderIds,
+                    'dates' => $orders->map(fn (Order $o) => $o->delivery_date->toDateString())->values()->all(),
+                ],
+                $actor->id
+            );
 
             return [
                 'subscription' => $lockedSub->fresh(['package', 'user', 'selections.menuItem', 'orders.menuItem']),
@@ -508,6 +505,14 @@ class PackageSubscriptionService
                     'status' => PackageSubscription::STATUS_CANCELLED,
                 ]);
 
+                $this->recordEvent(
+                    $lockedSub->id,
+                    PackageSubscriptionEvent::TYPE_REMAINING_CANCELLED,
+                    'Cancelled subscription before schedule. Refunded ৳'.number_format($refunded).'.',
+                    ['cancelled_orders' => 0, 'refunded_amount' => $refunded],
+                    $actor->id
+                );
+
                 return [
                     'subscription' => $lockedSub->fresh(['package', 'user', 'orders.menuItem', 'selections.menuItem']),
                     'cancelled_orders' => 0,
@@ -543,6 +548,14 @@ class PackageSubscriptionService
             $lockedSub->update([
                 'status' => PackageSubscription::STATUS_CANCELLED,
             ]);
+
+            $this->recordEvent(
+                $lockedSub->id,
+                PackageSubscriptionEvent::TYPE_REMAINING_CANCELLED,
+                'Cancelled '.$cancelled.' remaining day(s). Refunded ৳'.number_format($refunded).'.',
+                ['cancelled_orders' => $cancelled, 'refunded_amount' => $refunded],
+                $actor->id
+            );
 
             return [
                 'subscription' => $lockedSub->fresh(['package', 'user', 'orders.menuItem', 'selections.menuItem']),
@@ -624,6 +637,17 @@ class PackageSubscriptionService
                 $order->update($orderPayload);
             }
 
+            $this->recordEvent(
+                $lockedSub->id,
+                PackageSubscriptionEvent::TYPE_DELIVERY_UPDATED,
+                'Updated delivery details on '.$orders->count().' future pending order(s).',
+                [
+                    'updated_orders' => $orders->count(),
+                    'delivery_time' => $deliveryTime,
+                ],
+                $actor->id
+            );
+
             return [
                 'subscription' => $lockedSub->fresh(['package', 'user', 'area', 'orders.menuItem']),
                 'updated_orders' => $orders->count(),
@@ -682,6 +706,18 @@ class PackageSubscriptionService
 
             $fresh = $locked->fresh(['menuItem', 'user', 'packageSubscription.package']);
             app(MealOrderGrouper::class)->assignOrder($fresh, $actor->id);
+
+            $this->recordEvent(
+                (int) $fresh->package_subscription_id,
+                PackageSubscriptionEvent::TYPE_MENU_SWAPPED,
+                'Swapped order #'.$fresh->id.' to '.$menu->name.'.',
+                [
+                    'order_id' => $fresh->id,
+                    'menu_item_id' => $menu->id,
+                    'delivery_date' => $fresh->delivery_date?->toDateString(),
+                ],
+                $actor->id
+            );
 
             return $fresh->fresh(['menuItem', 'orderGroup', 'packageSubscription.package']);
         });
@@ -747,6 +783,14 @@ class PackageSubscriptionService
 
         $subscription->update(['status' => PackageSubscription::STATUS_COMPLETED]);
 
+        $this->recordEvent(
+            $subscription->id,
+            PackageSubscriptionEvent::TYPE_FORCE_COMPLETED,
+            'Subscription force-completed.',
+            null,
+            $actor->id
+        );
+
         return $subscription->fresh(['package', 'user']);
     }
 
@@ -774,12 +818,30 @@ class PackageSubscriptionService
 
             $locked->loadMissing('packageSubscription.orders');
             $refund = PackageRefund::orderRefundAmount($locked);
+            $subscriptionId = (int) $locked->package_subscription_id;
             $this->cancelPackageOrder(
                 $locked,
                 $walletOwner,
                 $actorId,
                 $refund,
-                'Package day skipped — refund for order #'.$locked->id
+                'Package day cancelled — refund for order #'.$locked->id
+            );
+
+            $subscription = PackageSubscription::query()->find($subscriptionId);
+            if ($subscription) {
+                $this->syncScheduleStatus($subscription);
+            }
+
+            $this->recordEvent(
+                $subscriptionId,
+                PackageSubscriptionEvent::TYPE_DAY_CANCELLED,
+                'Cancelled order #'.$locked->id.' and refunded ৳'.number_format($refund).'.',
+                [
+                    'order_id' => $locked->id,
+                    'delivery_date' => $locked->delivery_date?->toDateString(),
+                    'refunded_amount' => $refund,
+                ],
+                $actorId
             );
 
             return [
@@ -787,6 +849,226 @@ class PackageSubscriptionService
                 'refunded_amount' => $refund,
             ];
         });
+    }
+
+    /**
+     * Undo a confirmed pending day: remove the order (no refund) so it returns to the unconfirmed list.
+     *
+     * @return array{subscription: PackageSubscription, order_id: int}
+     */
+    public function unconfirmDay(User $actor, Order $order): array
+    {
+        $this->assertStaffActor($actor);
+
+        if (! $order->package_subscription_id) {
+            throw new RuntimeException('This order is not part of a meal package.');
+        }
+
+        if ($order->order_status !== 'pending') {
+            throw new RuntimeException('Only pending package days can be unconfirmed.');
+        }
+
+        if (! OrderCutoff::allowsModification($order)) {
+            throw new RuntimeException(OrderCutoff::modificationDeniedMessage());
+        }
+
+        return DB::transaction(function () use ($actor, $order) {
+            /** @var Order $locked */
+            $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
+
+            if ($locked->order_status !== 'pending' || ! OrderCutoff::allowsModification($locked)) {
+                throw new RuntimeException(OrderCutoff::modificationDeniedMessage());
+            }
+
+            $subscriptionId = (int) $locked->package_subscription_id;
+            $orderId = (int) $locked->id;
+            $date = $locked->delivery_date?->toDateString();
+            $locked->loadMissing('menuItem');
+            $menuName = $locked->menuItem?->name ?? ('#'.$locked->menu_item_id);
+            $menuItemId = (int) $locked->menu_item_id;
+
+            try {
+                app(OrderGroupManager::class)->ungroup($locked->id);
+            } catch (\Throwable) {
+                // Order may already be ungrouped.
+            }
+
+            $locked->delete();
+
+            $subscription = PackageSubscription::query()->findOrFail($subscriptionId);
+            $this->syncScheduleStatus($subscription);
+
+            $this->recordEvent(
+                $subscriptionId,
+                PackageSubscriptionEvent::TYPE_DAY_UNCONFIRMED,
+                'Unconfirmed '.$date.' ('.$menuName.') — order #'.$orderId.' removed.',
+                [
+                    'order_id' => $orderId,
+                    'delivery_date' => $date,
+                    'menu_item_id' => $menuItemId,
+                ],
+                $actor->id
+            );
+
+            return [
+                'subscription' => $subscription->fresh(['package', 'user', 'selections.menuItem', 'orders.menuItem']),
+                'order_id' => $orderId,
+            ];
+        });
+    }
+
+    /**
+     * Re-activate a cancelled package day (future only): debit the prior refund and restore pending.
+     *
+     * @return array{order: Order, debited_amount: int}
+     */
+    public function reactivateDay(User $actor, Order $order): array
+    {
+        $this->assertStaffActor($actor);
+
+        if (! $order->package_subscription_id) {
+            throw new RuntimeException('This order is not part of a meal package.');
+        }
+
+        if ($order->order_status !== 'cancelled') {
+            throw new RuntimeException('Only cancelled package days can be re-activated.');
+        }
+
+        $subscription = PackageSubscription::query()->findOrFail($order->package_subscription_id);
+        if ($subscription->status !== PackageSubscription::STATUS_ACTIVE) {
+            throw new RuntimeException('Only active subscriptions can re-activate delivery days.');
+        }
+
+        if (! OrderCutoff::allowsModification($order)) {
+            throw new RuntimeException('This delivery date is past the order cutoff and cannot be re-activated.');
+        }
+
+        $debit = PackageRefund::orderRefundAmount($order);
+        if ($debit < 1) {
+            throw new RuntimeException('Cannot re-activate a day with no prepaid amount.');
+        }
+
+        return DB::transaction(function () use ($actor, $order, $debit, $subscription) {
+            /** @var Order $locked */
+            $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
+
+            if ($locked->order_status !== 'cancelled') {
+                throw new RuntimeException('Only cancelled package days can be re-activated.');
+            }
+
+            if (! OrderCutoff::allowsModification($locked)) {
+                throw new RuntimeException('This delivery date is past the order cutoff and cannot be re-activated.');
+            }
+
+            // Another non-cancelled order must not already occupy this date.
+            $dateTaken = Order::query()
+                ->where('package_subscription_id', $locked->package_subscription_id)
+                ->where('order_status', '!=', 'cancelled')
+                ->whereDate('delivery_date', $locked->delivery_date)
+                ->where('id', '!=', $locked->id)
+                ->exists();
+
+            if ($dateTaken) {
+                throw new RuntimeException(
+                    $locked->delivery_date->toDateString().' already has an active delivery day.'
+                );
+            }
+
+            $owner = User::query()->lockForUpdate()->findOrFail($locked->user_id);
+            WalletLedger::debit(
+                $owner,
+                $debit,
+                'Package day re-activated — debit for order #'.$locked->id,
+                $locked
+            );
+
+            // Cancelled is terminal in OrderTransition; restore pending directly for package days.
+            $locked->update([
+                'order_status' => 'pending',
+                'updated_by' => $actor->id,
+            ]);
+
+            $fresh = $locked->fresh(['menuItem', 'user', 'packageSubscription.package']);
+            app(MealOrderGrouper::class)->assignOrder($fresh, $actor->id);
+
+            $this->syncScheduleStatus($subscription->fresh(['selections', 'orders']));
+
+            $this->recordEvent(
+                (int) $locked->package_subscription_id,
+                PackageSubscriptionEvent::TYPE_DAY_REACTIVATED,
+                'Re-activated order #'.$locked->id.' and debited ৳'.number_format($debit).'.',
+                [
+                    'order_id' => $locked->id,
+                    'delivery_date' => $locked->delivery_date?->toDateString(),
+                    'debited_amount' => $debit,
+                ],
+                $actor->id
+            );
+
+            return [
+                'order' => $fresh->fresh(['menuItem', 'orderGroup']),
+                'debited_amount' => $debit,
+            ];
+        });
+    }
+
+    /**
+     * Recalculate schedule_status / window dates from non-cancelled confirmed orders.
+     */
+    public function syncScheduleStatus(PackageSubscription $subscription): void
+    {
+        $fresh = $subscription->relationLoaded('orders') && $subscription->relationLoaded('selections')
+            ? $subscription
+            : $subscription->fresh(['selections', 'orders']);
+
+        $remainingAfter = $fresh->remainingBillableDays();
+        $allDates = $fresh->orders
+            ->where('order_status', '!=', 'cancelled')
+            ->sortBy(fn (Order $o) => $o->delivery_date?->toDateString().'-'.$o->id)
+            ->values()
+            ->map(fn (Order $o) => $o->delivery_date->toDateString())
+            ->all();
+
+        $confirmedCount = count($allDates);
+
+        if ($confirmedCount === 0) {
+            $scheduleStatus = PackageSubscription::SCHEDULE_AWAITING;
+        } elseif ($remainingAfter > 0) {
+            $scheduleStatus = PackageSubscription::SCHEDULE_PARTIAL;
+        } else {
+            $scheduleStatus = PackageSubscription::SCHEDULE_SCHEDULED;
+        }
+
+        $payload = ['schedule_status' => $scheduleStatus];
+        if ($confirmedCount > 0) {
+            $payload['start_date'] = $allDates[0];
+            $payload['end_date'] = $allDates[array_key_last($allDates)];
+        }
+
+        $subscription->update($payload);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $meta
+     */
+    protected function recordEvent(
+        int $subscriptionId,
+        string $type,
+        string $summary,
+        ?array $meta = null,
+        ?int $actorId = null,
+    ): void {
+        try {
+            PackageSubscriptionEvent::create([
+                'package_subscription_id' => $subscriptionId,
+                'type' => $type,
+                'summary' => $summary,
+                'meta' => $meta,
+                'created_by' => $actorId,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     protected function cancelPackageOrder(

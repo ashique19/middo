@@ -358,4 +358,118 @@ class PackageOpsManagementTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    public function test_unconfirm_returns_day_to_schedule_and_writes_audit(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeUser($this->corporateRole, [
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'mobile' => '01310123982',
+            'balance' => 50000,
+        ]);
+        $ops = $this->makeUser($this->operationRole, ['mobile' => '01310123981']);
+        $menu = $this->makeMenuItem();
+        $package = $this->makePublishedPackage($menu, 100, 8);
+
+        $result = $this->subscribeCorporate($user, $package, $city, $area, $menu);
+        $scheduled = $this->scheduleSubscription($ops, $result['subscription'], $menu);
+        $order = $scheduled['orders']->first();
+        $balanceBefore = (int) $user->fresh()->balance;
+
+        app(PackageSubscriptionService::class)->unconfirmDay($ops, $order);
+
+        $this->assertDatabaseMissing('orders', ['id' => $order->id]);
+        $this->assertSame($balanceBefore, (int) $user->fresh()->balance);
+
+        $subscription = $result['subscription']->fresh();
+        $this->assertTrue($subscription->canReceiveScheduleAssignments());
+        $this->assertGreaterThan(0, $subscription->remainingBillableDays());
+        $this->assertDatabaseHas('package_subscription_events', [
+            'package_subscription_id' => $subscription->id,
+            'type' => 'day_unconfirmed',
+            'created_by' => $ops->id,
+        ]);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_cancel_and_refund_then_reactivate_day(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeUser($this->corporateRole, [
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'mobile' => '01310123980',
+            'balance' => 50000,
+        ]);
+        $ops = $this->makeUser($this->operationRole, ['mobile' => '01310123979']);
+        $menu = $this->makeMenuItem();
+        $package = $this->makePublishedPackage($menu, 100, 8);
+        $workingDays = $this->workingDays('2026-08');
+        $quote = PackageBilling::quoteFromSelections(
+            $package,
+            1,
+            [['menu_item_id' => $menu->id, 'day_count' => $workingDays]],
+            [5, 6],
+            '2026-08'
+        );
+
+        $result = $this->subscribeCorporate($user, $package, $city, $area, $menu);
+        $scheduled = $this->scheduleSubscription($ops, $result['subscription'], $menu);
+        $order = $scheduled['orders']->first();
+        $refund = (int) $order->amount_paid;
+
+        $skip = app(PackageSubscriptionService::class)->skipDayAsStaff($ops, $order);
+        $this->assertSame($refund, $skip['refunded_amount']);
+        $this->assertSame('cancelled', $order->fresh()->order_status);
+        $this->assertSame(50000 - $quote['total_amount'] + $refund, (int) $user->fresh()->balance);
+        $this->assertSame(0, $result['subscription']->fresh()->remainingBillableDays());
+
+        $reactivate = app(PackageSubscriptionService::class)->reactivateDay($ops, $order->fresh());
+        $this->assertSame($refund, $reactivate['debited_amount']);
+        $this->assertSame('pending', $order->fresh()->order_status);
+        $this->assertSame(50000 - $quote['total_amount'], (int) $user->fresh()->balance);
+        $this->assertTrue(OrderGroupOrder::query()->where('order_id', $order->id)->exists());
+        $this->assertDatabaseHas('package_subscription_events', [
+            'package_subscription_id' => $result['subscription']->id,
+            'type' => 'day_reactivated',
+        ]);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_ops_subscription_show_ux_labels(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', OrderCutoff::timezone()));
+
+        [$city, $area] = $this->makeCityArea();
+        $user = $this->makeUser($this->corporateRole, [
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'mobile' => '01310123978',
+        ]);
+        $ops = $this->makeUser($this->operationRole, ['mobile' => '01310123977']);
+        $menu = $this->makeMenuItem();
+        $package = $this->makePublishedPackage($menu, 79, 8);
+        $subscribed = $this->subscribeCorporate($user, $package, $city, $area, $menu);
+        $scheduled = $this->scheduleSubscription($ops, $subscribed['subscription'], $menu);
+
+        $this->actingAs($ops)
+            ->get(route('operation.subscriptions.show', $scheduled['subscription']->id))
+            ->assertOk()
+            ->assertSee('Update delivery details')
+            ->assertSee('Cancel and Refund')
+            ->assertSee('Package audit log')
+            ->assertDontSee('Open active orders')
+            ->assertDontSee('Cancel remaining')
+            ->assertDontSee('Swap menu for a pending day')
+            ->assertDontSee('Confirm selected days');
+
+        Carbon::setTestNow();
+    }
 }

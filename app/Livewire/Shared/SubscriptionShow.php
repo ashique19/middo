@@ -5,6 +5,7 @@ namespace App\Livewire\Shared;
 use App\Models\Order;
 use App\Models\PackageSubscription;
 use App\Support\PackageBilling;
+use App\Support\PackageRefund;
 use App\Support\PackageSubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -24,6 +25,10 @@ class SubscriptionShow extends Component
     public string $receiver_name = '';
 
     public string $receiver_mobile = '';
+
+    public bool $showSwapModal = false;
+
+    public ?int $swapOrderId = null;
 
     public ?int $swapMenuItemId = null;
 
@@ -57,6 +62,7 @@ class SubscriptionShow extends Component
             'area.city',
             'selections.menuItem',
             'orders' => fn ($q) => $q->with(['menuItem', 'orderGroup'])->orderBy('delivery_date'),
+            'events' => fn ($q) => $q->with('createdBy')->latest()->limit(100),
         ])->findOrFail($this->subscriptionId);
     }
 
@@ -96,34 +102,84 @@ class SubscriptionShow extends Component
         $this->scheduleAssignments[$date] = $menuItemId;
     }
 
-    public function saveSchedule(): void
+    public function saveScheduleDate(string $date): void
     {
         abort_unless($this->canManage, 403);
         $this->errorMessage = null;
         $this->statusMessage = null;
 
-        $assignments = collect($this->scheduleAssignments)
-            ->filter(fn ($menuItemId) => filled($menuItemId))
-            ->map(fn ($menuItemId, $date) => [
-                'date' => $date,
-                'menu_item_id' => (int) $menuItemId,
-            ])
-            ->values()
-            ->all();
+        if (! array_key_exists($date, $this->scheduleAssignments)) {
+            $this->errorMessage = 'That date is not available to confirm.';
+
+            return;
+        }
+
+        $menuItemId = $this->scheduleAssignments[$date] ?? null;
+        if (! filled($menuItemId)) {
+            $this->errorMessage = 'Pick a menu before saving '.$date.'.';
+
+            return;
+        }
 
         try {
             $result = app(PackageSubscriptionService::class)->assignSchedule(
                 Auth::user(),
                 $this->subscription(),
-                $assignments
+                [['date' => $date, 'menu_item_id' => (int) $menuItemId]]
             );
             $remaining = $result['subscription']->remainingBillableDays();
             $this->statusMessage = $remaining > 0
-                ? 'Confirmed '.$result['orders']->count().' day(s). '.$remaining.' day(s) still unconfirmed.'
-                : 'Confirmed '.$result['orders']->count().' day(s). Package schedule is complete.';
+                ? 'Confirmed '.$date.'. '.$remaining.' day(s) still unconfirmed.'
+                : 'Confirmed '.$date.'. Package schedule is complete.';
             $this->resetScheduleAssignments($result['subscription']);
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage();
+        }
+    }
+
+    public function openSwapModal(int $orderId): void
+    {
+        abort_unless($this->canManage, 403);
+
+        $order = Order::query()->findOrFail($orderId);
+        abort_unless((int) $order->package_subscription_id === $this->subscriptionId, 404);
+
+        $this->swapOrderId = $orderId;
+        $this->swapMenuItemId = (int) $order->menu_item_id;
+        $this->showSwapModal = true;
+        $this->errorMessage = null;
+    }
+
+    public function closeSwapModal(): void
+    {
+        $this->showSwapModal = false;
+        $this->swapOrderId = null;
+        $this->swapMenuItemId = null;
+    }
+
+    public function confirmSwap(): void
+    {
+        abort_unless($this->canManage, 403);
+
+        if (! $this->swapOrderId || ! $this->swapMenuItemId) {
+            $this->errorMessage = 'Pick a menu item to swap to.';
+
+            return;
+        }
+
+        try {
+            $order = Order::query()->findOrFail($this->swapOrderId);
+            app(PackageSubscriptionService::class)->swapDayMenu(
+                Auth::user(),
+                $order,
+                (int) $this->swapMenuItemId
+            );
+            $this->statusMessage = 'Swapped menu for order #'.$this->swapOrderId.'.';
+            $this->errorMessage = null;
+            $this->closeSwapModal();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
+            $this->statusMessage = null;
         }
     }
 
@@ -134,34 +190,41 @@ class SubscriptionShow extends Component
         try {
             $order = Order::query()->findOrFail($orderId);
             $result = app(PackageSubscriptionService::class)->skipDayAsStaff(Auth::user(), $order);
-            $this->statusMessage = "Skipped package day order #{$orderId} and refunded ৳".number_format($result['refunded_amount']).' to the corporate wallet.';
+            $this->statusMessage = 'Cancelled package day order #'.$orderId.' and refunded ৳'.number_format($result['refunded_amount']).' to the corporate wallet.';
             $this->errorMessage = null;
+            $this->resetScheduleAssignments();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage();
             $this->statusMessage = null;
         }
     }
 
-    public function swapOrderMenu(int $orderId): void
+    public function unconfirmOrder(int $orderId): void
     {
         abort_unless($this->canManage, 403);
 
-        if (! $this->swapMenuItemId) {
-            $this->errorMessage = 'Pick a menu item to swap to.';
-
-            return;
+        try {
+            $order = Order::query()->findOrFail($orderId);
+            app(PackageSubscriptionService::class)->unconfirmDay(Auth::user(), $order);
+            $this->statusMessage = 'Unconfirmed order #'.$orderId.' — day returned to the unconfirmed list.';
+            $this->errorMessage = null;
+            $this->resetScheduleAssignments();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
+            $this->statusMessage = null;
         }
+    }
+
+    public function reactivateOrder(int $orderId): void
+    {
+        abort_unless($this->canManage, 403);
 
         try {
             $order = Order::query()->findOrFail($orderId);
-            app(PackageSubscriptionService::class)->swapDayMenu(
-                Auth::user(),
-                $order,
-                (int) $this->swapMenuItemId
-            );
-            $this->statusMessage = "Swapped menu for order #{$orderId} and re-grouped it.";
+            $result = app(PackageSubscriptionService::class)->reactivateDay(Auth::user(), $order);
+            $this->statusMessage = 'Re-activated order #'.$orderId.' and debited ৳'.number_format($result['debited_amount']).' from the corporate wallet.';
             $this->errorMessage = null;
-            $this->swapMenuItemId = null;
+            $this->resetScheduleAssignments();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage();
             $this->statusMessage = null;
@@ -182,23 +245,6 @@ class SubscriptionShow extends Component
                 $this->receiver_mobile,
             );
             $this->statusMessage = "Updated delivery details on {$result['updated_orders']} future pending order(s).";
-            $this->errorMessage = null;
-        } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage();
-            $this->statusMessage = null;
-        }
-    }
-
-    public function cancelRemaining(): void
-    {
-        abort_unless($this->canManage, 403);
-
-        try {
-            $result = app(PackageSubscriptionService::class)->cancelRemaining(
-                Auth::user(),
-                $this->subscription()
-            );
-            $this->statusMessage = "Cancelled {$result['cancelled_orders']} remaining day(s). Refunded ৳".number_format($result['refunded_amount']).'.';
             $this->errorMessage = null;
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage();
@@ -227,11 +273,9 @@ class SubscriptionShow extends Component
             : route('operation.subscriptions.index');
     }
 
-    public function activeOrdersRoute(): string
+    public function orderRefundAmount(Order $order): int
     {
-        return Auth::user()?->role?->name === 'admin'
-            ? route('admin.orders.active')
-            : route('operation.orders.active');
+        return PackageRefund::orderRefundAmount($order);
     }
 
     public function selectionRemaining(PackageSubscription $subscription): array
@@ -262,6 +306,10 @@ class SubscriptionShow extends Component
     {
         $subscription = $this->subscription();
         $selectionMenus = $subscription->selections->pluck('menuItem')->filter()->values();
+        $daySummary = $subscription->daySummary();
+        $swapOrder = $this->swapOrderId
+            ? $subscription->orders->firstWhere('id', $this->swapOrderId)
+            : null;
 
         return view('livewire.shared.subscriptions.show', [
             'subscription' => $subscription,
@@ -270,6 +318,9 @@ class SubscriptionShow extends Component
             'selectionRemaining' => $this->selectionRemaining($subscription),
             'assignedCount' => collect($this->scheduleAssignments)->filter()->count(),
             'remainingDays' => $subscription->remainingBillableDays(),
+            'daySummary' => $daySummary,
+            'auditEvents' => $subscription->events,
+            'swapOrder' => $swapOrder,
         ])->layout('layouts.private.app', [
             'title' => 'Subscription #'.$subscription->id,
         ]);

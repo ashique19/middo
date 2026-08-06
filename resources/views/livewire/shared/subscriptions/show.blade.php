@@ -42,6 +42,18 @@
             <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Prepaid</p>
             <p class="text-2xl font-black text-middo-dark">৳{{ number_format($subscription->amount_paid) }}</p>
             <p class="text-xs text-gray-500 mt-1">{{ $subscription->billable_days }} menu-days · qty {{ $subscription->quantity }} · menu-priced</p>
+            <p class="text-xs text-gray-600 mt-2 font-semibold">
+                {{ $daySummary['scheduled'] }} scheduled
+                @if($daySummary['cancelled'] > 0)
+                    · {{ $daySummary['cancelled'] }} cancelled
+                    @if($daySummary['refunded_amount'] > 0)
+                        · ৳{{ number_format($daySummary['refunded_amount']) }} refunded
+                    @endif
+                @endif
+                @if($daySummary['unconfirmed'] > 0)
+                    · {{ $daySummary['unconfirmed'] }} unconfirmed
+                @endif
+            </p>
         </div>
         <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Window</p>
@@ -87,18 +99,13 @@
 
     @if($canManage && $subscription->canReceiveScheduleAssignments())
         <div class="bg-white border border-amber-200 rounded-2xl p-5 shadow-sm space-y-4">
-            <div class="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h2 class="text-lg font-bold text-gray-800">Confirm delivery days</h2>
-                    <p class="text-sm text-gray-500 mt-1">
-                        Confirm one or more days now; leave the rest for later.
-                        Selecting {{ $assignedCount }} of {{ $remainingDays }} remaining prepaid day(s).
-                        Past cutoff dates are hidden and not editable.
-                    </p>
-                </div>
-                <button type="button" wire:click="saveSchedule" class="px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold">
-                    Confirm selected days
-                </button>
+            <div>
+                <h2 class="text-lg font-bold text-gray-800">Confirm delivery days</h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    Pick a menu and save each day individually.
+                    {{ $remainingDays }} prepaid day(s) still unconfirmed.
+                    Past cutoff dates are hidden and not editable.
+                </p>
             </div>
 
             <div class="overflow-x-auto border border-gray-100 rounded-xl">
@@ -108,6 +115,7 @@
                             <th class="p-3">Date</th>
                             <th class="p-3">Weekday</th>
                             <th class="p-3">Menu from selection</th>
+                            <th class="p-3 text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 text-sm">
@@ -117,15 +125,21 @@
                                 <td class="p-3 text-gray-500">{{ \Carbon\Carbon::parse($date)->format('D') }}</td>
                                 <td class="p-3">
                                     <select
-                                        wire:change="assignDateMenu('{{ $date }}', $event.target.value)"
+                                        wire:model="scheduleAssignments.{{ $date }}"
                                         class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                                        <option value="" @selected($menuId === null)>— leave empty —</option>
+                                        <option value="">— leave empty —</option>
                                         @foreach($selectionMenus as $menu)
-                                            <option value="{{ $menu->id }}" @selected((int) $menuId === (int) $menu->id)>
-                                                {{ $menu->name }}
-                                            </option>
+                                            <option value="{{ $menu->id }}">{{ $menu->name }}</option>
                                         @endforeach
                                     </select>
+                                </td>
+                                <td class="p-3 text-right">
+                                    <button
+                                        type="button"
+                                        wire:click="saveScheduleDate('{{ $date }}')"
+                                        class="px-3 py-1.5 rounded-lg bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold">
+                                        Save
+                                    </button>
                                 </td>
                             </tr>
                         @endforeach
@@ -146,34 +160,15 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <button type="button" wire:click="saveDelivery" class="px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold">
-                    Update future pending days
-                </button>
-                <button type="button" wire:click="cancelRemaining" wire:confirm="Cancel remaining pending days and refund wallets?" class="px-4 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm font-bold">
-                    Cancel remaining
+                    Update delivery details
                 </button>
                 @if($isAdmin)
                     <button type="button" wire:click="forceComplete" wire:confirm="Mark this subscription completed without further refunds?" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700">
                         Force complete
                     </button>
                 @endif
-                <a href="{{ $this->activeOrdersRoute() }}" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-middo-orange">
-                    Open active orders
-                </a>
             </div>
         </div>
-
-        @if($subscription->isScheduled() || $subscription->isPartiallyScheduled())
-            <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
-                <h2 class="text-lg font-bold text-gray-800">Swap menu for a pending day</h2>
-                <select wire:model="swapMenuItemId" class="w-full md:w-96 rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                    <option value="">Select menu from package…</option>
-                    @foreach($selectionMenus as $menu)
-                        <option value="{{ $menu->id }}">{{ $menu->name }} (৳{{ number_format($menu->price) }})</option>
-                    @endforeach
-                </select>
-                <p class="text-xs text-gray-500">Only pending days before cutoff can change menu. Past cutoff days are locked.</p>
-            </div>
-        @endif
     @endif
 
     <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
@@ -207,10 +202,13 @@
                             <td class="p-4 text-xs text-middo-orange font-semibold">{{ $order->orderGroup?->name ?? 'Ungrouped' }}</td>
                             <td class="p-4 capitalize">{{ $order->order_status }}</td>
                             <td class="p-4 text-right">৳{{ number_format($order->total_amount) }}</td>
-                            <td class="p-4 text-right space-x-2">
+                            <td class="p-4 text-right space-x-2 whitespace-nowrap">
                                 @if($canManage && $order->order_status === 'pending')
-                                    <button type="button" wire:click="swapOrderMenu({{ $order->id }})" class="text-xs font-bold text-sky-700 hover:underline">Swap</button>
-                                    <button type="button" wire:click="skipOrder({{ $order->id }})" wire:confirm="Skip this day and refund?" class="text-xs font-bold text-red-600 hover:underline">Skip</button>
+                                    <button type="button" wire:click="openSwapModal({{ $order->id }})" class="text-xs font-bold text-sky-700 hover:underline">Swap</button>
+                                    <button type="button" wire:click="unconfirmOrder({{ $order->id }})" wire:confirm="Undo confirmation for this day? It will return to the unconfirmed list (no refund)." class="text-xs font-bold text-amber-700 hover:underline">Undo</button>
+                                    <button type="button" wire:click="skipOrder({{ $order->id }})" wire:confirm="Cancel this day and refund ৳{{ number_format($this->orderRefundAmount($order)) }} to the corporate wallet?" class="text-xs font-bold text-red-600 hover:underline">Cancel and Refund</button>
+                                @elseif($canManage && $order->order_status === 'cancelled' && \App\Support\OrderCutoff::allowsModification($order) && $subscription->status === 'active')
+                                    <button type="button" wire:click="reactivateOrder({{ $order->id }})" wire:confirm="Re-activate this day? ৳{{ number_format($this->orderRefundAmount($order)) }} will be debited from the corporate wallet." class="text-xs font-bold text-emerald-700 hover:underline">Re-activate</button>
                                 @endif
                             </td>
                         </tr>
@@ -229,4 +227,60 @@
             </table>
         </div>
     </div>
+
+    <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="text-lg font-bold text-gray-800">Package audit log</h2>
+            <p class="text-xs text-gray-500 mt-1">Latest first</p>
+        </div>
+        <div class="divide-y divide-gray-100">
+            @forelse($auditEvents as $event)
+                <div wire:key="pkg-event-{{ $event->id }}" class="px-5 py-3 flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                        <p class="text-sm font-semibold text-gray-800">{{ $event->summary }}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            {{ str_replace('_', ' ', $event->type) }}
+                            @if($event->createdBy)
+                                · {{ $event->createdBy->first_name }} {{ $event->createdBy->last_name }}
+                            @endif
+                        </p>
+                    </div>
+                    <p class="text-xs text-gray-400 font-medium whitespace-nowrap">{{ $event->created_at?->timezone(\App\Support\OrderCutoff::timezone())->format('M d, Y g:i A') }}</p>
+                </div>
+            @empty
+                <div class="px-5 py-8 text-center text-sm text-gray-500">No audit events yet.</div>
+            @endforelse
+        </div>
+    </div>
+
+    @if($showSwapModal)
+        <div class="fixed inset-0 bg-gray-900/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl my-8 space-y-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800">Swap menu</h2>
+                        <p class="text-sm text-gray-500 mt-1">
+                            @if($swapOrder)
+                                Order #{{ $swapOrder->id }} · {{ $swapOrder->delivery_date->format('D, M d') }}
+                            @else
+                                Choose a menu from this package selection.
+                            @endif
+                        </p>
+                    </div>
+                    <button type="button" wire:click="closeSwapModal" class="text-gray-400 hover:text-gray-600 text-sm font-bold">Close</button>
+                </div>
+                <select wire:model="swapMenuItemId" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <option value="">Select menu…</option>
+                    @foreach($selectionMenus as $menu)
+                        <option value="{{ $menu->id }}">{{ $menu->name }} (৳{{ number_format($menu->price) }})</option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-gray-500">Only pending days before cutoff can change menu.</p>
+                <div class="flex justify-end gap-2">
+                    <button type="button" wire:click="closeSwapModal" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700">Cancel</button>
+                    <button type="button" wire:click="confirmSwap" class="px-4 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold">Confirm swap</button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

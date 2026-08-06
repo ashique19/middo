@@ -53,7 +53,7 @@
                 </p>
             @else
                 <p class="text-[11px] text-gray-500 mt-3">
-                    Skip any pending day before the order cutoff and the day amount is credited back to your Middo Balance.
+                    Cancel any pending day before the order cutoff and the day amount is credited back to your Middo Balance.
                 </p>
             @endif
         </div>
@@ -100,13 +100,13 @@
                         </div>
                         <div class="shrink-0 text-right">
                             @if($day['order_status'] === 'cancelled')
-                                <span class="text-[10px] font-black uppercase text-gray-400">Skipped</span>
+                                <span class="text-[10px] font-black uppercase text-gray-400">Cancelled</span>
                             @elseif($day['can_skip'])
                                 <button type="button"
                                         wire:click="skipDay({{ $day['id'] }})"
-                                        wire:confirm="Skip this day? ৳{{ number_format($day['refund_amount']) }} will be credited to your wallet."
+                                        wire:confirm="Cancel this day and refund? ৳{{ number_format($day['refund_amount']) }} will be credited to your wallet."
                                         class="text-[11px] font-black uppercase tracking-wider text-middo-orange hover:underline">
-                                    Skip day
+                                    Cancel and Refund
                                 </button>
                             @else
                                 <span class="text-[10px] font-black uppercase text-emerald-800">{{ str_replace('_', ' ', $day['order_status']) }}</span>

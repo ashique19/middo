@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\PackageBilling;
+use App\Support\PackageRefund;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -95,9 +96,41 @@ class PackageSubscription extends Model
         return $this->hasMany(Order::class);
     }
 
+    public function events(): HasMany
+    {
+        return $this->hasMany(PackageSubscriptionEvent::class);
+    }
+
     public function activeOrders(): HasMany
     {
         return $this->orders()->whereIn('order_status', Order::ACTIVE_STATUSES);
+    }
+
+    /**
+     * Counts for the ops package summary strip.
+     *
+     * @return array{scheduled: int, cancelled: int, refunded_amount: int, unconfirmed: int}
+     */
+    public function daySummary(): array
+    {
+        $orders = $this->relationLoaded('orders')
+            ? $this->orders
+            : $this->orders()->get(['id', 'order_status', 'amount_paid', 'total_amount', 'discount_amount', 'package_subscription_id']);
+
+        $scheduled = $orders->where('order_status', '!=', 'cancelled')->count();
+        $cancelledOrders = $orders->where('order_status', 'cancelled');
+        $cancelled = $cancelledOrders->count();
+        $refunded = 0;
+        foreach ($cancelledOrders as $order) {
+            $refunded += PackageRefund::orderRefundAmount($order);
+        }
+
+        return [
+            'scheduled' => $scheduled,
+            'cancelled' => $cancelled,
+            'refunded_amount' => $refunded,
+            'unconfirmed' => max(0, $this->remainingBillableDays()),
+        ];
     }
 
     public function scopeForUser($query, int $userId)
@@ -168,7 +201,9 @@ class PackageSubscription extends Model
     }
 
     /**
-     * Remaining prepaid menu-day quotas after non-cancelled confirmed orders.
+     * Remaining prepaid menu-day quotas after confirmed or cancelled orders.
+     * Cancelled days still consume prepaid slots (refunded) until re-activated;
+     * undo (delete) frees a slot back to the unconfirmed list.
      *
      * @return array<int, int> menu_item_id => remaining day count
      */
@@ -176,18 +211,17 @@ class PackageSubscription extends Model
     {
         $this->loadMissing('selections');
 
-        $confirmed = $this->orders()
-            ->where('order_status', '!=', 'cancelled')
-            ->selectRaw('menu_item_id, COUNT(*) as confirmed_count')
+        $used = $this->orders()
+            ->selectRaw('menu_item_id, COUNT(*) as used_count')
             ->groupBy('menu_item_id')
-            ->pluck('confirmed_count', 'menu_item_id');
+            ->pluck('used_count', 'menu_item_id');
 
         $remaining = [];
         foreach ($this->selections as $selection) {
             $menuId = (int) $selection->menu_item_id;
             $remaining[$menuId] = max(
                 0,
-                (int) $selection->day_count - (int) ($confirmed[$menuId] ?? 0)
+                (int) $selection->day_count - (int) ($used[$menuId] ?? 0)
             );
         }
 
