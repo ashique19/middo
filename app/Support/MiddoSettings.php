@@ -15,6 +15,9 @@ class MiddoSettings
     /** Wall-clock time (H:i, Asia/Dhaka) when kitchen accept window opens on the delivery day. */
     public const KEY_ACCEPT_WINDOW_STARTS_AT = 'meal.accept_window_starts_at';
 
+    /** Daily corporate order place/edit/cancel cutoff as H:i (Asia/Dhaka). */
+    public const KEY_ORDER_CUTOFF_TIME = 'order.cutoff_time';
+
     public const KEY_AUTO_GROUP_QUANTITY = 'meal.auto_group_quantity';
 
     public const KEY_MID_RUN_RESCUE = 'delivery.commission.mid_run_rescue';
@@ -124,6 +127,27 @@ class MiddoSettings
         }
 
         return \Carbon\Carbon::parse($time, 'Asia/Dhaka')->format('g:i A');
+    }
+
+    /**
+     * Daily order cutoff as H:i (24h, Asia/Dhaka).
+     */
+    public static function orderCutoffTime(): string
+    {
+        $defaultHour = (int) config('middo.order_cutoff_hour', 15);
+        $defaultMinute = (int) config('middo.order_cutoff_minute', 28);
+        $fallback = sprintf('%02d:%02d', $defaultHour, $defaultMinute);
+
+        $raw = trim((string) self::get(self::KEY_ORDER_CUTOFF_TIME, $fallback));
+        if ($raw === '') {
+            return $fallback;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($raw, 'Asia/Dhaka')->format('H:i');
+        } catch (\Throwable) {
+            return $fallback;
+        }
     }
 
     /**
@@ -298,7 +322,7 @@ class MiddoSettings
     }
 
     /**
-     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, accept_window_starts_at?: string|null, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool, vat_rate_pct?: float|int, eps_fee_rates?: array<string, float|int>, default_eps_bank_account_id?: int|null, full_prepay_from_active_orders?: int}  $payload
+     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, accept_window_starts_at?: string|null, order_cutoff_time?: string, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool, vat_rate_pct?: float|int, eps_fee_rates?: array<string, float|int>, default_eps_bank_account_id?: int|null, full_prepay_from_active_orders?: int}  $payload
      */
     public static function updateMealAndKitchenDefaults(array $payload): void
     {
@@ -323,6 +347,21 @@ class MiddoSettings
                 } catch (\Throwable) {
                     throw new \InvalidArgumentException('Accept window start time is invalid.');
                 }
+            }
+        }
+
+        if (array_key_exists('order_cutoff_time', $payload)) {
+            $raw = trim((string) ($payload['order_cutoff_time'] ?? ''));
+            if ($raw === '') {
+                throw new \InvalidArgumentException('Daily order cutoff time is required.');
+            }
+            try {
+                self::set(
+                    self::KEY_ORDER_CUTOFF_TIME,
+                    \Carbon\Carbon::parse($raw, 'Asia/Dhaka')->format('H:i')
+                );
+            } catch (\Throwable) {
+                throw new \InvalidArgumentException('Daily order cutoff time is invalid.');
             }
         }
 

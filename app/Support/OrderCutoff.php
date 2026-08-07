@@ -19,12 +19,16 @@ class OrderCutoff
 
     public static function hour(): int
     {
-        return (int) config('middo.order_cutoff_hour', 15);
+        [$hour] = array_map('intval', explode(':', MiddoSettings::orderCutoffTime()));
+
+        return $hour;
     }
 
     public static function minute(): int
     {
-        return (int) config('middo.order_cutoff_minute', 28);
+        $parts = array_map('intval', explode(':', MiddoSettings::orderCutoffTime()));
+
+        return $parts[1] ?? 0;
     }
 
     public static function label(): string

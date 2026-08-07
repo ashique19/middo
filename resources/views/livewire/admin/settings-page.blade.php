@@ -2,7 +2,7 @@
     <div>
         <h1 class="text-3xl font-bold text-middo-dark">Settings</h1>
         <p class="text-sm text-gray-500 mt-1">
-            Meal grouping, kitchen capacity, and rider commission defaults for non-lunch runs.
+            Meal grouping, kitchen capacity, order cutoff, and rider commission defaults.
             Lunch kitchen→corporate commission stays on each menu item.
         </p>
     </div>
@@ -19,9 +19,13 @@
         </div>
     @endif
 
-    <form wire:submit="save" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 space-y-8">
-        <section class="space-y-4">
-            <h2 class="text-lg font-bold text-middo-dark">Meal grouping</h2>
+    <form wire:submit="save" class="space-y-5">
+        {{-- Meal grouping --}}
+        <section class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Meal grouping</h2>
+                <p class="text-sm text-gray-500 mt-1">How Middo batches meals into order groups and when COD stops.</p>
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
@@ -40,10 +44,22 @@
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('full_prepay_from_active_orders') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     <p class="text-xs text-gray-400 mt-1">
-                        Cash on Delivery allowed for up to this many meals (sum of active + cart quantities, same day or across days).
-                        Full prepayment starts when the total goes above this number (default 3 → COD for 1–3; 4th meal requires prepay).
+                        Cash on Delivery allowed for up to this many meals (sum of active + cart quantities).
+                        Full prepayment starts when the total goes above this number.
                     </p>
                 </div>
+            </div>
+        </section>
+
+        {{-- Accept window --}}
+        <section class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Accept window</h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    When kitchens may accept Middo groups on the delivery day (Asia/Dhaka). Window closes at delivery time.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
                         Accept window starts at
@@ -52,8 +68,7 @@
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('accept_window_starts_at') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     <p class="text-xs text-gray-400 mt-1">
-                        Wall-clock time (Asia/Dhaka) when kitchens may begin accepting groups on the delivery day.
-                        Leave blank to open “Accept window (minutes)” before delivery instead.
+                        Leave blank to open “minutes before delivery” instead.
                     </p>
                 </div>
                 <div>
@@ -64,8 +79,7 @@
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('accept_window_minutes') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     <p class="text-xs text-gray-400 mt-1">
-                        Fallback: how long before delivery kitchens may accept when start time is blank
-                        (or at/after delivery). Window still closes at delivery time.
+                        Fallback when start time is blank or at/after delivery.
                     </p>
                 </div>
                 <div>
@@ -75,16 +89,18 @@
                     <input type="number" min="1" max="10080" wire:model="accept_window_warn_minutes"
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('accept_window_warn_minutes') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                    <p class="text-xs text-gray-400 mt-1">Warn kitchens this many minutes before the accept window closes.</p>
+                    <p class="text-xs text-gray-400 mt-1">Warn kitchens this many minutes before close.</p>
                 </div>
             </div>
         </section>
 
-        <section class="space-y-4 border-t border-gray-100 pt-6">
+        {{-- Kitchen tier defaults --}}
+        <section class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
             <div>
                 <h2 class="text-lg font-bold text-middo-dark">Kitchen tier defaults</h2>
                 <p class="text-sm text-gray-500 mt-1">
-                    Default allowed concurrent open groups. Copied onto a kitchen when it is activated (if not already set). Changing these does not overwrite existing kitchens.
+                    Default allowed concurrent open groups. Copied onto a kitchen when it is activated (if not already set).
+                    Changing these does not overwrite existing kitchens.
                 </p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -109,9 +125,33 @@
             </div>
         </section>
 
-        <section class="space-y-4 border-t border-gray-100 pt-6">
+        {{-- Daily order cutoff --}}
+        <section class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
             <div>
-                <h2 class="text-lg font-bold text-middo-dark">Rider commissions (box & custom)</h2>
+                <h2 class="text-lg font-bold text-middo-dark">Daily Order Cutoff time</h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    On each delivery day, corporates can place, edit, or cancel pending orders only until this time (Asia/Dhaka).
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
+                        Cutoff time
+                    </label>
+                    <input type="time" wire:model="order_cutoff_time" required
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    @error('order_cutoff_time') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    <p class="text-xs text-gray-400 mt-1">
+                        Currently {{ \App\Support\OrderCutoff::label() }} Asia/Dhaka until you save.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        {{-- Rider commissions --}}
+        <section class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Rider commissions (box &amp; custom)</h2>
                 <p class="text-sm text-gray-500 mt-1">
                     Default ৳ per box / per run. Credited on run start. Per-rider overrides on the delivery user profile.
                     Lunch deliveries use <span class="font-semibold text-middo-dark">menu delivery commission</span>, not these fields.
@@ -163,10 +203,11 @@
             </div>
         </section>
 
-        <section class="space-y-4">
+        {{-- Finance VAT --}}
+        <section class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
             <div>
                 <h2 class="text-lg font-bold text-middo-dark">Finance — food VAT</h2>
-                <p class="text-xs text-gray-500 mt-1">
+                <p class="text-sm text-gray-500 mt-1">
                     Inclusive VAT on food only (not charges). Snapshotted onto each order at place time; Middo rest uses food ex-VAT.
                 </p>
             </div>
@@ -181,10 +222,11 @@
             </div>
         </section>
 
-        <section class="space-y-4">
+        {{-- EPS fees --}}
+        <section class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
             <div>
                 <h2 class="text-lg font-bold text-middo-dark">EPS gateway fees (%)</h2>
-                <p class="text-xs text-gray-500 mt-1">
+                <p class="text-sm text-gray-500 mt-1">
                     Percent of gross charged by EPS sub-gateway. Bank ledger credits net (gross − fee) on successful payments.
                 </p>
             </div>
@@ -207,11 +249,13 @@
             </div>
         </section>
 
-        <div class="flex justify-end pt-2">
-            <button type="submit"
-                    class="inline-flex px-5 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition">
-                Save settings
-            </button>
+        <div class="sticky bottom-4 z-10">
+            <div class="bg-white/95 backdrop-blur border border-gray-100 rounded-2xl shadow-lg px-4 py-3 flex justify-end">
+                <button type="submit"
+                        class="inline-flex px-5 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition">
+                    Save settings
+                </button>
+            </div>
         </div>
     </form>
 </div>

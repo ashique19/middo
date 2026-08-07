@@ -134,8 +134,16 @@ class KitchenTierCapacityTest extends TestCase
             ->set('accept_window_minutes', 90)
             ->set('accept_window_warn_minutes', 20)
             ->set('accept_window_starts_at', '09:30')
+            ->set('order_cutoff_time', '16:00')
             ->call('save')
-            ->assertHasNoErrors();
+            ->assertHasNoErrors()
+            ->assertSee('Meal grouping')
+            ->assertSee('Accept window')
+            ->assertSee('Kitchen tier defaults')
+            ->assertSee('Daily Order Cutoff time')
+            ->assertSee('Rider commissions')
+            ->assertSee('Finance — food VAT')
+            ->assertSee('EPS gateway fees');
 
         $this->assertSame(2, MiddoSettings::defaultAllowedOpenGroupsForTier(KitchenTier::SILVER));
         $this->assertSame(4, MiddoSettings::defaultAllowedOpenGroupsForTier(KitchenTier::GOLD));
@@ -144,6 +152,9 @@ class KitchenTierCapacityTest extends TestCase
         $this->assertSame(90, MiddoSettings::acceptWindowMinutes());
         $this->assertSame(20, MiddoSettings::acceptWindowWarnMinutes());
         $this->assertSame('09:30', MiddoSettings::acceptWindowStartsAt());
+        $this->assertSame('16:00', MiddoSettings::orderCutoffTime());
+        $this->assertSame(16, \App\Support\OrderCutoff::hour());
+        $this->assertSame(0, \App\Support\OrderCutoff::minute());
     }
 
     public function test_accept_window_uses_configured_start_time(): void
