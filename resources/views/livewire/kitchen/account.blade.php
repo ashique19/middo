@@ -155,7 +155,7 @@
     @if($tab === 'withdraw')
         <form wire:submit="requestWithdrawal" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Request withdrawal</h2>
-            <p class="text-sm text-gray-500">Withdraw when Middo owes you (positive balance). Amount must match a FIFO total of whole open payables. Choose Bank / bKash / Nagad / Cash — Middo pays on approval.</p>
+            <p class="text-sm text-gray-500">Withdraw when Middo owes you (positive balance). Amount must match a FIFO total of whole open payables. Choose a payout channel — Bank / bKash / Nagad details come from your profile.</p>
             <div>
                 <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Amount (৳)</label>
                 <input type="number" min="1" wire:model="withdrawAmount" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">

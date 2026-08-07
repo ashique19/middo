@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Kitchen;
 
+use App\Livewire\Concerns\ManagesProfilePayoutMethods;
 use App\Models\Area;
 use App\Models\City;
 use App\Models\KitchenHour;
@@ -12,6 +13,8 @@ use Livewire\Component;
 
 class Profile extends Component
 {
+    use ManagesProfilePayoutMethods;
+
     public string $first_name = '';
 
     public string $last_name = '';
@@ -58,7 +61,7 @@ class Profile extends Component
         $user = Auth::user();
 
         try {
-            $validated = $this->validate([
+            $validated = $this->validate(array_merge([
                 'first_name' => 'required|string|min:2|max:255',
                 'last_name' => 'required|string|min:2|max:255',
                 'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/', 'unique:users,mobile,'.$user->id],
@@ -70,7 +73,7 @@ class Profile extends Component
                 'hours.*.is_closed' => 'boolean',
                 'hours.*.opens_at' => 'nullable|date_format:H:i',
                 'hours.*.closes_at' => 'nullable|date_format:H:i',
-            ], [
+            ], $this->payoutMethodValidationRules()), [
                 'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g., 01710123456).',
             ]);
 
@@ -87,15 +90,15 @@ class Profile extends Component
             }
 
             DB::transaction(function () use ($user, $validated) {
-                $user->update([
-                    'first_name' => $validated['first_name'],
-                    'last_name' => $validated['last_name'],
-                    'mobile' => $validated['mobile'],
-                    'email' => $validated['email'] ?: null,
-                    'address' => $validated['address'],
-                    'city_id' => $validated['city_id'],
-                    'area_id' => $validated['area_id'],
-                ]);
+                $user->first_name = $validated['first_name'];
+                $user->last_name = $validated['last_name'];
+                $user->mobile = $validated['mobile'];
+                $user->email = $validated['email'] ?: null;
+                $user->address = $validated['address'];
+                $user->city_id = $validated['city_id'];
+                $user->area_id = $validated['area_id'];
+                $this->savePayoutMethodsToUser($user);
+                $user->save();
 
                 foreach ($this->hours as $day => $row) {
                     $closed = (bool) ($row['is_closed'] ?? false);
@@ -135,6 +138,7 @@ class Profile extends Component
         $this->address = $user->address;
         $this->city_id = $user->city_id ? (string) $user->city_id : null;
         $this->area_id = $user->area_id ? (string) $user->area_id : null;
+        $this->loadPayoutMethodsFromUser($user);
 
         if ($this->city_id) {
             $this->refreshAreas($this->city_id);

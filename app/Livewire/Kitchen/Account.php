@@ -32,14 +32,6 @@ class Account extends Component
 
     public string $payoutChannel = PayoutChannel::CASH;
 
-    public string $payoutBankName = '';
-
-    public string $payoutAccountName = '';
-
-    public string $payoutAccountNumber = '';
-
-    public string $payoutMobile = '';
-
     public $transferAmount = null;
 
     public string $transferReference = '';
@@ -47,6 +39,11 @@ class Account extends Component
     public string $transferNotes = '';
 
     public $transferProof = null;
+
+    public function mount(): void
+    {
+        $this->payoutChannel = Auth::user()?->preferredPayoutChannel() ?? PayoutChannel::CASH;
+    }
 
     public function updatingTab(): void
     {
@@ -67,15 +64,24 @@ class Account extends Component
         $kitchenId = (int) Auth::id();
 
         try {
-            $rules = [
+            $this->validate([
                 'withdrawAmount' => 'required|integer|min:1',
                 'withdrawNotes' => 'nullable|string|max:500',
                 'payoutChannel' => 'required|in:'.implode(',', PayoutChannel::all()),
-            ];
-            $rules = array_merge($rules, $this->payoutDetailRules());
-            $this->validate($rules);
+            ]);
 
-            $details = $this->buildPayoutDetails();
+            $user = Auth::user();
+            if (! $user) {
+                throw new \RuntimeException('You must be logged in.');
+            }
+
+            if (! $user->hasCompletePayoutMethod($this->payoutChannel)) {
+                throw new \RuntimeException(
+                    'Add your '.PayoutChannel::label($this->payoutChannel).' details in profile before requesting this payout.'
+                );
+            }
+
+            $details = $user->payoutDetailsFor($this->payoutChannel);
             PayoutChannel::assertValid($this->payoutChannel, $details);
 
             $amount = (int) $this->withdrawAmount;
@@ -105,53 +111,12 @@ class Account extends Component
 
             $this->withdrawAmount = null;
             $this->withdrawNotes = '';
-            $this->resetPayoutFields();
+            $this->payoutChannel = $user->preferredPayoutChannel();
             $this->statusMessage = 'Withdrawal request submitted for Middo approval.';
             $this->tab = 'withdrawals';
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not submit withdrawal.';
         }
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function payoutDetailRules(): array
-    {
-        return match ($this->payoutChannel) {
-            PayoutChannel::BANK => [
-                'payoutBankName' => 'nullable|string|max:120',
-                'payoutAccountName' => 'nullable|string|max:120',
-                'payoutAccountNumber' => 'required|string|max:64',
-            ],
-            PayoutChannel::BKASH, PayoutChannel::NAGAD => [
-                'payoutAccountName' => 'nullable|string|max:120',
-                'payoutMobile' => 'required|string|max:32',
-            ],
-            default => [],
-        };
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    protected function buildPayoutDetails(): array
-    {
-        return PayoutChannel::normalizeDetails($this->payoutChannel, [
-            'bank_name' => $this->payoutBankName,
-            'account_name' => $this->payoutAccountName,
-            'account_number' => $this->payoutAccountNumber,
-            'mobile' => $this->payoutMobile,
-        ]);
-    }
-
-    protected function resetPayoutFields(): void
-    {
-        $this->payoutChannel = PayoutChannel::CASH;
-        $this->payoutBankName = '';
-        $this->payoutAccountName = '';
-        $this->payoutAccountNumber = '';
-        $this->payoutMobile = '';
     }
 
     public function submitTransfer(): void

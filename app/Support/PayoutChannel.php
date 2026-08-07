@@ -102,4 +102,79 @@ class PayoutChannel
 
         return implode(' · ', $parts) ?: self::label($channel);
     }
+
+    /**
+     * Channels that store destination details on the user profile.
+     *
+     * @return list<string>
+     */
+    public static function profileStored(): array
+    {
+        return [self::BANK, self::BKASH, self::NAGAD];
+    }
+
+    public static function requiresProfileDetails(string $channel): bool
+    {
+        return in_array($channel, self::profileStored(), true);
+    }
+
+    /**
+     * Normalize a full payout_methods profile payload.
+     *
+     * @param  array<string, mixed>  $methods
+     * @return array<string, mixed>
+     */
+    public static function normalizeProfileMethods(array $methods): array
+    {
+        $preferred = (string) ($methods['preferred'] ?? self::CASH);
+        if (! in_array($preferred, self::all(), true)) {
+            $preferred = self::CASH;
+        }
+
+        $normalized = ['preferred' => $preferred];
+
+        foreach (self::profileStored() as $channel) {
+            $raw = is_array($methods[$channel] ?? null) ? $methods[$channel] : [];
+            $details = self::normalizeDetails($channel, $raw);
+            if ($details !== []) {
+                $normalized[$channel] = $details;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $methods
+     * @return array<string, string>
+     */
+    public static function detailsFromProfile(?array $methods, string $channel): array
+    {
+        if ($channel === self::CASH) {
+            return [];
+        }
+
+        $methods = is_array($methods) ? $methods : [];
+        $raw = is_array($methods[$channel] ?? null) ? $methods[$channel] : [];
+
+        return self::normalizeDetails($channel, $raw);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $methods
+     */
+    public static function profileHasCompleteDetails(?array $methods, string $channel): bool
+    {
+        if (! self::requiresProfileDetails($channel)) {
+            return true;
+        }
+
+        try {
+            self::assertValid($channel, self::detailsFromProfile($methods, $channel));
+
+            return true;
+        } catch (\InvalidArgumentException) {
+            return false;
+        }
+    }
 }

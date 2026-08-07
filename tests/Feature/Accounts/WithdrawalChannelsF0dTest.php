@@ -132,13 +132,20 @@ class WithdrawalChannelsF0dTest extends TestCase
         ]);
         MiddoBankLedger::credit((int) $bank->id, 1000, MiddoBankLedgerEntry::TYPE_ADJUSTMENT, null, null, 'Seed bank', $this->admin->id);
 
+        $this->kitchen->storePayoutMethods([
+            'preferred' => PayoutChannel::BANK,
+            PayoutChannel::BANK => [
+                'bank_name' => 'Dutch Bangla',
+                'account_name' => 'Kitchen Owner',
+                'account_number' => '1234567890',
+            ],
+        ]);
+        $this->kitchen->save();
+
         Livewire::actingAs($this->kitchen)
             ->test(KitchenAccount::class)
             ->set('withdrawAmount', 50)
             ->set('payoutChannel', PayoutChannel::BANK)
-            ->set('payoutBankName', 'Dutch Bangla')
-            ->set('payoutAccountName', 'Kitchen Owner')
-            ->set('payoutAccountNumber', '1234567890')
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', '');
 
@@ -200,11 +207,18 @@ class WithdrawalChannelsF0dTest extends TestCase
             'is_active' => true,
         ]);
 
+        $this->kitchen->storePayoutMethods([
+            'preferred' => PayoutChannel::BKASH,
+            PayoutChannel::BKASH => [
+                'mobile' => '01711111111',
+            ],
+        ]);
+        $this->kitchen->save();
+
         Livewire::actingAs($this->kitchen)
             ->test(KitchenAccount::class)
             ->set('withdrawAmount', 50)
             ->set('payoutChannel', PayoutChannel::BKASH)
-            ->set('payoutMobile', '01711111111')
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', '');
 
@@ -217,5 +231,19 @@ class WithdrawalChannelsF0dTest extends TestCase
 
         $this->assertSame(KitchenWithdrawalRequest::STATUS_PENDING, $request->fresh()->status);
         $this->assertSame(500, MiddoCashLedger::balance());
+    }
+
+    public function test_bank_withdrawal_requires_profile_details(): void
+    {
+        $this->accrueKitchenShare(50);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(KitchenAccount::class)
+            ->set('withdrawAmount', 50)
+            ->set('payoutChannel', PayoutChannel::BANK)
+            ->call('requestWithdrawal')
+            ->assertSet('errorMessage', 'Add your Bank details in profile before requesting this payout.');
+
+        $this->assertSame(0, KitchenWithdrawalRequest::query()->count());
     }
 }

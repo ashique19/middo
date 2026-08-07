@@ -87,6 +87,16 @@
                         </div>
                     </div>
 
+                    @if($showPayoutMethods)
+                        <div class="pt-2 border-t border-dashed border-gray-100">
+                            @include('livewire.partials.profile-payout-methods', [
+                                'heading' => 'Withdrawal methods',
+                                'headingClass' => 'text-[#2B1A11]',
+                                'hint' => 'Save bank, bKash, and Nagad once. Withdrawals only ask which channel to use.',
+                            ])
+                        </div>
+                    @endif
+
                     <div class="flex items-center justify-end gap-2 pt-3 border-t border-dashed border-gray-100">
                         <button type="button" wire:click="closeModal"
                                 class="text-xs font-black text-[#635347] hover:text-[#2B1A11] px-4 py-2.5 rounded-xl transition">

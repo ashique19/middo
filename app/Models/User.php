@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PayoutChannel;
 use App\Support\RiderShift;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -37,6 +38,7 @@ use Laravel\Sanctum\HasApiTokens;
     'city_id',
     'area_id',
     'rider_commission_overrides',
+    'payout_methods',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -59,7 +61,61 @@ class User extends Authenticatable
             'allowed_open_groups' => 'integer',
             'max_order_qty_allowed' => 'integer',
             'rider_commission_overrides' => 'array',
+            'payout_methods' => 'array',
         ];
+    }
+
+    public function isKitchen(): bool
+    {
+        return $this->role?->name === 'kitchen';
+    }
+
+    public function usesProfilePayoutMethods(): bool
+    {
+        return $this->isKitchen() || $this->isDelivery();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function normalizedPayoutMethods(): array
+    {
+        return PayoutChannel::normalizeProfileMethods(
+            is_array($this->payout_methods) ? $this->payout_methods : []
+        );
+    }
+
+    public function preferredPayoutChannel(): string
+    {
+        $preferred = (string) ($this->normalizedPayoutMethods()['preferred'] ?? PayoutChannel::CASH);
+
+        return in_array($preferred, PayoutChannel::all(), true)
+            ? $preferred
+            : PayoutChannel::CASH;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function payoutDetailsFor(string $channel): array
+    {
+        return PayoutChannel::detailsFromProfile($this->payout_methods, $channel);
+    }
+
+    public function hasCompletePayoutMethod(string $channel): bool
+    {
+        return PayoutChannel::profileHasCompleteDetails($this->payout_methods, $channel);
+    }
+
+    /**
+     * @param  array<string, mixed>  $methods
+     */
+    public function storePayoutMethods(array $methods): void
+    {
+        $normalized = PayoutChannel::normalizeProfileMethods($methods);
+        $this->payout_methods = $normalized === ['preferred' => PayoutChannel::CASH]
+            ? null
+            : $normalized;
     }
 
     // ... your existing relationship methods (role, city, area)

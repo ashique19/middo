@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Account;
 
+use App\Livewire\Concerns\ManagesProfilePayoutMethods;
 use App\Models\Area;
 use App\Models\City;
 use Illuminate\Support\Collection;
@@ -11,18 +12,30 @@ use Livewire\Component;
 
 class ProfileEditModal extends Component
 {
+    use ManagesProfilePayoutMethods;
+
     public bool $showModal = false;
 
+    public bool $showPayoutMethods = false;
+
     public string $first_name = '';
+
     public string $last_name = '';
+
     public string $mobile = '';
+
     public ?string $email = null;
+
     public ?string $company_name = null;
+
     public ?string $address = null;
+
     public ?string $city_id = null;
+
     public ?string $area_id = null;
 
     public Collection $cities;
+
     public Collection $areas;
 
     public function mount(): void
@@ -54,7 +67,7 @@ class ProfileEditModal extends Component
     {
         $user = Auth::user();
 
-        $validated = $this->validate([
+        $rules = [
             'first_name' => 'required|string|min:2|max:255',
             'last_name' => 'required|string|min:2|max:255',
             'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/', 'unique:users,mobile,'.$user->id],
@@ -63,7 +76,13 @@ class ProfileEditModal extends Component
             'address' => 'nullable|string|max:1000',
             'city_id' => 'required|exists:cities,id',
             'area_id' => 'required|exists:areas,id',
-        ], [
+        ];
+
+        if ($this->showPayoutMethods) {
+            $rules = array_merge($rules, $this->payoutMethodValidationRules());
+        }
+
+        $validated = $this->validate($rules, [
             'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g., 01710123456).',
             'city_id.required' => 'Please select a city.',
             'area_id.required' => 'Please select an area.',
@@ -77,6 +96,11 @@ class ProfileEditModal extends Component
         $user->address = $validated['address'];
         $user->city_id = $validated['city_id'];
         $user->area_id = $validated['area_id'];
+
+        if ($this->showPayoutMethods) {
+            $this->savePayoutMethodsToUser($user);
+        }
+
         $user->save();
 
         $this->dispatch('profile-updated');
@@ -91,6 +115,9 @@ class ProfileEditModal extends Component
             return;
         }
 
+        $user->loadMissing('role');
+        $this->showPayoutMethods = $user->usesProfilePayoutMethods();
+
         $this->first_name = $user->first_name ?? '';
         $this->last_name = $user->last_name ?? '';
         $this->mobile = $user->mobile ?? '';
@@ -99,6 +126,10 @@ class ProfileEditModal extends Component
         $this->address = $user->address;
         $this->city_id = $user->city_id ? (string) $user->city_id : null;
         $this->area_id = $user->area_id ? (string) $user->area_id : null;
+
+        if ($this->showPayoutMethods) {
+            $this->loadPayoutMethodsFromUser($user);
+        }
 
         if ($this->city_id) {
             $this->refreshAreas($this->city_id);

@@ -3,7 +3,7 @@
         <a href="{{ route('kitchen.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
         <h1 class="text-3xl font-bold text-middo-dark">Kitchen profile</h1>
         <p class="text-sm font-semibold text-gray-500">
-            Contact details and weekly operating hours. Tier and capacity are managed by Middo.
+            Contact details, withdrawal methods, and weekly operating hours. Tier and capacity are managed by Middo.
         </p>
     </div>
 
@@ -74,6 +74,10 @@
                     @error('area_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
             </div>
+        </div>
+
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            @include('livewire.partials.profile-payout-methods', ['heading' => 'Withdrawal methods'])
         </div>
 
         <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">

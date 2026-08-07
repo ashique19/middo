@@ -203,7 +203,7 @@
         <form wire:submit="requestWithdrawal" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Request payment</h2>
             <p class="text-sm text-gray-500">
-                Available when Middo owes you and you have no Due cash to hand over. Choose Bank / bKash / Nagad / Cash — Middo pays on approval.
+                Available when Middo owes you and you have no Due cash to hand over. Choose a payout channel — Bank / bKash / Nagad details come from your profile.
             </p>
             @if($due > 0)
                 <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
