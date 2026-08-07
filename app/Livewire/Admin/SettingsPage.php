@@ -13,6 +13,8 @@ class SettingsPage extends Component
 
     public int $accept_window_warn_minutes = 15;
 
+    public string $accept_window_starts_at = '10:00';
+
     public int $auto_group_quantity = 10;
 
     public int $tier_silver = 1;
@@ -62,6 +64,7 @@ class SettingsPage extends Component
     {
         $this->accept_window_minutes = MiddoSettings::acceptWindowMinutes();
         $this->accept_window_warn_minutes = MiddoSettings::acceptWindowWarnMinutes();
+        $this->accept_window_starts_at = MiddoSettings::acceptWindowStartsAt() ?? '';
         $this->auto_group_quantity = MiddoSettings::autoGroupQuantity();
         $defaults = MiddoSettings::tierDefaults();
         $this->tier_silver = $defaults[KitchenTier::SILVER];
@@ -95,6 +98,16 @@ class SettingsPage extends Component
         $this->validate([
             'accept_window_minutes' => 'required|integer|min:1|max:10080',
             'accept_window_warn_minutes' => 'required|integer|min:1|max:10080',
+            'accept_window_starts_at' => ['nullable', 'string', 'max:20', function ($attribute, $value, $fail) {
+                if ($value === null || trim((string) $value) === '') {
+                    return;
+                }
+                try {
+                    \Carbon\Carbon::parse($value, 'Asia/Dhaka');
+                } catch (\Throwable) {
+                    $fail('Enter a valid start time (e.g. 10:00).');
+                }
+            }],
             'auto_group_quantity' => 'required|integer|min:1|max:500',
             'tier_silver' => 'required|integer|min:0|max:100',
             'tier_gold' => 'required|integer|min:0|max:100',
@@ -118,6 +131,7 @@ class SettingsPage extends Component
         MiddoSettings::updateMealAndKitchenDefaults([
             'accept_window_minutes' => $this->accept_window_minutes,
             'accept_window_warn_minutes' => $this->accept_window_warn_minutes,
+            'accept_window_starts_at' => $this->accept_window_starts_at,
             'auto_group_quantity' => $this->auto_group_quantity,
             'tier_defaults' => [
                 KitchenTier::SILVER => $this->tier_silver,

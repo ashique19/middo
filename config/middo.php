@@ -39,6 +39,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Accept Window Starts At
+    |--------------------------------------------------------------------------
+    |
+    | Wall-clock time (H:i, Asia/Dhaka) when kitchens may begin accepting a
+    | group on its delivery day. Empty falls back to delivery − minutes.
+    | Admin Settings can override this at runtime via the settings table.
+    |
+    */
+
+    'accept_window_starts_at' => env('ACCEPT_WINDOW_STARTS_AT', '10:00'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Accept Window SLA Warn
     |--------------------------------------------------------------------------
     |

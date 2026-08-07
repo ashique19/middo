@@ -32,9 +32,25 @@ class KitchenAcceptWindow
 
     public static function windowOpenAt(OrderGroup $group): Carbon
     {
-        return self::scheduledStart($group)
-            ->copy()
-            ->subMinutes(MiddoSettings::acceptWindowMinutes());
+        $closeAt = self::windowCloseAt($group);
+        $fromMinutes = $closeAt->copy()->subMinutes(MiddoSettings::acceptWindowMinutes());
+
+        $startsAt = MiddoSettings::acceptWindowStartsAt();
+        if ($startsAt === null) {
+            return $fromMinutes;
+        }
+
+        $fromClock = Carbon::parse(
+            $closeAt->toDateString().' '.$startsAt,
+            'Asia/Dhaka'
+        );
+
+        // Never open at/after delivery — fall back to minutes-before-delivery.
+        if ($fromClock->gte($closeAt)) {
+            return $fromMinutes;
+        }
+
+        return $fromClock;
     }
 
     public static function windowCloseAt(OrderGroup $group): Carbon

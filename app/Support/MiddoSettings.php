@@ -12,6 +12,9 @@ class MiddoSettings
 
     public const KEY_ACCEPT_WINDOW_WARN_MINUTES = 'meal.accept_window_warn_minutes';
 
+    /** Wall-clock time (H:i, Asia/Dhaka) when kitchen accept window opens on the delivery day. */
+    public const KEY_ACCEPT_WINDOW_STARTS_AT = 'meal.accept_window_starts_at';
+
     public const KEY_AUTO_GROUP_QUANTITY = 'meal.auto_group_quantity';
 
     public const KEY_MID_RUN_RESCUE = 'delivery.commission.mid_run_rescue';
@@ -86,6 +89,41 @@ class MiddoSettings
         ));
 
         return min($warn, $window);
+    }
+
+    /**
+     * Accept-window open clock time as H:i (24h), Asia/Dhaka on the delivery day.
+     * Empty/null falls back to "delivery time − accept_window_minutes".
+     */
+    public static function acceptWindowStartsAt(): ?string
+    {
+        $raw = trim((string) self::get(
+            self::KEY_ACCEPT_WINDOW_STARTS_AT,
+            config('middo.accept_window_starts_at', '10:00')
+        ));
+
+        if ($raw === '') {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($raw, 'Asia/Dhaka')->format('H:i');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Human label for the configured start time, e.g. "10:00 AM".
+     */
+    public static function acceptWindowStartsAtLabel(): ?string
+    {
+        $time = self::acceptWindowStartsAt();
+        if ($time === null) {
+            return null;
+        }
+
+        return \Carbon\Carbon::parse($time, 'Asia/Dhaka')->format('g:i A');
     }
 
     /**
@@ -260,7 +298,7 @@ class MiddoSettings
     }
 
     /**
-     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool, vat_rate_pct?: float|int, eps_fee_rates?: array<string, float|int>, default_eps_bank_account_id?: int|null, full_prepay_from_active_orders?: int}  $payload
+     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, accept_window_starts_at?: string|null, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool, vat_rate_pct?: float|int, eps_fee_rates?: array<string, float|int>, default_eps_bank_account_id?: int|null, full_prepay_from_active_orders?: int}  $payload
      */
     public static function updateMealAndKitchenDefaults(array $payload): void
     {
@@ -270,6 +308,22 @@ class MiddoSettings
 
         if (array_key_exists('accept_window_warn_minutes', $payload)) {
             self::set(self::KEY_ACCEPT_WINDOW_WARN_MINUTES, max(1, (int) $payload['accept_window_warn_minutes']));
+        }
+
+        if (array_key_exists('accept_window_starts_at', $payload)) {
+            $raw = trim((string) ($payload['accept_window_starts_at'] ?? ''));
+            if ($raw === '') {
+                self::set(self::KEY_ACCEPT_WINDOW_STARTS_AT, '');
+            } else {
+                try {
+                    self::set(
+                        self::KEY_ACCEPT_WINDOW_STARTS_AT,
+                        \Carbon\Carbon::parse($raw, 'Asia/Dhaka')->format('H:i')
+                    );
+                } catch (\Throwable) {
+                    throw new \InvalidArgumentException('Accept window start time is invalid.');
+                }
+            }
         }
 
         if (array_key_exists('auto_group_quantity', $payload)) {

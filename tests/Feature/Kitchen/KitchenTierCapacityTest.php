@@ -133,6 +133,7 @@ class KitchenTierCapacityTest extends TestCase
             ->set('auto_group_quantity', 12)
             ->set('accept_window_minutes', 90)
             ->set('accept_window_warn_minutes', 20)
+            ->set('accept_window_starts_at', '09:30')
             ->call('save')
             ->assertHasNoErrors();
 
@@ -142,6 +143,20 @@ class KitchenTierCapacityTest extends TestCase
         $this->assertSame(12, MiddoSettings::autoGroupQuantity());
         $this->assertSame(90, MiddoSettings::acceptWindowMinutes());
         $this->assertSame(20, MiddoSettings::acceptWindowWarnMinutes());
+        $this->assertSame('09:30', MiddoSettings::acceptWindowStartsAt());
+    }
+
+    public function test_accept_window_uses_configured_start_time(): void
+    {
+        MiddoSettings::updateMealAndKitchenDefaults([
+            'accept_window_minutes' => 120,
+            'accept_window_starts_at' => '09:00',
+        ]);
+
+        $group = $this->createOpenGroup('GRP-START');
+
+        $openAt = \App\Support\KitchenAcceptWindow::windowOpenAt($group->fresh(['orders']));
+        $this->assertSame('09:00', $openAt->format('H:i'));
     }
 
     public function test_activation_copies_tier_default_allowed_open_groups(): void

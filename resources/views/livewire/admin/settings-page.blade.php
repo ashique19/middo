@@ -46,12 +46,27 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
+                        Accept window starts at
+                    </label>
+                    <input type="time" wire:model="accept_window_starts_at"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    @error('accept_window_starts_at') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    <p class="text-xs text-gray-400 mt-1">
+                        Wall-clock time (Asia/Dhaka) when kitchens may begin accepting groups on the delivery day.
+                        Leave blank to open “Accept window (minutes)” before delivery instead.
+                    </p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
                         Accept window (minutes)
                     </label>
                     <input type="number" min="1" max="10080" wire:model="accept_window_minutes"
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('accept_window_minutes') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                    <p class="text-xs text-gray-400 mt-1">How long before delivery kitchens may accept a group.</p>
+                    <p class="text-xs text-gray-400 mt-1">
+                        Fallback: how long before delivery kitchens may accept when start time is blank
+                        (or at/after delivery). Window still closes at delivery time.
+                    </p>
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
