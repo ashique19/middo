@@ -138,7 +138,7 @@
 
         @if($openPayables->isNotEmpty())
             <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
-                <h2 class="text-sm font-bold text-middo-dark mb-2">Open payables (FIFO for withdrawals)</h2>
+                <h2 class="text-sm font-bold text-middo-dark mb-2">Open payables (settled on full withdrawal)</h2>
                 <ul class="text-sm text-gray-600 space-y-1">
                     @php $running = 0; @endphp
                     @foreach($openPayables as $p)
@@ -156,11 +156,11 @@
     @if($tab === 'withdraw')
         <form id="account-withdraw-panel" wire:submit="requestWithdrawal" class="scroll-mt-24 bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Request withdrawal</h2>
-            <p class="text-sm text-gray-500">Withdraw when Middo owes you (positive balance). Amount must match a FIFO total of whole open payables. Choose a payout channel — Bank / bKash / Nagad details come from your profile.</p>
+            <p class="text-sm text-gray-500">Withdraw the full receivable when Middo owes you. Choose a payout channel — Bank / bKash / Nagad details come from your profile.</p>
             <div>
-                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Amount (৳)</label>
-                <input type="number" min="1" wire:model="withdrawAmount" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                @error('withdrawAmount') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Amount (৳) — full receivable</label>
+                <input type="text" readonly value="{{ $withdrawAmount !== null ? number_format((int) $withdrawAmount) : '—' }}"
+                       class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-middo-dark tabular-nums">
             </div>
             @include('livewire.partials.payout-channel-fields')
             <div>

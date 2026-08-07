@@ -190,7 +190,6 @@ class RiderAccountR4Test extends TestCase
 
         Livewire::actingAs($this->rider)
             ->test(Account::class)
-            ->set('withdrawAmount', 40)
             ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', '')
@@ -233,7 +232,6 @@ class RiderAccountR4Test extends TestCase
 
         Livewire::actingAs($this->rider)
             ->test(Account::class)
-            ->set('withdrawAmount', 40)
             ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', fn ($m) => str_contains((string) $m, 'Due to Middo'));
@@ -253,7 +251,6 @@ class RiderAccountR4Test extends TestCase
 
         Livewire::actingAs($this->rider)
             ->test(Account::class)
-            ->set('withdrawAmount', 40)
             ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal');
 
@@ -281,14 +278,12 @@ class RiderAccountR4Test extends TestCase
 
         Livewire::actingAs($this->rider)
             ->test(Account::class)
-            ->set('withdrawAmount', 20)
             ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', '');
 
         Livewire::actingAs($this->rider)
             ->test(Account::class)
-            ->set('withdrawAmount', 20)
             ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', fn ($m) => str_contains((string) $m, 'pending'));

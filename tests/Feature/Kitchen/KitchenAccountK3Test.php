@@ -237,7 +237,6 @@ class KitchenAccountK3Test extends TestCase
 
         Livewire::actingAs($this->kitchen)
             ->test(Account::class)
-            ->set('withdrawAmount', 50)
             ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', '');

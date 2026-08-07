@@ -146,7 +146,6 @@ class WithdrawalChannelsF0dTest extends TestCase
 
         Livewire::actingAs($this->kitchen)
             ->test(KitchenAccount::class)
-            ->set('withdrawAmount', 50)
             ->set('payoutChannel', PayoutChannel::BANK)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', '');
@@ -179,7 +178,6 @@ class WithdrawalChannelsF0dTest extends TestCase
 
         Livewire::actingAs($this->kitchen)
             ->test(KitchenAccount::class)
-            ->set('withdrawAmount', 50)
             ->set('payoutChannel', PayoutChannel::CASH)
             ->call('requestWithdrawal')
             ->assertHasErrors(['payoutChannel']);
@@ -209,7 +207,6 @@ class WithdrawalChannelsF0dTest extends TestCase
 
         Livewire::actingAs($this->kitchen)
             ->test(KitchenAccount::class)
-            ->set('withdrawAmount', 50)
             ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', '');
@@ -231,7 +228,6 @@ class WithdrawalChannelsF0dTest extends TestCase
 
         Livewire::actingAs($this->kitchen)
             ->test(KitchenAccount::class)
-            ->set('withdrawAmount', 50)
             ->set('payoutChannel', PayoutChannel::BANK)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', 'Add your Bank details in profile before requesting this payout.');

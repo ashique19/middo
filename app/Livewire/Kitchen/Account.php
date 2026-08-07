@@ -46,6 +46,14 @@ class Account extends Component
     public function mount(): void
     {
         $this->payoutChannel = Auth::user()?->preferredPayoutChannel() ?? PayoutChannel::defaultPartnerChannel();
+        $this->syncWithdrawAmountFromReceivable();
+    }
+
+    public function openWithdrawForm(): void
+    {
+        $this->syncWithdrawAmountFromReceivable();
+        $this->tab = 'withdraw';
+        $this->scrollToAccountPanel('account-withdraw-panel');
     }
 
     public function openSendForm(): void
@@ -61,6 +69,13 @@ class Account extends Component
         $this->statusMessage = '';
     }
 
+    public function updatedTab(string $value): void
+    {
+        if ($value === 'withdraw') {
+            $this->syncWithdrawAmountFromReceivable();
+        }
+    }
+
     public function updatedPayoutChannel(): void
     {
         $this->resetValidation();
@@ -73,8 +88,9 @@ class Account extends Component
         $kitchenId = (int) Auth::id();
 
         try {
+            $this->syncWithdrawAmountFromReceivable();
+
             $this->validate([
-                'withdrawAmount' => 'required|integer|min:1',
                 'withdrawNotes' => 'nullable|string|max:500',
                 'payoutChannel' => 'required|in:'.implode(',', PayoutChannel::partnerChannels()),
             ]);
@@ -94,12 +110,8 @@ class Account extends Component
             PayoutChannel::assertValid($this->payoutChannel, $details);
 
             $amount = (int) $this->withdrawAmount;
-            $balance = KitchenAccountLedger::balance($kitchenId);
-            if ($balance < 1) {
+            if ($amount < 1) {
                 throw new \RuntimeException('Nothing to withdraw — Middo does not currently owe you.');
-            }
-            if ($amount > $balance) {
-                throw new \RuntimeException("Requested ৳{$amount} exceeds what Middo owes you (৳{$balance}).");
             }
 
             if (KitchenWithdrawalRequest::query()
@@ -128,6 +140,12 @@ class Account extends Component
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not submit withdrawal.';
         }
+    }
+
+    protected function syncWithdrawAmountFromReceivable(): void
+    {
+        $balance = KitchenAccountLedger::balance((int) Auth::id());
+        $this->withdrawAmount = $balance > 0 ? $balance : null;
     }
 
     public function submitTransfer(): void

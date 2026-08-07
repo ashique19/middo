@@ -34,6 +34,14 @@ class Account extends Component
     public function mount(): void
     {
         $this->payoutChannel = Auth::user()?->preferredPayoutChannel() ?? PayoutChannel::defaultPartnerChannel();
+        $this->syncWithdrawAmountFromReceivable();
+    }
+
+    public function openWithdrawForm(): void
+    {
+        $this->syncWithdrawAmountFromReceivable();
+        $this->tab = 'withdraw';
+        $this->scrollToAccountPanel('account-withdraw-panel');
     }
 
     public function updatingTab(): void
@@ -41,6 +49,13 @@ class Account extends Component
         $this->resetPage();
         $this->errorMessage = '';
         $this->statusMessage = '';
+    }
+
+    public function updatedTab(string $value): void
+    {
+        if ($value === 'withdraw') {
+            $this->syncWithdrawAmountFromReceivable();
+        }
     }
 
     public function updatedPayoutChannel(): void
@@ -55,8 +70,9 @@ class Account extends Component
         $riderId = (int) Auth::id();
 
         try {
+            $this->syncWithdrawAmountFromReceivable();
+
             $this->validate([
-                'withdrawAmount' => 'required|integer|min:1',
                 'withdrawNotes' => 'nullable|string|max:500',
                 'payoutChannel' => 'required|in:'.implode(',', PayoutChannel::partnerChannels()),
             ]);
@@ -76,17 +92,13 @@ class Account extends Component
             PayoutChannel::assertValid($this->payoutChannel, $details);
 
             $amount = (int) $this->withdrawAmount;
-            $wallet = RiderAccountLedger::balance($riderId);
             $due = (int) $user->balance;
 
             if ($due > 0) {
                 throw new \RuntimeException('Hand over Due to Middo cash first, then request payment.');
             }
-            if ($wallet < 1) {
+            if ($amount < 1) {
                 throw new \RuntimeException('Nothing to withdraw — Middo does not currently owe you.');
-            }
-            if ($amount > $wallet) {
-                throw new \RuntimeException("Requested ৳{$amount} exceeds wallet ৳{$wallet}.");
             }
 
             if (RiderWithdrawalRequest::query()
@@ -115,6 +127,13 @@ class Account extends Component
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not submit withdrawal.';
         }
+    }
+
+    protected function syncWithdrawAmountFromReceivable(): void
+    {
+        $wallet = RiderAccountLedger::balance((int) Auth::id());
+        $due = (int) (Auth::user()?->balance ?? 0);
+        $this->withdrawAmount = ($due <= 0 && $wallet > 0) ? $wallet : null;
     }
 
     public function render()

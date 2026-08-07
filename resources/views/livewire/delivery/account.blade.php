@@ -204,7 +204,7 @@
         <form id="account-withdraw-panel" wire:submit="requestWithdrawal" class="scroll-mt-24 bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Request payment</h2>
             <p class="text-sm text-gray-500">
-                Available when Middo owes you and you have no Due cash to hand over. Choose a payout channel — Bank / bKash / Nagad details come from your profile.
+                Request the full receivable when Middo owes you and you have no Due cash to hand over. Choose a payout channel — Bank / bKash / Nagad details come from your profile.
             </p>
             @if($due > 0)
                 <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
@@ -217,9 +217,10 @@
                 </div>
             @endif
             <div>
-                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Amount (৳)</label>
-                <input type="number" min="1" max="{{ max(1, $wallet) }}" wire:model="withdrawAmount" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" @disabled(! $canRequestPayment)>
-                @error('withdrawAmount') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Amount (৳) — full receivable</label>
+                <input type="text" readonly value="{{ $withdrawAmount !== null ? number_format((int) $withdrawAmount) : '—' }}"
+                       class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-middo-dark tabular-nums disabled:opacity-50"
+                       @disabled(! $canRequestPayment)>
             </div>
             @include('livewire.partials.payout-channel-fields', ['disabled' => ! $canRequestPayment])
             <div>
