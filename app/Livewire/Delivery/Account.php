@@ -6,6 +6,7 @@ use App\Livewire\Concerns\ScrollsToAccountPanel;
 use App\Models\PartnerPayable;
 use App\Models\RiderAccountLedgerEntry;
 use App\Models\RiderWithdrawalRequest;
+use App\Support\PartnerLedgerPresentation;
 use App\Support\PayoutChannel;
 use App\Support\RiderAccountLedger;
 use App\Support\RiderCommission;
@@ -21,6 +22,8 @@ class Account extends Component
     use WithPagination;
 
     public string $tab = 'statement';
+
+    public string $ledgerFilter = PartnerLedgerPresentation::FILTER_ALL;
 
     public string $statusMessage = '';
 
@@ -52,10 +55,18 @@ class Account extends Component
         $this->statusMessage = '';
     }
 
+    public function updatingLedgerFilter(): void
+    {
+        $this->resetPage('statementPage');
+    }
+
     public function updatedTab(string $value): void
     {
         if ($value === 'withdraw') {
             $this->syncWithdrawAmountFromReceivable();
+        }
+        if ($value === 'statement') {
+            $this->ledgerFilter = PartnerLedgerPresentation::FILTER_ALL;
         }
     }
 
@@ -139,10 +150,26 @@ class Account extends Component
             ->orderBy('id')
             ->get();
 
-        $statement = RiderAccountLedgerEntry::query()
+        $statementQuery = RiderAccountLedgerEntry::query()
             ->where('rider_user_id', $riderId)
-            ->latest('id')
-            ->paginate(15, ['*'], 'statementPage');
+            ->latest('id');
+
+        if ($this->ledgerFilter === PartnerLedgerPresentation::FILTER_CASH_IN) {
+            $statementQuery->whereIn('entry_type', [
+                'commission_accrued',
+                'withdrawal_rejected',
+                'operating_cost_reimbursed',
+            ]);
+        } elseif ($this->ledgerFilter === PartnerLedgerPresentation::FILTER_CASH_OUT) {
+            $statementQuery->whereNotIn('entry_type', [
+                'commission_accrued',
+                'withdrawal_rejected',
+                'operating_cost_reimbursed',
+            ]);
+        }
+
+        $statement = $statementQuery->paginate(15, ['*'], 'statementPage');
+        $ledgerRows = PartnerLedgerPresentation::presentRiderEntries($statement->getCollection());
 
         $commissionEntries = RiderAccountLedgerEntry::query()
             ->where('rider_user_id', $riderId)
@@ -168,6 +195,7 @@ class Account extends Component
             'openPayables' => $openPayables,
             'openPayableTotal' => (int) $openPayables->sum('amount'),
             'statement' => $statement,
+            'ledgerRows' => $ledgerRows,
             'commissionEntries' => $commissionEntries,
             'withdrawals' => $withdrawals,
             'canRequestPayment' => $canRequestPayment,

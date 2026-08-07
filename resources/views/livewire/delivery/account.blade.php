@@ -73,60 +73,12 @@
     @if($tab === 'statement')
         <div class="space-y-3">
             <div class="px-1 text-sm font-bold text-middo-dark">Wallet ledger</div>
-            <div class="md:hidden space-y-3">
-                @forelse($statement as $row)
-                    <div wire:key="stmt-m-{{ $row->id }}" class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm space-y-2">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="font-semibold text-gray-800">{{ str($row->entry_type)->replace('_', ' ')->headline() }}</p>
-                                <p class="text-xs text-gray-500">{{ $row->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</p>
-                            </div>
-                            <p @class(['shrink-0 font-bold tabular-nums', 'text-emerald-700' => $row->amount > 0, 'text-rose-700' => $row->amount < 0])>
-                                {{ $row->amount > 0 ? '+' : '' }}৳{{ number_format($row->amount) }}
-                            </p>
-                        </div>
-                        @if($row->description)
-                            <p class="text-sm text-gray-600">{{ $row->description }}</p>
-                        @endif
-                        <p class="text-xs font-mono text-gray-500">Balance ৳{{ number_format($row->balance_after) }}</p>
-                    </div>
-                @empty
-                    <div class="rounded-2xl border border-gray-100 bg-white p-10 text-center text-gray-400 italic text-sm">
-                        No ledger entries yet. Commission credits when you start a run.
-                    </div>
-                @endforelse
-            </div>
-            <div class="hidden md:block bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm min-w-[560px]">
-                        <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
-                            <tr>
-                                <th class="p-3 text-left">When</th>
-                                <th class="p-3 text-left">Type</th>
-                                <th class="p-3 text-left">Description</th>
-                                <th class="p-3 text-right">Amount</th>
-                                <th class="p-3 text-right">Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @forelse($statement as $row)
-                                <tr wire:key="stmt-{{ $row->id }}">
-                                    <td class="p-3 text-gray-500 whitespace-nowrap">{{ $row->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</td>
-                                    <td class="p-3 font-semibold">{{ str($row->entry_type)->replace('_', ' ')->headline() }}</td>
-                                    <td class="p-3 text-gray-600">{{ $row->description ?: '—' }}</td>
-                                    <td @class(['p-3 text-right font-bold', 'text-emerald-700' => $row->amount > 0, 'text-rose-700' => $row->amount < 0])>
-                                        {{ $row->amount > 0 ? '+' : '' }}৳{{ number_format($row->amount) }}
-                                    </td>
-                                    <td class="p-3 text-right font-mono">৳{{ number_format($row->balance_after) }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="5" class="p-10 text-center text-gray-400 italic">No ledger entries yet. Commission credits when you start a run.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            @if($statement->hasPages()) <div class="overflow-x-auto">{{ $statement->links() }}</div> @endif
+            @include('livewire.partials.partner-ledger-statement', [
+                'rows' => $ledgerRows,
+                'paginator' => $statement,
+                'ledgerFilter' => $ledgerFilter,
+                'emptyMessage' => 'No ledger entries yet. Commission credits when you start a run.',
+            ])
         </div>
     @endif
 

@@ -10,6 +10,7 @@ use App\Models\KitchenWithdrawalRequest;
 use App\Models\PartnerPayable;
 use App\Support\KitchenAccountLedger;
 use App\Support\KitchenMoneyService;
+use App\Support\PartnerLedgerPresentation;
 use App\Support\PayoutChannel;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
@@ -25,6 +26,8 @@ class Account extends Component
     use WithPagination;
 
     public string $tab = 'statement';
+
+    public string $ledgerFilter = PartnerLedgerPresentation::FILTER_ALL;
 
     public string $statusMessage = '';
 
@@ -70,10 +73,18 @@ class Account extends Component
         $this->statusMessage = '';
     }
 
+    public function updatingLedgerFilter(): void
+    {
+        $this->resetPage('statementPage');
+    }
+
     public function updatedTab(string $value): void
     {
         if ($value === 'withdraw') {
             $this->syncWithdrawAmountFromReceivable();
+        }
+        if ($value === 'statement') {
+            $this->ledgerFilter = PartnerLedgerPresentation::FILTER_ALL;
         }
     }
 
@@ -216,10 +227,28 @@ class Account extends Component
             ->orderBy('id')
             ->get();
 
-        $statement = KitchenAccountLedgerEntry::query()
+        $statementQuery = KitchenAccountLedgerEntry::query()
             ->where('kitchen_user_id', $kitchenId)
-            ->latest('id')
-            ->paginate(15, ['*'], 'statementPage');
+            ->latest('id');
+
+        if ($this->ledgerFilter === PartnerLedgerPresentation::FILTER_CASH_IN) {
+            $statementQuery->whereIn('entry_type', [
+                'share_accrued',
+                'transfer_confirmed',
+                'withdrawal_rejected',
+                'cash_received',
+            ]);
+        } elseif ($this->ledgerFilter === PartnerLedgerPresentation::FILTER_CASH_OUT) {
+            $statementQuery->whereNotIn('entry_type', [
+                'share_accrued',
+                'transfer_confirmed',
+                'withdrawal_rejected',
+                'cash_received',
+            ]);
+        }
+
+        $statement = $statementQuery->paginate(15, ['*'], 'statementPage');
+        $ledgerRows = PartnerLedgerPresentation::presentKitchenEntries($statement->getCollection());
 
         $withdrawals = KitchenWithdrawalRequest::query()
             ->where('kitchen_user_id', $kitchenId)
@@ -263,6 +292,7 @@ class Account extends Component
             'openPayables' => $openPayables,
             'openPayableTotal' => (int) $openPayables->sum('amount'),
             'statement' => $statement,
+            'ledgerRows' => $ledgerRows,
             'withdrawals' => $withdrawals,
             'transfers' => $transfers,
             'pendingCashHandovers' => $pendingCashHandovers,
