@@ -1,15 +1,15 @@
-<div class="max-w-7xl mx-auto py-10 px-6 space-y-8">
+<div class="max-w-7xl mx-auto py-6 sm:py-10 px-4 sm:px-6 space-y-6 sm:space-y-8">
     <div class="space-y-1">
         <a href="{{ route('kitchen.menus.show', $menuItem) }}" class="text-sm font-semibold text-middo-orange hover:underline">← {{ $menuItem->name }}</a>
         <p class="text-sm font-semibold text-gray-500">Meal item</p>
-        <h1 class="text-3xl font-bold text-middo-dark">{{ $mealItem->name }}</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold text-middo-dark break-words">{{ $mealItem->name }}</h1>
         @if($mealItem->summary)
             <p class="text-sm text-gray-500 max-w-2xl">{{ $mealItem->summary }}</p>
         @endif
     </div>
 
     @if($recipe)
-        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-6">
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 sm:p-6 space-y-6">
             <div class="flex flex-wrap items-center gap-2">
                 <h2 class="text-xl font-black text-middo-dark">{{ $recipe['title'] }}</h2>
                 <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Active recipe</span>

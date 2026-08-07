@@ -1,7 +1,7 @@
 <div class="max-w-3xl mx-auto py-8 px-4 sm:px-6 space-y-6">
     <div class="space-y-2">
         <a href="{{ route('kitchen.complaints') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Complaints</a>
-        <h1 class="text-3xl font-bold text-middo-dark">Complaint #{{ $complaint->id }}</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold text-middo-dark">Complaint #{{ $complaint->id }}</h1>
         <p class="text-sm font-semibold text-gray-500">
             Order #{{ $order?->id }} · {{ $order?->menuItem?->name ?? 'Menu' }} ·
             {{ \App\Support\KitchenComplaints::categoryLabel($complaint->category) }}

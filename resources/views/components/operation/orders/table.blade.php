@@ -10,7 +10,104 @@
     $emptyColspan = ($showGroup ? 12 : 11) + ($showViewAction ? 1 : 0);
 @endphp
 
-<div class="bg-white shadow-md border border-gray-100 rounded-2xl overflow-hidden">
+{{-- Mobile cards --}}
+<div class="md:hidden space-y-3">
+    @forelse($orders as $order)
+        @php
+            $methodLabel = $order['payment_method_label']
+                ?? \App\Support\OrderPaymentMethod::label($order['payment_method'] ?? null);
+            if ($methodLabel === '—' && ($order['payment_status'] ?? 'pending') === 'pending') {
+                $methodLabel = 'Cash on Delivery';
+            }
+            $customerName = $order['customer_name']
+                ?? (! empty($order['user'])
+                    ? (trim(($order['user']['first_name'] ?? '').' '.($order['user']['last_name'] ?? '')) ?: 'N/A')
+                    : ($order['receiver_name'] ?? 'N/A'));
+            $menuName = $order['menu_item']['name'] ?? ($order['menu_name'] ?? 'Custom Selection');
+            $groupName = $order['order_group']['name'] ?? ($order['group_name'] ?? '—');
+            $groupId = $order['order_group']['id'] ?? ($order['order_group_id'] ?? null);
+        @endphp
+        <div wire:key="operation-order-card-{{ $order['id'] }}"
+             class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm space-y-3">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 space-y-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        @if($showViewAction)
+                            <x-orders.id-link :order-id="$order['id']" />
+                        @else
+                            <span class="font-mono font-bold text-gray-800">#{{ $order['id'] }}</span>
+                        @endif
+                        @if(!empty($order['is_package']) || !empty($order['package_subscription_id']))
+                            <x-package-badge :title="$order['package_name'] ?? 'Meal package'" />
+                        @endif
+                        @if(!empty($order['has_complaint']))
+                            <span class="inline-flex items-center rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
+                                Complaint
+                            </span>
+                        @endif
+                    </div>
+                    <p class="text-sm font-semibold text-gray-800 break-words">{{ $menuName }}</p>
+                    <p class="text-xs text-gray-500">{{ $customerName }}</p>
+                </div>
+                <p class="shrink-0 text-base font-black text-middo-orange tabular-nums">
+                    ×{{ $order['quantity'] ?? 1 }}
+                </p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs border-t border-gray-100 pt-3">
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Date</p>
+                    <p class="font-semibold text-gray-700">{{ \Carbon\Carbon::parse($order['delivery_date'])->format('M d') }}</p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Window</p>
+                    <p class="font-semibold text-gray-700">{{ $order['delivery_time'] ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Status</p>
+                    <p class="font-semibold text-gray-700">{{ $order['order_status'] ?? 'pending' }}</p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total</p>
+                    <p class="font-bold text-gray-900">৳{{ number_format($order['total_amount'] ?? 0, 0) }}</p>
+                </div>
+            </div>
+
+            @if($showGroup && $groupName !== '—')
+                <p class="text-xs text-gray-500">
+                    Group:
+                    @if($groupId && $groupName !== 'Ungrouped')
+                        <x-orders.group-link :group-id="$groupId" :name="$groupName" class="text-xs" />
+                    @else
+                        <span class="font-semibold text-middo-orange">{{ $groupName }}</span>
+                    @endif
+                </p>
+            @endif
+
+            <p class="text-xs text-gray-500 line-clamp-2">{{ $order['address'] ?? '—' }}</p>
+
+            <div class="flex flex-wrap gap-2 text-[11px]">
+                <span class="inline-flex px-2 py-1 rounded-md font-bold uppercase tracking-wide {{ ($order['payment_status'] ?? 'pending') === 'paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70' : 'bg-red-50 text-red-700 border border-red-200/70' }}">
+                    {{ $order['payment_status'] ?? 'pending' }}
+                </span>
+                <span class="inline-flex px-2 py-1 rounded-md font-bold tracking-wide bg-sky-50 text-sky-800 border border-sky-200/70">
+                    {{ $methodLabel }}
+                </span>
+            </div>
+
+            @if($showViewAction)
+                <x-orders.view-link :order-id="$order['id']" class="w-full inline-flex justify-center" />
+            @endif
+        </div>
+    @empty
+        <div class="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm font-semibold text-gray-400 italic">
+            {{ $emptyMessage }}
+        </div>
+    @endforelse
+</div>
+
+{{-- Desktop table --}}
+<div class="hidden md:block bg-white shadow-md border border-gray-100 rounded-2xl overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse min-w-[960px]">
             <thead>

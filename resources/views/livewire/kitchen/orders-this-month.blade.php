@@ -1,8 +1,8 @@
-<div class="max-w-7xl mx-auto py-10 px-6 space-y-6">
+<div class="max-w-7xl mx-auto py-6 sm:py-10 px-4 sm:px-6 space-y-5 sm:space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="space-y-1">
             <a href="{{ route('kitchen.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
-            <h1 class="text-3xl font-bold text-middo-dark">My Order this month</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold text-middo-dark">My Order this month</h1>
             <p class="text-sm font-semibold text-gray-500">
                 Order groups assigned to your kitchen in {{ $monthLabel }}. Showing {{ $groups->count() }} of {{ $groups->total() }}.
             </p>

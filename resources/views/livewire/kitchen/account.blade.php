@@ -1,7 +1,7 @@
-<div class="max-w-5xl mx-auto py-8 px-4 sm:px-6 space-y-6">
+<div class="max-w-5xl mx-auto py-6 sm:py-8 px-4 sm:px-6 space-y-5 sm:space-y-6">
     <div class="space-y-1">
         <a href="{{ route('kitchen.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
-        <h1 class="text-3xl font-bold text-middo-dark">Kitchen account</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold text-middo-dark">Kitchen account</h1>
         <p class="text-sm text-gray-500">Dispatch credits your wallet (Middo owes you). Cash from riders debits it. Surplus cash means you owe Middo.</p>
     </div>
 
@@ -24,10 +24,10 @@
         </div>
         <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Quick actions</p>
-            <div class="flex flex-wrap gap-2 mt-2">
-                <button type="button" wire:click="$set('tab', 'withdraw')" class="px-3 py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request withdrawal</button>
-                <button type="button" wire:click="$set('tab', 'send')" class="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-middo-dark">Send money to Middo</button>
-                <a href="{{ route('kitchen.cash-handovers') }}" class="px-3 py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold bg-sky-50">Cash handovers →</a>
+            <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 mt-2">
+                <button type="button" wire:click="$set('tab', 'withdraw')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request withdrawal</button>
+                <button type="button" wire:click="$set('tab', 'send')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-middo-dark">Send money to Middo</button>
+                <a href="{{ route('kitchen.cash-handovers') }}" class="w-full sm:w-auto inline-flex justify-center px-3 py-2.5 sm:py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold bg-sky-50">Cash handovers →</a>
             </div>
         </div>
     </div>
@@ -49,39 +49,68 @@
     </div>
 
     @if($tab === 'statement')
-        <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-            <div class="px-4 py-3 border-b text-sm font-bold text-middo-dark">Kitchen wallet ledger</div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm min-w-[640px]">
-                    <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
-                        <tr>
-                            <th class="p-3 text-left">When</th>
-                            <th class="p-3 text-left">Type</th>
-                            <th class="p-3 text-left">Description</th>
-                            <th class="p-3 text-right">Amount</th>
-                            <th class="p-3 text-right">Balance</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @forelse($statement as $row)
-                            <tr>
-                                <td class="p-3 text-gray-500 whitespace-nowrap">{{ $row->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</td>
-                                <td class="p-3 font-semibold">{{ str($row->entry_type)->replace('_', ' ')->headline() }}</td>
-                                <td class="p-3 text-gray-600">{{ $row->description ?: '—' }}</td>
-                                <td @class(['p-3 text-right font-bold', 'text-emerald-700' => $row->amount > 0, 'text-rose-700' => $row->amount < 0])>
-                                    {{ $row->amount > 0 ? '+' : '' }}৳{{ number_format($row->amount) }}
-                                </td>
-                                <td @class(['p-3 text-right font-mono', 'text-rose-700' => $row->balance_after < 0])>
-                                    ৳{{ number_format($row->balance_after) }}
-                                </td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="5" class="p-10 text-center text-gray-400 italic">No ledger entries yet. Balance credits when you dispatch an order.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
+        <div class="space-y-3">
+            <div class="px-1 text-sm font-bold text-middo-dark">Kitchen wallet ledger</div>
+
+            <div class="md:hidden space-y-3">
+                @forelse($statement as $row)
+                    <div wire:key="stmt-m-{{ $row->id }}" class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm space-y-2">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="font-semibold text-gray-800">{{ str($row->entry_type)->replace('_', ' ')->headline() }}</p>
+                                <p class="text-xs text-gray-500">{{ $row->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</p>
+                            </div>
+                            <p @class(['shrink-0 font-bold tabular-nums', 'text-emerald-700' => $row->amount > 0, 'text-rose-700' => $row->amount < 0])>
+                                {{ $row->amount > 0 ? '+' : '' }}৳{{ number_format($row->amount) }}
+                            </p>
+                        </div>
+                        @if($row->description)
+                            <p class="text-sm text-gray-600">{{ $row->description }}</p>
+                        @endif
+                        <p @class(['text-xs font-mono', 'text-rose-700' => $row->balance_after < 0, 'text-gray-500' => $row->balance_after >= 0])>
+                            Balance ৳{{ number_format($row->balance_after) }}
+                        </p>
+                    </div>
+                @empty
+                    <div class="rounded-2xl border border-gray-100 bg-white p-10 text-center text-gray-400 italic text-sm">
+                        No ledger entries yet. Balance credits when you dispatch an order.
+                    </div>
+                @endforelse
             </div>
-            @if($statement->hasPages()) <div class="p-3">{{ $statement->links() }}</div> @endif
+
+            <div class="hidden md:block bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm min-w-[560px]">
+                        <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
+                            <tr>
+                                <th class="p-3 text-left">When</th>
+                                <th class="p-3 text-left">Type</th>
+                                <th class="p-3 text-left">Description</th>
+                                <th class="p-3 text-right">Amount</th>
+                                <th class="p-3 text-right">Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse($statement as $row)
+                                <tr wire:key="stmt-{{ $row->id }}">
+                                    <td class="p-3 text-gray-500 whitespace-nowrap">{{ $row->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</td>
+                                    <td class="p-3 font-semibold">{{ str($row->entry_type)->replace('_', ' ')->headline() }}</td>
+                                    <td class="p-3 text-gray-600">{{ $row->description ?: '—' }}</td>
+                                    <td @class(['p-3 text-right font-bold', 'text-emerald-700' => $row->amount > 0, 'text-rose-700' => $row->amount < 0])>
+                                        {{ $row->amount > 0 ? '+' : '' }}৳{{ number_format($row->amount) }}
+                                    </td>
+                                    <td @class(['p-3 text-right font-mono', 'text-rose-700' => $row->balance_after < 0])>
+                                        ৳{{ number_format($row->balance_after) }}
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5" class="p-10 text-center text-gray-400 italic">No ledger entries yet. Balance credits when you dispatch an order.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @if($statement->hasPages()) <div class="overflow-x-auto">{{ $statement->links() }}</div> @endif
         </div>
 
         @if($openPayables->isNotEmpty())
@@ -92,8 +121,8 @@
                     @foreach($openPayables as $p)
                         @php $running += $p->amount; @endphp
                         <li class="flex justify-between gap-3">
-                            <span>Order #{{ $p->order_id }} · ৳{{ number_format($p->amount) }}</span>
-                            <span class="font-mono text-xs text-gray-400">prefix ৳{{ number_format($running) }}</span>
+                            <span class="min-w-0 break-words">Order #{{ $p->order_id }} · ৳{{ number_format($p->amount) }}</span>
+                            <span class="font-mono text-xs text-gray-400 shrink-0">prefix ৳{{ number_format($running) }}</span>
                         </li>
                     @endforeach
                 </ul>
@@ -102,7 +131,7 @@
     @endif
 
     @if($tab === 'withdraw')
-        <form wire:submit="requestWithdrawal" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 space-y-4">
+        <form wire:submit="requestWithdrawal" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Request withdrawal</h2>
             <p class="text-sm text-gray-500">Withdraw when Middo owes you (positive balance). Amount must match a FIFO total of whole open payables. Choose Bank / bKash / Nagad / Cash — Middo pays on approval.</p>
             <div>
@@ -115,45 +144,62 @@
                 <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Notes</label>
                 <textarea wire:model="withdrawNotes" rows="2" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"></textarea>
             </div>
-            <button type="submit" class="px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold">Submit request</button>
+            <button type="submit" class="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl bg-middo-orange text-white text-sm font-bold">Submit request</button>
         </form>
     @endif
 
     @if($tab === 'withdrawals')
-        <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-            <table class="w-full text-sm min-w-[640px]">
-                <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
-                    <tr>
-                        <th class="p-3 text-left">ID</th>
-                        <th class="p-3 text-right">Amount</th>
-                        <th class="p-3 text-left">Channel</th>
-                        <th class="p-3 text-left">Status</th>
-                        <th class="p-3 text-left">When</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    @forelse($withdrawals as $w)
-                        <tr>
-                            <td class="p-3 font-mono">#{{ $w->id }}</td>
-                            <td class="p-3 text-right font-bold">৳{{ number_format($w->amount) }}</td>
-                            <td class="p-3">
-                                <div class="font-semibold">{{ $w->payoutChannelLabel() }}</div>
-                                <div class="text-xs text-gray-500">{{ $w->payoutDetailsSummary() }}</div>
-                            </td>
-                            <td class="p-3 capitalize">{{ $w->status }}</td>
-                            <td class="p-3 text-gray-500">{{ $w->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="5" class="p-8 text-center text-gray-400 italic">No withdrawal requests yet.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-            @if($withdrawals->hasPages()) <div class="p-3">{{ $withdrawals->links() }}</div> @endif
+        <div class="md:hidden space-y-3">
+            @forelse($withdrawals as $w)
+                <div wire:key="wd-m-{{ $w->id }}" class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm space-y-1">
+                    <div class="flex items-start justify-between gap-3">
+                        <p class="font-mono font-semibold">#{{ $w->id }}</p>
+                        <p class="font-bold tabular-nums">৳{{ number_format($w->amount) }}</p>
+                    </div>
+                    <p class="text-sm font-semibold text-gray-800">{{ $w->payoutChannelLabel() }}</p>
+                    <p class="text-xs text-gray-500">{{ $w->payoutDetailsSummary() }}</p>
+                    <p class="text-xs capitalize text-gray-600">{{ $w->status }} · {{ $w->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</p>
+                </div>
+            @empty
+                <div class="rounded-2xl border border-gray-100 bg-white p-8 text-center text-gray-400 italic text-sm">No withdrawal requests yet.</div>
+            @endforelse
         </div>
+        <div class="hidden md:block bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm min-w-[560px]">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
+                        <tr>
+                            <th class="p-3 text-left">ID</th>
+                            <th class="p-3 text-right">Amount</th>
+                            <th class="p-3 text-left">Channel</th>
+                            <th class="p-3 text-left">Status</th>
+                            <th class="p-3 text-left">When</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        @forelse($withdrawals as $w)
+                            <tr wire:key="wd-{{ $w->id }}">
+                                <td class="p-3 font-mono">#{{ $w->id }}</td>
+                                <td class="p-3 text-right font-bold">৳{{ number_format($w->amount) }}</td>
+                                <td class="p-3">
+                                    <div class="font-semibold">{{ $w->payoutChannelLabel() }}</div>
+                                    <div class="text-xs text-gray-500">{{ $w->payoutDetailsSummary() }}</div>
+                                </td>
+                                <td class="p-3 capitalize">{{ $w->status }}</td>
+                                <td class="p-3 text-gray-500">{{ $w->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="p-8 text-center text-gray-400 italic">No withdrawal requests yet.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @if($withdrawals->hasPages()) <div class="overflow-x-auto">{{ $withdrawals->links() }}</div> @endif
     @endif
 
     @if($tab === 'send')
-        <form wire:submit="submitTransfer" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 space-y-4">
+        <form wire:submit="submitTransfer" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Send money to Middo</h2>
             <p class="text-sm text-gray-500">When you hold surplus cash (you owe Middo), transfer it with proof. Ops confirmation credits your wallet and Middo’s cash ledger.</p>
             <div>
@@ -175,42 +221,60 @@
                 <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Notes</label>
                 <textarea wire:model="transferNotes" rows="2" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"></textarea>
             </div>
-            <button type="submit" class="px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold">Submit transfer</button>
+            <button type="submit" class="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl bg-middo-orange text-white text-sm font-bold">Submit transfer</button>
         </form>
     @endif
 
     @if($tab === 'transfers')
-        <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-            <table class="w-full text-sm min-w-[640px]">
-                <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
-                    <tr>
-                        <th class="p-3 text-left">ID</th>
-                        <th class="p-3 text-right">Amount</th>
-                        <th class="p-3 text-left">Status</th>
-                        <th class="p-3 text-left">Proof</th>
-                        <th class="p-3 text-left">When</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    @forelse($transfers as $t)
-                        <tr>
-                            <td class="p-3 font-mono">#{{ $t->id }}</td>
-                            <td class="p-3 text-right font-bold">৳{{ number_format($t->amount) }}</td>
-                            <td class="p-3 capitalize">{{ $t->status }}</td>
-                            <td class="p-3">
-                                @if($t->proof_path)
-                                    <a href="{{ asset($t->proof_path) }}" target="_blank" class="text-middo-orange font-semibold hover:underline">View</a>
-                                @else —
-                                @endif
-                            </td>
-                            <td class="p-3 text-gray-500">{{ $t->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="5" class="p-8 text-center text-gray-400 italic">No transfers yet.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-            @if($transfers->hasPages()) <div class="p-3">{{ $transfers->links() }}</div> @endif
+        <div class="md:hidden space-y-3">
+            @forelse($transfers as $t)
+                <div wire:key="xfer-m-{{ $t->id }}" class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm space-y-1">
+                    <div class="flex items-start justify-between gap-3">
+                        <p class="font-mono font-semibold">#{{ $t->id }}</p>
+                        <p class="font-bold tabular-nums">৳{{ number_format($t->amount) }}</p>
+                    </div>
+                    <p class="text-xs capitalize text-gray-600">{{ $t->status }} · {{ $t->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</p>
+                    @if($t->proof_path)
+                        <a href="{{ asset($t->proof_path) }}" target="_blank" class="text-xs font-semibold text-middo-orange hover:underline">View proof</a>
+                    @endif
+                </div>
+            @empty
+                <div class="rounded-2xl border border-gray-100 bg-white p-8 text-center text-gray-400 italic text-sm">No transfers yet.</div>
+            @endforelse
         </div>
+        <div class="hidden md:block bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm min-w-[560px]">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
+                        <tr>
+                            <th class="p-3 text-left">ID</th>
+                            <th class="p-3 text-right">Amount</th>
+                            <th class="p-3 text-left">Status</th>
+                            <th class="p-3 text-left">Proof</th>
+                            <th class="p-3 text-left">When</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        @forelse($transfers as $t)
+                            <tr wire:key="xfer-{{ $t->id }}">
+                                <td class="p-3 font-mono">#{{ $t->id }}</td>
+                                <td class="p-3 text-right font-bold">৳{{ number_format($t->amount) }}</td>
+                                <td class="p-3 capitalize">{{ $t->status }}</td>
+                                <td class="p-3">
+                                    @if($t->proof_path)
+                                        <a href="{{ asset($t->proof_path) }}" target="_blank" class="text-middo-orange font-semibold hover:underline">View</a>
+                                    @else —
+                                    @endif
+                                </td>
+                                <td class="p-3 text-gray-500">{{ $t->created_at?->timezone('Asia/Dhaka')->format('M d, Y H:i') }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="p-8 text-center text-gray-400 italic">No transfers yet.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @if($transfers->hasPages()) <div class="overflow-x-auto">{{ $transfers->links() }}</div> @endif
     @endif
 </div>

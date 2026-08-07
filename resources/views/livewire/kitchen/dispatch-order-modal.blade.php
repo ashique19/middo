@@ -44,11 +44,11 @@
                     @endforelse
                 </div>
 
-                <div class="flex items-center justify-end gap-3">
+                <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3">
                     <button
                         type="button"
                         wire:click="closeModal"
-                        class="px-4 py-2.5 rounded-xl border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50 transition">
+                        class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50 transition">
                         Cancel
                     </button>
                     <button
@@ -56,7 +56,7 @@
                         wire:click="dispatchOrder"
                         wire:loading.attr="disabled"
                         @disabled(count($availableBoxes) < $requiredQuantity)
-                        class="px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
+                        class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
                         <span wire:loading.remove wire:target="dispatchOrder">Confirm dispatch</span>
                         <span wire:loading wire:target="dispatchOrder">Dispatching...</span>
                     </button>

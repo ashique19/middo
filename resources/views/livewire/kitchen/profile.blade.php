@@ -97,9 +97,9 @@
             </div>
         </div>
 
-        <div class="flex justify-end">
+        <div class="flex justify-stretch sm:justify-end">
             <button type="submit"
-                    class="inline-flex px-5 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition">
+                    class="w-full sm:w-auto inline-flex justify-center px-5 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition">
                 Save profile
             </button>
         </div>
