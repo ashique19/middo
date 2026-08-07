@@ -125,13 +125,13 @@
                                 Confirm cash received. Order becomes <strong>Delivered and Paid</strong>. Hand over only the Due amount later; keep your commission from the bag.
                             </p>
                         @endif
-                        <div class="flex justify-end gap-3">
-                            <button type="button" wire:click="$set('paymentMethod', '')" class="px-4 py-2.5 rounded-xl border border-gray-300 text-sm font-bold text-gray-700">Back</button>
+                        <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
+                            <button type="button" wire:click="$set('paymentMethod', '')" class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-gray-300 text-sm font-bold text-gray-700">Back</button>
                             <button
                                 type="button"
                                 wire:click="confirmCashPayment"
                                 wire:loading.attr="disabled"
-                                class="px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
+                                class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
                                 <span wire:loading.remove wire:target="confirmCashPayment">Confirm cash</span>
                                 <span wire:loading wire:target="confirmCashPayment">Saving...</span>
                             </button>
@@ -152,13 +152,13 @@
                             @enderror
                         </div>
                         <p class="text-xs text-gray-500">A payment link for ৳{{ number_format($amountDue) }} due will be sent by SMS.</p>
-                        <div class="flex justify-end gap-3">
-                            <button type="button" wire:click="$set('paymentMethod', '')" class="px-4 py-2.5 rounded-xl border border-gray-300 text-sm font-bold text-gray-700">Back</button>
+                        <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
+                            <button type="button" wire:click="$set('paymentMethod', '')" class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-gray-300 text-sm font-bold text-gray-700">Back</button>
                             <button
                                 type="button"
                                 wire:click="sendOnlinePaymentLink"
                                 wire:loading.attr="disabled"
-                                class="px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
+                                class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
                                 <span wire:loading.remove wire:target="sendOnlinePaymentLink">Send payment link</span>
                                 <span wire:loading wire:target="sendOnlinePaymentLink">Sending...</span>
                             </button>
