@@ -9,7 +9,7 @@ use Illuminate\Validation\Rule;
 
 trait ManagesProfilePayoutMethods
 {
-    public string $preferredPayoutChannel = PayoutChannel::CASH;
+    public string $preferredPayoutChannel = PayoutChannel::BANK;
 
     public string $bankBankName = '';
 
@@ -65,7 +65,7 @@ trait ManagesProfilePayoutMethods
         $nagadTouched = trim($this->nagadMobile) !== '';
 
         $rules = [
-            'preferredPayoutChannel' => 'required|in:'.implode(',', PayoutChannel::all()),
+            'preferredPayoutChannel' => 'required|in:'.implode(',', PayoutChannel::partnerChannels()),
             'bankBankName' => ['nullable', 'string', 'max:120'],
             'bankCity' => ['nullable', 'string', 'max:120'],
             'bankBranch' => ['nullable', 'string', 'max:120'],

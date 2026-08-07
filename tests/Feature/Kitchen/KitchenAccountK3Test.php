@@ -12,11 +12,13 @@ use App\Models\KitchenWithdrawalRequest;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderGroup;
+use App\Models\MiddoBankAccount;
 use App\Models\PartnerPayable;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\KitchenAccountLedger;
 use App\Support\MiddoCashLedger;
+use App\Support\PayoutChannel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
@@ -211,23 +213,50 @@ class KitchenAccountK3Test extends TestCase
         $this->accrueKitchenShare(50);
         MiddoCashLedger::credit(500, 'seed', null, null, 'Seed', $this->admin->id);
 
+        $bank = MiddoBankAccount::create([
+            'name' => 'Ops Bank',
+            'bank_name' => 'BRAC',
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+        \App\Support\MiddoBankLedger::credit(
+            (int) $bank->id,
+            1000,
+            \App\Models\MiddoBankLedgerEntry::TYPE_ADJUSTMENT,
+            null,
+            null,
+            'Seed bank',
+            $this->admin->id
+        );
+
+        $this->kitchen->storePayoutMethods([
+            'preferred' => PayoutChannel::BKASH,
+            PayoutChannel::BKASH => ['mobile' => '01711112222'],
+        ]);
+        $this->kitchen->save();
+
         Livewire::actingAs($this->kitchen)
             ->test(Account::class)
             ->set('withdrawAmount', 50)
+            ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', '');
 
         $request = KitchenWithdrawalRequest::query()->first();
         $this->assertNotNull($request);
         $this->assertSame(50, (int) $request->amount);
+        $this->assertSame(PayoutChannel::BKASH, $request->payout_channel);
 
         Livewire::actingAs($this->admin)
             ->test(KitchenMoneyApprovals::class)
+            ->set("approveBankAccountId.{$request->id}", $bank->id)
+            ->set("approveAttachment.{$request->id}", UploadedFile::fake()->image('proof.jpg'))
             ->call('approveWithdrawal', $request->id)
             ->assertSet('errorMessage', '');
 
         $this->assertSame(0, KitchenAccountLedger::balance($this->kitchen->id));
-        $this->assertSame(450, MiddoCashLedger::balance());
+        $this->assertSame(500, MiddoCashLedger::balance());
+        $this->assertSame(950, \App\Support\MiddoBankLedger::balance((int) $bank->id));
         $this->assertSame(KitchenWithdrawalRequest::STATUS_APPROVED, $request->fresh()->status);
         $this->assertSame(PartnerPayable::STATUS_SETTLED, PartnerPayable::query()->first()->status);
     }

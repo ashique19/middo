@@ -9,16 +9,14 @@
 <div>
     <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Payout channel</label>
     <select wire:model.live="payoutChannel" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" @disabled($disabled ?? false)>
-        @foreach(\App\Support\PayoutChannel::all() as $channel)
+        @foreach(\App\Support\PayoutChannel::partnerChannels() as $channel)
             <option value="{{ $channel }}">{{ \App\Support\PayoutChannel::label($channel) }}</option>
         @endforeach
     </select>
     @error('payoutChannel') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
 </div>
 
-@if($payoutChannel === \App\Support\PayoutChannel::CASH)
-    <p class="text-xs text-gray-500">Cash payout — Middo pays from till on approval.</p>
-@elseif($needsProfile && $channelConfigured)
+@if($needsProfile && $channelConfigured)
     <div class="rounded-xl border border-emerald-100 bg-emerald-50/80 px-3 py-2.5 space-y-1">
         <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Paying to your saved {{ \App\Support\PayoutChannel::label($payoutChannel) }}</p>
         <p class="text-sm font-semibold text-emerald-900">{{ \App\Support\PayoutChannel::detailsSummary($payoutChannel, $channelDetails) }}</p>

@@ -26,6 +26,21 @@ class PayoutChannel
         return [self::CASH, self::BANK, self::BKASH, self::NAGAD];
     }
 
+    /**
+     * Channels kitchen/delivery may choose when requesting a withdrawal.
+     *
+     * @return list<string>
+     */
+    public static function partnerChannels(): array
+    {
+        return [self::BANK, self::BKASH, self::NAGAD];
+    }
+
+    public static function defaultPartnerChannel(): string
+    {
+        return self::BANK;
+    }
+
     public static function label(string $channel): string
     {
         return match ($channel) {
@@ -171,9 +186,9 @@ class PayoutChannel
      */
     public static function normalizeProfileMethods(array $methods): array
     {
-        $preferred = (string) ($methods['preferred'] ?? self::CASH);
-        if (! in_array($preferred, self::all(), true)) {
-            $preferred = self::CASH;
+        $preferred = (string) ($methods['preferred'] ?? self::defaultPartnerChannel());
+        if (! in_array($preferred, self::partnerChannels(), true)) {
+            $preferred = self::defaultPartnerChannel();
         }
 
         $normalized = ['preferred' => $preferred];

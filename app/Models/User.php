@@ -87,11 +87,11 @@ class User extends Authenticatable
 
     public function preferredPayoutChannel(): string
     {
-        $preferred = (string) ($this->normalizedPayoutMethods()['preferred'] ?? PayoutChannel::CASH);
+        $preferred = (string) ($this->normalizedPayoutMethods()['preferred'] ?? PayoutChannel::defaultPartnerChannel());
 
-        return in_array($preferred, PayoutChannel::all(), true)
+        return in_array($preferred, PayoutChannel::partnerChannels(), true)
             ? $preferred
-            : PayoutChannel::CASH;
+            : PayoutChannel::defaultPartnerChannel();
     }
 
     /**
@@ -113,7 +113,7 @@ class User extends Authenticatable
     public function storePayoutMethods(array $methods): void
     {
         $normalized = PayoutChannel::normalizeProfileMethods($methods);
-        $this->payout_methods = $normalized === ['preferred' => PayoutChannel::CASH]
+        $this->payout_methods = $normalized === ['preferred' => PayoutChannel::defaultPartnerChannel()]
             ? null
             : $normalized;
     }

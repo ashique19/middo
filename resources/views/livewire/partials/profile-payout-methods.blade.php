@@ -13,7 +13,7 @@
     <div>
         <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Preferred channel</label>
         <select wire:model="preferredPayoutChannel" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
-            @foreach(\App\Support\PayoutChannel::all() as $channel)
+            @foreach(\App\Support\PayoutChannel::partnerChannels() as $channel)
                 <option value="{{ $channel }}">{{ \App\Support\PayoutChannel::label($channel) }}</option>
             @endforeach
         </select>

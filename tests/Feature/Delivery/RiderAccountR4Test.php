@@ -6,6 +6,7 @@ use App\Livewire\Delivery\Account;
 use App\Livewire\Delivery\KitchenDispatches;
 use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Livewire\Shared\RiderMoneyApprovals;
+use App\Models\MiddoBankAccount;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\Order;
@@ -16,8 +17,10 @@ use App\Models\Role;
 use App\Models\User;
 use App\Support\MiddoCashLedger;
 use App\Support\OrderTransition;
+use App\Support\PayoutChannel;
 use App\Support\RiderAccountLedger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -163,9 +166,32 @@ class RiderAccountR4Test extends TestCase
 
         $this->rider->update(['balance' => 0]);
 
+        $bank = MiddoBankAccount::create([
+            'name' => 'Ops Bank',
+            'bank_name' => 'BRAC',
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+        \App\Support\MiddoBankLedger::credit(
+            (int) $bank->id,
+            1000,
+            \App\Models\MiddoBankLedgerEntry::TYPE_ADJUSTMENT,
+            null,
+            null,
+            'Seed bank',
+            $this->admin->id
+        );
+
+        $this->rider->storePayoutMethods([
+            'preferred' => PayoutChannel::BKASH,
+            PayoutChannel::BKASH => ['mobile' => '01711112222'],
+        ]);
+        $this->rider->save();
+
         Livewire::actingAs($this->rider)
             ->test(Account::class)
             ->set('withdrawAmount', 40)
+            ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', '')
             ->assertSet('statusMessage', fn ($m) => str_contains((string) $m, 'submitted'));
@@ -176,11 +202,14 @@ class RiderAccountR4Test extends TestCase
 
         Livewire::actingAs($this->admin)
             ->test(RiderMoneyApprovals::class)
+            ->set("approveBankAccountId.{$request->id}", $bank->id)
+            ->set("approveAttachment.{$request->id}", UploadedFile::fake()->image('proof.jpg'))
             ->call('approveWithdrawal', $request->id)
             ->assertSet('errorMessage', '');
 
         $this->assertSame(0, RiderAccountLedger::balance($this->rider->id));
-        $this->assertSame(960, MiddoCashLedger::balance());
+        $this->assertSame(1000, MiddoCashLedger::balance());
+        $this->assertSame(960, \App\Support\MiddoBankLedger::balance((int) $bank->id));
         $this->assertSame(
             PartnerPayable::STATUS_SETTLED,
             PartnerPayable::query()
@@ -196,9 +225,16 @@ class RiderAccountR4Test extends TestCase
         $this->acceptPrepaidRun();
         $this->rider->update(['balance' => 100]);
 
+        $this->rider->storePayoutMethods([
+            'preferred' => PayoutChannel::BKASH,
+            PayoutChannel::BKASH => ['mobile' => '01711112222'],
+        ]);
+        $this->rider->save();
+
         Livewire::actingAs($this->rider)
             ->test(Account::class)
             ->set('withdrawAmount', 40)
+            ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', fn ($m) => str_contains((string) $m, 'Due to Middo'));
 
@@ -209,9 +245,16 @@ class RiderAccountR4Test extends TestCase
     {
         $this->acceptPrepaidRun();
 
+        $this->rider->storePayoutMethods([
+            'preferred' => PayoutChannel::BKASH,
+            PayoutChannel::BKASH => ['mobile' => '01711112222'],
+        ]);
+        $this->rider->save();
+
         Livewire::actingAs($this->rider)
             ->test(Account::class)
             ->set('withdrawAmount', 40)
+            ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal');
 
         $request = RiderWithdrawalRequest::query()->firstOrFail();
@@ -230,15 +273,23 @@ class RiderAccountR4Test extends TestCase
     {
         $this->acceptPrepaidRun();
 
+        $this->rider->storePayoutMethods([
+            'preferred' => PayoutChannel::BKASH,
+            PayoutChannel::BKASH => ['mobile' => '01711112222'],
+        ]);
+        $this->rider->save();
+
         Livewire::actingAs($this->rider)
             ->test(Account::class)
             ->set('withdrawAmount', 20)
+            ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', '');
 
         Livewire::actingAs($this->rider)
             ->test(Account::class)
             ->set('withdrawAmount', 20)
+            ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', fn ($m) => str_contains((string) $m, 'pending'));
 

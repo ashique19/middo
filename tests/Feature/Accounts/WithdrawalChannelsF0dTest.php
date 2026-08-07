@@ -173,28 +173,18 @@ class WithdrawalChannelsF0dTest extends TestCase
         $this->assertFileExists(public_path($request->attachment_path));
     }
 
-    public function test_cash_withdrawal_still_debits_till(): void
+    public function test_cash_withdrawal_is_no_longer_allowed(): void
     {
         $this->accrueKitchenShare(50);
-        MiddoCashLedger::credit(500, 'seed', null, null, 'Seed till', $this->admin->id);
 
         Livewire::actingAs($this->kitchen)
             ->test(KitchenAccount::class)
             ->set('withdrawAmount', 50)
             ->set('payoutChannel', PayoutChannel::CASH)
             ->call('requestWithdrawal')
-            ->assertSet('errorMessage', '');
+            ->assertHasErrors(['payoutChannel']);
 
-        $request = KitchenWithdrawalRequest::query()->firstOrFail();
-
-        Livewire::actingAs($this->admin)
-            ->test(KitchenMoneyApprovals::class)
-            ->call('approveWithdrawal', $request->id)
-            ->assertSet('errorMessage', '');
-
-        $this->assertSame(450, MiddoCashLedger::balance());
-        $this->assertNotNull($request->fresh()->middo_cash_ledger_entry_id);
-        $this->assertNull($request->fresh()->middo_bank_ledger_entry_id);
+        $this->assertSame(0, KitchenWithdrawalRequest::query()->count());
     }
 
     public function test_bank_approve_requires_account_selection(): void

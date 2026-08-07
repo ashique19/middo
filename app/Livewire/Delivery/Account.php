@@ -10,6 +10,7 @@ use App\Support\PayoutChannel;
 use App\Support\RiderAccountLedger;
 use App\Support\RiderCommission;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -28,11 +29,11 @@ class Account extends Component
 
     public string $withdrawNotes = '';
 
-    public string $payoutChannel = PayoutChannel::CASH;
+    public string $payoutChannel = PayoutChannel::BANK;
 
     public function mount(): void
     {
-        $this->payoutChannel = Auth::user()?->preferredPayoutChannel() ?? PayoutChannel::CASH;
+        $this->payoutChannel = Auth::user()?->preferredPayoutChannel() ?? PayoutChannel::defaultPartnerChannel();
     }
 
     public function updatingTab(): void
@@ -57,7 +58,7 @@ class Account extends Component
             $this->validate([
                 'withdrawAmount' => 'required|integer|min:1',
                 'withdrawNotes' => 'nullable|string|max:500',
-                'payoutChannel' => 'required|in:'.implode(',', PayoutChannel::all()),
+                'payoutChannel' => 'required|in:'.implode(',', PayoutChannel::partnerChannels()),
             ]);
 
             $user = Auth::user();
@@ -109,6 +110,8 @@ class Account extends Component
             $this->payoutChannel = $user->preferredPayoutChannel();
             $this->statusMessage = 'Payment request submitted for Middo approval.';
             $this->tab = 'withdrawals';
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not submit withdrawal.';
         }
