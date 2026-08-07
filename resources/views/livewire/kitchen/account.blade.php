@@ -22,14 +22,19 @@
                 <p class="text-xs text-gray-500 mt-1">Open dispatch payables ৳{{ number_format($openPayableTotal) }}</p>
             @endif
         </div>
-        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Quick actions</p>
-            <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 mt-2">
-                <button type="button" wire:click="$set('tab', 'withdraw')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request withdrawal</button>
-                <button type="button" wire:click="$set('tab', 'send')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-middo-dark">Send money to Middo</button>
-                <a href="{{ route('kitchen.cash-handovers') }}" class="w-full sm:w-auto inline-flex justify-center px-3 py-2.5 sm:py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold bg-sky-50">Cash handovers →</a>
+        @if($balance > 0 || $balance < 0)
+            <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Quick actions</p>
+                <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 mt-2">
+                    @if($balance > 0)
+                        <button type="button" wire:click="$set('tab', 'withdraw')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request withdrawal</button>
+                    @else
+                        <button type="button" wire:click="$set('tab', 'send')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-middo-dark">Send money to Middo</button>
+                        <a href="{{ route('kitchen.cash-handovers') }}" class="w-full sm:w-auto inline-flex justify-center px-3 py-2.5 sm:py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold bg-sky-50">Cash handovers →</a>
+                    @endif
+                </div>
             </div>
-        </div>
+        @endif
     </div>
 
     @if($statusMessage)
@@ -39,8 +44,19 @@
         <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $errorMessage }}</div>
     @endif
 
+    @php
+        $accountTabs = ['statement' => 'Statement'];
+        if ($balance > 0) {
+            $accountTabs['withdraw'] = 'Withdraw';
+        }
+        $accountTabs['withdrawals'] = 'My withdrawals';
+        if ($balance < 0) {
+            $accountTabs['send'] = 'Send to Middo';
+        }
+        $accountTabs['transfers'] = 'My transfers';
+    @endphp
     <div class="flex flex-wrap gap-2">
-        @foreach(['statement' => 'Statement', 'withdraw' => 'Withdraw', 'withdrawals' => 'My withdrawals', 'send' => 'Send to Middo', 'transfers' => 'My transfers'] as $key => $label)
+        @foreach($accountTabs as $key => $label)
             <button type="button" wire:click="$set('tab', '{{ $key }}')"
                     @class(['px-3 py-1.5 rounded-xl text-xs font-bold border', 'bg-middo-orange text-white border-middo-orange' => $tab === $key, 'bg-white text-gray-700 border-gray-200' => $tab !== $key])>
                 {{ $label }}

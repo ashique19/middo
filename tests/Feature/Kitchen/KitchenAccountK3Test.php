@@ -137,6 +137,28 @@ class KitchenAccountK3Test extends TestCase
         $this->assertSame(50, KitchenAccountLedger::balance($this->kitchen->id));
     }
 
+    public function test_account_quick_actions_follow_wallet_direction(): void
+    {
+        $this->accrueKitchenShare(50);
+
+        $this->actingAs($this->kitchen)
+            ->get(route('kitchen.account'))
+            ->assertOk()
+            ->assertSee('Request withdrawal')
+            ->assertDontSee('Send money to Middo')
+            ->assertDontSee('Cash handovers →');
+
+        KitchenAccountLedger::debit($this->kitchen->id, 200, 'cash_received', null, null, 'Surplus seed', $this->admin->id);
+        $this->assertSame(-150, KitchenAccountLedger::balance($this->kitchen->id));
+
+        $this->actingAs($this->kitchen)
+            ->get(route('kitchen.account'))
+            ->assertOk()
+            ->assertSee('Send money to Middo')
+            ->assertSee('Cash handovers →')
+            ->assertDontSee('Request withdrawal');
+    }
+
     public function test_cash_handover_debits_kitchen_wallet_and_allows_negative(): void
     {
         $this->accrueKitchenShare(50);

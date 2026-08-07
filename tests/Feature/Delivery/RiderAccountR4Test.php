@@ -149,7 +149,19 @@ class RiderAccountR4Test extends TestCase
             ->get(route('delivery.account'))
             ->assertOk()
             ->assertSee('Middo owes you')
-            ->assertSee('৳40');
+            ->assertSee('৳40')
+            ->assertSee('Request payment')
+            ->assertDontSee('Cash handovers →');
+
+        $this->rider->update(['balance' => 150]);
+
+        $this->actingAs($this->rider)
+            ->get(route('delivery.account'))
+            ->assertOk()
+            ->assertSee('Cash handovers →')
+            ->assertDontSeeHtml('wire:click="$set(\'tab\', \'withdraw\')"');
+
+        $this->rider->update(['balance' => 0]);
 
         Livewire::actingAs($this->rider)
             ->test(Account::class)

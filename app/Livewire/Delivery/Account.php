@@ -181,6 +181,11 @@ class Account extends Component
             ->latest('id')
             ->paginate(10, ['*'], 'withdrawalsPage');
 
+        $canRequestPayment = $wallet > 0 && $due === 0;
+        if ($this->tab === 'withdraw' && ! $canRequestPayment) {
+            $this->tab = 'statement';
+        }
+
         return view('livewire.delivery.account', [
             'wallet' => $wallet,
             'due' => $due,
@@ -189,7 +194,7 @@ class Account extends Component
             'statement' => $statement,
             'commissionEntries' => $commissionEntries,
             'withdrawals' => $withdrawals,
-            'canRequestPayment' => $wallet > 0 && $due === 0,
+            'canRequestPayment' => $canRequestPayment,
         ])->layout('delivery.layout.app', ['title' => 'Rider Account']);
     }
 }

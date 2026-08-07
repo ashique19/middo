@@ -30,12 +30,16 @@
             @if($openPayableTotal > 0)
                 <p class="text-xs text-gray-500 mt-1">Open lunch payables ৳{{ number_format($openPayableTotal) }}</p>
             @endif
-            <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 mt-3">
-                @if($canRequestPayment)
-                    <button type="button" wire:click="$set('tab', 'withdraw')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request payment</button>
-                @endif
-                <a href="{{ route('delivery.cash-handovers') }}" class="w-full sm:w-auto inline-flex justify-center px-3 py-2.5 sm:py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold bg-sky-50">Cash →</a>
-            </div>
+            @if($canRequestPayment || $due > 0)
+                <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 mt-3">
+                    @if($canRequestPayment)
+                        <button type="button" wire:click="$set('tab', 'withdraw')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request payment</button>
+                    @endif
+                    @if($due > 0)
+                        <a href="{{ route('delivery.cash-handovers') }}" class="w-full sm:w-auto inline-flex justify-center px-3 py-2.5 sm:py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold bg-sky-50">Cash handovers →</a>
+                    @endif
+                </div>
+            @endif
         </div>
     </div>
 
@@ -46,8 +50,18 @@
         <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $errorMessage }}</div>
     @endif
 
+    @php
+        $accountTabs = [
+            'statement' => 'Statement',
+            'commissions' => 'Commissions',
+        ];
+        if ($canRequestPayment) {
+            $accountTabs['withdraw'] = 'Request payment';
+        }
+        $accountTabs['withdrawals'] = 'My requests';
+    @endphp
     <div class="flex flex-wrap gap-2">
-        @foreach(['statement' => 'Statement', 'commissions' => 'Commissions', 'withdraw' => 'Request payment', 'withdrawals' => 'My requests'] as $key => $label)
+        @foreach($accountTabs as $key => $label)
             <button type="button" wire:click="$set('tab', '{{ $key }}')"
                     @class(['px-3 py-1.5 rounded-xl text-xs font-bold border', 'bg-middo-orange text-white border-middo-orange' => $tab === $key, 'bg-white text-gray-700 border-gray-200' => $tab !== $key])>
                 {{ $label }}

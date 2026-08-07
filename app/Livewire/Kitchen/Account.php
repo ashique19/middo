@@ -241,6 +241,13 @@ class Account extends Component
             ->latest('id')
             ->paginate(10, ['*'], 'transfersPage');
 
+        if ($this->tab === 'withdraw' && $balance < 1) {
+            $this->tab = 'statement';
+        }
+        if ($this->tab === 'send' && $balance >= 0) {
+            $this->tab = 'statement';
+        }
+
         return view('livewire.kitchen.account', [
             'balance' => $balance,
             'openPayables' => $openPayables,
