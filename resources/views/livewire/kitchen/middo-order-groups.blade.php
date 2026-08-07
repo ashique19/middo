@@ -139,7 +139,7 @@
                                         <x-package-badge :title="$order['package_name'] ?? 'Meal package'" />
                                     @endif
                                 </div>
-                                <p class="text-sm font-semibold text-[#2B1A11] truncate">{{ $order['customer_name'] }}</p>
+                                <p class="text-sm font-semibold text-[#2B1A11] truncate">{{ $order['area_name'] ?? '—' }}</p>
                                 <p class="text-xs text-[#635347]">
                                     Qty <strong class="text-middo-orange">{{ $order['quantity'] }}</strong>
                                     · {{ $order['delivery_time'] }}

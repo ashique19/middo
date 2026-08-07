@@ -217,8 +217,9 @@ class ActiveOrders extends Component
 
         $groups = OrderGroup::with([
             'menuItem',
+            'area',
             'orders' => fn ($query) => $query
-                ->with(['menuItem', 'user', 'packageSubscription.package'])
+                ->with(['menuItem', 'area', 'packageSubscription.package'])
                 ->active()
                 ->orderBy('delivery_time'),
         ])
@@ -279,7 +280,7 @@ class ActiveOrders extends Component
         $today = now('Asia/Dhaka')->toDateString();
 
         $orders = Order::query()
-            ->with(['menuItem', 'user', 'orderGroup'])
+            ->with(['menuItem', 'area', 'orderGroup.area'])
             ->active()
             ->whereDate('delivery_date', '>=', $today)
             ->whereHas('orderGroup', fn ($q) => $q->where('kitchen_id', $kitchenId))
@@ -287,6 +288,6 @@ class ActiveOrders extends Component
             ->orderBy('delivery_time')
             ->get();
 
-        return OrdersExcelExport::download($orders, 'kitchen-active-orders-'.now('Asia/Dhaka')->format('Y-m-d').'.csv');
+        return OrdersExcelExport::download($orders, 'kitchen-active-orders-'.now('Asia/Dhaka')->format('Y-m-d').'.csv', kitchenSafe: true);
     }
 }

@@ -4,10 +4,14 @@
     'showGroup' => false,
     'showViewAction' => true,
     'complaintClickable' => false,
+    'hideCustomerPii' => false,
 ])
 
 @php
-    $emptyColspan = ($showGroup ? 12 : 11) + ($showViewAction ? 1 : 0);
+    // Kitchen: Order #, Area (not Customer), no Address column.
+    $emptyColspan = ($showGroup ? 1 : 0)
+        + ($hideCustomerPii ? 10 : 11)
+        + ($showViewAction ? 1 : 0);
 @endphp
 
 {{-- Mobile cards --}}
@@ -23,6 +27,7 @@
                 ?? (! empty($order['user'])
                     ? (trim(($order['user']['first_name'] ?? '').' '.($order['user']['last_name'] ?? '')) ?: 'N/A')
                     : ($order['receiver_name'] ?? 'N/A'));
+            $areaName = $order['area_name'] ?? '—';
             $menuName = $order['menu_item']['name'] ?? ($order['menu_name'] ?? 'Custom Selection');
             $groupName = $order['order_group']['name'] ?? ($order['group_name'] ?? '—');
             $groupId = $order['order_group']['id'] ?? ($order['order_group_id'] ?? null);
@@ -47,7 +52,11 @@
                         @endif
                     </div>
                     <p class="text-sm font-semibold text-gray-800 break-words">{{ $menuName }}</p>
-                    <p class="text-xs text-gray-500">{{ $customerName }}</p>
+                    @if($hideCustomerPii)
+                        <p class="text-xs text-gray-500">{{ $areaName }}</p>
+                    @else
+                        <p class="text-xs text-gray-500">{{ $customerName }}</p>
+                    @endif
                 </div>
                 <p class="shrink-0 text-base font-black text-middo-orange tabular-nums">
                     ×{{ $order['quantity'] ?? 1 }}
@@ -84,7 +93,9 @@
                 </p>
             @endif
 
-            <p class="text-xs text-gray-500 line-clamp-2">{{ $order['address'] ?? '—' }}</p>
+            @unless($hideCustomerPii)
+                <p class="text-xs text-gray-500 line-clamp-2">{{ $order['address'] ?? '—' }}</p>
+            @endunless
 
             <div class="flex flex-wrap gap-2 text-[11px]">
                 <span class="inline-flex px-2 py-1 rounded-md font-bold uppercase tracking-wide {{ ($order['payment_status'] ?? 'pending') === 'paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70' : 'bg-red-50 text-red-700 border border-red-200/70' }}">
@@ -118,10 +129,12 @@
                     @endif
                     <th class="p-4">Date</th>
                     <th class="p-4">Window</th>
-                    <th class="p-4">Customer</th>
+                    <th class="p-4">{{ $hideCustomerPii ? 'Area' : 'Customer' }}</th>
                     <th class="p-4">Menu</th>
                     <th class="p-4 text-center">Qty</th>
-                    <th class="p-4">Address</th>
+                    @unless($hideCustomerPii)
+                        <th class="p-4">Address</th>
+                    @endunless
                     <th class="p-4">Status</th>
                     <th class="p-4">Payment</th>
                     <th class="p-4">Method</th>
@@ -143,6 +156,7 @@
                             ?? (! empty($order['user'])
                                 ? (trim(($order['user']['first_name'] ?? '').' '.($order['user']['last_name'] ?? '')) ?: 'N/A')
                                 : ($order['receiver_name'] ?? 'N/A'));
+                        $areaName = $order['area_name'] ?? '—';
                         $menuName = $order['menu_item']['name'] ?? ($order['menu_name'] ?? 'Custom Selection');
                         $groupName = $order['order_group']['name'] ?? ($order['group_name'] ?? '—');
                         $groupId = $order['order_group']['id'] ?? ($order['order_group_id'] ?? null);
@@ -199,31 +213,37 @@
                         </td>
                         <td class="p-4 text-gray-600">{{ $order['delivery_time'] ?? '—' }}</td>
                         <td class="p-4 font-medium text-gray-800">
-                            @php
-                                $holder = !empty($order['user'])
-                                    ? (trim(($order['user']['first_name'] ?? '').' '.($order['user']['last_name'] ?? '')) ?: 'N/A')
-                                    : ($order['account_holder_name'] ?? $customerName);
-                                $receiverName = trim((string) ($order['receiver_name'] ?? ''));
-                                $receiverMobile = trim((string) ($order['receiver_mobile'] ?? ''));
-                                $separate = !empty($order['has_separate_receiver'])
-                                    || ($receiverName !== '' && mb_strtolower($receiverName) !== mb_strtolower($holder));
-                            @endphp
-                            @if($separate)
-                                <div class="space-y-0.5">
-                                    <div><span class="text-[10px] uppercase text-gray-400 font-bold">Receiver</span> {{ $receiverName !== '' ? $receiverName : $customerName }}@if($receiverMobile) · {{ $receiverMobile }}@endif</div>
-                                    <div class="text-xs text-gray-500"><span class="text-[10px] uppercase text-gray-400 font-bold">Account</span> {{ $holder }}</div>
-                                </div>
+                            @if($hideCustomerPii)
+                                {{ $areaName }}
                             @else
-                                {{ $holder }}
+                                @php
+                                    $holder = !empty($order['user'])
+                                        ? (trim(($order['user']['first_name'] ?? '').' '.($order['user']['last_name'] ?? '')) ?: 'N/A')
+                                        : ($order['account_holder_name'] ?? $customerName);
+                                    $receiverName = trim((string) ($order['receiver_name'] ?? ''));
+                                    $receiverMobile = trim((string) ($order['receiver_mobile'] ?? ''));
+                                    $separate = !empty($order['has_separate_receiver'])
+                                        || ($receiverName !== '' && mb_strtolower($receiverName) !== mb_strtolower($holder));
+                                @endphp
+                                @if($separate)
+                                    <div class="space-y-0.5">
+                                        <div><span class="text-[10px] uppercase text-gray-400 font-bold">Receiver</span> {{ $receiverName !== '' ? $receiverName : $customerName }}@if($receiverMobile) · {{ $receiverMobile }}@endif</div>
+                                        <div class="text-xs text-gray-500"><span class="text-[10px] uppercase text-gray-400 font-bold">Account</span> {{ $holder }}</div>
+                                    </div>
+                                @else
+                                    {{ $holder }}
+                                @endif
                             @endif
                         </td>
                         <td class="p-4 font-semibold text-gray-800">
                             {{ $menuName }}
                         </td>
                         <td class="p-4 text-center font-mono font-bold text-middo-orange">{{ $order['quantity'] ?? 1 }}</td>
-                        <td class="p-4 text-gray-600 max-w-xs truncate" title="{{ $order['address'] ?? '' }}">
-                            {{ $order['address'] ?? '—' }}
-                        </td>
+                        @unless($hideCustomerPii)
+                            <td class="p-4 text-gray-600 max-w-xs truncate" title="{{ $order['address'] ?? '' }}">
+                                {{ $order['address'] ?? '—' }}
+                            </td>
+                        @endunless
                         <td class="p-4">
                             <span class="inline-flex px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide bg-amber-50 text-amber-900 border border-amber-200/70">
                                 {{ $order['order_status'] ?? 'pending' }}

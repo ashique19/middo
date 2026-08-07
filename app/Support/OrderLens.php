@@ -123,9 +123,11 @@ class OrderLens
             'menuItem',
             'area.city',
             'orderGroup.kitchen',
+            'orderGroup.area',
             'orderGroup.menuItem',
             'orderGroup.orders.menuItem',
             'orderGroup.orders.user',
+            'orderGroup.orders.area',
             'deliveryRider',
             'packageSubscription.package',
             'logs.performedBy',
@@ -136,16 +138,37 @@ class OrderLens
         ]);
 
         $party = $order->partyPayload();
-        $buyer = CorporateApiPresenter::order($order);
+        if ($lens === self::KITCHEN) {
+            // Kitchen must not receive customer name / street address / mobiles.
+            $party = [
+                'area_name' => self::areaNameForOrder($order),
+                'amount_paid' => $party['amount_paid'],
+                'amount_due' => $party['amount_due'],
+                'payment_method' => $party['payment_method'],
+                'payment_method_label' => $party['payment_method_label'],
+            ];
+        }
+
+        $buyer = $lens === self::KITCHEN
+            ? []
+            : CorporateApiPresenter::order($order);
         $tracking = $order->logs
             ->sortByDesc('created_at')
             ->values()
-            ->map(function ($log) {
+            ->map(function ($log) use ($lens, $order) {
                 $event = CorporateApiPresenter::trackEvent($log);
+                $event['at_label'] = optional($log->created_at)?->timezone('Asia/Dhaka')->format('M d, Y g:i A');
 
-                return array_merge($event, [
-                    'at_label' => optional($log->created_at)?->timezone('Asia/Dhaka')->format('M d, Y g:i A'),
-                ]);
+                if ($lens === self::KITCHEN) {
+                    $performerRole = $log->performedBy?->role?->name
+                        ?? $log->performedBy?->loadMissing('role')->role?->name;
+                    if ((int) $log->performed_by === (int) $order->user_id
+                        || $performerRole === 'corporate') {
+                        $event['performer_name'] = null;
+                    }
+                }
+
+                return $event;
             })
             ->all();
 
@@ -158,6 +181,14 @@ class OrderLens
             'context' => self::contextForLens($order, $lens),
             'actions' => self::actionsForLens($order, $lens, $actor),
         ];
+    }
+
+    public static function areaNameForOrder(Order $order): string
+    {
+        $name = $order->area?->name
+            ?? $order->orderGroup?->area?->name;
+
+        return is_string($name) && trim($name) !== '' ? trim($name) : '—';
     }
 
     /**
@@ -245,14 +276,23 @@ class OrderLens
                 ->reject(fn (Order $o) => (int) $o->id === (int) $order->id)
                 ->sortBy('delivery_time')
                 ->values()
-                ->map(fn (Order $o) => [
-                    'id' => $o->id,
-                    'quantity' => $o->quantity,
-                    'order_status' => $o->order_status,
-                    'delivery_time' => $o->delivery_time,
-                    'menu_name' => $o->menuItem?->name ?? '—',
-                    'customer_name' => $o->partyPayload()['customer_name'] ?? '—',
-                ])
+                ->map(function (Order $o) use ($lens) {
+                    $row = [
+                        'id' => $o->id,
+                        'quantity' => $o->quantity,
+                        'order_status' => $o->order_status,
+                        'delivery_time' => $o->delivery_time,
+                        'menu_name' => $o->menuItem?->name ?? '—',
+                    ];
+
+                    if ($lens === self::KITCHEN) {
+                        $row['area_name'] = self::areaNameForOrder($o);
+                    } else {
+                        $row['customer_name'] = $o->partyPayload()['customer_name'] ?? '—';
+                    }
+
+                    return $row;
+                })
                 ->all();
         }
 

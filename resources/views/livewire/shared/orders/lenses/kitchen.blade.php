@@ -39,15 +39,8 @@
                 <dd class="font-mono font-bold text-middo-orange mt-0.5">{{ $order->quantity }}</dd>
             </div>
             <div>
-                <dt class="text-[11px] font-bold uppercase text-gray-400">Receiver</dt>
-                <dd class="font-semibold text-gray-800 mt-0.5">
-                    {{ $party['receiver_name'] ?: '—' }}
-                    @if(!empty($party['receiver_mobile'])) · {{ $party['receiver_mobile'] }} @endif
-                </dd>
-            </div>
-            <div class="sm:col-span-2">
-                <dt class="text-[11px] font-bold uppercase text-gray-400">Address</dt>
-                <dd class="font-semibold text-gray-800 mt-0.5">{{ $order->address ?: '—' }}</dd>
+                <dt class="text-[11px] font-bold uppercase text-gray-400">Area</dt>
+                <dd class="font-semibold text-gray-800 mt-0.5">{{ $party['area_name'] ?? '—' }}</dd>
             </div>
             <div>
                 <dt class="text-[11px] font-bold uppercase text-gray-400">Dispatch deadline</dt>
@@ -92,7 +85,7 @@
                 <div class="py-3 flex flex-wrap items-center justify-between gap-2 text-sm">
                     <div>
                         <span class="font-mono font-bold text-middo-dark">#{{ $mate['id'] }}</span>
-                        <span class="text-gray-600">· {{ $mate['customer_name'] }} · Qty {{ $mate['quantity'] }}</span>
+                        <span class="text-gray-600">· {{ $mate['area_name'] ?? '—' }} · Qty {{ $mate['quantity'] }}</span>
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="text-xs font-bold uppercase text-gray-400">{{ str_replace('_', ' ', $mate['order_status']) }}</span>

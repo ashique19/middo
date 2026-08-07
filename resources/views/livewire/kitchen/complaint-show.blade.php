@@ -9,7 +9,7 @@
     </div>
 
     <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm text-sm text-gray-600 space-y-1">
-        <p><span class="font-bold text-middo-dark">Customer:</span> {{ $order?->user?->name ?? '—' }}</p>
+        <p><span class="font-bold text-middo-dark">Area:</span> {{ $order?->area?->name ?? $order?->orderGroup?->area?->name ?? '—' }}</p>
         <p><span class="font-bold text-middo-dark">Delivery:</span>
             {{ $order?->delivery_date?->format('M j, Y') }} · {{ $order?->delivery_time }}
         </p>

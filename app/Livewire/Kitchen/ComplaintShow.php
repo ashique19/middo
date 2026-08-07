@@ -20,7 +20,7 @@ class ComplaintShow extends Component
 
         abort_unless(KitchenComplaints::belongsToKitchen($root, $kitchenId), 403);
 
-        $this->complaint = $root->load(['order.menuItem', 'order.user', 'order.orderGroup']);
+        $this->complaint = $root->load(['order.menuItem', 'order.area', 'order.orderGroup.area']);
     }
 
     public function render()

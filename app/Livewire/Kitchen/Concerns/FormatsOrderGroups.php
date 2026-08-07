@@ -36,6 +36,9 @@ trait FormatsOrderGroups
         return $this->baseOrderNode($order);
     }
 
+    /**
+     * Kitchen-facing order row: order id + area, never customer name or street address.
+     */
     protected function baseOrderNode(Order $order): array
     {
         $party = $order->partyPayload();
@@ -46,21 +49,23 @@ trait FormatsOrderGroups
             'delivery_date' => $order->delivery_date->toDateString(),
             'quantity' => $order->quantity,
             'order_status' => $order->order_status,
-            'customer_name' => $party['customer_name'],
-            'account_holder_name' => $party['account_holder_name'],
-            'account_holder_mobile' => $party['account_holder_mobile'],
-            'receiver_name' => $party['receiver_name'],
-            'receiver_mobile' => $party['receiver_mobile'],
-            'has_separate_receiver' => $party['has_separate_receiver'],
+            'area_name' => $this->areaNameForOrder($order),
             'amount_paid' => $party['amount_paid'],
             'amount_due' => $party['amount_due'],
             'payment_status' => $order->payment_status,
             'payment_method' => $party['payment_method'],
             'payment_method_label' => $party['payment_method_label'],
             'total_amount' => $order->total_amount,
-            'address' => $order->address,
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
         ], PackageOrderPresenter::fields($order));
+    }
+
+    protected function areaNameForOrder(Order $order): string
+    {
+        $name = $order->area?->name
+            ?? $order->orderGroup?->area?->name;
+
+        return is_string($name) && trim($name) !== '' ? trim($name) : '—';
     }
 
     /**
@@ -97,7 +102,13 @@ trait FormatsOrderGroups
                     ->values();
 
                 $orderNodes = $orders
-                    ->map(fn (Order $order) => $this->formatOrderNode($order))
+                    ->map(function (Order $order) use ($group) {
+                        if (! $order->relationLoaded('orderGroup')) {
+                            $order->setRelation('orderGroup', $group);
+                        }
+
+                        return $this->formatOrderNode($order);
+                    })
                     ->all();
 
                 return [

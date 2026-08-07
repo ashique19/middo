@@ -119,8 +119,9 @@ class MiddoOrderGroups extends Component
 
         $groups = OrderGroup::with([
             'menuItem',
+            'area',
             'orders' => fn ($query) => $query
-                ->with(['menuItem', 'user', 'packageSubscription.package'])
+                ->with(['menuItem', 'area', 'packageSubscription.package'])
                 ->where('order_status', '!=', 'cancelled')
                 ->orderBy('delivery_time'),
             'events' => fn ($query) => $query

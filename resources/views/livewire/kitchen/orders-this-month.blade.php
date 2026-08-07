@@ -11,7 +11,7 @@
     </div>
 
     @if($viewMode === 'list')
-        <x-operation.orders.table :orders="$flatOrders" :show-group="true" empty-message="No orders this month." />
+        <x-operation.orders.table :orders="$flatOrders" :show-group="true" :hide-customer-pii="true" empty-message="No orders this month." />
         @if($groups->hasPages())
             <div class="mt-4 px-1">{{ $groups->links() }}</div>
         @endif
@@ -41,7 +41,7 @@
                             <span class="shrink-0 w-6 text-center text-gray-400 font-mono text-xs select-none">└</span>
                             <div class="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 text-sm">
                                 <span class="font-mono font-bold text-middo-dark">#{{ $order['id'] }}</span>
-                                <span class="font-medium truncate">{{ $order['customer_name'] }}</span>
+                                <span class="font-medium truncate">{{ $order['area_name'] ?? '—' }}</span>
                                 <span class="truncate text-gray-700">{{ $order['menu_name'] }}</span>
                                 <span class="text-gray-500">
                                     Qty <strong class="text-middo-orange">{{ $order['quantity'] }}</strong>

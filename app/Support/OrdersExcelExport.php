@@ -11,47 +11,90 @@ class OrdersExcelExport
     /**
      * @param  Collection<int, Order>|iterable<int, Order>  $orders
      */
-    public static function download(iterable $orders, string $filename = 'orders.csv'): StreamedResponse
-    {
+    public static function download(
+        iterable $orders,
+        string $filename = 'orders.csv',
+        bool $kitchenSafe = false,
+    ): StreamedResponse {
         $filename = str_ends_with(strtolower($filename), '.csv')
             ? $filename
             : $filename.'.csv';
 
-        return response()->streamDownload(function () use ($orders) {
+        return response()->streamDownload(function () use ($orders, $kitchenSafe) {
             $out = fopen('php://output', 'w');
             // UTF-8 BOM so Excel opens Bengali/Unicode cleanly.
             fwrite($out, "\xEF\xBB\xBF");
 
-            fputcsv($out, [
-                'Order #',
-                'Delivery Date',
-                'Delivery Time',
-                'Customer',
-                'Receiver',
-                'Receiver Mobile',
-                'Menu',
-                'Source',
-                'Package',
-                'Subscription #',
-                'Qty',
-                'Address',
-                'Status',
-                'Payment Status',
-                'Payment Method',
-                'Total',
-                'Amount Paid',
-                'Amount Due',
-                'Group',
-            ]);
+            if ($kitchenSafe) {
+                fputcsv($out, [
+                    'Order #',
+                    'Delivery Date',
+                    'Delivery Time',
+                    'Area',
+                    'Menu',
+                    'Source',
+                    'Package',
+                    'Subscription #',
+                    'Qty',
+                    'Status',
+                    'Payment Status',
+                    'Payment Method',
+                    'Total',
+                    'Group',
+                ]);
+            } else {
+                fputcsv($out, [
+                    'Order #',
+                    'Delivery Date',
+                    'Delivery Time',
+                    'Customer',
+                    'Receiver',
+                    'Receiver Mobile',
+                    'Menu',
+                    'Source',
+                    'Package',
+                    'Subscription #',
+                    'Qty',
+                    'Address',
+                    'Status',
+                    'Payment Status',
+                    'Payment Method',
+                    'Total',
+                    'Amount Paid',
+                    'Amount Due',
+                    'Group',
+                ]);
+            }
 
             foreach ($orders as $order) {
                 if (! $order instanceof Order) {
                     continue;
                 }
 
-                $order->loadMissing(['menuItem', 'user', 'orderGroup', 'packageSubscription.package']);
+                $order->loadMissing(['menuItem', 'user', 'orderGroup.area', 'area', 'packageSubscription.package']);
                 $party = $order->partyPayload();
                 $package = PackageOrderPresenter::fields($order);
+
+                if ($kitchenSafe) {
+                    fputcsv($out, [
+                        $order->id,
+                        optional($order->delivery_date)->toDateString(),
+                        $order->delivery_time,
+                        OrderLens::areaNameForOrder($order),
+                        $order->menuItem?->name ?? 'Custom Selection',
+                        $package['is_package'] ? 'Package' : 'A la carte',
+                        $package['package_name'] ?? '',
+                        $package['package_subscription_id'] ?? '',
+                        $order->quantity,
+                        $order->order_status,
+                        $order->payment_status,
+                        $order->paymentMethodLabel(),
+                        $order->total_amount,
+                        $order->orderGroup?->name ?? '',
+                    ]);
+
+                    continue;
+                }
 
                 fputcsv($out, [
                     $order->id,

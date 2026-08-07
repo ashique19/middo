@@ -26,14 +26,14 @@ class OrdersThisMonth extends Component
         $monthEnd = Carbon::now('Asia/Dhaka')->endOfMonth()->toDateString();
 
         $orders = Order::query()
-            ->with(['menuItem', 'user', 'orderGroup'])
+            ->with(['menuItem', 'area', 'orderGroup.area'])
             ->whereBetween('delivery_date', [$monthStart, $monthEnd])
             ->whereHas('orderGroup', fn ($q) => $q->where('kitchen_id', $kitchenId))
             ->orderByDesc('delivery_date')
             ->orderBy('delivery_time')
             ->get();
 
-        return OrdersExcelExport::download($orders, 'kitchen-orders-this-month-'.now('Asia/Dhaka')->format('Y-m').'.csv');
+        return OrdersExcelExport::download($orders, 'kitchen-orders-this-month-'.now('Asia/Dhaka')->format('Y-m').'.csv', kitchenSafe: true);
     }
 
     public function render()
@@ -44,8 +44,9 @@ class OrdersThisMonth extends Component
 
         $groups = OrderGroup::with([
             'menuItem',
+            'area',
             'orders' => fn ($query) => $query
-                ->with(['menuItem', 'user'])
+                ->with(['menuItem', 'area'])
                 ->orderByDesc('delivery_date')
                 ->orderBy('delivery_time'),
         ])

@@ -78,7 +78,7 @@
     <livewire:kitchen.dispatch-order-modal />
 
     @if($viewMode === 'list')
-        <x-operation.orders.table :orders="$flatOrders" :show-group="true" empty-message="No active order groups assigned to you." />
+        <x-operation.orders.table :orders="$flatOrders" :show-group="true" :hide-customer-pii="true" empty-message="No active order groups assigned to you." />
         @if($groups->hasPages())
             <div class="mt-4 px-1">{{ $groups->links() }}</div>
         @endif
@@ -157,7 +157,7 @@
                                             </span>
                                         @endif
                                     </div>
-                                    <p class="text-sm font-semibold text-[#2B1A11] truncate">{{ $order['customer_name'] }}</p>
+                                    <p class="text-sm font-semibold text-[#2B1A11] truncate">{{ $order['area_name'] ?? '—' }}</p>
                                     <p class="text-xs font-medium text-[#635347]">
                                         Qty <strong class="text-middo-orange">{{ $order['quantity'] }}</strong>
                                         · {{ $order['delivery_time'] }}
