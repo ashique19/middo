@@ -156,7 +156,6 @@
     @if($tab === 'withdraw')
         <form id="account-withdraw-panel" wire:submit="requestWithdrawal" class="scroll-mt-24 bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Request withdrawal</h2>
-            <p class="text-sm text-gray-500">Withdraw the full receivable when Middo owes you. Choose a payout channel — Bank / bKash / Nagad details come from your profile.</p>
             <div>
                 <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Amount (৳) — full receivable</label>
                 <input type="text" readonly value="{{ $withdrawAmount !== null ? number_format((int) $withdrawAmount) : '—' }}"
