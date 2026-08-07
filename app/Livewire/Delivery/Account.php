@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Delivery;
 
+use App\Livewire\Concerns\ScrollsToAccountPanel;
 use App\Models\PartnerPayable;
 use App\Models\RiderAccountLedgerEntry;
 use App\Models\RiderWithdrawalRequest;
@@ -14,6 +15,7 @@ use Livewire\WithPagination;
 
 class Account extends Component
 {
+    use ScrollsToAccountPanel;
     use WithPagination;
 
     public string $tab = 'statement';

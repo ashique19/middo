@@ -27,10 +27,10 @@
                 <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Quick actions</p>
                 <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 mt-2">
                     @if($balance > 0)
-                        <button type="button" wire:click="$set('tab', 'withdraw')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request withdrawal</button>
+                        <button type="button" wire:click="openWithdrawForm" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request withdrawal</button>
                     @endif
                     @if($balance < 0)
-                        <button type="button" wire:click="$set('tab', 'send')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-middo-dark">Send money to Middo</button>
+                        <button type="button" wire:click="openSendForm" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-middo-dark">Send money to Middo</button>
                     @endif
                     @if($pendingCashHandovers > 0)
                         <a href="{{ route('kitchen.cash-handovers') }}" class="w-full sm:w-auto inline-flex justify-center px-3 py-2.5 sm:py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold bg-sky-50">
@@ -63,7 +63,8 @@
     @endphp
     <div class="flex flex-wrap gap-2">
         @foreach($accountTabs as $key => $label)
-            <button type="button" wire:click="$set('tab', '{{ $key }}')"
+            <button type="button"
+                    wire:click="{{ $key === 'withdraw' ? 'openWithdrawForm' : ($key === 'send' ? 'openSendForm' : "\$set('tab', '{$key}')") }}"
                     @class(['px-3 py-1.5 rounded-xl text-xs font-bold border', 'bg-middo-orange text-white border-middo-orange' => $tab === $key, 'bg-white text-gray-700 border-gray-200' => $tab !== $key])>
                 {{ $label }}
             </button>
@@ -153,7 +154,7 @@
     @endif
 
     @if($tab === 'withdraw')
-        <form wire:submit="requestWithdrawal" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
+        <form id="account-withdraw-panel" wire:submit="requestWithdrawal" class="scroll-mt-24 bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Request withdrawal</h2>
             <p class="text-sm text-gray-500">Withdraw when Middo owes you (positive balance). Amount must match a FIFO total of whole open payables. Choose a payout channel — Bank / bKash / Nagad details come from your profile.</p>
             <div>
@@ -221,7 +222,7 @@
     @endif
 
     @if($tab === 'send')
-        <form wire:submit="submitTransfer" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
+        <form id="account-send-panel" wire:submit="submitTransfer" class="scroll-mt-24 bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Send money to Middo</h2>
             <p class="text-sm text-gray-500">When you hold surplus cash (you owe Middo), transfer it with proof. Ops confirmation credits your wallet and Middo’s cash ledger.</p>
             <div>

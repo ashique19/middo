@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Kitchen;
 
+use App\Livewire\Concerns\ScrollsToAccountPanel;
 use App\Models\CashHandover;
 use App\Models\KitchenAccountLedgerEntry;
 use App\Models\KitchenMiddoTransfer;
@@ -17,6 +18,7 @@ use Livewire\WithPagination;
 
 class Account extends Component
 {
+    use ScrollsToAccountPanel;
     use WithFileUploads;
     use WithPagination;
 
@@ -43,6 +45,12 @@ class Account extends Component
     public function mount(): void
     {
         $this->payoutChannel = Auth::user()?->preferredPayoutChannel() ?? PayoutChannel::CASH;
+    }
+
+    public function openSendForm(): void
+    {
+        $this->tab = 'send';
+        $this->scrollToAccountPanel('account-send-panel');
     }
 
     public function updatingTab(): void

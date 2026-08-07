@@ -33,7 +33,7 @@
             @if($canRequestPayment || $due > 0)
                 <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 mt-3">
                     @if($canRequestPayment)
-                        <button type="button" wire:click="$set('tab', 'withdraw')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request payment</button>
+                        <button type="button" wire:click="openWithdrawForm" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request payment</button>
                     @endif
                     @if($due > 0)
                         <a href="{{ route('delivery.cash-handovers') }}" class="w-full sm:w-auto inline-flex justify-center px-3 py-2.5 sm:py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold bg-sky-50">Cash handovers →</a>
@@ -62,7 +62,8 @@
     @endphp
     <div class="flex flex-wrap gap-2">
         @foreach($accountTabs as $key => $label)
-            <button type="button" wire:click="$set('tab', '{{ $key }}')"
+            <button type="button"
+                    wire:click="{{ $key === 'withdraw' ? 'openWithdrawForm' : "\$set('tab', '{$key}')" }}"
                     @class(['px-3 py-1.5 rounded-xl text-xs font-bold border', 'bg-middo-orange text-white border-middo-orange' => $tab === $key, 'bg-white text-gray-700 border-gray-200' => $tab !== $key])>
                 {{ $label }}
             </button>
@@ -200,7 +201,7 @@
     @endif
 
     @if($tab === 'withdraw')
-        <form wire:submit="requestWithdrawal" class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
+        <form id="account-withdraw-panel" wire:submit="requestWithdrawal" class="scroll-mt-24 bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Request payment</h2>
             <p class="text-sm text-gray-500">
                 Available when Middo owes you and you have no Due cash to hand over. Choose a payout channel — Bank / bKash / Nagad details come from your profile.
