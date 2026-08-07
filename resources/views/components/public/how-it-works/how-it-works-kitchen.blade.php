@@ -54,5 +54,12 @@
                 </div>
             </div>
         </div>
+
+        <div class="text-center mt-16">
+            <a href="{{ route('kitchen.register') }}"
+               class="inline-block bg-middo-orange text-white font-bold px-10 py-4 rounded-full text-lg hover:bg-[#8e7557] transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1">
+                Signup as Kitchen
+            </a>
+        </div>
     </div>
 </section>
