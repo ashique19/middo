@@ -26,6 +26,9 @@ class StaffAlert extends Model
     /** Kitchen assigned empty box to rider for Middo warehouse return. */
     public const TYPE_KITCHEN_TO_OPS_BOX = 'kitchen_to_ops_box';
 
+    /** Kitchen requested more Middo boxes from ops. */
+    public const TYPE_KITCHEN_BOX_REQUEST = 'kitchen_box_request';
+
     protected $fillable = [
         'user_id',
         'type',

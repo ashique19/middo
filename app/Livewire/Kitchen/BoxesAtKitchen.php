@@ -2,11 +2,13 @@
 
 namespace App\Livewire\Kitchen;
 
+use App\Models\KitchenBoxRequest;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Models\User;
 use App\Support\MiddoBoxKitchenActions;
 use App\Support\MiddoSettings;
+use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -29,11 +31,98 @@ class BoxesAtKitchen extends Component
 
     public ?int $selectedRiderId = null;
 
+    public bool $showRequestModal = false;
+
+    public string $requestQuantity = '1';
+
+    public string $requestNote = '';
+
     public function updatingFilter(): void
     {
         $this->resetPage();
         $this->cancelDamage();
         $this->cancelViaRider();
+        $this->closeRequestModal();
+    }
+
+    public function openRequestModal(): void
+    {
+        $this->errorMessage = null;
+        $this->cancelDamage();
+        $this->cancelViaRider();
+        $this->showRequestModal = true;
+        $this->requestQuantity = '1';
+        $this->requestNote = '';
+        $this->resetErrorBag();
+    }
+
+    public function closeRequestModal(): void
+    {
+        $this->showRequestModal = false;
+        $this->requestQuantity = '1';
+        $this->requestNote = '';
+        $this->resetErrorBag();
+    }
+
+    public function submitBoxRequest(): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        try {
+            $this->validate([
+                'requestQuantity' => 'required|integer|min:1|max:500',
+                'requestNote' => 'nullable|string|max:1000',
+            ]);
+
+            $kitchen = Auth::user();
+            if (! $kitchen) {
+                throw new \RuntimeException('You must be logged in.');
+            }
+
+            $request = KitchenBoxRequest::create([
+                'kitchen_id' => $kitchen->id,
+                'quantity' => (int) $this->requestQuantity,
+                'status' => KitchenBoxRequest::STATUS_PENDING,
+                'note' => trim($this->requestNote) !== '' ? trim($this->requestNote) : null,
+                'requested_by' => $kitchen->id,
+            ]);
+
+            StaffAlerts::notifyOpsKitchenBoxRequest($request);
+
+            $this->statusMessage = "Requested {$request->quantity} Middo ".str('box')->plural($request->quantity).'. Ops can see this on Middo Boxes.';
+            $this->closeRequestModal();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not submit box request.';
+        }
+    }
+
+    public function cancelBoxRequest(int $requestId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        $request = KitchenBoxRequest::query()
+            ->whereKey($requestId)
+            ->where('kitchen_id', Auth::id())
+            ->where('status', KitchenBoxRequest::STATUS_PENDING)
+            ->first();
+
+        if (! $request) {
+            $this->errorMessage = 'That box request is no longer pending.';
+
+            return;
+        }
+
+        $request->update([
+            'status' => KitchenBoxRequest::STATUS_CANCELLED,
+            'reviewed_by' => Auth::id(),
+            'reviewed_at' => now(),
+        ]);
+
+        $this->statusMessage = 'Box request cancelled.';
     }
 
     public function openDamage(int $boxId): void
@@ -205,6 +294,12 @@ class BoxesAtKitchen extends Component
                 ->count(),
         ];
 
+        $pendingRequests = KitchenBoxRequest::query()
+            ->where('kitchen_id', $kitchenId)
+            ->pending()
+            ->latest('id')
+            ->get();
+
         if ($this->filter === 'history') {
             $history = MiddoBoxLog::query()
                 ->with(['middoBox', 'performedBy'])
@@ -225,6 +320,7 @@ class BoxesAtKitchen extends Component
                 'counts' => $counts,
                 'viaRiderEnabled' => $viaRiderEnabled,
                 'riders' => [],
+                'pendingRequests' => $pendingRequests,
             ])->layout('kitchen.layout.app', ['title' => 'Boxes at Kitchen']);
         }
 
@@ -244,6 +340,7 @@ class BoxesAtKitchen extends Component
             'counts' => $counts,
             'viaRiderEnabled' => $viaRiderEnabled,
             'riders' => $viaRiderEnabled ? $this->fetchRidersForKitchen() : [],
+            'pendingRequests' => $pendingRequests,
         ])->layout('kitchen.layout.app', ['title' => 'Boxes at Kitchen']);
     }
 }

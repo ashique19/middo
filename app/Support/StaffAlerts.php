@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\CustomRun;
+use App\Models\KitchenBoxRequest;
 use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Models\OrderGroup;
@@ -32,6 +33,50 @@ class StaffAlerts
             ['source' => 'ops_assign'],
             'assigned:'.$group->id.':'.$kitchen->id.':'.now('Asia/Dhaka')->toDateString()
         );
+    }
+
+    /**
+     * Kitchen asked ops for more Middo boxes.
+     */
+    public static function notifyOpsKitchenBoxRequest(KitchenBoxRequest $request): int
+    {
+        $request->loadMissing('kitchen');
+        $kitchen = $request->kitchen;
+        if (! $kitchen) {
+            return 0;
+        }
+
+        $qty = (int) $request->quantity;
+        $title = 'Box request: '.$kitchen->name;
+        $body = sprintf(
+            '%s requested %d Middo %s%s. Open Middo Boxes to fulfill.',
+            $kitchen->name,
+            $qty,
+            str('box')->plural($qty),
+            $request->note ? ' — '.$request->note : ''
+        );
+
+        $created = 0;
+        foreach (self::opsAndAdminUserIds() as $userId) {
+            $alert = self::createOnce(
+                $userId,
+                StaffAlert::TYPE_KITCHEN_BOX_REQUEST,
+                $title,
+                $body,
+                null,
+                [
+                    'kitchen_box_request_id' => $request->id,
+                    'kitchen_id' => $kitchen->id,
+                    'quantity' => $qty,
+                ],
+                'kitchen_box_request:'.$request->id.':'.$userId
+            );
+            if ($alert) {
+                $created++;
+            }
+        }
+
+        return $created;
     }
 
     public static function notifyOpsNeedsReassignment(

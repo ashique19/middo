@@ -48,6 +48,66 @@
         </div>
     @endif
 
+    @if($errorMessage)
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+            {{ $errorMessage }}
+        </div>
+    @endif
+
+    @if($pendingBoxRequests->isNotEmpty())
+        <div class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 sm:p-5 space-y-3 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h2 class="text-lg font-bold text-amber-950">Kitchen box requests</h2>
+                    <p class="text-sm font-semibold text-amber-800/80">
+                        {{ $pendingBoxRequests->count() }} pending — assign warehouse boxes, then mark fulfilled.
+                    </p>
+                </div>
+            </div>
+            <div class="bg-white/80 border border-amber-100 rounded-xl overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm min-w-[640px]">
+                        <thead>
+                            <tr class="bg-amber-50/80 text-xs font-semibold uppercase tracking-wider text-amber-800">
+                                <th class="p-3">Kitchen</th>
+                                <th class="p-3 text-center">Qty</th>
+                                <th class="p-3">Note</th>
+                                <th class="p-3">Requested</th>
+                                <th class="p-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-amber-100">
+                            @foreach($pendingBoxRequests as $req)
+                                <tr wire:key="ops-box-req-{{ $req->id }}">
+                                    <td class="p-3 font-semibold text-middo-dark">
+                                        {{ $req->kitchen?->name ?? 'Kitchen #'.$req->kitchen_id }}
+                                    </td>
+                                    <td class="p-3 text-center font-black text-middo-orange">{{ $req->quantity }}</td>
+                                    <td class="p-3 text-gray-600 max-w-xs">{{ $req->note ?: '—' }}</td>
+                                    <td class="p-3 text-xs font-semibold text-gray-500 whitespace-nowrap">
+                                        {{ $req->created_at?->timezone('Asia/Dhaka')->format('M j, g:i A') }}
+                                    </td>
+                                    <td class="p-3 text-right space-x-2 whitespace-nowrap">
+                                        <button type="button"
+                                                wire:click="markBoxRequestFulfilled({{ $req->id }})"
+                                                class="text-xs font-bold text-emerald-700 hover:underline">
+                                            Mark fulfilled
+                                        </button>
+                                        <button type="button"
+                                                wire:click="cancelBoxRequest({{ $req->id }})"
+                                                class="text-xs font-bold text-gray-500 hover:underline">
+                                            Cancel
+                                        </button>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         @php
             $tiles = [

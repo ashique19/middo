@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operation;
 
+use App\Models\KitchenBoxRequest;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Support\OpsBoxCustody;
@@ -25,6 +26,8 @@ class MiddoBoxes extends Component
     public array $selectedBoxIds = [];
 
     public ?string $statusMessage = null;
+
+    public ?string $errorMessage = null;
 
     public function updatingSearch(): void
     {
@@ -141,6 +144,60 @@ class MiddoBoxes extends Component
         ));
     }
 
+    public function markBoxRequestFulfilled(int $requestId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        $request = KitchenBoxRequest::query()
+            ->with('kitchen')
+            ->pending()
+            ->whereKey($requestId)
+            ->first();
+
+        if (! $request) {
+            $this->errorMessage = 'That box request is no longer pending.';
+
+            return;
+        }
+
+        $kitchenName = $request->kitchen?->name ?? ('Kitchen #'.$request->kitchen_id);
+        $qty = (int) $request->quantity;
+
+        $request->update([
+            'status' => KitchenBoxRequest::STATUS_FULFILLED,
+            'reviewed_by' => Auth::id(),
+            'reviewed_at' => now(),
+        ]);
+
+        $this->statusMessage = "Marked request #{$request->id} fulfilled ({$qty} boxes for {$kitchenName}).";
+    }
+
+    public function cancelBoxRequest(int $requestId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        $request = KitchenBoxRequest::query()
+            ->pending()
+            ->whereKey($requestId)
+            ->first();
+
+        if (! $request) {
+            $this->errorMessage = 'That box request is no longer pending.';
+
+            return;
+        }
+
+        $request->update([
+            'status' => KitchenBoxRequest::STATUS_CANCELLED,
+            'reviewed_by' => Auth::id(),
+            'reviewed_at' => now(),
+        ]);
+
+        $this->statusMessage = "Cancelled box request #{$request->id}.";
+    }
+
     public function render()
     {
         $summary = OpsBoxCustody::summary();
@@ -164,10 +221,17 @@ class MiddoBoxes extends Component
             ->orderByDesc('id')
             ->paginate(20);
 
+        $pendingBoxRequests = KitchenBoxRequest::query()
+            ->with(['kitchen', 'requestedBy'])
+            ->pending()
+            ->latest('id')
+            ->get();
+
         return view('livewire.operation.middo-boxes', [
             'boxes' => $boxes,
             'damagedCount' => $summary['damaged'],
             'custody' => $summary,
+            'pendingBoxRequests' => $pendingBoxRequests,
         ])->layout('layouts.private.app', ['title' => 'Middo Boxes']);
     }
 }

@@ -7,7 +7,7 @@
         </p>
     </div>
 
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap gap-2 items-center">
         @foreach([
             'inventory' => 'With me',
             'sendable' => 'Sendable',
@@ -29,7 +29,73 @@
            class="px-3 py-1.5 rounded-xl text-xs font-bold border border-sky-200 text-sky-800 bg-sky-50 hover:border-sky-400 transition">
             Incoming →
         </a>
+        <button type="button"
+                wire:click="openRequestModal"
+                class="ml-auto px-3 py-1.5 rounded-xl text-xs font-bold border border-transparent bg-middo-orange text-white hover:bg-[#733614] transition">
+            Request box
+        </button>
     </div>
+
+    @if($showRequestModal)
+        <div class="fixed inset-0 bg-gray-900/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div class="bg-white rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-2xl my-8 space-y-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-xl font-bold text-middo-dark">Request Middo boxes</h2>
+                        <p class="text-sm text-gray-500 mt-1">Ops will see this on the Middo Boxes page.</p>
+                    </div>
+                    <button type="button" wire:click="closeRequestModal" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+                </div>
+
+                <div>
+                    <label for="request-box-qty" class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Quantity</label>
+                    <input id="request-box-qty" type="number" min="1" max="500" wire:model="requestQuantity"
+                           class="block w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    @error('requestQuantity') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                <div>
+                    <label for="request-box-note" class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Note (optional)</label>
+                    <textarea id="request-box-note" rows="3" wire:model="requestNote"
+                              class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange"
+                              placeholder="e.g. Need stock before lunch accept window"></textarea>
+                    @error('requestNote') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                <div class="flex flex-col-reverse sm:flex-row gap-2 pt-1">
+                    <button type="button" wire:click="closeRequestModal"
+                            class="inline-flex justify-center px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50 w-full sm:w-auto">
+                        Cancel
+                    </button>
+                    <button type="button" wire:click="submitBoxRequest"
+                            class="inline-flex justify-center px-4 py-2.5 rounded-xl bg-middo-orange text-white text-sm font-bold hover:bg-[#733614] w-full sm:flex-1">
+                        Submit request
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($pendingRequests->isNotEmpty())
+        <div class="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 space-y-2">
+            <p class="text-xs font-bold uppercase tracking-wider text-amber-800">Pending box requests</p>
+            @foreach($pendingRequests as $req)
+                <div wire:key="kitchen-box-req-{{ $req->id }}" class="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <p class="font-semibold text-amber-950">
+                        {{ $req->quantity }} {{ str('box')->plural($req->quantity) }}
+                        <span class="font-medium text-amber-800/80">· {{ $req->created_at?->timezone('Asia/Dhaka')->format('M j, g:i A') }}</span>
+                        @if($req->note)
+                            <span class="block text-xs font-medium text-amber-800/80 mt-0.5">{{ $req->note }}</span>
+                        @endif
+                    </p>
+                    <button type="button" wire:click="cancelBoxRequest({{ $req->id }})"
+                            class="text-xs font-bold text-amber-900 hover:underline">
+                        Cancel
+                    </button>
+                </div>
+            @endforeach
+        </div>
+    @endif
 
     @if($statusMessage)
         <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
