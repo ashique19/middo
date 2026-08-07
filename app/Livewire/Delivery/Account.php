@@ -9,6 +9,7 @@ use App\Models\RiderWithdrawalRequest;
 use App\Support\PayoutChannel;
 use App\Support\RiderAccountLedger;
 use App\Support\RiderCommission;
+use App\Support\RiderMoneyService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -92,35 +93,21 @@ class Account extends Component
             PayoutChannel::assertValid($this->payoutChannel, $details);
 
             $amount = (int) $this->withdrawAmount;
-            $due = (int) $user->balance;
 
-            if ($due > 0) {
-                throw new \RuntimeException('Hand over Due to Middo cash first, then request payment.');
-            }
-            if ($amount < 1) {
-                throw new \RuntimeException('Nothing to withdraw — Middo does not currently owe you.');
-            }
-
-            if (RiderWithdrawalRequest::query()
-                ->where('rider_user_id', $riderId)
-                ->where('status', RiderWithdrawalRequest::STATUS_PENDING)
-                ->exists()) {
-                throw new \RuntimeException('You already have a pending withdrawal request.');
-            }
-
-            RiderWithdrawalRequest::create([
-                'rider_user_id' => $riderId,
-                'amount' => $amount,
-                'status' => RiderWithdrawalRequest::STATUS_PENDING,
-                'notes' => $this->withdrawNotes ?: null,
-                'payout_channel' => $this->payoutChannel,
-                'payout_details' => $details ?: null,
-            ]);
+            RiderMoneyService::requestWithdrawal(
+                $riderId,
+                $amount,
+                $this->payoutChannel,
+                $details,
+                $this->withdrawNotes ?: null,
+                $riderId,
+            );
 
             $this->withdrawAmount = null;
             $this->withdrawNotes = '';
             $this->payoutChannel = $user->preferredPayoutChannel();
-            $this->statusMessage = 'Payment request submitted for Middo approval.';
+            $this->syncWithdrawAmountFromReceivable();
+            $this->statusMessage = 'Payment request submitted. Wallet reduced; waiting for Middo approval.';
             $this->tab = 'withdrawals';
         } catch (ValidationException $e) {
             throw $e;
@@ -159,7 +146,7 @@ class Account extends Component
 
         $commissionEntries = RiderAccountLedgerEntry::query()
             ->where('rider_user_id', $riderId)
-            ->whereIn('entry_type', ['commission_accrued', 'commission_settled_in_kind', 'share_voided', 'withdrawal_paid'])
+            ->whereIn('entry_type', ['commission_accrued', 'commission_settled_in_kind', 'share_voided', 'withdrawal_paid', 'withdrawal_requested', 'withdrawal_rejected'])
             ->latest('id')
             ->limit(20)
             ->get()

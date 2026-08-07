@@ -153,6 +153,8 @@ class WithdrawalChannelsF0dTest extends TestCase
         $request = KitchenWithdrawalRequest::query()->firstOrFail();
         $this->assertSame(PayoutChannel::BANK, $request->payout_channel);
         $this->assertSame('1234567890', $request->payout_details['account_number'] ?? null);
+        $this->assertSame(0, KitchenAccountLedger::balance($this->kitchen->id));
+        $this->assertNotNull($request->kitchen_ledger_entry_id);
 
         Livewire::actingAs($this->admin)
             ->test(KitchenMoneyApprovals::class)

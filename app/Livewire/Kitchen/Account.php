@@ -9,6 +9,7 @@ use App\Models\KitchenMiddoTransfer;
 use App\Models\KitchenWithdrawalRequest;
 use App\Models\PartnerPayable;
 use App\Support\KitchenAccountLedger;
+use App\Support\KitchenMoneyService;
 use App\Support\PayoutChannel;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
@@ -114,26 +115,20 @@ class Account extends Component
                 throw new \RuntimeException('Nothing to withdraw — Middo does not currently owe you.');
             }
 
-            if (KitchenWithdrawalRequest::query()
-                ->where('kitchen_user_id', $kitchenId)
-                ->where('status', KitchenWithdrawalRequest::STATUS_PENDING)
-                ->exists()) {
-                throw new \RuntimeException('You already have a pending withdrawal request.');
-            }
-
-            KitchenWithdrawalRequest::create([
-                'kitchen_user_id' => $kitchenId,
-                'amount' => $amount,
-                'status' => KitchenWithdrawalRequest::STATUS_PENDING,
-                'notes' => $this->withdrawNotes ?: null,
-                'payout_channel' => $this->payoutChannel,
-                'payout_details' => $details ?: null,
-            ]);
+            KitchenMoneyService::requestWithdrawal(
+                $kitchenId,
+                $amount,
+                $this->payoutChannel,
+                $details,
+                $this->withdrawNotes ?: null,
+                $kitchenId,
+            );
 
             $this->withdrawAmount = null;
             $this->withdrawNotes = '';
             $this->payoutChannel = $user->preferredPayoutChannel();
-            $this->statusMessage = 'Withdrawal request submitted for Middo approval.';
+            $this->syncWithdrawAmountFromReceivable();
+            $this->statusMessage = 'Withdrawal request submitted. Receivable reduced; waiting for Middo approval.';
             $this->tab = 'withdrawals';
         } catch (ValidationException $e) {
             throw $e;

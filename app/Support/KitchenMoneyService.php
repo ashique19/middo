@@ -31,8 +31,60 @@ class KitchenMoneyService
     }
 
     /**
+     * Create a withdrawal and immediately debit kitchen receivable.
+     *
+     * @param  array<string, mixed>  $payoutDetails
+     */
+    public static function requestWithdrawal(
+        int $kitchenUserId,
+        int $amount,
+        string $payoutChannel,
+        array $payoutDetails = [],
+        ?string $notes = null,
+        ?int $actorId = null,
+    ): KitchenWithdrawalRequest {
+        PayoutChannel::assertValid($payoutChannel, $payoutDetails);
+        $details = PayoutChannel::normalizeDetails($payoutChannel, $payoutDetails);
+        $actorId = $actorId ?: $kitchenUserId;
+
+        return DB::transaction(function () use ($kitchenUserId, $amount, $payoutChannel, $details, $notes, $actorId) {
+            if ($amount < 1) {
+                throw new \RuntimeException('Nothing to withdraw — Middo does not currently owe you.');
+            }
+
+            $balance = KitchenAccountLedger::balance($kitchenUserId);
+            if ($amount > $balance) {
+                throw new \RuntimeException("Requested ৳{$amount} exceeds what Middo owes you (৳{$balance}).");
+            }
+
+            $request = KitchenWithdrawalRequest::create([
+                'kitchen_user_id' => $kitchenUserId,
+                'amount' => $amount,
+                'status' => KitchenWithdrawalRequest::STATUS_PENDING,
+                'notes' => $notes,
+                'payout_channel' => $payoutChannel,
+                'payout_details' => $details ?: null,
+            ]);
+
+            $kitchenEntry = KitchenAccountLedger::debit(
+                $kitchenUserId,
+                $amount,
+                'withdrawal_requested',
+                KitchenWithdrawalRequest::class,
+                $request->id,
+                "Withdrawal #{$request->id} requested",
+                $actorId
+            );
+
+            $request->update(['kitchen_ledger_entry_id' => $kitchenEntry->id]);
+
+            return $request->fresh();
+        });
+    }
+
+    /**
      * Approve a kitchen withdrawal: settle FIFO open payables (whole rows),
-     * debit Middo cash or bank once, debit kitchen receivable ledger once.
+     * debit Middo cash or bank once. Receivable was already debited on request.
      *
      * @param  array{bank_account_id?: ?int, attachment?: ?UploadedFile}  $options
      */
@@ -51,10 +103,6 @@ class KitchenMoneyService
 
             $kitchenId = (int) $locked->kitchen_user_id;
             $requested = (int) $locked->amount;
-            $balance = KitchenAccountLedger::balance($kitchenId);
-            if ($requested > $balance) {
-                throw new \RuntimeException('Kitchen receivable is lower than the requested withdrawal.');
-            }
 
             $reserved = self::reservedPayableIds($kitchenId);
             $open = PartnerPayable::query()
@@ -66,34 +114,22 @@ class KitchenMoneyService
                 ->lockForUpdate()
                 ->get();
 
-            $toSettle = [];
             $remaining = $requested;
             foreach ($open as $payable) {
                 if ((int) $payable->amount > $remaining) {
                     break;
                 }
-                $toSettle[] = $payable;
-                $remaining -= (int) $payable->amount;
-            }
-
-            $paid = $requested - $remaining;
-            if ($paid < 1) {
-                throw new \RuntimeException(
-                    'Requested amount does not match a FIFO set of whole open payables. Adjust the amount to a payable total.'
-                );
-            }
-
-            foreach ($toSettle as $payable) {
                 OrderMoneyFlow::settlePayable($payable, $actorId, 'Kitchen withdrawal #'.$locked->id, [
                     'debit_middo' => false,
                     'debit_kitchen_ledger' => false,
                 ]);
+                $remaining -= (int) $payable->amount;
             }
 
             $channel = (string) ($locked->payout_channel ?: PayoutChannel::CASH);
             $payout = WithdrawalPayout::debitMiddoFloat(
                 $channel,
-                $paid,
+                $requested,
                 KitchenWithdrawalRequest::class,
                 (int) $locked->id,
                 "Kitchen withdrawal #{$locked->id} paid",
@@ -103,24 +139,12 @@ class KitchenMoneyService
                 'kitchen_withdrawal_paid',
             );
 
-            $kitchenEntry = KitchenAccountLedger::debit(
-                $kitchenId,
-                $paid,
-                'withdrawal_paid',
-                KitchenWithdrawalRequest::class,
-                $locked->id,
-                "Withdrawal #{$locked->id} approved",
-                $actorId
-            );
-
             $locked->update([
-                'amount' => $paid,
                 'status' => KitchenWithdrawalRequest::STATUS_APPROVED,
                 'reviewed_by' => $actorId,
                 'reviewed_at' => now(),
                 'review_notes' => $reviewNotes,
                 'attachment_path' => $payout['attachment_path'],
-                'kitchen_ledger_entry_id' => $kitchenEntry->id,
                 'middo_cash_ledger_entry_id' => $payout['cash_entry_id'],
                 'middo_bank_account_id' => $payout['bank_account_id'],
                 'middo_bank_ledger_entry_id' => $payout['bank_entry_id'],
@@ -361,18 +385,32 @@ class KitchenMoneyService
 
     public static function rejectWithdrawal(KitchenWithdrawalRequest $request, int $actorId, ?string $reviewNotes = null): KitchenWithdrawalRequest
     {
-        if (! $request->isPending()) {
-            throw new \RuntimeException('Withdrawal request is not pending.');
-        }
+        return DB::transaction(function () use ($request, $actorId, $reviewNotes) {
+            /** @var KitchenWithdrawalRequest $locked */
+            $locked = KitchenWithdrawalRequest::query()->whereKey($request->id)->lockForUpdate()->firstOrFail();
+            if (! $locked->isPending()) {
+                throw new \RuntimeException('Withdrawal request is not pending.');
+            }
 
-        $request->update([
-            'status' => KitchenWithdrawalRequest::STATUS_REJECTED,
-            'reviewed_by' => $actorId,
-            'reviewed_at' => now(),
-            'review_notes' => $reviewNotes,
-        ]);
+            KitchenAccountLedger::credit(
+                (int) $locked->kitchen_user_id,
+                (int) $locked->amount,
+                'withdrawal_rejected',
+                KitchenWithdrawalRequest::class,
+                $locked->id,
+                "Withdrawal #{$locked->id} rejected — receivable restored",
+                $actorId
+            );
 
-        return $request->fresh();
+            $locked->update([
+                'status' => KitchenWithdrawalRequest::STATUS_REJECTED,
+                'reviewed_by' => $actorId,
+                'reviewed_at' => now(),
+                'review_notes' => $reviewNotes,
+            ]);
+
+            return $locked->fresh();
+        });
     }
 
     public static function confirmTransfer(KitchenMiddoTransfer $transfer, int $actorId, ?string $reviewNotes = null): KitchenMiddoTransfer

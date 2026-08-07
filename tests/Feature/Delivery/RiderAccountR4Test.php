@@ -198,6 +198,8 @@ class RiderAccountR4Test extends TestCase
         $request = RiderWithdrawalRequest::query()->first();
         $this->assertNotNull($request);
         $this->assertSame(40, (int) $request->amount);
+        $this->assertSame(0, RiderAccountLedger::balance($this->rider->id));
+        $this->assertNotNull($request->rider_ledger_entry_id);
 
         Livewire::actingAs($this->admin)
             ->test(RiderMoneyApprovals::class)
@@ -239,7 +241,7 @@ class RiderAccountR4Test extends TestCase
         $this->assertSame(0, RiderWithdrawalRequest::query()->count());
     }
 
-    public function test_reject_leaves_wallet_unchanged(): void
+    public function test_reject_restores_wallet(): void
     {
         $this->acceptPrepaidRun();
 
@@ -255,6 +257,7 @@ class RiderAccountR4Test extends TestCase
             ->call('requestWithdrawal');
 
         $request = RiderWithdrawalRequest::query()->firstOrFail();
+        $this->assertSame(0, RiderAccountLedger::balance($this->rider->id));
 
         Livewire::actingAs($this->admin)
             ->test(RiderMoneyApprovals::class)
@@ -266,7 +269,7 @@ class RiderAccountR4Test extends TestCase
         $this->assertSame(1000, MiddoCashLedger::balance());
     }
 
-    public function test_second_pending_request_blocked(): void
+    public function test_multiple_pending_withdrawals_allowed_after_new_accrual(): void
     {
         $this->acceptPrepaidRun();
 
@@ -282,13 +285,27 @@ class RiderAccountR4Test extends TestCase
             ->call('requestWithdrawal')
             ->assertSet('errorMessage', '');
 
+        $this->assertSame(1, RiderWithdrawalRequest::query()->where('status', RiderWithdrawalRequest::STATUS_PENDING)->count());
+        $this->assertSame(0, RiderAccountLedger::balance($this->rider->id));
+
+        RiderAccountLedger::credit(
+            $this->rider->id,
+            25,
+            'commission_accrued',
+            null,
+            null,
+            'Extra commission while first withdrawal pending',
+            $this->admin->id
+        );
+
         Livewire::actingAs($this->rider)
             ->test(Account::class)
             ->set('payoutChannel', PayoutChannel::BKASH)
             ->call('requestWithdrawal')
-            ->assertSet('errorMessage', fn ($m) => str_contains((string) $m, 'pending'));
+            ->assertSet('errorMessage', '');
 
-        $this->assertSame(1, RiderWithdrawalRequest::query()->count());
+        $this->assertSame(2, RiderWithdrawalRequest::query()->where('status', RiderWithdrawalRequest::STATUS_PENDING)->count());
+        $this->assertSame(0, RiderAccountLedger::balance($this->rider->id));
     }
 
     public function test_dispatch_shows_commission_when_configured(): void

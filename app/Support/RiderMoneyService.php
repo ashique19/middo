@@ -11,8 +11,65 @@ use Illuminate\Support\Facades\DB;
 class RiderMoneyService
 {
     /**
+     * Create a withdrawal and immediately debit rider wallet receivable.
+     *
+     * @param  array<string, mixed>  $payoutDetails
+     */
+    public static function requestWithdrawal(
+        int $riderUserId,
+        int $amount,
+        string $payoutChannel,
+        array $payoutDetails = [],
+        ?string $notes = null,
+        ?int $actorId = null,
+    ): RiderWithdrawalRequest {
+        PayoutChannel::assertValid($payoutChannel, $payoutDetails);
+        $details = PayoutChannel::normalizeDetails($payoutChannel, $payoutDetails);
+        $actorId = $actorId ?: $riderUserId;
+
+        return DB::transaction(function () use ($riderUserId, $amount, $payoutChannel, $details, $notes, $actorId) {
+            $rider = User::query()->whereKey($riderUserId)->lockForUpdate()->firstOrFail();
+            if ((int) $rider->balance > 0) {
+                throw new \RuntimeException('Hand over Due to Middo cash first, then request payment.');
+            }
+
+            if ($amount < 1) {
+                throw new \RuntimeException('Nothing to withdraw — Middo does not currently owe you.');
+            }
+
+            $wallet = RiderAccountLedger::balance($riderUserId);
+            if ($amount > $wallet) {
+                throw new \RuntimeException("Requested ৳{$amount} exceeds wallet ৳{$wallet}.");
+            }
+
+            $request = RiderWithdrawalRequest::create([
+                'rider_user_id' => $riderUserId,
+                'amount' => $amount,
+                'status' => RiderWithdrawalRequest::STATUS_PENDING,
+                'notes' => $notes,
+                'payout_channel' => $payoutChannel,
+                'payout_details' => $details ?: null,
+            ]);
+
+            $riderEntry = RiderAccountLedger::debit(
+                $riderUserId,
+                $amount,
+                'withdrawal_requested',
+                RiderWithdrawalRequest::class,
+                $request->id,
+                "Withdrawal #{$request->id} requested",
+                $actorId
+            );
+
+            $request->update(['rider_ledger_entry_id' => $riderEntry->id]);
+
+            return $request->fresh();
+        });
+    }
+
+    /**
      * Approve a rider withdrawal: settle FIFO open lunch payables that fit,
-     * then debit Middo cash or bank + rider wallet for the full requested amount.
+     * then debit Middo cash or bank. Wallet was already debited on request.
      *
      * @param  array{bank_account_id?: ?int, attachment?: ?UploadedFile}  $options
      */
@@ -31,10 +88,6 @@ class RiderMoneyService
 
             $riderId = (int) $locked->rider_user_id;
             $requested = (int) $locked->amount;
-            $balance = RiderAccountLedger::balance($riderId);
-            if ($requested > $balance) {
-                throw new \RuntimeException('Rider wallet is lower than the requested withdrawal.');
-            }
 
             $rider = User::query()->whereKey($riderId)->lockForUpdate()->firstOrFail();
             if ((int) $rider->balance > 0) {
@@ -75,23 +128,12 @@ class RiderMoneyService
                 'rider_withdrawal_paid',
             );
 
-            $riderEntry = RiderAccountLedger::debit(
-                $riderId,
-                $requested,
-                'withdrawal_paid',
-                RiderWithdrawalRequest::class,
-                $locked->id,
-                "Withdrawal #{$locked->id} approved",
-                $actorId
-            );
-
             $locked->update([
                 'status' => RiderWithdrawalRequest::STATUS_APPROVED,
                 'reviewed_by' => $actorId,
                 'reviewed_at' => now(),
                 'review_notes' => $reviewNotes,
                 'attachment_path' => $payout['attachment_path'],
-                'rider_ledger_entry_id' => $riderEntry->id,
                 'middo_cash_ledger_entry_id' => $payout['cash_entry_id'],
                 'middo_bank_account_id' => $payout['bank_account_id'],
                 'middo_bank_ledger_entry_id' => $payout['bank_entry_id'],
@@ -151,17 +193,31 @@ class RiderMoneyService
 
     public static function rejectWithdrawal(RiderWithdrawalRequest $request, int $actorId, ?string $reviewNotes = null): RiderWithdrawalRequest
     {
-        if (! $request->isPending()) {
-            throw new \RuntimeException('Withdrawal request is not pending.');
-        }
+        return DB::transaction(function () use ($request, $actorId, $reviewNotes) {
+            /** @var RiderWithdrawalRequest $locked */
+            $locked = RiderWithdrawalRequest::query()->whereKey($request->id)->lockForUpdate()->firstOrFail();
+            if (! $locked->isPending()) {
+                throw new \RuntimeException('Withdrawal request is not pending.');
+            }
 
-        $request->update([
-            'status' => RiderWithdrawalRequest::STATUS_REJECTED,
-            'reviewed_by' => $actorId,
-            'reviewed_at' => now(),
-            'review_notes' => $reviewNotes,
-        ]);
+            RiderAccountLedger::credit(
+                (int) $locked->rider_user_id,
+                (int) $locked->amount,
+                'withdrawal_rejected',
+                RiderWithdrawalRequest::class,
+                $locked->id,
+                "Withdrawal #{$locked->id} rejected — wallet restored",
+                $actorId
+            );
 
-        return $request->fresh();
+            $locked->update([
+                'status' => RiderWithdrawalRequest::STATUS_REJECTED,
+                'reviewed_by' => $actorId,
+                'reviewed_at' => now(),
+                'review_notes' => $reviewNotes,
+            ]);
+
+            return $locked->fresh();
+        });
     }
 }

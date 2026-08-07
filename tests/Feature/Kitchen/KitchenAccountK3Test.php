@@ -245,6 +245,8 @@ class KitchenAccountK3Test extends TestCase
         $this->assertNotNull($request);
         $this->assertSame(50, (int) $request->amount);
         $this->assertSame(PayoutChannel::BKASH, $request->payout_channel);
+        $this->assertSame(0, KitchenAccountLedger::balance($this->kitchen->id));
+        $this->assertNotNull($request->kitchen_ledger_entry_id);
 
         Livewire::actingAs($this->admin)
             ->test(KitchenMoneyApprovals::class)
