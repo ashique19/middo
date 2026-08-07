@@ -5,11 +5,23 @@
         <p class="text-sm font-semibold text-[#635347] md:text-gray-500">
             Unassigned groups you can claim for your kitchen.
         </p>
-        <div class="inline-flex items-center gap-2 rounded-full border border-[#E5DCC8] bg-[#FDFBF7] px-3 py-1.5 text-xs font-bold text-[#635347]">
-            Capacity {{ $openGroupCount }} / {{ $allowedOpenGroups }}
-            <span class="text-middo-orange">· {{ $remainingSlots }} left</span>
+        <div class="flex flex-wrap items-center gap-2">
+            <div class="inline-flex items-center gap-2 rounded-full border border-[#E5DCC8] bg-[#FDFBF7] px-3 py-1.5 text-xs font-bold text-[#635347]">
+                Capacity {{ $openGroupCount }} / {{ $allowedOpenGroups }}
+                <span class="text-middo-orange">· {{ $remainingSlots }} left</span>
+            </div>
+            <div class="inline-flex items-center gap-2 rounded-full border border-[#E5DCC8] bg-[#FDFBF7] px-3 py-1.5 text-xs font-bold text-[#635347]">
+                Boxes {{ $sendableBoxCount }}
+                <span class="text-middo-orange">· {{ $remainingBoxCapacity }} plates free</span>
+            </div>
         </div>
     </div>
+
+    @if($insufficientBoxStock)
+        <div class="rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-bold text-red-900">
+            {{ $boxStockMessage }}
+        </div>
+    @endif
 
     @if($atCapacity)
         <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
@@ -107,6 +119,8 @@
                         <span wire:loading.remove wire:target="acceptOrder({{ $group['id'] }})">
                             @if($atCapacity)
                                 At capacity
+                            @elseif(!empty($group['needs_more_boxes']))
+                                Need more boxes
                             @elseif(($group['accept_window']['state'] ?? '') === 'not_yet')
                                 Window not open
                             @elseif(($group['accept_window']['state'] ?? '') === 'closed')

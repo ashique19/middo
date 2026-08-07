@@ -25,6 +25,7 @@ class OrderGroupKitchenAssignment
 
             KitchenCapacity::assertCanAccept($kitchen);
             KitchenAcceptWindow::assertCanAccept($group);
+            KitchenBoxStock::assertCanAcceptGroup($kitchen, $group);
 
             $group->update([
                 'kitchen_id' => $kitchen->id,

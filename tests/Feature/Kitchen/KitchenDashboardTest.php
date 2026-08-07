@@ -10,10 +10,12 @@ use App\Models\OrderGroup;
 use App\Models\Recipe;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\KitchenBoxStock;
 use App\Support\MiddoSettings;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\KitchenBoxFactory;
 use Tests\TestCase;
 
 class KitchenDashboardTest extends TestCase
@@ -109,6 +111,7 @@ class KitchenDashboardTest extends TestCase
     public function test_kitchen_dashboard_shows_tile_counts(): void
     {
         $today = now('Asia/Dhaka')->toDateString();
+        KitchenBoxFactory::seedSendable($this->kitchen, 3);
 
         $this->createOrderGroup(null, $today, 'GRP-UNASSIGNED');
         $this->createOrderGroup($this->kitchen->id, $today, 'GRP-ACTIVE');
@@ -120,13 +123,23 @@ class KitchenDashboardTest extends TestCase
             ->assertSee('Last 3 months')
             ->assertSee('My active orders')
             ->assertSee('Middo order groups')
-            ->assertSee('(1)', false);
+            ->assertSee('(1)', false)
+            ->assertDontSee(KitchenBoxStock::dashboardWarningMessage(), false);
+    }
+
+    public function test_kitchen_dashboard_warns_when_box_stock_below_allowed_capacity(): void
+    {
+        $this->actingAs($this->kitchen)
+            ->get(route('kitchen.dashboard'))
+            ->assertOk()
+            ->assertSee(KitchenBoxStock::dashboardWarningMessage(), false);
     }
 
     public function test_kitchen_can_accept_unassigned_order_group(): void
     {
         $today = now('Asia/Dhaka')->toDateString();
         $group = $this->createOrderGroup(null, $today, 'GRP-ACCEPT-ME');
+        KitchenBoxFactory::seedSendable($this->kitchen, 2);
 
         Livewire::actingAs($this->kitchen)
             ->test(MiddoOrderGroups::class)
@@ -148,6 +161,7 @@ class KitchenDashboardTest extends TestCase
     public function test_kitchen_cannot_accept_already_assigned_group(): void
     {
         $today = now('Asia/Dhaka')->toDateString();
+        KitchenBoxFactory::seedSendable($this->kitchen, 2);
         $otherKitchen = User::create([
             'first_name' => 'Banani',
             'last_name' => 'Kitchen',
@@ -168,6 +182,20 @@ class KitchenDashboardTest extends TestCase
             'id' => $group->id,
             'kitchen_id' => $otherKitchen->id,
         ]);
+    }
+
+    public function test_kitchen_cannot_accept_when_group_qty_exceeds_box_stock(): void
+    {
+        $today = now('Asia/Dhaka')->toDateString();
+        $group = $this->createOrderGroup(null, $today, 'GRP-NEED-BOXES');
+        KitchenBoxFactory::seedSendable($this->kitchen, 1); // group qty is 2
+
+        Livewire::actingAs($this->kitchen)
+            ->test(MiddoOrderGroups::class)
+            ->call('acceptOrder', $group->id)
+            ->assertSet('errorMessage', fn ($msg) => is_string($msg) && str_contains($msg, 'Insufficient Middo boxes'));
+
+        $this->assertNull($group->fresh()->kitchen_id);
     }
 
     public function test_active_orders_show_menu_link_and_menu_details_with_recipe(): void

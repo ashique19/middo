@@ -18,6 +18,7 @@ use App\Support\MiddoSettings;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\KitchenBoxFactory;
 use Tests\TestCase;
 
 class KitchenTierCapacityTest extends TestCase
@@ -305,6 +306,7 @@ class KitchenTierCapacityTest extends TestCase
             'kitchen_tier' => KitchenTier::GOLD,
             'allowed_open_groups' => 2,
         ]);
+        KitchenBoxFactory::seedSendable($kitchen, 2);
 
         $group = $this->createOpenGroup('GRP-ACCEPT');
 

@@ -18,6 +18,7 @@ use App\Support\OrderTransition;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\KitchenBoxFactory;
 use Tests\TestCase;
 
 class KitchenLifecycleK1Test extends TestCase
@@ -72,6 +73,8 @@ class KitchenLifecycleK1Test extends TestCase
             'price' => 250,
             'kitchen_commission' => 50,
         ]);
+
+        KitchenBoxFactory::seedSendable($this->kitchen, 5);
     }
 
     protected function tearDown(): void

@@ -6,6 +6,7 @@ use App\Livewire\Kitchen\Concerns\FormatsOrderGroups;
 use App\Models\OrderGroup;
 use App\Models\OrderGroupEvent;
 use App\Support\KitchenAcceptWindow;
+use App\Support\KitchenBoxStock;
 use App\Support\KitchenCapacity;
 use App\Support\OrderGroupKitchenAssignment;
 use Illuminate\Support\Facades\Auth;
@@ -26,6 +27,12 @@ class MiddoOrderGroups extends Component
     public int $allowedOpenGroups = 0;
 
     public int $remainingSlots = 0;
+
+    public int $sendableBoxCount = 0;
+
+    public int $remainingBoxCapacity = 0;
+
+    public bool $insufficientBoxStock = false;
 
     public ?int $declineGroupId = null;
 
@@ -99,6 +106,9 @@ class MiddoOrderGroups extends Component
             $this->openGroupCount = 0;
             $this->allowedOpenGroups = 0;
             $this->remainingSlots = 0;
+            $this->sendableBoxCount = 0;
+            $this->remainingBoxCapacity = 0;
+            $this->insufficientBoxStock = false;
 
             return;
         }
@@ -106,12 +116,16 @@ class MiddoOrderGroups extends Component
         $this->openGroupCount = KitchenCapacity::openGroupCount((int) $kitchen->id);
         $this->allowedOpenGroups = KitchenCapacity::effectiveAllowedOpenGroups($kitchen);
         $this->remainingSlots = KitchenCapacity::remainingSlots($kitchen);
+        $this->sendableBoxCount = KitchenBoxStock::sendableCount((int) $kitchen->id);
+        $this->remainingBoxCapacity = KitchenBoxStock::remainingPlateCapacity((int) $kitchen->id);
+        $this->insufficientBoxStock = KitchenBoxStock::hasInsufficientStockVsAllowed($kitchen);
     }
 
     public function render()
     {
         $this->refreshCapacity();
         $today = now('Asia/Dhaka')->toDateString();
+        $kitchen = Auth::user();
         $kitchenId = (int) Auth::id();
         $declinedIds = $kitchenId
             ? OrderGroupKitchenAssignment::declinedGroupIdsForKitchenToday($kitchenId)
@@ -141,7 +155,7 @@ class MiddoOrderGroups extends Component
         $groupNodes = $this->buildGroupNodes($groups->getCollection(), $offset);
 
         $groupNodes = collect($groupNodes)
-            ->map(function (array $node) use ($groups) {
+            ->map(function (array $node) use ($groups, $kitchen) {
                 /** @var OrderGroup|null $group */
                 $group = $groups->getCollection()->firstWhere('id', $node['id']);
                 $window = $group
@@ -151,9 +165,14 @@ class MiddoOrderGroups extends Component
                 $recentShortage = $group?->events
                     ?->first(fn (OrderGroupEvent $e) => $e->type === OrderGroupEvent::TYPE_SHORTAGE);
 
+                $fitsBoxes = $group && $kitchen
+                    ? KitchenBoxStock::canAcceptGroup($kitchen, $group)
+                    : false;
+
                 return array_merge($node, [
                     'accept_window' => $window,
-                    'can_accept' => $window['is_open'] && $this->remainingSlots > 0,
+                    'can_accept' => $window['is_open'] && $this->remainingSlots > 0 && $fitsBoxes,
+                    'needs_more_boxes' => $window['is_open'] && $this->remainingSlots > 0 && ! $fitsBoxes,
                     'had_shortage' => $recentShortage !== null,
                     'shortage_reason' => $recentShortage?->reason,
                 ]);
@@ -164,6 +183,10 @@ class MiddoOrderGroups extends Component
             'groups' => $groups,
             'groupNodes' => $groupNodes,
             'atCapacity' => $this->remainingSlots <= 0,
+            'insufficientBoxStock' => $this->insufficientBoxStock,
+            'boxStockMessage' => KitchenBoxStock::dashboardWarningMessage(),
+            'remainingBoxCapacity' => $this->remainingBoxCapacity,
+            'sendableBoxCount' => $this->sendableBoxCount,
         ])->layout('kitchen.layout.app', ['title' => 'Middo Order Groups']);
     }
 }

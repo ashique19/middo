@@ -9,6 +9,12 @@
         <p class="text-xs font-medium text-[#8A735C]">Tap a card to jump into prep, groups, or money.</p>
     </div>
 
+    @if($insufficientBoxStock)
+        <div class="rounded-2xl border border-red-300 bg-red-50 px-4 py-3.5 text-sm font-bold text-red-900">
+            {{ \App\Support\KitchenBoxStock::dashboardWarningMessage() }}
+        </div>
+    @endif
+
     <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
         @foreach($tiles as $tile)
             <a href="{{ route($tile['route']) }}"

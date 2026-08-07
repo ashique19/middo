@@ -3,6 +3,7 @@
 namespace App\Livewire\Kitchen;
 
 use App\Models\OrderGroup;
+use App\Support\KitchenBoxStock;
 use App\Support\KitchenComplaints;
 use App\Support\StaffAlerts;
 use Carbon\Carbon;
@@ -13,13 +14,20 @@ class Dashboard extends Component
 {
     public array $tiles = [];
 
+    public bool $insufficientBoxStock = false;
+
     public function mount(): void
     {
+        $kitchen = Auth::user();
         $kitchenId = Auth::id();
         $today = now('Asia/Dhaka')->toDateString();
         $monthStart = Carbon::now('Asia/Dhaka')->startOfMonth()->toDateString();
         $monthEnd = Carbon::now('Asia/Dhaka')->endOfMonth()->toDateString();
         $threeMonthsStart = Carbon::now('Asia/Dhaka')->subMonths(2)->startOfMonth()->toDateString();
+
+        if ($kitchen) {
+            $this->insufficientBoxStock = KitchenBoxStock::hasInsufficientStockVsAllowed($kitchen);
+        }
 
         $this->tiles = [
             [
