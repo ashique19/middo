@@ -7,6 +7,7 @@ use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderComplaint;
 use App\Models\OrderLog;
+use App\Models\PackageDayCancelRequest;
 use App\Models\PackageSubscription;
 use App\Models\User;
 
@@ -90,8 +91,10 @@ class CorporateApiPresenter
             'package_subscription_id' => $order->package_subscription_id
                 ? (string) $order->package_subscription_id
                 : null,
-            // Package day cancel/refund is ops-only; corporate cannot skip or delete those orders.
+            // Package day cancel/refund is ops-only; corporate may only request cancel.
             'can_skip' => false,
+            'can_request_cancel' => self::canRequestPackageCancel($order),
+            'cancel_request_pending' => self::hasPendingPackageCancelRequest($order),
             'can_delete' => ! $order->package_subscription_id
                 && OrderCutoff::allowsModification($order),
             'is_history' => optional($order->delivery_date)->lt(now('Asia/Dhaka')->startOfDay()) ?? false,
@@ -315,6 +318,26 @@ class CorporateApiPresenter
             'other' => 'Other',
             default => 'Support',
         };
+    }
+
+    private static function hasPendingPackageCancelRequest(Order $order): bool
+    {
+        if (! $order->package_subscription_id) {
+            return false;
+        }
+
+        return PackageDayCancelRequest::query()
+            ->where('order_id', $order->id)
+            ->pending()
+            ->exists();
+    }
+
+    private static function canRequestPackageCancel(Order $order): bool
+    {
+        return (bool) $order->package_subscription_id
+            && $order->order_status === 'pending'
+            && OrderCutoff::allowsModification($order)
+            && ! self::hasPendingPackageCancelRequest($order);
     }
 
     private static function inferTags(MenuItem $item): array

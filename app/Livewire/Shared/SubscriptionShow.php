@@ -3,10 +3,12 @@
 namespace App\Livewire\Shared;
 
 use App\Models\Order;
+use App\Models\PackageDayCancelRequest;
 use App\Models\PackageSubscription;
 use App\Models\PackageSubscriptionEvent;
 use App\Support\OrderCutoff;
 use App\Support\PackageBilling;
+use App\Support\PackageDayCancelRequestService;
 use App\Support\PackageRefund;
 use App\Support\PackageSubscriptionService;
 use Illuminate\Support\Facades\Auth;
@@ -49,6 +51,10 @@ class SubscriptionShow extends Component
 
     public ?int $reactivateOrderId = null;
 
+    public ?int $reviewRequestId = null;
+
+    public string $reviewOpsNote = '';
+
     public ?string $statusMessage = null;
 
     public ?string $errorMessage = null;
@@ -79,6 +85,7 @@ class SubscriptionShow extends Component
             'area.city',
             'selections.menuItem',
             'orders' => fn ($q) => $q->with(['menuItem', 'orderGroup'])->orderBy('delivery_date'),
+            'pendingCancelRequests.requestedBy',
         ])->findOrFail($this->subscriptionId);
     }
 
@@ -345,6 +352,72 @@ class SubscriptionShow extends Component
         }
     }
 
+    public function approveCancelRequest(int $requestId): void
+    {
+        abort_unless($this->canManage, 403);
+
+        $request = PackageDayCancelRequest::query()
+            ->where('id', $requestId)
+            ->where('package_subscription_id', $this->subscriptionId)
+            ->firstOrFail();
+
+        try {
+            $result = app(PackageDayCancelRequestService::class)->approve(
+                Auth::user(),
+                $request,
+                $this->reviewRequestId === $requestId ? $this->reviewOpsNote : null
+            );
+            $this->statusMessage = 'Approved cancel request — refunded ৳'.number_format($result['refunded_amount']).' to the corporate wallet.';
+            $this->errorMessage = null;
+            $this->reviewRequestId = null;
+            $this->reviewOpsNote = '';
+            $this->resetScheduleAssignments();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
+            $this->statusMessage = null;
+        }
+    }
+
+    public function rejectCancelRequest(int $requestId): void
+    {
+        abort_unless($this->canManage, 403);
+
+        $request = PackageDayCancelRequest::query()
+            ->where('id', $requestId)
+            ->where('package_subscription_id', $this->subscriptionId)
+            ->firstOrFail();
+
+        try {
+            app(PackageDayCancelRequestService::class)->reject(
+                Auth::user(),
+                $request,
+                $this->reviewRequestId === $requestId ? $this->reviewOpsNote : null
+            );
+            $this->statusMessage = 'Rejected cancel request for order #'.$request->order_id.'.';
+            $this->errorMessage = null;
+            $this->reviewRequestId = null;
+            $this->reviewOpsNote = '';
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
+            $this->statusMessage = null;
+        }
+    }
+
+    public function toggleReviewRequest(int $requestId): void
+    {
+        abort_unless($this->canManage, 403);
+
+        if ($this->reviewRequestId === $requestId) {
+            $this->reviewRequestId = null;
+            $this->reviewOpsNote = '';
+
+            return;
+        }
+
+        $this->reviewRequestId = $requestId;
+        $this->reviewOpsNote = '';
+    }
+
     public function unconfirmOrder(int $orderId): void
     {
         abort_unless($this->canManage, 403);
@@ -572,6 +645,8 @@ class SubscriptionShow extends Component
             ->limit(100)
             ->get();
 
+        $pendingCancelRequests = $subscription->pendingCancelRequests->keyBy('order_id');
+
         $menusByDate = [];
         foreach (array_keys($this->scheduleAssignments) as $date) {
             $menusByDate[$date] = $this->availableMenusForDate($subscription, (string) $date);
@@ -591,6 +666,7 @@ class SubscriptionShow extends Component
             'cancelOrder' => $cancelOrder,
             'reactivateOrder' => $reactivateOrder,
             'cancelledOrdersByDate' => $this->cancelledOrdersByDate($subscription),
+            'pendingCancelRequests' => $pendingCancelRequests,
         ])->layout('layouts.private.app', [
             'title' => 'Subscription #'.$subscription->id,
         ]);

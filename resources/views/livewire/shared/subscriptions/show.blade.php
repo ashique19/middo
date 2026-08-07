@@ -230,6 +230,9 @@
                         $deliveryOrders = $subscription->orders->where('order_status', '!=', 'cancelled')->values();
                     @endphp
                     @forelse($deliveryOrders as $order)
+                        @php
+                            $cancelRequest = $pendingCancelRequests[$order->id] ?? null;
+                        @endphp
                         <tr wire:key="sub-order-{{ $order->id }}">
                             <td class="p-4 font-mono font-semibold">
                                 <div class="flex items-center gap-2">
@@ -246,7 +249,16 @@
                                     <span class="font-semibold text-middo-orange">Ungrouped</span>
                                 @endif
                             </td>
-                            <td class="p-4 capitalize">{{ $order->order_status }}</td>
+                            <td class="p-4 capitalize">
+                                {{ $order->order_status }}
+                                @if($cancelRequest)
+                                    <div class="mt-1">
+                                        <span class="inline-flex items-center rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                            Cancel requested
+                                        </span>
+                                    </div>
+                                @endif
+                            </td>
                             <td class="p-4 text-right">৳{{ number_format($order->total_amount) }}</td>
                             <td class="p-4 text-right space-x-2 whitespace-nowrap">
                                 @if($canManage && $order->order_status === 'pending')
@@ -256,6 +268,59 @@
                                 @endif
                             </td>
                         </tr>
+                        @if($cancelRequest)
+                            <tr wire:key="sub-cancel-request-{{ $cancelRequest->id }}" class="bg-amber-50/60">
+                                <td colspan="7" class="px-4 py-3">
+                                    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <p class="text-[11px] font-black uppercase tracking-wider text-amber-800">Corporate cancel request</p>
+                                            <p class="text-sm font-semibold text-gray-800 mt-1">{{ $cancelRequest->reason }}</p>
+                                            <p class="text-xs text-gray-500 mt-1">
+                                                Requested
+                                                @if($cancelRequest->requestedBy)
+                                                    by {{ $cancelRequest->requestedBy->name }}
+                                                @endif
+                                                · {{ $cancelRequest->created_at?->timezone(\App\Support\OrderCutoff::timezone())->format('M d, g:i A') }}
+                                            </p>
+                                        </div>
+                                        @if($canManage)
+                                            <div class="shrink-0 space-y-2 w-full lg:w-72">
+                                                @if($reviewRequestId === $cancelRequest->id)
+                                                    <textarea
+                                                        wire:model="reviewOpsNote"
+                                                        rows="2"
+                                                        maxlength="500"
+                                                        placeholder="Optional ops note"
+                                                        class="w-full rounded-xl border border-amber-200 px-3 py-2 text-sm"></textarea>
+                                                @endif
+                                                <div class="flex flex-wrap justify-end gap-2">
+                                                    <button
+                                                        type="button"
+                                                        wire:click="toggleReviewRequest({{ $cancelRequest->id }})"
+                                                        class="px-3 py-1.5 rounded-lg border border-amber-200 bg-white text-amber-900 text-xs font-bold">
+                                                        {{ $reviewRequestId === $cancelRequest->id ? 'Hide note' : 'Add note' }}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        wire:click="rejectCancelRequest({{ $cancelRequest->id }})"
+                                                        wire:confirm="Reject this cancel request?"
+                                                        class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 text-xs font-bold">
+                                                        Reject
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        wire:click="approveCancelRequest({{ $cancelRequest->id }})"
+                                                        wire:confirm="Approve cancel and refund the corporate wallet?"
+                                                        class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold">
+                                                        Approve &amp; refund
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                        @endif
                     @empty
                         <tr>
                             <td colspan="7" class="p-8 text-center text-sm text-gray-500">

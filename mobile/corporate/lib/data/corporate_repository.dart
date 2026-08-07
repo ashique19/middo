@@ -158,6 +158,8 @@ abstract class CorporateRepository {
   Future<({CorporateOrder order, double balance, int refundedAmount})>
       skipPackageDay(String orderId);
 
+  Future<CorporateOrder> requestCancelPackageDay(String orderId, String reason);
+
   MenuItem menuById(String id);
 }
 
@@ -758,6 +760,20 @@ class ApiCorporateRepository implements CorporateRepository {
   }
 
   @override
+  Future<CorporateOrder> requestCancelPackageDay(
+    String orderId,
+    String reason,
+  ) async {
+    final json = await _client.post(
+      '/orders/$orderId/request-cancel-package-day',
+      body: {'reason': reason},
+    );
+    return CorporateOrder.fromJson(
+      Map<String, dynamic>.from(json['order'] as Map),
+    );
+  }
+
+  @override
   MenuItem menuById(String id) {
     return _menuCache[id] ??
         MenuItem(
@@ -1191,6 +1207,14 @@ class MockCorporateRepository implements CorporateRepository {
       balance: _mock.user.balance + 79,
       refundedAmount: 79,
     );
+  }
+
+  @override
+  Future<CorporateOrder> requestCancelPackageDay(
+    String orderId,
+    String reason,
+  ) async {
+    return _mock.orderById(orderId);
   }
 
   @override

@@ -101,6 +101,16 @@ class PackageSubscription extends Model
         return $this->hasMany(PackageSubscriptionEvent::class);
     }
 
+    public function cancelRequests(): HasMany
+    {
+        return $this->hasMany(PackageDayCancelRequest::class);
+    }
+
+    public function pendingCancelRequests(): HasMany
+    {
+        return $this->cancelRequests()->where('status', PackageDayCancelRequest::STATUS_PENDING);
+    }
+
     public function activeOrders(): HasMany
     {
         return $this->orders()->whereIn('order_status', Order::ACTIVE_STATUSES);

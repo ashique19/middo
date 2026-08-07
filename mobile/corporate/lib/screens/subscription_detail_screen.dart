@@ -24,6 +24,72 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
     _future ??= AppScope.of(context).myPackageShow(widget.subscriptionId);
   }
 
+  Future<void> _reload() async {
+    setState(() {
+      _future = AppScope.of(context).myPackageShow(widget.subscriptionId);
+    });
+  }
+
+  Future<void> _requestCancel(CorporateOrder order) async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Request cancel'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Middo operations will review and refund if approved.',
+              style: TextStyle(color: MiddoColors.muted, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Reason',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Back'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Send request'),
+          ),
+        ],
+      ),
+    );
+    if (reason == null || !mounted) return;
+    if (reason.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a reason for the cancel request.')),
+      );
+      return;
+    }
+
+    try {
+      await AppScope.of(context).requestCancelPackageDay(order.id, reason);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cancel request sent to Middo operations.')),
+      );
+      await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,7 +167,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
               Text(
                 sub.isAwaitingSchedule
                     ? 'Prepaid. Middo operations will assign exact delivery dates next.'
-                    : 'Need to cancel a day? Contact Middo.',
+                    : 'Need to cancel a day? Request cancel — Middo operations will review.',
                 style: TextStyle(
                   color: MiddoColors.muted,
                   fontSize: 12,
@@ -119,6 +185,23 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                   ),
                 ),
               ...sub.orders.map((order) {
+                Widget? trailing;
+                if (order.cancelRequestPending) {
+                  trailing = const Text(
+                    'Requested',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF92400E),
+                      fontSize: 12,
+                    ),
+                  );
+                } else if (order.canRequestCancel) {
+                  trailing = TextButton(
+                    onPressed: () => _requestCancel(order),
+                    child: const Text('Request cancel'),
+                  );
+                }
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
@@ -126,6 +209,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                     subtitle: Text(
                       '${order.deliveryDate.toLocal().toString().substring(0, 10)} · ৳${order.totalAmount.toStringAsFixed(0)} · ${order.statusLabel}',
                     ),
+                    trailing: trailing,
                   ),
                 );
               }),

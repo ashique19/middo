@@ -885,6 +885,12 @@ class PackageSubscriptionService
                 $actorId
             );
 
+            $staff = User::query()->find($actorId);
+            if ($staff) {
+                app(PackageDayCancelRequestService::class)
+                    ->markApprovedForOrder($locked, $staff, $refund);
+            }
+
             return [
                 'order' => $locked->fresh('menuItem'),
                 'refunded_amount' => $refund,

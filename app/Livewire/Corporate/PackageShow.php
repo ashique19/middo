@@ -3,8 +3,11 @@
 namespace App\Livewire\Corporate;
 
 use App\Models\Order;
+use App\Models\PackageDayCancelRequest;
 use App\Models\PackageSubscription;
+use App\Support\OrderCutoff;
 use App\Support\PackageBilling;
+use App\Support\PackageDayCancelRequestService;
 use App\Support\PackageRefund;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -19,6 +22,16 @@ class PackageShow extends Component
 
     public array $selections = [];
 
+    public string $errorMessage = '';
+
+    public string $successMessage = '';
+
+    public bool $showRequestModal = false;
+
+    public ?int $requestOrderId = null;
+
+    public string $requestReason = '';
+
     public function mount(int $subscriptionId): void
     {
         $this->subscriptionId = $subscriptionId;
@@ -29,7 +42,12 @@ class PackageShow extends Component
     {
         $sub = PackageSubscription::query()
             ->forUser(Auth::id())
-            ->with(['package', 'orders.menuItem', 'selections.menuItem'])
+            ->with([
+                'package',
+                'orders.menuItem',
+                'selections.menuItem',
+                'pendingCancelRequests',
+            ])
             ->findOrFail($this->subscriptionId);
 
         $this->subscription = [
@@ -60,11 +78,14 @@ class PackageShow extends Component
         ])->values()->all();
 
         $refunds = PackageRefund::packageDayRefundAllocations($sub);
+        $pendingByOrder = $sub->pendingCancelRequests->keyBy('order_id');
 
         $this->days = $sub->orders
             ->sortBy('delivery_date')
             ->values()
-            ->map(function (Order $order) use ($refunds) {
+            ->map(function (Order $order) use ($refunds, $pendingByOrder) {
+                $pending = $pendingByOrder->get($order->id);
+
                 return [
                     'id' => $order->id,
                     'date' => $order->delivery_date->toDateString(),
@@ -76,9 +97,108 @@ class PackageShow extends Component
                     'amount_paid' => (int) $order->amount_paid,
                     'refund_amount' => $refunds[(int) $order->id] ?? PackageRefund::orderRefundAmount($order),
                     'order_status' => $order->order_status,
+                    'can_request_cancel' => $order->order_status === 'pending'
+                        && OrderCutoff::allowsModification($order)
+                        && ! $pending,
+                    'cancel_request_id' => $pending?->id,
+                    'cancel_request_reason' => $pending?->reason,
+                    'cancel_request_pending' => (bool) $pending,
                 ];
             })
             ->all();
+    }
+
+    public function openRequestModal(int $orderId): void
+    {
+        $this->errorMessage = '';
+        $this->successMessage = '';
+
+        $order = Order::query()
+            ->where('id', $orderId)
+            ->where('user_id', Auth::id())
+            ->where('package_subscription_id', $this->subscriptionId)
+            ->first();
+
+        if (! $order) {
+            $this->errorMessage = 'Day not found.';
+
+            return;
+        }
+
+        $this->requestOrderId = $order->id;
+        $this->requestReason = '';
+        $this->showRequestModal = true;
+    }
+
+    public function closeRequestModal(): void
+    {
+        $this->showRequestModal = false;
+        $this->requestOrderId = null;
+        $this->requestReason = '';
+    }
+
+    public function submitCancelRequest(): void
+    {
+        $this->errorMessage = '';
+        $this->successMessage = '';
+
+        if (! $this->requestOrderId) {
+            $this->errorMessage = 'Day not found.';
+
+            return;
+        }
+
+        $order = Order::query()
+            ->where('id', $this->requestOrderId)
+            ->where('user_id', Auth::id())
+            ->where('package_subscription_id', $this->subscriptionId)
+            ->first();
+
+        if (! $order) {
+            $this->errorMessage = 'Day not found.';
+
+            return;
+        }
+
+        try {
+            app(PackageDayCancelRequestService::class)->request(
+                Auth::user(),
+                $order,
+                $this->requestReason
+            );
+            $this->successMessage = 'Cancel request sent to Middo operations.';
+            $this->closeRequestModal();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
+        }
+
+        $this->loadSubscription();
+    }
+
+    public function withdrawCancelRequest(int $requestId): void
+    {
+        $this->errorMessage = '';
+        $this->successMessage = '';
+
+        $request = PackageDayCancelRequest::query()
+            ->where('id', $requestId)
+            ->where('package_subscription_id', $this->subscriptionId)
+            ->first();
+
+        if (! $request) {
+            $this->errorMessage = 'Cancel request not found.';
+
+            return;
+        }
+
+        try {
+            app(PackageDayCancelRequestService::class)->withdraw(Auth::user(), $request);
+            $this->successMessage = 'Cancel request withdrawn.';
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage();
+        }
+
+        $this->loadSubscription();
     }
 
     public function omittedLabels(): string

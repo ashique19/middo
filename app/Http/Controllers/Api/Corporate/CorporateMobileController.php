@@ -1502,7 +1502,44 @@ class CorporateMobileController extends Controller
     public function skipPackageDay(Request $request, int $order): JsonResponse
     {
         return response()->json([
-            'message' => 'Package day cancel and refund is handled by Middo operations only.',
+            'message' => 'Package day cancel and refund is handled by Middo operations only. Use request-cancel-package-day instead.',
         ], 403);
+    }
+
+    public function requestCancelPackageDay(Request $request, int $order): JsonResponse
+    {
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $model = Order::query()
+            ->where('id', $order)
+            ->where('user_id', $request->user()->id)
+            ->whereNotNull('package_subscription_id')
+            ->firstOrFail();
+
+        try {
+            $cancelRequest = app(\App\Support\PackageDayCancelRequestService::class)->request(
+                $request->user(),
+                $model,
+                (string) $data['reason']
+            );
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'order' => [$e->getMessage()],
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Cancel request sent to Middo operations.',
+            'request' => [
+                'id' => $cancelRequest->id,
+                'status' => $cancelRequest->status,
+                'reason' => $cancelRequest->reason,
+                'order_id' => $cancelRequest->order_id,
+                'delivery_date' => optional($cancelRequest->delivery_date)->toDateString(),
+            ],
+            'order' => CorporateApiPresenter::order($model->fresh('menuItem')),
+        ], 201);
     }
 }

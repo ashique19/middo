@@ -34,6 +34,7 @@ Route::prefix('corporate')->group(function () {
         Route::get('/subscriptions', [CorporateMobileController::class, 'myPackages']);
         Route::get('/subscriptions/{subscription}', [CorporateMobileController::class, 'myPackageShow']);
         Route::post('/orders/{order}/skip-package-day', [CorporateMobileController::class, 'skipPackageDay']);
+        Route::post('/orders/{order}/request-cancel-package-day', [CorporateMobileController::class, 'requestCancelPackageDay']);
         Route::get('/orders/scheduled', [CorporateMobileController::class, 'scheduled']);
         Route::get('/orders/history', [CorporateMobileController::class, 'history']);
         Route::post('/orders/send-otp', [CorporateMobileController::class, 'sendOrderOtp']);

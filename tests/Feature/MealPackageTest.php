@@ -495,11 +495,12 @@ class MealPackageTest extends TestCase
         $this->actingAs($user)
             ->get(route('corporates.packages.show', ['subscriptionId' => $subscription->id]))
             ->assertOk()
-            ->assertDontSee('Cancel and Refund');
+            ->assertDontSee('Cancel and Refund')
+            ->assertSee('Request cancel');
 
         Sanctum::actingAs($user);
         $this->postJson('/api/corporate/orders/'.$order->id.'/skip-package-day', [
-            'reason' => 'Corporate should not cancel package days',
+            'reason' => 'Corporate should not cancel package days directly',
         ])->assertForbidden();
 
         Carbon::setTestNow();

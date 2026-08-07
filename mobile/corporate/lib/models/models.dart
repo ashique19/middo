@@ -178,6 +178,8 @@ class CorporateOrder {
     this.paymentMethod,
     this.paymentMethodLabel,
     this.canDelete = false,
+    this.canRequestCancel = false,
+    this.cancelRequestPending = false,
   });
 
   final String id;
@@ -198,6 +200,8 @@ class CorporateOrder {
   final String? paymentMethod;
   final String? paymentMethodLabel;
   final bool canDelete;
+  final bool canRequestCancel;
+  final bool cancelRequestPending;
 
   String get statusLabel => switch (status) {
         OrderStatus.pending => 'Pending',
@@ -238,6 +242,8 @@ class CorporateOrder {
       paymentMethod: json['payment_method']?.toString(),
       paymentMethodLabel: json['payment_method_label']?.toString(),
       canDelete: json['can_delete'] == true,
+      canRequestCancel: json['can_request_cancel'] == true,
+      cancelRequestPending: json['cancel_request_pending'] == true,
     );
   }
 
