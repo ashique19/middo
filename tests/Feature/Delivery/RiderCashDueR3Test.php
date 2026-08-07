@@ -6,7 +6,6 @@ use App\Livewire\Delivery\CashHandovers as DeliveryCashHandovers;
 use App\Livewire\Delivery\KitchenDispatches;
 use App\Livewire\Delivery\PaymentModal;
 use App\Livewire\Kitchen\CashHandovers as KitchenCashHandovers;
-use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Livewire\Operation\CashHandovers as OpsCashHandovers;
 use App\Models\CashHandover;
 use App\Models\MenuItem;
@@ -120,16 +119,15 @@ class RiderCashDueR3Test extends TestCase
             'total_uses_count' => 0,
         ]);
 
-        Livewire::actingAs($this->kitchen)
-            ->test(DispatchOrderModal::class)
-            ->call('openModal', $order->id)
-            ->call('toggleBox', $box->id)
-            ->call('dispatchOrder')
-            ->assertSet('showModal', false);
+        \Tests\Support\LunchRunFlow::fromReadyToOnTheWay(
+            $this->kitchen,
+            $this->rider,
+            $order->fresh(),
+            $box
+        );
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
             ->call('deliverToConsumer', $order->id)
             ->assertSet('errorMessage', null);
 

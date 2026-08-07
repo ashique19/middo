@@ -64,7 +64,7 @@ class ActiveOrders extends Component
 
     public function updatedStatusFilter(): void
     {
-        $allowed = ['all', 'pending', 'processing', 'ready', 'packed', 'on_the_way_to_delivery'];
+        $allowed = ['all', 'pending', 'processing', 'ready', 'rider_assigned', 'packed', 'on_the_way_to_delivery'];
         if (! in_array($this->statusFilter, $allowed, true)) {
             $this->statusFilter = 'all';
         }

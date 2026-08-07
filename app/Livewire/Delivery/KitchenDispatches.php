@@ -23,6 +23,9 @@ class KitchenDispatches extends Component
 
     public ?string $errorMessage = null;
 
+    /**
+     * Rider claims a ready (or orphan packed) order — no box custody yet.
+     */
     public function acceptOrder(int $orderId): void
     {
         $this->statusMessage = null;
@@ -38,7 +41,7 @@ class KitchenDispatches extends Component
                     ->first();
 
                 if (! $order || ! $order->isAwaitingRiderAccept()) {
-                    throw new \RuntimeException('This kitchen dispatch is no longer available to accept.');
+                    throw new \RuntimeException('This run is no longer available to accept.');
                 }
 
                 $rider = User::query()->find($riderId);
@@ -49,6 +52,56 @@ class KitchenDispatches extends Component
                 if (! $rider->canAcceptNewRuns()) {
                     throw new \RuntimeException('You are not on shift. Set On shift on the dashboard before accepting runs.');
                 }
+
+                if ($order->order_status === OrderTransition::READY) {
+                    OrderTransition::apply($order, OrderTransition::RIDER_ASSIGNED, [
+                        'delivery_rider_id' => $riderId,
+                        'original_delivery_rider_id' => $riderId,
+                        'updated_by' => $riderId,
+                    ]);
+
+                    return '#'.$order->id;
+                }
+
+                // Orphan packed (ops released) — reclaim without moving boxes yet.
+                $order->update([
+                    'delivery_rider_id' => $riderId,
+                    'original_delivery_rider_id' => $order->original_delivery_rider_id ?: $riderId,
+                    'updated_by' => $riderId,
+                ]);
+
+                return '#'.$order->id;
+            });
+
+            $this->statusMessage = "Accepted order {$label}. Wait for kitchen to pack, then confirm pickup.";
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not accept this order.';
+        }
+    }
+
+    /**
+     * Rider picks up packed boxes at kitchen → on the way.
+     */
+    public function pickUpOrder(int $orderId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        $riderId = (int) Auth::id();
+
+        try {
+            $label = DB::transaction(function () use ($orderId, $riderId) {
+                $order = Order::query()
+                    ->whereKey($orderId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $order || ! $order->isAssignedToRider($riderId) || ! $order->isAwaitingRiderPickup()) {
+                    throw new \RuntimeException('This packed order is not ready for your pickup.');
+                }
+
+                $rider = User::query()->findOrFail($riderId);
 
                 $boxes = $order->middoBoxes()->lockForUpdate()->get();
 
@@ -83,8 +136,6 @@ class KitchenDispatches extends Component
                 }
 
                 OrderTransition::apply($order, OrderTransition::ON_THE_WAY_TO_DELIVERY, [
-                    'delivery_rider_id' => $riderId,
-                    'original_delivery_rider_id' => $riderId,
                     'updated_by' => $riderId,
                 ]);
 
@@ -93,10 +144,10 @@ class KitchenDispatches extends Component
                 return '#'.$order->id;
             });
 
-            $this->statusMessage = "Accepted order {$label}. Status is now On the way to delivery.";
+            $this->statusMessage = "Picked up order {$label}. Status is now On the way to delivery.";
             $this->resetPage();
         } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage() ?: 'Could not accept this order.';
+            $this->errorMessage = $e->getMessage() ?: 'Could not confirm pickup.';
         }
     }
 
@@ -190,11 +241,18 @@ class KitchenDispatches extends Component
             ->with([
                 'menuItem',
                 'user',
+                'area',
                 'deliveryRider',
                 'orderGroup.kitchen',
                 'middoBoxes',
             ])
-            ->orderBy('dispatched_at')
+            ->orderByRaw("CASE order_status
+                WHEN 'ready' THEN 1
+                WHEN 'rider_assigned' THEN 2
+                WHEN 'packed' THEN 3
+                WHEN 'on_the_way_to_delivery' THEN 4
+                ELSE 5 END")
+            ->orderBy('id')
             ->paginate(20);
 
         $nodes = collect($orders->items())
@@ -202,6 +260,7 @@ class KitchenDispatches extends Component
                 $kitchen = $order->orderGroup?->kitchen;
                 $party = $order->partyPayload();
                 $commission = RiderCommission::forLunchOrder($rider, $order);
+                $mine = $order->isAssignedToRider($riderId);
 
                 return [
                     'id' => $order->id,
@@ -212,6 +271,7 @@ class KitchenDispatches extends Component
                     'receiver_mobile' => $party['receiver_mobile'],
                     'has_separate_receiver' => $party['has_separate_receiver'],
                     'address' => $order->address,
+                    'area_name' => $order->area?->name ?? $order->orderGroup?->area?->name,
                     'quantity' => $order->quantity,
                     'amount_due' => $party['amount_due'],
                     'amount_paid' => $party['amount_paid'],
@@ -225,10 +285,10 @@ class KitchenDispatches extends Component
                     'box_codes' => $order->middoBoxes->pluck('qr_code_id')->all(),
                     'status_label' => str($order->order_status)->replace('_', ' ')->title()->toString(),
                     'awaiting_accept' => $order->isAwaitingRiderAccept(),
-                    'can_mark_delivered' => $order->isAssignedToRider((int) $riderId)
-                        && $order->isOnTheWayToDelivery(),
-                    'accepted_by_other' => $order->delivery_rider_id !== null
-                        && ! $order->isAssignedToRider((int) $riderId),
+                    'awaiting_kitchen_pack' => $mine && $order->isRiderAssignedAwaitingDispatch(),
+                    'can_pick_up' => $mine && $order->isAwaitingRiderPickup(),
+                    'can_mark_delivered' => $mine && $order->isOnTheWayToDelivery(),
+                    'accepted_by_other' => $order->delivery_rider_id !== null && ! $mine,
                     'rider_name' => $order->deliveryRider?->name,
                 ];
             })

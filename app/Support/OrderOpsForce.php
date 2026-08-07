@@ -29,14 +29,19 @@ class OrderOpsForce
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $status = (string) $locked->order_status;
 
-            if (! in_array($status, ['pending', OrderTransition::PROCESSING, OrderTransition::READY], true)) {
+            if (! in_array($status, ['pending', OrderTransition::PROCESSING, OrderTransition::READY, OrderTransition::RIDER_ASSIGNED], true)) {
                 throw new \RuntimeException(
-                    'Ops cancel is only allowed before packed (pending / processing / ready).'
+                    'Ops cancel is only allowed before packed (pending / processing / ready / rider assigned).'
                 );
             }
 
             if ($locked->dispatched_at !== null) {
                 throw new \RuntimeException('Order is already kitchen-dispatched; cancel is blocked.');
+            }
+
+            // Drop soft rider claim before cancel.
+            if ($locked->delivery_rider_id !== null) {
+                $locked->delivery_rider_id = null;
             }
 
             $refund = (int) ($locked->amount_paid ?? 0);

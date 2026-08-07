@@ -116,6 +116,14 @@ class RiderAccountR4Test extends TestCase
         OrderTransition::apply($order->fresh(), OrderTransition::PROCESSING);
         OrderTransition::apply($order->fresh(), OrderTransition::READY);
 
+        Livewire::actingAs($this->rider)
+            ->test(KitchenDispatches::class)
+            ->call('acceptOrder', $order->id)
+            ->assertSet('errorMessage', null);
+
+        $this->assertSame(OrderTransition::RIDER_ASSIGNED, $order->fresh()->order_status);
+        $this->assertSame($this->rider->id, (int) $order->fresh()->delivery_rider_id);
+
         $box = MiddoBox::create([
             'qr_code_id' => 'MB-R4-'.uniqid(),
             'box_model_type' => 'standard_insulated',
@@ -132,9 +140,11 @@ class RiderAccountR4Test extends TestCase
             ->call('dispatchOrder')
             ->assertSet('showModal', false);
 
+        $this->assertSame(OrderTransition::PACKED, $order->fresh()->order_status);
+
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
+            ->call('pickUpOrder', $order->id)
             ->assertSet('errorMessage', null)
             ->call('deliverToConsumer', $order->id)
             ->assertSet('errorMessage', null);
@@ -331,19 +341,6 @@ class RiderAccountR4Test extends TestCase
         $group->orders()->attach($order->id);
         OrderTransition::apply($order->fresh(), OrderTransition::PROCESSING);
         OrderTransition::apply($order->fresh(), OrderTransition::READY);
-        $box = MiddoBox::create([
-            'qr_code_id' => 'MB-R4-SHOW',
-            'box_model_type' => 'standard_insulated',
-            'asset_status' => 'active',
-            'kitchen_id' => $this->kitchen->id,
-            'held_by_user_id' => $this->kitchen->id,
-            'total_uses_count' => 0,
-        ]);
-        Livewire::actingAs($this->kitchen)
-            ->test(DispatchOrderModal::class)
-            ->call('openModal', $order->id)
-            ->call('toggleBox', $box->id)
-            ->call('dispatchOrder');
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)

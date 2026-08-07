@@ -336,7 +336,7 @@ class OrderMoneyFlow
         $order->forceFill($breakdown)->saveQuietly();
 
         // Kitchen share is accrued on dispatch (see accrueKitchenShareOnDispatch).
-        // Delivery lunch share is accrued on rider accept (see accrueDeliveryShareOnRunStart).
+        // Delivery lunch share is accrued on rider pickup (see accrueDeliveryShareOnRunStart).
 
         $deliveryAlreadyAccrued = OrderMoneyEvent::query()
             ->where('order_id', $order->id)

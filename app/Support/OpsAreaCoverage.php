@@ -6,6 +6,7 @@ use App\Models\Area;
 use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\OrderTransition;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -69,9 +70,16 @@ class OpsAreaCoverage
         $unclaimed = Order::query()
             ->with(['orderGroup'])
             ->whereDate('delivery_date', $date)
-            ->where('order_status', 'packed')
-            ->whereNotNull('dispatched_at')
-            ->whereNull('delivery_rider_id')
+            ->where(function ($q) {
+                $q->where(function ($ready) {
+                    $ready->where('order_status', OrderTransition::READY)
+                        ->whereNull('delivery_rider_id');
+                })->orWhere(function ($packed) {
+                    $packed->where('order_status', OrderTransition::PACKED)
+                        ->whereNotNull('dispatched_at')
+                        ->whereNull('delivery_rider_id');
+                });
+            })
             ->whereNotNull('area_id')
             ->get();
 

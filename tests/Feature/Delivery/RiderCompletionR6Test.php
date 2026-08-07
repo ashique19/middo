@@ -6,7 +6,6 @@ use App\Livewire\Delivery\CashHandovers as DeliveryCashHandovers;
 use App\Livewire\Delivery\KitchenDispatches;
 use App\Livewire\Delivery\PaymentModal;
 use App\Livewire\Kitchen\CashHandovers as KitchenCashHandovers;
-use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Livewire\Operation\AssignMiddoBoxesModal;
 use App\Livewire\Shared\AccountsHub;
 use App\Models\CashHandover;
@@ -124,32 +123,26 @@ class RiderCompletionR6Test extends TestCase
         OrderTransition::apply($order->fresh(), OrderTransition::PROCESSING);
         OrderTransition::apply($order->fresh(), OrderTransition::READY);
 
-        $boxIds = [];
+        $boxes = [];
         for ($i = 1; $i <= $qty; $i++) {
-            $boxIds[] = MiddoBox::create([
+            $boxes[] = MiddoBox::create([
                 'qr_code_id' => 'MB-R6-'.uniqid().'-'.$i,
                 'box_model_type' => 'standard_insulated',
                 'asset_status' => 'active',
                 'kitchen_id' => $this->kitchen->id,
                 'held_by_user_id' => $this->kitchen->id,
                 'total_uses_count' => 0,
-            ])->id;
+            ]);
         }
 
-        $modal = Livewire::actingAs($this->kitchen)
-            ->test(DispatchOrderModal::class)
-            ->call('openModal', $order->id);
-        foreach ($boxIds as $boxId) {
-            $modal->call('toggleBox', $boxId);
-        }
-        $modal->call('dispatchOrder')->assertSet('showModal', false);
+        $order = \Tests\Support\LunchRunFlow::fromReadyToOnTheWay(
+            $this->kitchen,
+            $this->rider,
+            $order->fresh(),
+            $boxes
+        );
 
-        Livewire::actingAs($this->rider)
-            ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
-            ->assertSet('errorMessage', null);
-
-        return $order->fresh(['middoBoxes']);
+        return $order->load(['middoBoxes']);
     }
 
     public function test_lunch_commission_cash_due_handover_and_no_double_accrual(): void

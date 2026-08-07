@@ -53,9 +53,16 @@ class OpsDayChecklist
     {
         $awaiting = Order::query()
             ->with(['menuItem', 'orderGroup.kitchen', 'area'])
-            ->where('order_status', 'packed')
-            ->whereNotNull('dispatched_at')
-            ->whereNull('delivery_rider_id')
+            ->where(function ($q) {
+                $q->where(function ($ready) {
+                    $ready->where('order_status', \App\Support\OrderTransition::READY)
+                        ->whereNull('delivery_rider_id');
+                })->orWhere(function ($packed) {
+                    $packed->where('order_status', \App\Support\OrderTransition::PACKED)
+                        ->whereNotNull('dispatched_at')
+                        ->whereNull('delivery_rider_id');
+                });
+            })
             ->whereDate('delivery_date', $date)
             ->orderBy('delivery_time')
             ->limit(25)

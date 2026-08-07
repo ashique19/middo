@@ -47,7 +47,10 @@ class OrderKitchenActions
                 ]);
             }
 
-            return $locked->fresh();
+            $fresh = $locked->fresh(['menuItem', 'orderGroup', 'area']);
+            StaffAlerts::notifyRidersLunchReady($fresh);
+
+            return $fresh;
         });
     }
 }

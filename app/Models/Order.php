@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\OrderCutoff;
 use App\Support\OrderPaymentMethod;
+use App\Support\OrderTransition;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -157,19 +158,37 @@ class Order extends Model
 
     public function isAwaitingRiderAccept(): bool
     {
-        return $this->isKitchenDispatched()
-            && $this->delivery_rider_id === null
-            && $this->order_status === 'packed';
+        if ($this->delivery_rider_id !== null) {
+            return false;
+        }
+
+        // Claim before pack (preferred), or re-claim an already packed orphan after ops release.
+        return $this->order_status === OrderTransition::READY
+            || ($this->order_status === OrderTransition::PACKED && $this->dispatched_at !== null);
+    }
+
+    public function isRiderAssignedAwaitingDispatch(): bool
+    {
+        return $this->order_status === OrderTransition::RIDER_ASSIGNED
+            && $this->delivery_rider_id !== null
+            && $this->dispatched_at === null;
+    }
+
+    public function isAwaitingRiderPickup(): bool
+    {
+        return $this->order_status === OrderTransition::PACKED
+            && $this->dispatched_at !== null
+            && $this->delivery_rider_id !== null;
     }
 
     public function isPacked(): bool
     {
-        return $this->order_status === 'packed';
+        return $this->order_status === OrderTransition::PACKED;
     }
 
     public function isOnTheWayToDelivery(): bool
     {
-        return $this->order_status === 'on_the_way_to_delivery';
+        return $this->order_status === OrderTransition::ON_THE_WAY_TO_DELIVERY;
     }
 
     public function isAssignedToRider(?int $riderId = null): bool
@@ -384,9 +403,24 @@ class Order extends Model
 
     public function scopeKitchenDispatched($query)
     {
-        return $query
-            ->whereNotNull('dispatched_at')
-            ->whereIn('order_status', ['packed', 'on_the_way_to_delivery']);
+        // Rider lunch board: claimable ready runs, claimed/packed/on-the-way lunch runs.
+        return $query->where(function ($q) {
+            $q->where(function ($claim) {
+                $claim->where('order_status', OrderTransition::READY)
+                    ->whereNull('delivery_rider_id');
+            })->orWhere(function ($assigned) {
+                $assigned->whereIn('order_status', [
+                    OrderTransition::RIDER_ASSIGNED,
+                    OrderTransition::PACKED,
+                    OrderTransition::ON_THE_WAY_TO_DELIVERY,
+                ])->whereNotNull('delivery_rider_id');
+            })->orWhere(function ($orphanPacked) {
+                // Ops released rider after pickup — packed orphan open to re-claim.
+                $orphanPacked->where('order_status', OrderTransition::PACKED)
+                    ->whereNotNull('dispatched_at')
+                    ->whereNull('delivery_rider_id');
+            });
+        });
     }
 
     public function scopeDeliveredForRider($query, int $riderId)
@@ -400,6 +434,7 @@ class Order extends Model
         'pending',
         'processing',
         'ready',
+        'rider_assigned',
         'packed',
         'on_the_way_to_delivery',
     ];

@@ -18,15 +18,19 @@ class OrderStatusPushCopy
             ],
             'ready' => [
                 'title' => 'Kitchen finished prep',
-                'body' => "Order #{$orderId}{$meal} is ready and waiting for rider pickup.",
+                'body' => "Order #{$orderId}{$meal} is ready — waiting for a rider to accept.",
+            ],
+            'rider_assigned' => [
+                'title' => 'Rider accepted your order',
+                'body' => "Order #{$orderId}{$meal} has a rider. Kitchen will pack and hand off next.",
             ],
             'packed' => [
                 'title' => 'Your order is packed',
-                'body' => "Order #{$orderId}{$meal} is packed and handed to delivery.",
+                'body' => "Order #{$orderId}{$meal} is packed and ready for rider pickup.",
             ],
             'on_the_way_to_delivery' => [
                 'title' => 'Your order is on the way',
-                'body' => "Order #{$orderId}{$meal} has been dispatched for delivery.",
+                'body' => "Order #{$orderId}{$meal} has been picked up for delivery.",
             ],
             'delivered' => [
                 'title' => 'Order delivered',

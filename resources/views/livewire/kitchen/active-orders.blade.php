@@ -4,7 +4,7 @@
             <a href="{{ route('kitchen.dashboard') }}" class="hidden md:inline text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
             <h1 class="hidden md:block text-3xl font-bold text-middo-dark">My Active Orders</h1>
             <p class="text-sm font-semibold text-[#635347] md:text-gray-500">
-                Mark prep Ready, then Dispatch to hand off to a rider.
+                Mark each order Ready, wait for a rider claim, then Dispatch that order alone (parcels can go to different areas).
             </p>
             <div class="pt-2">
                 <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
@@ -170,6 +170,9 @@
                                 @if($order['dispatched'])
                                     <span class="inline-flex justify-center px-3 py-3 rounded-2xl text-sm font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 min-h-[48px] items-center">
                                         Dispatched
+                                        @if(!empty($order['rider_name']))
+                                            · {{ $order['rider_name'] }}
+                                        @endif
                                     </span>
                                 @elseif(!empty($order['can_mark_ready']))
                                     <button
@@ -183,11 +186,15 @@
                                         type="button"
                                         wire:click="$dispatch('open-dispatch-order-modal', { orderId: {{ $order['id'] }} })"
                                         class="inline-flex justify-center items-center px-3 py-3 rounded-2xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold min-h-[48px]">
-                                        Dispatch
+                                        Dispatch to {{ $order['rider_name'] ?? 'rider' }}
                                     </button>
-                                @elseif(!empty($order['is_ready']))
+                                @elseif(!empty($order['awaiting_rider_claim']))
+                                    <span class="inline-flex justify-center px-3 py-3 rounded-2xl text-sm font-bold bg-amber-50 text-amber-900 border border-amber-200 min-h-[48px] items-center">
+                                        Waiting for rider to accept
+                                    </span>
+                                @elseif(!empty($order['is_rider_assigned']))
                                     <span class="inline-flex justify-center px-3 py-3 rounded-2xl text-sm font-bold bg-sky-50 text-sky-800 border border-sky-200 min-h-[48px] items-center">
-                                        Ready — waiting for dispatch
+                                        Claimed by {{ $order['rider_name'] ?? 'rider' }}
                                     </span>
                                 @endif
                             </div>

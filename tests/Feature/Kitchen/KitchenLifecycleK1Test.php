@@ -159,7 +159,7 @@ class KitchenLifecycleK1Test extends TestCase
         Livewire::actingAs($this->kitchen)
             ->test(DispatchOrderModal::class)
             ->call('openModal', $order->id)
-            ->assertSet('errorMessage', 'Mark this order ready before dispatching to a rider.');
+            ->assertSet('errorMessage', 'Mark this order ready first.');
 
         Livewire::actingAs($this->kitchen)
             ->test(ActiveOrders::class)
@@ -168,15 +168,11 @@ class KitchenLifecycleK1Test extends TestCase
 
         $this->assertSame(OrderTransition::READY, $order->fresh()->order_status);
 
+        // Without a rider claim, kitchen still cannot pack/dispatch.
         Livewire::actingAs($this->kitchen)
             ->test(DispatchOrderModal::class)
             ->call('openModal', $order->id)
-            ->call('toggleBox', $box->id)
-            ->call('dispatchOrder')
-            ->assertSet('showModal', false);
-
-        $this->assertSame(OrderTransition::PACKED, $order->fresh()->order_status);
-        $this->assertNotNull($order->fresh()->dispatched_at);
+            ->assertSet('errorMessage', 'Wait for a rider to accept this order before dispatching.');
     }
 
     public function test_release_returns_group_to_pool_and_frees_capacity(): void

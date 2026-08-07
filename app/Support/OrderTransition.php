@@ -11,6 +11,8 @@ class OrderTransition
 
     public const READY = 'ready';
 
+    public const RIDER_ASSIGNED = 'rider_assigned';
+
     public const PACKED = 'packed';
 
     public const ON_THE_WAY_TO_DELIVERY = 'on_the_way_to_delivery';
@@ -33,7 +35,11 @@ class OrderTransition
             self::READY,
         ],
         self::READY => [
+            self::RIDER_ASSIGNED,
+        ],
+        self::RIDER_ASSIGNED => [
             self::PACKED,
+            self::READY, // kitchen/ops release claim
         ],
         self::PACKED => [
             self::ON_THE_WAY_TO_DELIVERY,

@@ -42,19 +42,20 @@ class RiderAcceptSla
     public static function minutesWaiting(Order $order, ?Carbon $now = null): int
     {
         $now = ($now ?? now('Asia/Dhaka'))->copy();
-        if (! $order->dispatched_at) {
+        $since = $order->dispatched_at ?: $order->updated_at;
+        if (! $since) {
             return 0;
         }
 
-        $dispatched = $order->dispatched_at instanceof \DateTimeInterface
-            ? Carbon::instance($order->dispatched_at)
-            : Carbon::parse($order->dispatched_at);
+        $anchor = $since instanceof \DateTimeInterface
+            ? Carbon::instance($since)->timezone('Asia/Dhaka')
+            : Carbon::parse($since, 'Asia/Dhaka');
 
-        if ($now->lte($dispatched)) {
+        if ($now->lte($anchor)) {
             return 0;
         }
 
-        return (int) max(0, abs($dispatched->diffInMinutes($now)));
+        return (int) max(0, abs($anchor->diffInMinutes($now)));
     }
 
     public static function minutesToClaimBy(Order $order, ?Carbon $now = null): int

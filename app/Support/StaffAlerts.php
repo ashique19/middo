@@ -106,13 +106,11 @@ class StaffAlerts
     }
 
     /**
-     * Parcel call: kitchen dispatched a lunch order — notify riders serving that area.
-     *
-     * @return int number of alerts created
+     * Parcel call: kitchen marked lunch order ready — notify riders serving that area to accept.
      */
-    public static function notifyRidersLunchDispatch(Order $order): int
+    public static function notifyRidersLunchReady(Order $order): int
     {
-        $order->loadMissing(['menuItem', 'orderGroup']);
+        $order->loadMissing(['menuItem', 'orderGroup', 'area']);
         $areaId = DeliveryAreaScope::orderAreaId($order);
         $riders = DeliveryAreaScope::ridersForArea($areaId);
         if ($riders === []) {
@@ -120,11 +118,13 @@ class StaffAlerts
         }
 
         $menu = $order->menuItem?->name ?? 'Order';
-        $title = 'New lunch run #'.$order->id;
+        $areaName = $order->area?->name ?? $order->orderGroup?->area?->name;
+        $title = 'Ready for claim #'.$order->id;
         $body = sprintf(
-            '%s is packed and ready for pickup (qty %d).',
+            '%s is ready at kitchen (qty %d)%s. Accept the run, then pick up after kitchen packs.',
             $menu,
-            (int) $order->quantity
+            (int) $order->quantity,
+            $areaName ? ' · '.$areaName : ''
         );
         $groupId = $order->orderGroup?->id;
         $created = 0;
@@ -140,8 +140,9 @@ class StaffAlerts
                     'order_id' => $order->id,
                     'area_id' => $areaId,
                     'run_type' => DeliveryRunType::KITCHEN_TO_CORPORATE,
+                    'phase' => 'ready_for_claim',
                 ],
-                'lunch_dispatch:'.$order->id.':'.$rider->id
+                'lunch_ready:'.$order->id.':'.$rider->id
             );
             if ($alert) {
                 $created++;
@@ -149,6 +150,46 @@ class StaffAlerts
         }
 
         return $created;
+    }
+
+    /**
+     * Kitchen confirmed / packed for the claimed rider — time to pick up.
+     */
+    public static function notifyRiderLunchPacked(Order $order): int
+    {
+        $order->loadMissing(['menuItem', 'deliveryRider', 'orderGroup']);
+        $riderId = (int) ($order->delivery_rider_id ?? 0);
+        if ($riderId < 1) {
+            return 0;
+        }
+
+        $menu = $order->menuItem?->name ?? 'Order';
+        $alert = self::createOnce(
+            $riderId,
+            StaffAlert::TYPE_LUNCH_DISPATCH,
+            'Packed — pick up #'.$order->id,
+            sprintf('%s is packed. Confirm pickup at the kitchen.', $menu),
+            $order->orderGroup?->id ? (int) $order->orderGroup->id : null,
+            [
+                'order_id' => $order->id,
+                'phase' => 'packed_for_pickup',
+                'run_type' => DeliveryRunType::KITCHEN_TO_CORPORATE,
+            ],
+            'lunch_packed:'.$order->id.':'.$riderId
+        );
+
+        return $alert ? 1 : 0;
+    }
+
+    /**
+     * Parcel call: kitchen dispatched a lunch order — notify riders serving that area.
+     *
+     * @deprecated Prefer notifyRidersLunchReady + notifyRiderLunchPacked
+     * @return int number of alerts created
+     */
+    public static function notifyRidersLunchDispatch(Order $order): int
+    {
+        return self::notifyRidersLunchReady($order);
     }
 
     /**

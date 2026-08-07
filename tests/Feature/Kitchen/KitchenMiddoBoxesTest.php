@@ -254,6 +254,11 @@ class KitchenMiddoBoxesTest extends TestCase
             ->test(ActiveOrders::class)
             ->call('markReady', $order->id);
 
+        Livewire::actingAs($this->rider)
+            ->test(\App\Livewire\Delivery\KitchenDispatches::class)
+            ->call('acceptOrder', $order->id)
+            ->assertSet('errorMessage', null);
+
         $modal = Livewire::actingAs($this->kitchen)
             ->test(DispatchOrderModal::class)
             ->call('openModal', $order->id);
@@ -307,11 +312,17 @@ class KitchenMiddoBoxesTest extends TestCase
             ->test(ActiveOrders::class)
             ->call('markReady', $order->id);
 
+        Livewire::actingAs($this->rider)
+            ->test(\App\Livewire\Delivery\KitchenDispatches::class)
+            ->call('acceptOrder', $order->id)
+            ->assertSet('errorMessage', null);
+
         Livewire::actingAs($this->kitchen)
             ->test(DispatchOrderModal::class)
             ->call('openModal', $order->id)
             ->assertSet('showModal', true)
             ->assertSet('requiredQuantity', 2)
+            ->assertSet('errorMessage', null)
             ->call('toggleBox', $box1->id)
             ->call('toggleBox', $box2->id)
             ->call('dispatchOrder')

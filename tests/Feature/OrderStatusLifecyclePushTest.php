@@ -144,7 +144,14 @@ class OrderStatusLifecyclePushTest extends TestCase
         $this->assertSame('ready', $order->fresh()->order_status);
         Queue::assertPushed(SendOrderStatusPush::class, fn ($job) => $job->status === 'ready');
 
-        // 3) Kitchen pack / dispatch → packed
+        // 3) Rider accepts claim → rider_assigned
+        Livewire::actingAs($rider)
+            ->test(KitchenDispatches::class)
+            ->call('acceptOrder', $order->id);
+        $this->assertSame('rider_assigned', $order->fresh()->order_status);
+        Queue::assertPushed(SendOrderStatusPush::class, fn ($job) => $job->status === 'rider_assigned');
+
+        // 4) Kitchen pack / dispatch → packed
         Livewire::actingAs($kitchen)
             ->test(DispatchOrderModal::class)
             ->call('openModal', $order->id)
@@ -154,15 +161,15 @@ class OrderStatusLifecyclePushTest extends TestCase
         $this->assertSame('packed', $order->fresh()->order_status);
         Queue::assertPushed(SendOrderStatusPush::class, fn ($job) => $job->status === 'packed');
 
-        // 4) Rider accept → on_the_way_to_delivery
+        // 5) Rider pickup → on_the_way_to_delivery
         Livewire::actingAs($rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id);
+            ->call('pickUpOrder', $order->id);
 
         $this->assertSame('on_the_way_to_delivery', $order->fresh()->order_status);
         Queue::assertPushed(SendOrderStatusPush::class, fn ($job) => $job->status === 'on_the_way_to_delivery');
 
-        // 5) Prepaid deliver → delivered_and_paid (skip plain delivered)
+        // 6) Prepaid deliver → delivered_and_paid (skip plain delivered)
         Livewire::actingAs($rider)
             ->test(KitchenDispatches::class)
             ->call('deliverToConsumer', $order->id);
@@ -264,6 +271,10 @@ class OrderStatusLifecyclePushTest extends TestCase
             'updated_by' => $kitchen->id,
         ]);
 
+        Livewire::actingAs($rider)
+            ->test(KitchenDispatches::class)
+            ->call('acceptOrder', $order->id);
+
         Livewire::actingAs($kitchen)
             ->test(DispatchOrderModal::class)
             ->call('openModal', $order->id)
@@ -272,7 +283,7 @@ class OrderStatusLifecyclePushTest extends TestCase
 
         Livewire::actingAs($rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id);
+            ->call('pickUpOrder', $order->id);
 
         Livewire::actingAs($rider)
             ->test(KitchenDispatches::class)

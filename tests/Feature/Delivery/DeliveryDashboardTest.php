@@ -114,20 +114,45 @@ class DeliveryDashboardTest extends TestCase
 
         $boxes = [];
         for ($i = 1; $i <= $quantity; $i++) {
-            $boxes[] = $this->makeBoxAtKitchen('MB-D'.str_pad((string) $i, 5, '0', STR_PAD_LEFT))->id;
+            $boxes[] = $this->makeBoxAtKitchen('MB-D'.str_pad((string) $i, 5, '0', STR_PAD_LEFT).'-'.uniqid());
         }
 
-        $modal = Livewire::actingAs($this->kitchen)
-            ->test(DispatchOrderModal::class)
-            ->call('openModal', $order->id);
+        return \Tests\Support\LunchRunFlow::fromReadyToOnTheWay(
+            $this->kitchen,
+            $this->rider,
+            $order->fresh(),
+            $boxes
+        )->load(['middoBoxes', 'orderGroup']);
+    }
 
-        foreach ($boxes as $boxId) {
-            $modal->call('toggleBox', $boxId);
-        }
+    protected function createReadyForClaimOrder(int $quantity = 2): Order
+    {
+        $today = now('Asia/Dhaka')->toDateString();
 
-        $modal->call('dispatchOrder');
+        $order = Order::create([
+            'user_id' => $this->customer->id,
+            'menu_item_id' => $this->menu->id,
+            'quantity' => $quantity,
+            'delivery_date' => $today,
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 250 * $quantity,
+            'address' => 'Corporate HQ',
+            'order_status' => 'pending',
+            'payment_status' => 'pending',
+        ]);
 
-        return $order->fresh(['middoBoxes', 'orderGroup']);
+        $group = OrderGroup::create([
+            'name' => 'GRP-DELIVERY-READY-'.uniqid(),
+            'menu_id' => $this->menu->id,
+            'delivery_date' => $today,
+            'kitchen_id' => $this->kitchen->id,
+        ]);
+        $group->orders()->attach($order->id);
+
+        OrderTransition::apply($order->fresh(), OrderTransition::PROCESSING);
+        OrderTransition::apply($order->fresh(), OrderTransition::READY);
+
+        return $order->fresh(['orderGroup']);
     }
 
     public function test_delivery_dashboard_shows_tiles(): void
@@ -141,7 +166,7 @@ class DeliveryDashboardTest extends TestCase
             'total_uses_count' => 0,
         ]);
 
-        $this->createKitchenDispatchedOrder(2);
+        $this->createReadyForClaimOrder(2);
 
         $this->actingAs($this->rider)
             ->get(route('delivery.dashboard'))
@@ -155,20 +180,21 @@ class DeliveryDashboardTest extends TestCase
 
     public function test_rider_can_accept_kitchen_dispatch_and_deliver_to_consumer(): void
     {
-        $order = $this->createKitchenDispatchedOrder(2);
+        $order = $this->createReadyForClaimOrder(2);
+        $boxes = [
+            $this->makeBoxAtKitchen('MB-FLOW-1'),
+            $this->makeBoxAtKitchen('MB-FLOW-2'),
+        ];
 
         $this->actingAs($this->rider)
             ->get(route('delivery.kitchen-dispatches'))
             ->assertOk()
             ->assertSee('#'.$order->id)
-            ->assertSee('Pick up packed order');
+            ->assertSee('Accept run');
 
-        Livewire::actingAs($this->rider)
-            ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
-            ->assertSet('statusMessage', 'Accepted order #'.$order->id.'. Status is now On the way to delivery.');
+        \Tests\Support\LunchRunFlow::fromReadyToOnTheWay($this->kitchen, $this->rider, $order, $boxes);
 
-        $order->refresh();
+        $order->refresh()->load('middoBoxes');
         $this->assertSame($this->rider->id, $order->delivery_rider_id);
         $this->assertSame('on_the_way_to_delivery', $order->order_status);
 
@@ -202,7 +228,7 @@ class DeliveryDashboardTest extends TestCase
 
     public function test_another_rider_cannot_accept_already_claimed_dispatch(): void
     {
-        $order = $this->createKitchenDispatchedOrder(2);
+        $order = $this->createReadyForClaimOrder(2);
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
@@ -220,7 +246,7 @@ class DeliveryDashboardTest extends TestCase
         Livewire::actingAs($otherRider)
             ->test(KitchenDispatches::class)
             ->call('acceptOrder', $order->id)
-            ->assertSet('errorMessage', 'This kitchen dispatch is no longer available to accept.');
+            ->assertSet('errorMessage', 'This run is no longer available to accept.');
     }
 
     public function test_rider_cash_payment_and_receive_boxes(): void
@@ -229,7 +255,6 @@ class DeliveryDashboardTest extends TestCase
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
             ->call('deliverToConsumer', $order->id);
 
         $this->assertSame(0, $this->rider->fresh()->balance);
@@ -291,7 +316,6 @@ class DeliveryDashboardTest extends TestCase
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
             ->call('deliverToConsumer', $order->id);
 
         Livewire::actingAs($this->rider)
@@ -322,7 +346,6 @@ class DeliveryDashboardTest extends TestCase
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
             ->call('deliverToConsumer', $order->id);
 
         Livewire::actingAs($this->rider)
@@ -360,7 +383,6 @@ class DeliveryDashboardTest extends TestCase
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
             ->call('deliverToConsumer', $order->id);
 
         $order->refresh();
@@ -382,7 +404,6 @@ class DeliveryDashboardTest extends TestCase
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
             ->call('deliverToConsumer', $order->id);
 
         $this->assertSame('delivered', $order->fresh()->order_status);

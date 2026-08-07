@@ -3,7 +3,7 @@
         <a href="{{ route('delivery.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
         <h1 class="text-2xl sm:text-3xl font-bold text-middo-dark">Kitchen dispatches</h1>
         <p class="text-sm font-semibold text-gray-500">
-            Accept at the kitchen (on the way to delivery), then mark Delivered at the consumer.
+            Accept a ready order → wait for kitchen pack → pick up → deliver. Each order is its own run.
         </p>
     </div>
 
@@ -36,6 +36,11 @@
                         <span class="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
                             {{ $order['status_label'] }}
                         </span>
+                        @if(!empty($order['area_name']))
+                            <span class="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-violet-50 text-violet-800 border border-violet-200">
+                                {{ $order['area_name'] }}
+                            </span>
+                        @endif
                     </div>
                     <p class="text-sm text-gray-600">
                         <span class="font-semibold">{{ $order['kitchen_name'] }}</span>
@@ -71,10 +76,25 @@
                             wire:click="acceptOrder({{ $order['id'] }})"
                             wire:loading.attr="disabled"
                             wire:target="acceptOrder({{ $order['id'] }})"
-                            wire:confirm="Accept this packed order? Boxes will be held by you and status becomes On the way to delivery."
+                            wire:confirm="Accept this order run? Kitchen will pack for you, then you confirm pickup."
                             class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2.5 sm:py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
-                            <span wire:loading.remove wire:target="acceptOrder({{ $order['id'] }})">Pick up packed order</span>
+                            <span wire:loading.remove wire:target="acceptOrder({{ $order['id'] }})">Accept run</span>
                             <span wire:loading wire:target="acceptOrder({{ $order['id'] }})">Accepting...</span>
+                        </button>
+                    @elseif(!empty($order['awaiting_kitchen_pack']))
+                        <span class="inline-flex px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                            Waiting for kitchen to pack
+                        </span>
+                    @elseif(!empty($order['can_pick_up']))
+                        <button
+                            type="button"
+                            wire:click="pickUpOrder({{ $order['id'] }})"
+                            wire:loading.attr="disabled"
+                            wire:target="pickUpOrder({{ $order['id'] }})"
+                            wire:confirm="Confirm pickup? Boxes move to your custody and status becomes On the way."
+                            class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2.5 sm:py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold transition disabled:opacity-60">
+                            <span wire:loading.remove wire:target="pickUpOrder({{ $order['id'] }})">Picked up</span>
+                            <span wire:loading wire:target="pickUpOrder({{ $order['id'] }})">Saving...</span>
                         </button>
                     @elseif($order['can_mark_delivered'])
                         <button
@@ -97,7 +117,7 @@
         </div>
     @empty
         <div class="bg-white border border-gray-200 rounded-2xl p-10 sm:p-12 text-center shadow-sm">
-            <p class="text-sm font-semibold text-gray-400 italic">No kitchen dispatches waiting right now.</p>
+            <p class="text-sm font-semibold text-gray-400 italic">No kitchen runs waiting right now.</p>
         </div>
     @endforelse
 

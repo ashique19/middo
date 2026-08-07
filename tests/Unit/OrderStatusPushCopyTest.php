@@ -24,11 +24,15 @@ class OrderStatusPushCopyTest extends TestCase
 
         $packed = OrderStatusPushCopy::forStatus('packed', 9, null);
         $this->assertSame('Your order is packed', $packed['title']);
-        $this->assertStringContainsString('handed to delivery', $packed['body']);
+        $this->assertStringContainsString('ready for rider pickup', $packed['body']);
 
         $ready = OrderStatusPushCopy::forStatus('ready', 9, 'Tehari');
         $this->assertSame('Kitchen finished prep', $ready['title']);
-        $this->assertStringContainsString('waiting for rider', $ready['body']);
+        $this->assertStringContainsString('waiting for a rider to accept', $ready['body']);
+
+        $claimed = OrderStatusPushCopy::forStatus('rider_assigned', 9, 'Tehari');
+        $this->assertSame('Rider accepted your order', $claimed['title']);
+        $this->assertStringContainsString('has a rider', $claimed['body']);
 
         $this->assertNull(OrderStatusPushCopy::forStatus('pending', 1));
     }

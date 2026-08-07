@@ -87,7 +87,11 @@ class ActiveOrders extends Component
                 ]);
             });
 
-            $this->statusMessage = "Order #{$orderId} marked ready for rider pickup.";
+            \App\Support\StaffAlerts::notifyRidersLunchReady(
+                Order::query()->with(['menuItem', 'orderGroup.area', 'area'])->findOrFail($orderId)
+            );
+
+            $this->statusMessage = "Order #{$orderId} marked ready — riders notified to accept.";
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not mark order ready.';
         }
@@ -100,7 +104,7 @@ class ActiveOrders extends Component
         $kitchenId = (int) Auth::id();
 
         try {
-            $count = DB::transaction(function () use ($orderGroupId, $kitchenId) {
+            $readyIds = DB::transaction(function () use ($orderGroupId, $kitchenId) {
                 $group = OrderGroup::query()
                     ->with('orders')
                     ->whereKey($orderGroupId)
@@ -111,7 +115,7 @@ class ActiveOrders extends Component
                     throw new \RuntimeException('Order group not found for your kitchen.');
                 }
 
-                $updated = 0;
+                $ids = [];
                 foreach ($group->orders as $order) {
                     if ($order->order_status !== OrderTransition::PROCESSING || $order->dispatched_at !== null) {
                         continue;
@@ -121,18 +125,25 @@ class ActiveOrders extends Component
                         OrderTransition::apply($locked, OrderTransition::READY, [
                             'updated_by' => $kitchenId,
                         ]);
-                        $updated++;
+                        $ids[] = (int) $locked->id;
                     }
                 }
 
-                if ($updated === 0) {
+                if ($ids === []) {
                     throw new \RuntimeException('No processing orders left to mark ready in this group.');
                 }
 
-                return $updated;
+                return $ids;
             });
 
-            $this->statusMessage = "Marked {$count} order(s) ready in this group.";
+            foreach ($readyIds as $readyId) {
+                $readyOrder = Order::query()->with(['menuItem', 'orderGroup.area', 'area'])->find($readyId);
+                if ($readyOrder) {
+                    \App\Support\StaffAlerts::notifyRidersLunchReady($readyOrder);
+                }
+            }
+
+            $this->statusMessage = 'Marked '.count($readyIds).' order(s) ready — riders notified per order.';
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not mark group ready.';
         }
@@ -203,9 +214,12 @@ class ActiveOrders extends Component
             'dispatch_deadline_iso' => $deadline->toIso8601String(),
             'dispatch_deadline_label' => $deadline->format('g:i A'),
             'can_mark_ready' => ! $dispatched && $status === OrderTransition::PROCESSING,
-            'can_dispatch' => ! $dispatched && $status === OrderTransition::READY,
+            'can_dispatch' => ! $dispatched && $status === OrderTransition::RIDER_ASSIGNED && $order->delivery_rider_id,
+            'awaiting_rider_claim' => ! $dispatched && $status === OrderTransition::READY,
+            'rider_name' => $order->deliveryRider?->name,
             'dispatched' => $dispatched,
             'is_ready' => $status === OrderTransition::READY,
+            'is_rider_assigned' => $status === OrderTransition::RIDER_ASSIGNED,
         ]);
     }
 
@@ -219,7 +233,7 @@ class ActiveOrders extends Component
             'menuItem',
             'area',
             'orders' => fn ($query) => $query
-                ->with(['menuItem', 'area', 'packageSubscription.package'])
+                ->with(['menuItem', 'area', 'deliveryRider', 'packageSubscription.package'])
                 ->active()
                 ->orderBy('delivery_time'),
         ])

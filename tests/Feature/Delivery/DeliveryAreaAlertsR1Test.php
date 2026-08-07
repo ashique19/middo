@@ -3,7 +3,6 @@
 namespace Tests\Feature\Delivery;
 
 use App\Livewire\Delivery\KitchenDispatches;
-use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Livewire\Shared\StaffAlertsPage;
 use App\Models\Area;
 use App\Models\City;
@@ -65,7 +64,7 @@ class DeliveryAreaAlertsR1Test extends TestCase
         return $rider;
     }
 
-    protected function makeDispatchedOrder(Area $area, User $kitchen, User $corporate, MenuItem $menu): Order
+    protected function makeReadyOrder(Area $area, User $kitchen, User $corporate, MenuItem $menu): Order
     {
         $order = Order::create([
             'user_id' => $corporate->id,
@@ -89,22 +88,9 @@ class DeliveryAreaAlertsR1Test extends TestCase
         ]);
         $group->orders()->attach($order->id);
 
-        $box = MiddoBox::create([
-            'qr_code_id' => 'MB-'.uniqid(),
-            'box_model_type' => 'standard_insulated',
-            'held_by_user_id' => $kitchen->id,
-            'kitchen_id' => $kitchen->id,
-            'asset_status' => 'active',
-            'total_uses_count' => 0,
-        ]);
-
-        Livewire::actingAs($kitchen)
-            ->test(DispatchOrderModal::class)
-            ->call('openModal', $order->id)
-            ->call('toggleBox', $box->id)
-            ->call('dispatchOrder')
-            ->assertSet('showModal', false)
-            ->assertSet('errorMessage', null);
+        \App\Support\StaffAlerts::notifyRidersLunchReady(
+            $order->fresh(['menuItem', 'orderGroup.area', 'area'])
+        );
 
         return $order->fresh();
     }
@@ -133,7 +119,7 @@ class DeliveryAreaAlertsR1Test extends TestCase
         $gulshanRider = $this->makeRider('01770000003', $this->gulshan);
         $mirpurRider = $this->makeRider('01770000004', $this->mirpur);
 
-        $order = $this->makeDispatchedOrder($this->gulshan, $kitchen, $corporate, $menu);
+        $order = $this->makeReadyOrder($this->gulshan, $kitchen, $corporate, $menu);
 
         Livewire::actingAs($gulshanRider)
             ->test(KitchenDispatches::class)
@@ -172,7 +158,7 @@ class DeliveryAreaAlertsR1Test extends TestCase
         $gulshanRider = $this->makeRider('01770000007', $this->gulshan);
         $mirpurRider = $this->makeRider('01770000008', $this->mirpur);
 
-        $order = $this->makeDispatchedOrder($this->gulshan, $kitchen, $corporate, $menu);
+        $order = $this->makeReadyOrder($this->gulshan, $kitchen, $corporate, $menu);
 
         $this->assertTrue(StaffAlert::query()
             ->where('user_id', $gulshanRider->id)
@@ -187,7 +173,7 @@ class DeliveryAreaAlertsR1Test extends TestCase
         Livewire::actingAs($gulshanRider)
             ->test(StaffAlertsPage::class)
             ->assertOk()
-            ->assertSee('New lunch run', false);
+            ->assertSee('Ready for claim', false);
     }
 
     public function test_accept_credits_rider_wallet_once(): void
@@ -211,16 +197,22 @@ class DeliveryAreaAlertsR1Test extends TestCase
         ]);
         $menu = MenuItem::create(['name' => 'Khichuri', 'price' => 180, 'delivery_commission' => 45]);
         $rider = $this->makeRider('01770000011', $this->gulshan);
-        $order = $this->makeDispatchedOrder($this->gulshan, $kitchen, $corporate, $menu);
+        $order = $this->makeReadyOrder($this->gulshan, $kitchen, $corporate, $menu);
 
-        Livewire::actingAs($rider)
-            ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
-            ->assertSet('errorMessage', null);
+        $box = MiddoBox::create([
+            'qr_code_id' => 'MB-'.uniqid(),
+            'box_model_type' => 'standard_insulated',
+            'held_by_user_id' => $kitchen->id,
+            'kitchen_id' => $kitchen->id,
+            'asset_status' => 'active',
+            'total_uses_count' => 0,
+        ]);
+
+        \Tests\Support\LunchRunFlow::fromReadyToOnTheWay($kitchen, $rider, $order, $box);
 
         $this->assertSame(45, RiderAccountLedger::balance($rider->id));
 
-        $order->update(['order_status' => 'delivered_and_paid', 'payment_status' => 'paid', 'amount_paid' => 180]);
+        $order->fresh()->update(['order_status' => 'delivered_and_paid', 'payment_status' => 'paid', 'amount_paid' => 180]);
         $this->assertSame(45, RiderAccountLedger::balance($rider->id));
     }
 }

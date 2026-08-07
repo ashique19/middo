@@ -108,37 +108,29 @@ class RiderWalletR2Test extends TestCase
         OrderTransition::apply($order->fresh(), OrderTransition::PROCESSING);
         OrderTransition::apply($order->fresh(), OrderTransition::READY);
 
-        $boxIds = [];
+        $boxes = [];
         for ($i = 1; $i <= $quantity; $i++) {
-            $boxIds[] = MiddoBox::create([
+            $boxes[] = MiddoBox::create([
                 'qr_code_id' => 'MB-R2-'.uniqid().'-'.$i,
                 'box_model_type' => 'standard_insulated',
                 'asset_status' => 'active',
                 'kitchen_id' => $this->kitchen->id,
                 'held_by_user_id' => $this->kitchen->id,
                 'total_uses_count' => 0,
-            ])->id;
+            ]);
         }
 
-        $modal = Livewire::actingAs($this->kitchen)
-            ->test(DispatchOrderModal::class)
-            ->call('openModal', $order->id);
-        foreach ($boxIds as $boxId) {
-            $modal->call('toggleBox', $boxId);
-        }
-        $modal->call('dispatchOrder')->assertSet('showModal', false);
-
-        return $order->fresh(['middoBoxes']);
+        return \Tests\Support\LunchRunFlow::fromReadyToOnTheWay(
+            $this->kitchen,
+            $this->rider,
+            $order->fresh(),
+            $boxes
+        )->load(['middoBoxes']);
     }
 
     public function test_lunch_accept_credits_wallet_and_skips_second_accrual(): void
     {
         $order = $this->dispatchOrder(1);
-
-        Livewire::actingAs($this->rider)
-            ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
-            ->assertSet('errorMessage', null);
 
         $this->assertSame(40, RiderAccountLedger::balance($this->rider->id));
         $this->assertSame(1, OrderMoneyEvent::query()
@@ -170,10 +162,6 @@ class RiderWalletR2Test extends TestCase
     {
         $order = $this->dispatchOrder(1);
 
-        Livewire::actingAs($this->rider)
-            ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id);
-
         $this->assertSame(40, RiderAccountLedger::balance($this->rider->id));
 
         $order->refresh();
@@ -195,7 +183,6 @@ class RiderWalletR2Test extends TestCase
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
             ->call('deliverToConsumer', $order->id);
 
         $lunchBalance = RiderAccountLedger::balance($this->rider->id);

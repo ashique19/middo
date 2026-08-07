@@ -4,10 +4,13 @@
             <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl my-8">
                 <div class="flex items-start justify-between gap-4 mb-4">
                     <div>
-                        <h2 class="text-xl font-bold text-gray-800">Dispatch order</h2>
+                        <h2 class="text-xl font-bold text-gray-800">Dispatch this order</h2>
                         <p class="text-sm text-gray-500 mt-1">{{ $orderLabel }}</p>
+                        @if($riderLabel !== '')
+                            <p class="text-sm font-bold text-emerald-800 mt-1">Confirm rider: {{ $riderLabel }}</p>
+                        @endif
                         <p class="text-xs font-semibold text-gray-400 mt-1">
-                            Select {{ $requiredQuantity }} {{ str('box')->plural($requiredQuantity) }}
+                            Per-order handoff — select {{ $requiredQuantity }} {{ str('box')->plural($requiredQuantity) }}
                             ({{ count($selectedBoxIds) }} selected)
                         </p>
                     </div>

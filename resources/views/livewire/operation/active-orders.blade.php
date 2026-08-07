@@ -25,6 +25,7 @@
                 <option value="pending">Pending</option>
                 <option value="processing">Processing</option>
                 <option value="ready">Ready</option>
+                <option value="rider_assigned">Rider assigned</option>
                 <option value="packed">Packed</option>
                 <option value="on_the_way_to_delivery">On the way</option>
             </select>

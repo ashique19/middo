@@ -4,7 +4,6 @@ namespace Tests\Feature\Delivery;
 
 use App\Livewire\Delivery\KitchenDispatches;
 use App\Livewire\Delivery\PaymentModal;
-use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Livewire\Shared\AccountsHub;
 use App\Livewire\Shared\CodDueReconPage;
 use App\Models\MenuItem;
@@ -101,16 +100,15 @@ class NextWaveN3PartialCashTest extends TestCase
             'total_uses_count' => 0,
         ]);
 
-        Livewire::actingAs($this->kitchen)
-            ->test(DispatchOrderModal::class)
-            ->call('openModal', $order->id)
-            ->call('toggleBox', $box->id)
-            ->call('dispatchOrder')
-            ->assertSet('showModal', false);
+        \Tests\Support\LunchRunFlow::fromReadyToOnTheWay(
+            $this->kitchen,
+            $this->rider,
+            $order->fresh(),
+            $box
+        );
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
             ->call('deliverToConsumer', $order->id)
             ->assertSet('errorMessage', null);
 
