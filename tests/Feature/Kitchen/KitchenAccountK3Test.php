@@ -155,8 +155,8 @@ class KitchenAccountK3Test extends TestCase
             ->get(route('kitchen.account'))
             ->assertOk()
             ->assertSee('Send money to Middo')
-            ->assertSee('Cash handovers →')
-            ->assertDontSee('Request withdrawal');
+            ->assertDontSee('Request withdrawal')
+            ->assertDontSee('Cash handovers →');
     }
 
     public function test_cash_handover_debits_kitchen_wallet_and_allows_negative(): void

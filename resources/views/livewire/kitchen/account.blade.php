@@ -22,15 +22,21 @@
                 <p class="text-xs text-gray-500 mt-1">Open dispatch payables ৳{{ number_format($openPayableTotal) }}</p>
             @endif
         </div>
-        @if($balance > 0 || $balance < 0)
+        @if($balance > 0 || $balance < 0 || $pendingCashHandovers > 0)
             <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
                 <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Quick actions</p>
                 <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 mt-2">
                     @if($balance > 0)
                         <button type="button" wire:click="$set('tab', 'withdraw')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">Request withdrawal</button>
-                    @else
+                    @endif
+                    @if($balance < 0)
                         <button type="button" wire:click="$set('tab', 'send')" class="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-middo-dark">Send money to Middo</button>
-                        <a href="{{ route('kitchen.cash-handovers') }}" class="w-full sm:w-auto inline-flex justify-center px-3 py-2.5 sm:py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold bg-sky-50">Cash handovers →</a>
+                    @endif
+                    @if($pendingCashHandovers > 0)
+                        <a href="{{ route('kitchen.cash-handovers') }}" class="w-full sm:w-auto inline-flex justify-center px-3 py-2.5 sm:py-1.5 rounded-xl border border-sky-200 text-sky-800 text-xs font-bold bg-sky-50">
+                            Cash handovers →
+                            <span class="ml-1 opacity-80">({{ $pendingCashHandovers }})</span>
+                        </a>
                     @endif
                 </div>
             </div>

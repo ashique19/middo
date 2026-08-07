@@ -6,8 +6,10 @@
             Accept rider cash into your kitchen float. Your wallet is debited (cash received).
             @if($walletBalance > 0)
                 Middo currently owes you ৳{{ number_format($walletBalance) }}.
+                <a href="{{ route('kitchen.account') }}" class="font-semibold text-middo-orange hover:underline">Request withdrawal →</a>
             @elseif($walletBalance < 0)
                 You currently owe Middo ৳{{ number_format(abs($walletBalance)) }}.
+                <a href="{{ route('kitchen.account') }}" class="font-semibold text-middo-orange hover:underline">Send money to Middo →</a>
             @else
                 Wallet settled at ৳0.
             @endif

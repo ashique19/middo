@@ -42,7 +42,8 @@
                     type="button"
                     wire:click="createHandover"
                     wire:loading.attr="disabled"
-                    class="w-full sm:w-auto inline-flex justify-center px-4 py-2.5 sm:py-2 rounded-xl bg-middo-orange text-white text-sm font-bold disabled:opacity-60">
+                    @disabled($selectedTotal < 1 || $eligibleOrders->isEmpty())
+                    class="w-full sm:w-auto inline-flex justify-center px-4 py-2.5 sm:py-2 rounded-xl bg-middo-orange text-white text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">
                     Create handover
                 </button>
             </div>

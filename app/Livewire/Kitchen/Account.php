@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Kitchen;
 
+use App\Models\CashHandover;
 use App\Models\KitchenAccountLedgerEntry;
 use App\Models\KitchenMiddoTransfer;
 use App\Models\KitchenWithdrawalRequest;
@@ -241,6 +242,26 @@ class Account extends Component
             ->latest('id')
             ->paginate(10, ['*'], 'transfersPage');
 
+        $pendingCashHandovers = CashHandover::query()
+            ->with(['items.order.orderGroup'])
+            ->where('status', 'pending')
+            ->where(function ($q) {
+                $q->where('target', CashHandover::TARGET_KITCHEN)
+                    ->orWhereNull('target');
+            })
+            ->get()
+            ->filter(function (CashHandover $handover) use ($kitchenId) {
+                $handover->loadMissing('items.order.orderGroup');
+                if ($handover->items->isEmpty()) {
+                    return false;
+                }
+
+                return $handover->items->every(
+                    fn ($item) => (int) ($item->order?->orderGroup?->kitchen_id) === $kitchenId
+                );
+            })
+            ->count();
+
         if ($this->tab === 'withdraw' && $balance < 1) {
             $this->tab = 'statement';
         }
@@ -255,6 +276,7 @@ class Account extends Component
             'statement' => $statement,
             'withdrawals' => $withdrawals,
             'transfers' => $transfers,
+            'pendingCashHandovers' => $pendingCashHandovers,
         ])->layout('kitchen.layout.app', ['title' => 'Kitchen Account']);
     }
 }
