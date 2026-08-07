@@ -255,16 +255,26 @@
     @endif
 
     <div class="space-y-3">
-        <div class="flex items-center justify-between gap-3">
-            <h2 class="text-lg font-bold text-middo-dark">
-                {{ $staffRole === 'kitchen' ? 'Kitchen orders' : 'Delivery orders' }}
-            </h2>
-            <p class="text-xs font-semibold text-gray-400">Newest first</p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">
+                    {{ $staffRole === 'kitchen' ? 'Kitchen orders' : 'Delivery orders' }}
+                </h2>
+                <p class="text-xs font-semibold text-gray-400">Newest first</p>
+            </div>
+            <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
         </div>
-        <x-operation.orders.table
-            :orders="$orderRows"
-            :show-group="$staffRole === 'kitchen'"
-            empty-message="No orders linked to this profile yet." />
+        @if($viewMode === 'list')
+            <x-operation.orders.table
+                :orders="$orderRows"
+                :show-group="$staffRole === 'kitchen'"
+                empty-message="No orders linked to this profile yet." />
+        @else
+            <x-operation.orders.cards
+                :orders="$orderRows"
+                :show-group="$staffRole === 'kitchen'"
+                empty-message="No orders linked to this profile yet." />
+        @endif
         @if($orders->hasPages())
             <div class="px-1">
                 {{ $orders->links() }}

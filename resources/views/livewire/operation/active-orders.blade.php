@@ -3,7 +3,11 @@
         <div class="space-y-1">
             <h1 class="text-3xl font-bold text-middo-dark">Active Orders</h1>
             <p class="text-sm font-semibold text-gray-500">
-                Drag orders between groups or onto other orders. Drop on the ungrouped zone to remove from a group.
+                @if(\App\Support\StaffPortal::isDayOps())
+                    Drag orders between groups or onto other orders. Drop on the ungrouped zone to remove from a group.
+                @else
+                    Browse and export active orders. Kitchen assignment is managed by ops.
+                @endif
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
@@ -45,7 +49,7 @@
         </div>
     </div>
 
-    @if($hasUnassignedGroups)
+    @if($hasUnassignedGroups && \App\Support\StaffPortal::isDayOps())
         <div class="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 flex flex-wrap items-center gap-3">
             <p class="text-sm font-semibold text-amber-900 flex-1 min-w-[12rem]">
                 Bulk assign unassigned groups in the current view

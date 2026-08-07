@@ -163,45 +163,78 @@
     @endif
 
     <div class="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-        <div class="px-5 py-4 border-b border-gray-50">
-            <h2 class="text-lg font-bold text-middo-dark">Orders with money activity</h2>
-            <p class="text-xs text-gray-500 mt-0.5">Open an order to see the full flow tree (billing → shares → movements).</p>
+        <div class="px-5 py-4 border-b border-gray-50 flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Orders with money activity</h2>
+                <p class="text-xs text-gray-500 mt-0.5">Open an order to see the full flow tree (billing → shares → movements).</p>
+            </div>
+            <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
         </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm min-w-[720px]">
-                <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
-                    <tr>
-                        <th class="p-3 text-left">Order</th>
-                        <th class="p-3 text-left">Corporate</th>
-                        <th class="p-3 text-right">Total</th>
-                        <th class="p-3 text-right">Kitchen</th>
-                        <th class="p-3 text-right">Delivery</th>
-                        <th class="p-3 text-right">Middo rest</th>
-                        <th class="p-3 text-right">Cash</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-50">
-                    @forelse($recentOrders as $order)
-                        <tr class="hover:bg-gray-50/70">
-                            <td class="p-3">
-                                <a href="{{ route($orderShowRoutePrefix.'.orders.show', $order) }}" class="font-mono font-bold text-middo-orange hover:underline">#{{ $order->id }}</a>
-                                <div class="text-xs text-gray-500">{{ $order->menuItem?->name }}</div>
-                            </td>
-                            <td class="p-3 text-gray-700">
-                                {{ $order->user?->company_name ?: trim(($order->user?->first_name.' '.$order->user?->last_name)) }}
-                            </td>
-                            <td class="p-3 text-right font-mono">৳{{ number_format((int) $order->total_amount) }}</td>
-                            <td class="p-3 text-right font-mono">৳{{ number_format((int) $order->kitchen_share_amount) }}</td>
-                            <td class="p-3 text-right font-mono">৳{{ number_format((int) $order->delivery_share_amount) }}</td>
-                            <td class="p-3 text-right font-mono font-semibold">৳{{ number_format((int) $order->middo_rest_amount) }}</td>
-                            <td class="p-3 text-right font-mono">৳{{ number_format((int) $order->cash_collected) }}</td>
+        @if($viewMode === 'list')
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm min-w-[720px]">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
+                        <tr>
+                            <th class="p-3 text-left">Order</th>
+                            <th class="p-3 text-left">Corporate</th>
+                            <th class="p-3 text-right">Total</th>
+                            <th class="p-3 text-right">Kitchen</th>
+                            <th class="p-3 text-right">Delivery</th>
+                            <th class="p-3 text-right">Middo rest</th>
+                            <th class="p-3 text-right">Cash</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="7" class="p-10 text-center text-gray-400">No orders yet.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        @forelse($recentOrders as $order)
+                            <tr class="hover:bg-gray-50/70">
+                                <td class="p-3">
+                                    <a href="{{ route($orderShowRoutePrefix.'.orders.show', $order) }}" class="font-mono font-bold text-middo-orange hover:underline">#{{ $order->id }}</a>
+                                    <div class="text-xs text-gray-500">{{ $order->menuItem?->name }}</div>
+                                </td>
+                                <td class="p-3 text-gray-700">
+                                    {{ $order->user?->company_name ?: trim(($order->user?->first_name.' '.$order->user?->last_name)) }}
+                                </td>
+                                <td class="p-3 text-right font-mono">৳{{ number_format((int) $order->total_amount) }}</td>
+                                <td class="p-3 text-right font-mono">৳{{ number_format((int) $order->kitchen_share_amount) }}</td>
+                                <td class="p-3 text-right font-mono">৳{{ number_format((int) $order->delivery_share_amount) }}</td>
+                                <td class="p-3 text-right font-mono font-semibold">৳{{ number_format((int) $order->middo_rest_amount) }}</td>
+                                <td class="p-3 text-right font-mono">৳{{ number_format((int) $order->cash_collected) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="7" class="p-10 text-center text-gray-400">No orders yet.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        @else
+            <div class="p-4 space-y-3">
+                @forelse($recentOrders as $order)
+                    <a href="{{ route($orderShowRoutePrefix.'.orders.show', $order) }}"
+                       wire:key="hub-order-card-{{ $order->id }}"
+                       class="block rounded-2xl border border-gray-100 bg-gray-50/60 p-4 hover:border-middo-orange transition space-y-1">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="font-mono font-bold text-middo-dark">#{{ $order->id }}</p>
+                                <p class="text-sm font-semibold text-gray-800 truncate">{{ $order->menuItem?->name ?? 'Menu' }}</p>
+                                <p class="text-xs text-gray-500">
+                                    {{ $order->user?->company_name ?: trim(($order->user?->first_name.' '.$order->user?->last_name)) }}
+                                </p>
+                            </div>
+                            <p class="shrink-0 font-mono font-bold text-middo-dark">৳{{ number_format((int) $order->total_amount) }}</p>
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            Kitchen ৳{{ number_format((int) $order->kitchen_share_amount) }}
+                            · Delivery ৳{{ number_format((int) $order->delivery_share_amount) }}
+                            · Middo ৳{{ number_format((int) $order->middo_rest_amount) }}
+                        </p>
+                    </a>
+                @empty
+                    <div class="rounded-2xl border border-dashed border-gray-200 p-10 text-center text-sm text-gray-400 italic">
+                        No orders yet.
+                    </div>
+                @endforelse
+            </div>
+        @endif
     </div>
 
     <div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 p-5 space-y-2 text-sm text-gray-600">

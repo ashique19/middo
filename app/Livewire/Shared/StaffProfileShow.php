@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Shared;
 
+use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Area;
 use App\Models\City;
 use App\Models\KitchenHour;
@@ -10,6 +11,7 @@ use App\Models\User;
 use App\Support\KitchenActivation;
 use App\Support\KitchenTier;
 use App\Support\MiddoSettings;
+use App\Support\OrdersExcelExport;
 use App\Support\PackageOrderPresenter;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,9 +19,11 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StaffProfileShow extends Component
 {
+    use WithOrdersListView;
     use WithPagination;
 
     public User $staff;
@@ -334,6 +338,31 @@ class StaffProfileShow extends Component
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
             'group_name' => $order->orderGroup?->name,
         ], PackageOrderPresenter::fields($order));
+    }
+
+    public function exportExcel(): StreamedResponse
+    {
+        $ordersQuery = Order::query()
+            ->with(['menuItem', 'user', 'orderGroup', 'area', 'packageSubscription.package']);
+
+        if ($this->staffRole === 'kitchen') {
+            $ordersQuery->whereHas('orderGroup', fn ($q) => $q->where('kitchen_id', $this->staff->id));
+        } else {
+            $ordersQuery->where('delivery_rider_id', $this->staff->id);
+        }
+
+        $orders = $ordersQuery
+            ->orderByDesc('delivery_date')
+            ->orderByDesc('id')
+            ->limit(5000)
+            ->get();
+
+        $slug = str($this->staff->name ?: $this->staffRole)->slug('-')->toString();
+
+        return OrdersExcelExport::download(
+            $orders,
+            $this->staffRole.'-'.$slug.'-orders-'.now('Asia/Dhaka')->format('Y-m-d').'.csv'
+        );
     }
 
     public function render()

@@ -88,69 +88,31 @@
 
     @if($showOrders)
         <div class="space-y-3">
-            <div class="flex items-center justify-between gap-3">
-                <h2 class="text-lg font-bold text-middo-dark">Related orders</h2>
-                <p class="text-xs font-semibold text-gray-400">Newest first</p>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-lg font-bold text-middo-dark">Related orders</h2>
+                    <p class="text-xs font-semibold text-gray-400">Newest first</p>
+                </div>
+                <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
             </div>
 
-            <div class="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse min-w-[720px]">
-                        <thead class="bg-gray-50 border-b border-gray-100">
-                            <tr class="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                                <th class="p-4">Order</th>
-                                <th class="p-4">Menu</th>
-                                <th class="p-4">Date</th>
-                                <th class="p-4">Status</th>
-                                <th class="p-4 text-right">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 text-sm">
-                            @forelse($orderRows as $order)
-                                <tr class="hover:bg-gray-50/80">
-                                    <td class="p-4">
-                                        <a href="{{ $order['show_url'] }}" class="font-bold text-middo-orange hover:underline">
-                                            #{{ $order['id'] }}
-                                        </a>
-                                    </td>
-                                    <td class="p-4">
-                                        @if($order['menu_url'])
-                                            <a href="{{ $order['menu_url'] }}" class="font-medium text-gray-800 hover:text-middo-orange transition">
-                                                {{ $order['menu_name'] }}
-                                            </a>
-                                        @else
-                                            <span class="font-medium text-gray-800">{{ $order['menu_name'] }}</span>
-                                        @endif
-                                    </td>
-                                    <td class="p-4 whitespace-nowrap text-gray-600">
-                                        {{ $order['delivery_date'] }}
-                                        @if($order['delivery_time'])
-                                            · {{ $order['delivery_time'] }}
-                                        @endif
-                                    </td>
-                                    <td class="p-4">
-                                        <span class="text-xs font-bold uppercase text-gray-700">{{ $order['order_status'] }}</span>
-                                    </td>
-                                    <td class="p-4 text-right font-mono font-semibold text-middo-dark whitespace-nowrap">
-                                        ৳{{ number_format((int) $order['total_amount']) }}
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="p-8 text-center text-sm font-semibold text-gray-400 italic">
-                                        No related orders yet.
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+            @if($viewMode === 'list')
+                <x-operation.orders.table
+                    :orders="$orderRows"
+                    :show-group="$user->role?->name === 'kitchen'"
+                    empty-message="No related orders yet." />
+            @else
+                <x-operation.orders.cards
+                    :orders="$orderRows"
+                    :show-group="$user->role?->name === 'kitchen'"
+                    empty-message="No related orders yet." />
+            @endif
+
+            @if($orders && $orders->hasPages())
+                <div class="px-1">
+                    {{ $orders->links() }}
                 </div>
-                @if($orders && $orders->hasPages())
-                    <div class="p-4 border-t border-gray-100">
-                        {{ $orders->links() }}
-                    </div>
-                @endif
-            </div>
+            @endif
         </div>
     @endif
 

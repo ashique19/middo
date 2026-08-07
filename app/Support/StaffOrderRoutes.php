@@ -9,7 +9,7 @@ class StaffOrderRoutes
 {
     public static function prefix(): string
     {
-        return Auth::user()?->role?->name === 'admin' ? 'admin' : 'operation';
+        return StaffPortal::rolePrefix(Auth::user()?->role?->name);
     }
 
     public static function show(Order|int $order, ?string $lens = null): string

@@ -2,10 +2,12 @@
 
 namespace App\Livewire\Shared;
 
+use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Order;
 use App\Models\PackageSubscription;
 use App\Models\User;
 use App\Models\WalletTransaction;
+use App\Support\OrdersExcelExport;
 use App\Support\PackageOrderPresenter;
 use App\Support\StaffPortal;
 use App\Support\WalletLedger;
@@ -13,9 +15,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CorporateShow extends Component
 {
+    use WithOrdersListView;
     use WithPagination;
 
     public User $corporate;
@@ -195,6 +199,26 @@ class CorporateShow extends Component
             'menu_name' => $order->menuItem?->name ?? 'Custom Selection',
             'group_name' => $order->orderGroup?->name,
         ], PackageOrderPresenter::fields($order));
+    }
+
+    public function exportExcel(): StreamedResponse
+    {
+        $orders = Order::query()
+            ->with(['menuItem', 'user', 'orderGroup', 'area', 'packageSubscription.package'])
+            ->where('user_id', $this->corporate->id)
+            ->orderByDesc('delivery_date')
+            ->orderByDesc('id')
+            ->limit(5000)
+            ->get();
+
+        $slug = str($this->corporate->company_name ?: $this->corporate->name ?: 'corporate')
+            ->slug('-')
+            ->toString();
+
+        return OrdersExcelExport::download(
+            $orders,
+            'corporate-'.$slug.'-orders-'.now('Asia/Dhaka')->format('Y-m-d').'.csv'
+        );
     }
 
     public function render()

@@ -424,6 +424,17 @@ class NavSeeder extends Seeder
             'role_id' => $accountsId,
         ]);
 
+        $accountsOrdersNav = Nav::create([
+            'title' => 'Orders',
+            'route_name' => null,
+            'icon' => '🧾',
+            'order' => 11,
+            'role_id' => $accountsId,
+        ]);
+        Nav::create(['title' => 'Active orders', 'route_name' => 'accounts.orders.active', 'order' => 1, 'role_id' => $accountsId, 'parent_id' => $accountsOrdersNav->id]);
+        Nav::create(['title' => 'Order History', 'route_name' => 'accounts.orders.history', 'order' => 2, 'role_id' => $accountsId, 'parent_id' => $accountsOrdersNav->id]);
+        Nav::create(['title' => 'Search Order', 'route_name' => 'accounts.orders.search', 'order' => 3, 'role_id' => $accountsId, 'parent_id' => $accountsOrdersNav->id]);
+
         // ── Other roles (private sidebar when used) ───────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'corporates.dashboard', 'order' => 1, 'role_id' => $corporateId]);
         Nav::create(['title' => 'Packages', 'route_name' => 'corporates.packages.index', 'order' => 2, 'role_id' => $corporateId]);

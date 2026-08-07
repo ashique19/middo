@@ -220,11 +220,18 @@
     </div>
 
     <div class="space-y-3">
-        <div class="flex items-center justify-between gap-3">
-            <h2 class="text-lg font-bold text-middo-dark">Order history</h2>
-            <p class="text-xs font-semibold text-gray-400">Newest first</p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Order history</h2>
+                <p class="text-xs font-semibold text-gray-400">Newest first</p>
+            </div>
+            <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
         </div>
-        <x-operation.orders.table :orders="$orderRows" empty-message="No orders for this corporate yet." />
+        @if($viewMode === 'list')
+            <x-operation.orders.table :orders="$orderRows" empty-message="No orders for this corporate yet." />
+        @else
+            <x-operation.orders.cards :orders="$orderRows" empty-message="No orders for this corporate yet." />
+        @endif
         @if($orders->hasPages())
             <div class="px-1">
                 {{ $orders->links() }}

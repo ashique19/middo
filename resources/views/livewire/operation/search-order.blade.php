@@ -32,8 +32,14 @@
             {{ count($orders) }} matching {{ str('order')->plural(count($orders)) }} found.
         </p>
 
-        <x-operation.orders.table
-            :orders="$orders"
-            empty-message="No orders matched your search." />
+        @if($viewMode === 'list')
+            <x-operation.orders.table
+                :orders="$orders"
+                empty-message="No orders matched your search." />
+        @else
+            <x-operation.orders.cards
+                :orders="$orders"
+                empty-message="No orders matched your search." />
+        @endif
     @endif
 </div>

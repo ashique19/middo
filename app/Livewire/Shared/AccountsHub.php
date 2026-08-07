@@ -2,17 +2,21 @@
 
 namespace App\Livewire\Shared;
 
+use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Order;
 use App\Models\OrderMoneyEvent;
 use App\Models\PartnerPayable;
 use App\Support\CodDueRecon;
 use App\Support\MiddoCashLedger;
+use App\Support\OrdersExcelExport;
 use App\Support\StaffPortal;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AccountsHub extends Component
 {
+    use WithOrdersListView;
     use WithPagination;
 
     public string $statusMessage = '';
@@ -56,6 +60,26 @@ class AccountsHub extends Component
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not settle payable.';
         }
+    }
+
+    public function exportExcel(): StreamedResponse
+    {
+        $orders = Order::query()
+            ->with(['user', 'menuItem', 'orderGroup', 'area', 'packageSubscription.package'])
+            ->where(function ($q) {
+                $q->where('kitchen_share_amount', '>', 0)
+                    ->orWhere('delivery_share_amount', '>', 0)
+                    ->orWhere('amount_paid', '>', 0)
+                    ->orWhere('cash_collected', '>', 0);
+            })
+            ->latest('id')
+            ->limit(5000)
+            ->get();
+
+        return OrdersExcelExport::download(
+            $orders,
+            'accounts-orders-money-'.now('Asia/Dhaka')->format('Y-m-d').'.csv'
+        );
     }
 
     public function render()

@@ -14,6 +14,7 @@ use App\Support\OrderKitchenAcceptance;
 use App\Support\OrdersExcelExport;
 use App\Support\PackageOrderPresenter;
 use App\Support\StaffAlerts;
+use App\Support\StaffPortal;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -106,6 +107,12 @@ class ActiveOrders extends Component
 
     public function autoGroupForDate(string $deliveryDate): void
     {
+        if (! StaffPortal::isDayOps()) {
+            $this->statusMessage = 'Only admin/operation can regroup active orders.';
+
+            return;
+        }
+
         $userId = Auth::id();
 
         if (! $userId) {
@@ -136,6 +143,12 @@ class ActiveOrders extends Component
 
     public function ungroupOrder(int $orderId): void
     {
+        if (! StaffPortal::isDayOps()) {
+            $this->statusMessage = 'Only admin/operation can regroup active orders.';
+
+            return;
+        }
+
         try {
             app(OrderGroupManager::class)->ungroup($orderId);
             $this->loadOrders();
@@ -147,6 +160,12 @@ class ActiveOrders extends Component
 
     public function handleOrderDrop(int $sourceOrderId, string $targetType, ?int $targetId = null): void
     {
+        if (! StaffPortal::isDayOps()) {
+            $this->statusMessage = 'Only admin/operation can regroup active orders.';
+
+            return;
+        }
+
         if ($sourceOrderId <= 0) {
             return;
         }
@@ -171,6 +190,12 @@ class ActiveOrders extends Component
      */
     public function bulkAssignUnassignedKitchen(): void
     {
+        if (! StaffPortal::isDayOps()) {
+            $this->statusMessage = 'Only admin/operation can assign kitchens.';
+
+            return;
+        }
+
         if (! $this->bulkKitchenId) {
             $this->statusMessage = 'Select a kitchen first.';
 

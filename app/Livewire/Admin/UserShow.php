@@ -2,16 +2,20 @@
 
 namespace App\Livewire\Admin;
 
+use App\Livewire\Concerns\WithOrdersListView;
 use App\Models\Order;
 use App\Models\User;
 use App\Models\UserLog;
+use App\Support\OrdersExcelExport;
 use App\Support\PackageOrderPresenter;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UserShow extends Component
 {
+    use WithOrdersListView;
     use WithPagination;
 
     public User $user;
@@ -174,6 +178,24 @@ class UserShow extends Component
             'delivery' => $query->where('delivery_rider_id', $this->user->id),
             default => $query->whereRaw('0 = 1'),
         };
+    }
+
+    public function exportExcel(): StreamedResponse
+    {
+        abort_unless(in_array($this->user->role?->name, ['corporate', 'kitchen', 'delivery'], true), 403);
+
+        $orders = $this->ordersQuery()
+            ->orderByDesc('delivery_date')
+            ->orderByDesc('id')
+            ->limit(5000)
+            ->get();
+
+        $slug = str($this->user->company_name ?: $this->user->name ?: 'user')->slug('-')->toString();
+
+        return OrdersExcelExport::download(
+            $orders,
+            'user-'.$slug.'-orders-'.now('Asia/Dhaka')->format('Y-m-d').'.csv'
+        );
     }
 
     public function eventLabel(string $event): string

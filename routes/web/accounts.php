@@ -1,7 +1,10 @@
 <?php
 
 use App\Livewire\Accounts\Dashboard;
+use App\Livewire\Operation\ActiveOrders;
 use App\Livewire\Operation\CashHandovers;
+use App\Livewire\Operation\OrderHistory;
+use App\Livewire\Operation\SearchOrder;
 use App\Livewire\Shared\AccountsHub;
 use App\Livewire\Shared\CashPositionsBoard;
 use App\Livewire\Shared\CodDueReconPage;
@@ -31,5 +34,8 @@ Route::middleware(['auth', 'role:accounts'])->group(function () {
     Route::get('/rider-money', RiderMoneyApprovals::class)->name('accounts.rider-money.index');
     Route::get('/corporates', CorporateTable::class)->name('accounts.corporates.index');
     Route::get('/corporates/{corporate}', CorporateShow::class)->name('accounts.corporates.show');
+    Route::get('/orders/active', ActiveOrders::class)->name('accounts.orders.active');
+    Route::get('/orders/history', OrderHistory::class)->name('accounts.orders.history');
+    Route::get('/orders/search', SearchOrder::class)->name('accounts.orders.search');
     Route::get('/orders/{order}', OrderShow::class)->name('accounts.orders.show');
 });
