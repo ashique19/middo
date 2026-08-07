@@ -173,7 +173,11 @@
                     <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Notes</label>
                     <textarea wire:model="batchNotes" rows="2" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm"></textarea>
                 </div>
-                <button type="submit" class="px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold">Create batch</button>
+                <button type="submit"
+                        @disabled(! $batchKitchenId || count($batchPayableIds) < 1)
+                        class="px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed">
+                    Create batch
+                </button>
             </form>
         @endif
 
