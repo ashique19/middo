@@ -20,27 +20,26 @@
         @forelse($menus as $row)
             <div wire:key="today-menu-m-{{ $row->menu_item_id ?? 'custom' }}"
                  class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm space-y-3">
-                <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0 space-y-1">
-                        <p class="font-semibold text-gray-800 break-words">
-                            {{ $row->menuItem?->name ?? 'Custom Selection' }}
-                        </p>
-                        @if((int) $row->package_qty > 0)
-                            <x-package-badge />
-                        @endif
-                    </div>
-                    <p class="shrink-0 text-xl font-black text-middo-orange tabular-nums">
-                        {{ $row->total_qty }}
+                <div class="space-y-1.5">
+                    <p class="font-semibold text-gray-800 break-words leading-snug">
+                        {{ $row->menuItem?->name ?? 'Custom Selection' }}
                     </p>
+                    @if((int) $row->package_qty > 0)
+                        <x-package-badge />
+                    @endif
                 </div>
-                <div class="grid grid-cols-2 gap-2 text-sm border-t border-gray-100 pt-3">
+                <div class="grid grid-cols-3 gap-2 text-sm border-t border-gray-100 pt-3">
                     <div>
                         <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Orders</p>
                         <p class="font-semibold text-gray-800 tabular-nums">{{ $row->order_count }}</p>
                     </div>
                     <div>
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Package qty</p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Package</p>
                         <p class="font-bold text-sky-800 tabular-nums">{{ $row->package_qty }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total</p>
+                        <p class="font-black text-middo-orange tabular-nums">{{ $row->total_qty }}</p>
                     </div>
                 </div>
                 @if($row->menu_item_id)
