@@ -4,6 +4,7 @@ namespace App\Livewire\Kitchen;
 
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
+use App\Support\KitchenBoxRequestFlow;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -22,7 +23,7 @@ class IncomingBoxes extends Component
         $this->statusMessage = null;
         $this->errorMessage = null;
 
-        $kitchenId = Auth::id();
+        $kitchenId = (int) Auth::id();
 
         try {
             $qr = DB::transaction(function () use ($boxId, $kitchenId) {
@@ -33,6 +34,17 @@ class IncomingBoxes extends Component
 
                 if (! $box || ! $box->isIncomingToKitchen($kitchenId)) {
                     throw new \RuntimeException('This box is not incoming to your kitchen.');
+                }
+
+                $latestAction = KitchenBoxRequestFlow::latestBoxAction($box->id);
+                $receivable = in_array($latestAction, [
+                    'handed_to_kitchen_stock',
+                    'returned_to_kitchen',
+                    'dispatched_to_kitchen', // legacy immediate-assign path
+                ], true);
+
+                if (! $receivable) {
+                    throw new \RuntimeException('Wait for the rider to hand this box before confirming receive.');
                 }
 
                 $box->update([
@@ -49,6 +61,8 @@ class IncomingBoxes extends Component
                     'performed_by' => $kitchenId,
                 ]);
 
+                KitchenBoxRequestFlow::markReceivedAtKitchen($box, $kitchenId);
+
                 return $box->qr_code_id;
             });
 
@@ -63,9 +77,23 @@ class IncomingBoxes extends Component
     {
         $kitchenId = Auth::id();
 
+        $latestLogIds = MiddoBoxLog::query()
+            ->selectRaw('MAX(id)')
+            ->groupBy('middo_box_id');
+
+        $receivableBoxIds = MiddoBoxLog::query()
+            ->whereIn('id', $latestLogIds)
+            ->whereIn('log_action', [
+                'handed_to_kitchen_stock',
+                'returned_to_kitchen',
+                'dispatched_to_kitchen', // legacy immediate-assign path
+            ])
+            ->pluck('middo_box_id');
+
         $boxes = MiddoBox::query()
             ->with(['heldByUser', 'logs' => fn ($q) => $q->latest('id')->limit(1)])
             ->incomingToKitchen($kitchenId)
+            ->whereIn('id', $receivableBoxIds)
             ->orderBy('qr_code_id')
             ->paginate(20);
 

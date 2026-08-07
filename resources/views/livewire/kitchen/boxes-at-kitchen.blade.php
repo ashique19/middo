@@ -83,15 +83,22 @@
                 <div wire:key="kitchen-box-req-{{ $req->id }}" class="flex flex-wrap items-center justify-between gap-2 text-sm">
                     <p class="font-semibold text-amber-950">
                         {{ $req->quantity }} {{ str('box')->plural($req->quantity) }}
+                        @if((int) $req->allocated_qty > 0)
+                            <span class="font-medium text-amber-800/80">· {{ (int) $req->allocated_qty }} staged · {{ $req->remainingQuantity() }} remaining</span>
+                        @endif
                         <span class="font-medium text-amber-800/80">· {{ $req->created_at?->timezone('Asia/Dhaka')->format('M j, g:i A') }}</span>
                         @if($req->note)
                             <span class="block text-xs font-medium text-amber-800/80 mt-0.5">{{ $req->note }}</span>
                         @endif
                     </p>
-                    <button type="button" wire:click="cancelBoxRequest({{ $req->id }})"
-                            class="text-xs font-bold text-amber-900 hover:underline">
-                        Cancel
-                    </button>
+                    @if((int) $req->allocated_qty < 1)
+                        <button type="button" wire:click="cancelBoxRequest({{ $req->id }})"
+                                class="text-xs font-bold text-amber-900 hover:underline">
+                            Cancel
+                        </button>
+                    @else
+                        <span class="text-xs font-bold text-amber-800">In progress</span>
+                    @endif
                 </div>
             @endforeach
         </div>

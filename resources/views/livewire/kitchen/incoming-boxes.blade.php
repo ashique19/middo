@@ -26,7 +26,7 @@
                 $latestAction = $box->logs->first()?->log_action;
                 $sourceLabel = match ($latestAction) {
                     'returned_to_kitchen' => 'Rider return',
-                    'dispatched_to_kitchen' => 'Warehouse',
+                    'handed_to_kitchen_stock', 'dispatched_to_kitchen' => 'Warehouse',
                     default => 'Incoming',
                 };
             @endphp
@@ -82,7 +82,7 @@
                             $latestAction = $box->logs->first()?->log_action;
                             $sourceLabel = match ($latestAction) {
                                 'returned_to_kitchen' => 'Rider return',
-                                'dispatched_to_kitchen' => 'Warehouse',
+                                'handed_to_kitchen_stock', 'dispatched_to_kitchen' => 'Warehouse',
                                 default => 'Incoming',
                             };
                         @endphp

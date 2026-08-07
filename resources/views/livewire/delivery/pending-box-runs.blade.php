@@ -65,6 +65,26 @@
                         class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
                         Deliver to warehouse
                     </button>
+                @elseif($box['can_accept_pickup'] ?? false)
+                    <button
+                        type="button"
+                        wire:click="acceptWarehouseStock({{ $box['id'] }})"
+                        wire:loading.attr="disabled"
+                        wire:target="acceptWarehouseStock({{ $box['id'] }})"
+                        wire:confirm="Accept custody of this box from the warehouse?"
+                        class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
+                        Accept custody
+                    </button>
+                @elseif($box['can_hand_warehouse_stock'] ?? false)
+                    <button
+                        type="button"
+                        wire:click="handWarehouseStock({{ $box['id'] }})"
+                        wire:loading.attr="disabled"
+                        wire:target="handWarehouseStock({{ $box['id'] }})"
+                        wire:confirm="Mark this warehouse stock as handed to the kitchen?"
+                        class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
+                        Hand to kitchen
+                    </button>
                 @elseif($box['can_hand_to_kitchen'])
                     <button
                         type="button"
@@ -139,6 +159,26 @@
                                         wire:confirm="Mark this box as delivered to Middo warehouse?"
                                         class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
                                         Deliver to warehouse
+                                    </button>
+                                @elseif($box['can_accept_pickup'] ?? false)
+                                    <button
+                                        type="button"
+                                        wire:click="acceptWarehouseStock({{ $box['id'] }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="acceptWarehouseStock({{ $box['id'] }})"
+                                        wire:confirm="Accept custody of this box from the warehouse?"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
+                                        Accept custody
+                                    </button>
+                                @elseif($box['can_hand_warehouse_stock'] ?? false)
+                                    <button
+                                        type="button"
+                                        wire:click="handWarehouseStock({{ $box['id'] }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="handWarehouseStock({{ $box['id'] }})"
+                                        wire:confirm="Mark this warehouse stock as handed to the kitchen?"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
+                                        Hand to kitchen
                                     </button>
                                 @elseif($box['can_hand_to_kitchen'])
                                     <button

@@ -381,10 +381,16 @@ class KitchenMiddoBoxesTest extends TestCase
             ->assertSet('showModal', false);
 
         $box->refresh();
-        $this->assertSame($this->kitchen->id, $box->kitchen_id);
-        $this->assertSame($this->rider->id, $box->held_by_user_id);
-        $this->assertTrue($box->isIncomingToKitchen($this->kitchen->id));
-        $this->assertSame(KitchenBoxRequest::STATUS_FULFILLED, KitchenBoxRequest::query()->first()->status);
+        $request = KitchenBoxRequest::query()->first();
+        $this->assertSame('at_middo_warehouse', $box->asset_status);
+        $this->assertNull($box->held_by_user_id);
+        $this->assertNull($box->kitchen_id);
+        $this->assertSame(KitchenBoxRequest::STATUS_PENDING, $request->status);
+        $this->assertSame(1, (int) $request->allocated_qty);
+        $this->assertDatabaseHas('middo_box_logs', [
+            'middo_box_id' => $box->id,
+            'log_action' => 'staged_for_kitchen_pickup',
+        ]);
     }
 
     public function test_send_boxes_modal_lists_riders_even_when_kitchen_area_does_not_match(): void
@@ -418,6 +424,7 @@ class KitchenMiddoBoxesTest extends TestCase
         KitchenBoxRequest::create([
             'kitchen_id' => $this->kitchen->id,
             'quantity' => 1,
+            'allocated_qty' => 0,
             'status' => KitchenBoxRequest::STATUS_PENDING,
             'requested_by' => $this->kitchen->id,
         ]);
@@ -446,6 +453,13 @@ class KitchenMiddoBoxesTest extends TestCase
             ->assertSet('showModal', false)
             ->assertHasNoErrors();
 
-        $this->assertSame($this->rider->id, (int) $box->fresh()->held_by_user_id);
+        $box->refresh();
+        $this->assertSame('at_middo_warehouse', $box->asset_status);
+        $this->assertNull($box->held_by_user_id);
+        $this->assertDatabaseHas('kitchen_box_request_boxes', [
+            'middo_box_id' => $box->id,
+            'rider_id' => $this->rider->id,
+            'status' => 'ready_for_pickup',
+        ]);
     }
 }

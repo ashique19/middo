@@ -2,11 +2,16 @@
 
 namespace Tests\Feature\Kitchen;
 
+use App\Livewire\Delivery\PendingBoxRuns;
 use App\Livewire\Kitchen\BoxesAtKitchen;
+use App\Livewire\Kitchen\IncomingBoxes;
 use App\Livewire\Operation\AssignMiddoBoxesModal;
 use App\Livewire\Operation\MiddoBoxes;
 use App\Models\KitchenBoxRequest;
+use App\Models\KitchenBoxRequestBox;
+use App\Models\KitchenBoxRequestLog;
 use App\Models\MiddoBox;
+use App\Models\MiddoBoxLog;
 use App\Models\Role;
 use App\Models\StaffAlert;
 use App\Models\User;
@@ -79,9 +84,17 @@ class KitchenBoxRequestTest extends TestCase
         $this->assertDatabaseHas('kitchen_box_requests', [
             'kitchen_id' => $this->kitchen->id,
             'quantity' => 4,
+            'allocated_qty' => 0,
             'status' => KitchenBoxRequest::STATUS_PENDING,
             'note' => 'Need stock for lunch',
             'requested_by' => $this->kitchen->id,
+        ]);
+
+        $request = KitchenBoxRequest::query()->first();
+        $this->assertDatabaseHas('kitchen_box_request_logs', [
+            'kitchen_box_request_id' => $request->id,
+            'event' => KitchenBoxRequestLog::EVENT_REQUESTED,
+            'performed_by' => $this->kitchen->id,
         ]);
 
         $this->assertTrue(StaffAlert::query()
@@ -98,24 +111,60 @@ class KitchenBoxRequestTest extends TestCase
             ->assertSee('4', false);
     }
 
-    public function test_ops_can_mark_box_request_fulfilled(): void
+    public function test_ops_can_close_request_with_note_after_kitchen_receives(): void
     {
         $request = KitchenBoxRequest::create([
             'kitchen_id' => $this->kitchen->id,
-            'quantity' => 3,
+            'quantity' => 1,
+            'allocated_qty' => 0,
             'status' => KitchenBoxRequest::STATUS_PENDING,
             'requested_by' => $this->kitchen->id,
         ]);
 
+        $box = MiddoBox::create([
+            'qr_code_id' => 'MB-REQ-CLOSE',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+
+        Livewire::actingAs($this->ops)
+            ->test(AssignMiddoBoxesModal::class)
+            ->call('openModal', ['boxIds' => [$box->id]])
+            ->set('selectedRiderId', $this->rider->id)
+            ->set('selectedKitchenId', $this->kitchen->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        Livewire::actingAs($this->rider)
+            ->test(PendingBoxRuns::class)
+            ->call('acceptWarehouseStock', $box->id)
+            ->assertSet('errorMessage', null)
+            ->call('handWarehouseStock', $box->id)
+            ->assertSet('errorMessage', null);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(IncomingBoxes::class)
+            ->call('receiveBox', $box->id)
+            ->assertSet('errorMessage', null);
+
         Livewire::actingAs($this->ops)
             ->test(MiddoBoxes::class)
-            ->call('markBoxRequestFulfilled', $request->id)
+            ->call('openCloseRequest', $request->id)
+            ->set('closeNote', 'Kitchen confirmed receipt')
+            ->call('closeBoxRequest')
             ->assertSet('errorMessage', null)
             ->assertDontSee('Kitchen box requests', false);
 
-        $this->assertSame(KitchenBoxRequest::STATUS_FULFILLED, $request->fresh()->status);
-        $this->assertSame($this->ops->id, (int) $request->fresh()->reviewed_by);
-        $this->assertNotNull($request->fresh()->reviewed_at);
+        $request->refresh();
+        $this->assertSame(KitchenBoxRequest::STATUS_CLOSED, $request->status);
+        $this->assertSame('Kitchen confirmed receipt', $request->closed_note);
+        $this->assertSame($this->ops->id, (int) $request->closed_by);
+        $this->assertNotNull($request->closed_at);
+        $this->assertDatabaseHas('kitchen_box_request_logs', [
+            'kitchen_box_request_id' => $request->id,
+            'event' => KitchenBoxRequestLog::EVENT_CLOSED,
+        ]);
     }
 
     public function test_kitchen_can_cancel_own_pending_request(): void
@@ -123,6 +172,7 @@ class KitchenBoxRequestTest extends TestCase
         $request = KitchenBoxRequest::create([
             'kitchen_id' => $this->kitchen->id,
             'quantity' => 2,
+            'allocated_qty' => 0,
             'status' => KitchenBoxRequest::STATUS_PENDING,
             'requested_by' => $this->kitchen->id,
         ]);
@@ -173,6 +223,7 @@ class KitchenBoxRequestTest extends TestCase
         KitchenBoxRequest::create([
             'kitchen_id' => $this->kitchen->id,
             'quantity' => 1,
+            'allocated_qty' => 0,
             'status' => KitchenBoxRequest::STATUS_PENDING,
             'requested_by' => $this->kitchen->id,
         ]);
@@ -202,11 +253,12 @@ class KitchenBoxRequestTest extends TestCase
         $this->assertSame(1, KitchenBoxRequest::pendingQuantityForKitchen($this->kitchen->id));
     }
 
-    public function test_ops_send_partially_reduces_pending_request_quantity(): void
+    public function test_ops_stage_partially_increments_allocated_without_rider_custody(): void
     {
         $request = KitchenBoxRequest::create([
             'kitchen_id' => $this->kitchen->id,
             'quantity' => 3,
+            'allocated_qty' => 0,
             'status' => KitchenBoxRequest::STATUS_PENDING,
             'requested_by' => $this->kitchen->id,
         ]);
@@ -228,8 +280,111 @@ class KitchenBoxRequestTest extends TestCase
             ->assertHasNoErrors();
 
         $request->refresh();
+        $box->refresh();
+
         $this->assertSame(KitchenBoxRequest::STATUS_PENDING, $request->status);
-        $this->assertSame(2, $request->quantity);
-        $this->assertSame($this->rider->id, (int) $box->fresh()->held_by_user_id);
+        $this->assertSame(3, $request->quantity);
+        $this->assertSame(1, $request->allocated_qty);
+        $this->assertSame(2, $request->remainingQuantity());
+        $this->assertSame('at_middo_warehouse', $box->asset_status);
+        $this->assertNull($box->held_by_user_id);
+        $this->assertNull($box->kitchen_id);
+
+        $this->assertDatabaseHas('kitchen_box_request_boxes', [
+            'kitchen_box_request_id' => $request->id,
+            'middo_box_id' => $box->id,
+            'rider_id' => $this->rider->id,
+            'status' => KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP,
+        ]);
+
+        $this->assertDatabaseHas('middo_box_logs', [
+            'middo_box_id' => $box->id,
+            'log_action' => 'staged_for_kitchen_pickup',
+        ]);
+    }
+
+    public function test_full_handoff_lifecycle_is_logged(): void
+    {
+        $request = KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 1,
+            'allocated_qty' => 0,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+        KitchenBoxRequestLog::create([
+            'kitchen_box_request_id' => $request->id,
+            'event' => KitchenBoxRequestLog::EVENT_REQUESTED,
+            'performed_by' => $this->kitchen->id,
+        ]);
+
+        $box = MiddoBox::create([
+            'qr_code_id' => 'MB-REQ-FLOW',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+
+        Livewire::actingAs($this->ops)
+            ->test(AssignMiddoBoxesModal::class)
+            ->call('openModal', ['boxIds' => [$box->id]])
+            ->set('selectedRiderId', $this->rider->id)
+            ->set('selectedKitchenId', $this->kitchen->id)
+            ->call('save');
+
+        // Staged-only stock is not incoming yet.
+        Livewire::actingAs($this->kitchen)
+            ->test(IncomingBoxes::class)
+            ->call('receiveBox', $box->id)
+            ->assertSet('errorMessage', 'This box is not incoming to your kitchen.');
+
+        Livewire::actingAs($this->rider)
+            ->test(PendingBoxRuns::class)
+            ->call('acceptWarehouseStock', $box->id)
+            ->assertSet('errorMessage', null);
+
+        $box->refresh();
+        $this->assertSame($this->rider->id, (int) $box->held_by_user_id);
+        $this->assertSame($this->kitchen->id, (int) $box->kitchen_id);
+        $this->assertSame('rider_accepted_kitchen_stock', MiddoBoxLog::query()->where('middo_box_id', $box->id)->latest('id')->value('log_action'));
+
+        // Accepted but not handed — kitchen must wait.
+        Livewire::actingAs($this->kitchen)
+            ->test(IncomingBoxes::class)
+            ->call('receiveBox', $box->id)
+            ->assertSet('errorMessage', 'Wait for the rider to hand this box before confirming receive.');
+
+        Livewire::actingAs($this->rider)
+            ->test(PendingBoxRuns::class)
+            ->call('handWarehouseStock', $box->id)
+            ->assertSet('errorMessage', null);
+
+        $this->assertSame('handed_to_kitchen_stock', MiddoBoxLog::query()->where('middo_box_id', $box->id)->latest('id')->value('log_action'));
+
+        Livewire::actingAs($this->kitchen)
+            ->test(IncomingBoxes::class)
+            ->call('receiveBox', $box->id)
+            ->assertSet('errorMessage', null);
+
+        $box->refresh();
+        $this->assertTrue($box->isAtKitchen($this->kitchen->id));
+        $this->assertSame(
+            KitchenBoxRequestBox::STATUS_RECEIVED,
+            KitchenBoxRequestBox::query()->where('middo_box_id', $box->id)->value('status')
+        );
+
+        $events = KitchenBoxRequestLog::query()
+            ->where('kitchen_box_request_id', $request->id)
+            ->orderBy('id')
+            ->pluck('event')
+            ->all();
+
+        $this->assertSame([
+            KitchenBoxRequestLog::EVENT_REQUESTED,
+            KitchenBoxRequestLog::EVENT_STAGED_FOR_PICKUP,
+            KitchenBoxRequestLog::EVENT_RIDER_ACCEPTED,
+            KitchenBoxRequestLog::EVENT_HANDED_TO_KITCHEN,
+            KitchenBoxRequestLog::EVENT_RECEIVED_AT_KITCHEN,
+        ], $events);
     }
 }

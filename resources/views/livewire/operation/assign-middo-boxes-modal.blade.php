@@ -4,11 +4,11 @@
             <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
                 <div class="flex items-start justify-between gap-4 mb-6">
                     <div>
-                        <h2 class="text-xl font-bold text-gray-800">Send Boxes to Kitchen</h2>
+                        <h2 class="text-xl font-bold text-gray-800">Ready for rider pickup</h2>
                         <p class="text-sm text-gray-500 mt-1">
-                            Assigning <span class="font-semibold text-middo-dark">{{ count($boxIds) }}</span>
-                            {{ str('box')->plural(count($boxIds)) }} from warehouse inventory.
-                            Only kitchens with a pending box request can receive stock — up to the requested quantity.
+                            Stage <span class="font-semibold text-middo-dark">{{ count($boxIds) }}</span>
+                            {{ str('box')->plural(count($boxIds)) }} at warehouse for a rider.
+                            Boxes stay at Middo until the rider accepts custody — capped by the kitchen’s remaining request.
                         </p>
                     </div>
                     <button
@@ -236,8 +236,8 @@
                             wire:loading.attr="disabled"
                             @disabled($kitchens === [] || $riders === [] || ($selectedKitchenPendingQty > 0 && count($boxIds) > $selectedKitchenPendingQty))
                             class="px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
-                            <span wire:loading.remove wire:target="save">Send to kitchen</span>
-                            <span wire:loading wire:target="save">Sending...</span>
+                            <span wire:loading.remove wire:target="save">Mark ready for pickup</span>
+                            <span wire:loading wire:target="save">Staging...</span>
                         </button>
                     </div>
                 </form>

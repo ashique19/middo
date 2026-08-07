@@ -49,7 +49,7 @@ class StaffAlerts
         $qty = (int) $request->quantity;
         $title = 'Box request: '.$kitchen->name;
         $body = sprintf(
-            '%s requested %d Middo %s%s. Open Middo Boxes to fulfill.',
+            '%s requested %d Middo %s%s. Open Middo Boxes to stage pickup.',
             $kitchen->name,
             $qty,
             str('box')->plural($qty),
@@ -306,7 +306,7 @@ class StaffAlerts
             StaffAlert::TYPE_OPS_TO_KITCHEN_BOX,
             $count === 1 ? 'Ops→kitchen box run' : "Ops→kitchen box run ({$count})",
             sprintf(
-                'Deliver %s to %s.',
+                'Pick up %s at warehouse, then deliver to %s.',
                 $boxList,
                 $kitchen->name
             ),
@@ -327,7 +327,7 @@ class StaffAlerts
             StaffAlert::TYPE_OPS_TO_KITCHEN_BOX,
             $count === 1 ? 'Incoming Middo box' : "Incoming Middo boxes ({$count})",
             sprintf(
-                '%s is bringing %s from warehouse.',
+                '%s will bring %s from warehouse after pickup.',
                 $rider->name,
                 $boxList
             ),

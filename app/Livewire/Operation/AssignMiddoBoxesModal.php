@@ -4,15 +4,10 @@ namespace App\Livewire\Operation;
 
 use App\Models\Area;
 use App\Models\KitchenBoxRequest;
-use App\Models\MiddoBox;
-use App\Models\MiddoBoxLog;
 use App\Models\User;
-use App\Support\DeliveryRunType;
-use App\Support\MiddoOperatingCosts;
-use App\Support\RiderCommission;
+use App\Support\KitchenBoxRequestFlow;
 use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -92,84 +87,26 @@ class AssignMiddoBoxesModal extends Component
             'selectedKitchenId' => 'required|exists:users,id',
         ]);
 
-        $assignedCount = 0;
-        $assignedBoxes = collect();
-        $rider = null;
-        $kitchen = null;
-
         try {
-            DB::transaction(function () use (&$assignedCount, &$assignedBoxes, &$rider, &$kitchen) {
-                $boxes = MiddoBox::query()
-                    ->whereIn('id', $this->boxIds)
-                    ->where('asset_status', 'at_middo_warehouse')
-                    ->lockForUpdate()
-                    ->get();
-
-                if ($boxes->isEmpty()) {
-                    return;
-                }
-
-                $boxIds = $boxes->pluck('id');
-                $shipQty = $boxIds->count();
-
-                KitchenBoxRequest::consumePendingForKitchen(
-                    (int) $this->selectedKitchenId,
-                    $shipQty,
-                    Auth::id() ? (int) Auth::id() : null
-                );
-
-                MiddoBox::query()
-                    ->whereIn('id', $boxIds)
-                    ->update([
-                        'held_by_user_id' => $this->selectedRiderId,
-                        'kitchen_id' => $this->selectedKitchenId,
-                        'asset_status' => 'active',
-                    ]);
-
-                foreach ($boxIds as $boxId) {
-                    MiddoBoxLog::create([
-                        'middo_box_id' => $boxId,
-                        'custody_status' => 'in_transit',
-                        'log_action' => 'dispatched_to_kitchen',
-                    ]);
-                }
-
-                $rider = User::query()->find($this->selectedRiderId);
-                $kitchen = User::query()->find($this->selectedKitchenId);
-                if ($rider) {
-                    $perBox = RiderCommission::forSettingsRun($rider, DeliveryRunType::OPS_TO_KITCHEN);
-                    foreach ($boxIds as $boxId) {
-                        $box = $boxes->firstWhere('id', $boxId);
-                        MiddoOperatingCosts::bookRiderCommission(
-                            $rider,
-                            DeliveryRunType::OPS_TO_KITCHEN,
-                            $perBox,
-                            MiddoBox::class,
-                            (int) $boxId,
-                            'Ops→kitchen box #'.($box?->qr_code_id ?? $boxId),
-                            $rider->id
-                        );
-                    }
-                }
-
-                $assignedBoxes = $boxes;
-                $assignedCount = $shipQty;
-            });
-        } catch (\RuntimeException $e) {
+            $result = KitchenBoxRequestFlow::stageForPickup(
+                $this->boxIds,
+                (int) $this->selectedKitchenId,
+                (int) $this->selectedRiderId,
+                Auth::id() ? (int) Auth::id() : null
+            );
+        } catch (\RuntimeException|\InvalidArgumentException $e) {
             $this->addError('selectedKitchenId', $e->getMessage());
 
             return;
         }
 
-        if ($assignedCount === 0) {
-            $this->addError('selectedRiderId', 'No warehouse boxes were available to assign.');
+        if (($result['count'] ?? 0) < 1) {
+            $this->addError('selectedRiderId', 'No warehouse boxes were available to stage.');
 
             return;
         }
 
-        if ($rider && $kitchen) {
-            StaffAlerts::notifyOpsToKitchenBoxes($rider, $kitchen, $assignedBoxes);
-        }
+        StaffAlerts::notifyOpsToKitchenBoxes($result['rider'], $result['kitchen'], $result['boxes']);
 
         $this->dispatch('middo-boxes-assigned');
         $this->closeModal();
@@ -214,15 +151,18 @@ class AssignMiddoBoxesModal extends Component
     }
 
     /**
-     * Only kitchens with a pending box request can receive warehouse boxes.
+     * Only kitchens with remaining open request quantity can receive warehouse boxes.
      */
     protected function fetchKitchensWithPendingRequests(): array
     {
-        $pendingByKitchen = KitchenBoxRequest::query()
-            ->pending()
-            ->selectRaw('kitchen_id, SUM(quantity) as pending_qty')
-            ->groupBy('kitchen_id')
-            ->pluck('pending_qty', 'kitchen_id');
+        $openRequests = KitchenBoxRequest::query()
+            ->open()
+            ->get()
+            ->groupBy('kitchen_id');
+
+        $pendingByKitchen = $openRequests
+            ->map(fn ($requests) => (int) $requests->sum(fn (KitchenBoxRequest $r) => $r->remainingQuantity()))
+            ->filter(fn (int $qty) => $qty > 0);
 
         if ($pendingByKitchen->isEmpty()) {
             return [];
@@ -241,7 +181,7 @@ class AssignMiddoBoxesModal extends Component
                 $city = trim((string) ($user->city?->name ?? ''));
                 $location = collect([$area, $city])->filter()->implode(', ');
                 $pendingQty = (int) ($pendingByKitchen[$user->id] ?? 0);
-                $requestLabel = 'Requested '.$pendingQty.' '.str('box')->plural($pendingQty);
+                $requestLabel = 'Requested '.$pendingQty.' '.str('box')->plural($pendingQty).' remaining';
                 $subtitle = collect([$requestLabel, $location !== '' ? $location : null])->filter()->implode(' · ');
 
                 return [

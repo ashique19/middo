@@ -5,6 +5,7 @@ namespace App\Livewire\Operation;
 use App\Models\KitchenBoxRequest;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
+use App\Support\KitchenBoxRequestFlow;
 use App\Support\OpsBoxCustody;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
@@ -28,6 +29,10 @@ class MiddoBoxes extends Component
     public ?string $statusMessage = null;
 
     public ?string $errorMessage = null;
+
+    public ?int $closingRequestId = null;
+
+    public string $closeNote = '';
 
     public function updatingSearch(): void
     {
@@ -60,6 +65,7 @@ class MiddoBoxes extends Component
     public function clearSelection(): void
     {
         $this->selectedBoxIds = [];
+        $this->statusMessage = 'Boxes marked ready for rider pickup against the kitchen request.';
     }
 
     public function openAssignModal(): void
@@ -144,33 +150,60 @@ class MiddoBoxes extends Component
         ));
     }
 
-    public function markBoxRequestFulfilled(int $requestId): void
+    public function openCloseRequest(int $requestId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+        $this->closingRequestId = $requestId;
+        $this->closeNote = '';
+        $this->resetErrorBag();
+    }
+
+    public function cancelCloseRequest(): void
+    {
+        $this->closingRequestId = null;
+        $this->closeNote = '';
+        $this->resetErrorBag();
+    }
+
+    public function closeBoxRequest(): void
     {
         $this->statusMessage = null;
         $this->errorMessage = null;
 
+        $this->validate([
+            'closingRequestId' => 'required|integer',
+            'closeNote' => 'required|string|min:3|max:2000',
+        ]);
+
         $request = KitchenBoxRequest::query()
             ->with('kitchen')
-            ->pending()
-            ->whereKey($requestId)
+            ->open()
+            ->whereKey($this->closingRequestId)
             ->first();
 
         if (! $request) {
-            $this->errorMessage = 'That box request is no longer pending.';
+            $this->errorMessage = 'That box request is no longer open.';
+            $this->cancelCloseRequest();
+
+            return;
+        }
+
+        try {
+            KitchenBoxRequestFlow::closeRequest(
+                $request,
+                (int) Auth::id(),
+                $this->closeNote
+            );
+        } catch (\RuntimeException $e) {
+            $this->errorMessage = $e->getMessage();
 
             return;
         }
 
         $kitchenName = $request->kitchen?->name ?? ('Kitchen #'.$request->kitchen_id);
-        $qty = (int) $request->quantity;
-
-        $request->update([
-            'status' => KitchenBoxRequest::STATUS_FULFILLED,
-            'reviewed_by' => Auth::id(),
-            'reviewed_at' => now(),
-        ]);
-
-        $this->statusMessage = "Marked request #{$request->id} fulfilled ({$qty} boxes for {$kitchenName}).";
+        $this->statusMessage = "Closed box request #{$request->id} for {$kitchenName}.";
+        $this->cancelCloseRequest();
     }
 
     public function cancelBoxRequest(int $requestId): void
@@ -179,23 +212,28 @@ class MiddoBoxes extends Component
         $this->errorMessage = null;
 
         $request = KitchenBoxRequest::query()
-            ->pending()
+            ->open()
             ->whereKey($requestId)
             ->first();
 
         if (! $request) {
-            $this->errorMessage = 'That box request is no longer pending.';
+            $this->errorMessage = 'That box request is no longer open.';
 
             return;
         }
 
-        $request->update([
-            'status' => KitchenBoxRequest::STATUS_CANCELLED,
-            'reviewed_by' => Auth::id(),
-            'reviewed_at' => now(),
-        ]);
+        try {
+            KitchenBoxRequestFlow::cancelRequest($request, (int) Auth::id());
+        } catch (\RuntimeException $e) {
+            $this->errorMessage = $e->getMessage();
+
+            return;
+        }
 
         $this->statusMessage = "Cancelled box request #{$request->id}.";
+        if ($this->closingRequestId === $requestId) {
+            $this->cancelCloseRequest();
+        }
     }
 
     public function render()
@@ -221,9 +259,9 @@ class MiddoBoxes extends Component
             ->orderByDesc('id')
             ->paginate(20);
 
-        $pendingBoxRequests = KitchenBoxRequest::query()
-            ->with(['kitchen', 'requestedBy'])
-            ->pending()
+        $openBoxRequests = KitchenBoxRequest::query()
+            ->with(['kitchen', 'requestedBy', 'requestBoxes'])
+            ->open()
             ->latest('id')
             ->get();
 
@@ -231,7 +269,7 @@ class MiddoBoxes extends Component
             'boxes' => $boxes,
             'damagedCount' => $summary['damaged'],
             'custody' => $summary,
-            'pendingBoxRequests' => $pendingBoxRequests,
+            'pendingBoxRequests' => $openBoxRequests,
         ])->layout('layouts.private.app', ['title' => 'Middo Boxes']);
     }
 }

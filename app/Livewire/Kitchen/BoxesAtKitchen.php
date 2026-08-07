@@ -3,9 +3,11 @@
 namespace App\Livewire\Kitchen;
 
 use App\Models\KitchenBoxRequest;
+use App\Models\KitchenBoxRequestLog;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Models\User;
+use App\Support\KitchenBoxRequestFlow;
 use App\Support\MiddoBoxKitchenActions;
 use App\Support\MiddoSettings;
 use App\Support\StaffAlerts;
@@ -83,10 +85,19 @@ class BoxesAtKitchen extends Component
             $request = KitchenBoxRequest::create([
                 'kitchen_id' => $kitchen->id,
                 'quantity' => (int) $this->requestQuantity,
+                'allocated_qty' => 0,
                 'status' => KitchenBoxRequest::STATUS_PENDING,
                 'note' => trim($this->requestNote) !== '' ? trim($this->requestNote) : null,
                 'requested_by' => $kitchen->id,
             ]);
+
+            KitchenBoxRequestFlow::logRequestEvent(
+                $request,
+                KitchenBoxRequestLog::EVENT_REQUESTED,
+                $kitchen->id,
+                $request->note,
+                ['quantity' => (int) $request->quantity]
+            );
 
             StaffAlerts::notifyOpsKitchenBoxRequest($request);
 
@@ -116,11 +127,13 @@ class BoxesAtKitchen extends Component
             return;
         }
 
-        $request->update([
-            'status' => KitchenBoxRequest::STATUS_CANCELLED,
-            'reviewed_by' => Auth::id(),
-            'reviewed_at' => now(),
-        ]);
+        try {
+            KitchenBoxRequestFlow::cancelRequest($request, (int) Auth::id());
+        } catch (\RuntimeException $e) {
+            $this->errorMessage = $e->getMessage();
+
+            return;
+        }
 
         $this->statusMessage = 'Box request cancelled.';
     }

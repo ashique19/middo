@@ -60,49 +60,99 @@
                 <div>
                     <h2 class="text-lg font-bold text-amber-950">Kitchen box requests</h2>
                     <p class="text-sm font-semibold text-amber-800/80">
-                        {{ $pendingBoxRequests->count() }} pending — select warehouse boxes and Send to kitchen (qty capped by request). Sending auto-fulfills.
+                        {{ $pendingBoxRequests->count() }} open — stage warehouse boxes for rider pickup (qty capped). Close with a note after kitchen receives.
                     </p>
                 </div>
             </div>
             <div class="bg-white/80 border border-amber-100 rounded-xl overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm min-w-[640px]">
+                    <table class="w-full text-left text-sm min-w-[720px]">
                         <thead>
                             <tr class="bg-amber-50/80 text-xs font-semibold uppercase tracking-wider text-amber-800">
                                 <th class="p-3">Kitchen</th>
-                                <th class="p-3 text-center">Qty</th>
+                                <th class="p-3 text-center">Requested</th>
+                                <th class="p-3 text-center">Staged</th>
+                                <th class="p-3 text-center">Remaining</th>
                                 <th class="p-3">Note</th>
-                                <th class="p-3">Requested</th>
+                                <th class="p-3">Requested at</th>
                                 <th class="p-3 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-amber-100">
                             @foreach($pendingBoxRequests as $req)
+                                @php
+                                    $remaining = $req->remainingQuantity();
+                                    $receivedCount = $req->requestBoxes->where('status', 'received')->count();
+                                    $inTransitCount = $req->requestBoxes->where('status', '!=', 'received')->count();
+                                @endphp
                                 <tr wire:key="ops-box-req-{{ $req->id }}">
                                     <td class="p-3 font-semibold text-middo-dark">
                                         {{ $req->kitchen?->name ?? 'Kitchen #'.$req->kitchen_id }}
+                                        @if($inTransitCount > 0)
+                                            <div class="text-[11px] font-semibold text-amber-700 mt-0.5">{{ $inTransitCount }} in transit</div>
+                                        @elseif($receivedCount > 0 && $remaining === 0)
+                                            <div class="text-[11px] font-semibold text-emerald-700 mt-0.5">All staged boxes received</div>
+                                        @endif
                                     </td>
                                     <td class="p-3 text-center font-black text-middo-orange">{{ $req->quantity }}</td>
+                                    <td class="p-3 text-center font-semibold text-gray-800">{{ (int) $req->allocated_qty }}</td>
+                                    <td class="p-3 text-center font-semibold text-gray-800">{{ $remaining }}</td>
                                     <td class="p-3 text-gray-600 max-w-xs">{{ $req->note ?: '—' }}</td>
                                     <td class="p-3 text-xs font-semibold text-gray-500 whitespace-nowrap">
                                         {{ $req->created_at?->timezone('Asia/Dhaka')->format('M j, g:i A') }}
                                     </td>
                                     <td class="p-3 text-right space-x-2 whitespace-nowrap">
-                                        <button type="button"
-                                                wire:click="markBoxRequestFulfilled({{ $req->id }})"
-                                                class="text-xs font-bold text-emerald-700 hover:underline">
-                                            Mark fulfilled
-                                        </button>
-                                        <button type="button"
-                                                wire:click="cancelBoxRequest({{ $req->id }})"
-                                                class="text-xs font-bold text-gray-500 hover:underline">
-                                            Cancel
-                                        </button>
+                                        @if($req->canClose())
+                                            <button type="button"
+                                                    wire:click="openCloseRequest({{ $req->id }})"
+                                                    class="text-xs font-bold text-emerald-700 hover:underline">
+                                                Close with note
+                                            </button>
+                                        @elseif((int) $req->allocated_qty < 1)
+                                            <button type="button"
+                                                    wire:click="cancelBoxRequest({{ $req->id }})"
+                                                    class="text-xs font-bold text-gray-500 hover:underline">
+                                                Cancel
+                                            </button>
+                                        @else
+                                            <span class="text-xs text-amber-700 font-semibold">In progress</span>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($closingRequestId)
+        <div class="fixed inset-0 bg-gray-900/50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-middo-dark">Close box request #{{ $closingRequestId }}</h2>
+                        <p class="text-sm text-gray-500 mt-1">Add a short note for the audit trail, then close.</p>
+                    </div>
+                    <button type="button" wire:click="cancelCloseRequest" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+                </div>
+                <div>
+                    <label for="ops-close-box-req-note" class="block text-sm font-semibold text-gray-700 mb-1.5">Close note</label>
+                    <textarea id="ops-close-box-req-note" rows="3" wire:model="closeNote"
+                              class="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange"
+                              placeholder="e.g. Kitchen confirmed 4 boxes received"></textarea>
+                    @error('closeNote') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" wire:click="cancelCloseRequest"
+                            class="px-4 py-2.5 rounded-xl border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="button" wire:click="closeBoxRequest" wire:loading.attr="disabled"
+                            class="px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold disabled:opacity-60">
+                        Close request
+                    </button>
                 </div>
             </div>
         </div>
@@ -165,7 +215,7 @@
             wire:click="openAssignModal"
             @disabled(count($selectedBoxIds) === 0)
             class="inline-flex items-center justify-center gap-2 rounded-xl border border-transparent bg-middo-orange px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#733614] whitespace-nowrap disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none disabled:hover:bg-gray-100">
-            Send to kitchen
+            Ready for pickup
             @if(count($selectedBoxIds) > 0)
                 ({{ count($selectedBoxIds) }})
             @endif

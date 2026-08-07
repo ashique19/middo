@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Delivery;
 
+use App\Models\KitchenBoxRequestBox;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
+use App\Support\KitchenBoxRequestFlow;
 use App\Support\MiddoBoxKitchenActions;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -18,11 +20,60 @@ class PendingBoxRuns extends Component
 
     public ?string $errorMessage = null;
 
+    public function acceptWarehouseStock(int $boxId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        try {
+            $box = KitchenBoxRequestFlow::acceptCustody($boxId, (int) Auth::id());
+            $this->statusMessage = "{$box->qr_code_id} accepted — deliver to kitchen, then mark handed.";
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not accept this box.';
+        }
+    }
+
+    public function handWarehouseStock(int $boxId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        try {
+            $box = KitchenBoxRequestFlow::handWarehouseStockToKitchen($boxId, (int) Auth::id());
+            $this->statusMessage = "{$box->qr_code_id} handed to kitchen. Waiting for kitchen confirmation.";
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not hand box to kitchen.';
+        }
+    }
+
     public function handToKitchen(int $boxId): void
     {
         $this->statusMessage = null;
         $this->errorMessage = null;
         $riderId = (int) Auth::id();
+
+        // Warehouse stock on a box request uses the staged handoff path.
+        $warehouseLink = KitchenBoxRequestBox::query()
+            ->where('middo_box_id', $boxId)
+            ->where('rider_id', $riderId)
+            ->whereIn('status', [
+                KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP,
+                KitchenBoxRequestBox::STATUS_RIDER_ACCEPTED,
+            ])
+            ->first();
+
+        if ($warehouseLink) {
+            if ($warehouseLink->status === KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP) {
+                $this->errorMessage = 'Accept custody of this warehouse stock before handing it to the kitchen.';
+
+                return;
+            }
+            $this->handWarehouseStock($boxId);
+
+            return;
+        }
 
         try {
             $qr = DB::transaction(function () use ($boxId, $riderId) {
@@ -88,9 +139,9 @@ class PendingBoxRuns extends Component
 
     public function render()
     {
-        $riderId = Auth::id();
+        $riderId = (int) Auth::id();
 
-        $boxes = MiddoBox::query()
+        $heldBoxes = MiddoBox::query()
             ->with([
                 'kitchen',
                 'orderMiddoBoxes.order.menuItem',
@@ -100,33 +151,82 @@ class PendingBoxRuns extends Component
             ->where('held_by_user_id', $riderId)
             ->where('asset_status', 'active')
             ->orderBy('qr_code_id')
-            ->paginate(20);
+            ->get();
+
+        $stagedLinks = KitchenBoxRequestBox::query()
+            ->with([
+                'box.kitchen',
+                'box.orderMiddoBoxes.order.menuItem',
+                'box.orderMiddoBoxes.order.user',
+                'box.orderMiddoBoxes.order.orderGroup.kitchen',
+                'request.kitchen',
+            ])
+            ->where('rider_id', $riderId)
+            ->where('status', KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP)
+            ->whereHas('box', fn ($q) => $q->where('asset_status', 'at_middo_warehouse'))
+            ->orderBy('id')
+            ->get();
+
+        $stagedBoxes = $stagedLinks
+            ->map(fn (KitchenBoxRequestBox $link) => $link->box)
+            ->filter()
+            ->values();
+
+        $allBoxes = $heldBoxes->concat($stagedBoxes)->unique('id')->sortBy('qr_code_id')->values();
+
+        $page = max(1, (int) request()->get('page', 1));
+        $perPage = 20;
+        $total = $allBoxes->count();
+        $items = $allBoxes->slice(($page - 1) * $perPage, $perPage)->values();
+        $boxes = new \Illuminate\Pagination\LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
 
         $latestActions = MiddoBoxLog::query()
-            ->whereIn('middo_box_id', collect($boxes->items())->pluck('id'))
+            ->whereIn('middo_box_id', $items->pluck('id'))
             ->orderByDesc('id')
             ->get()
             ->unique('middo_box_id')
             ->keyBy('middo_box_id');
 
-        $nodes = collect($boxes->items())
-            ->map(function (MiddoBox $box) use ($latestActions) {
+        $stagedByBoxId = $stagedLinks->keyBy('middo_box_id');
+
+        $nodes = $items
+            ->map(function (MiddoBox $box) use ($latestActions, $stagedByBoxId, $riderId) {
                 $linkedOrder = $box->orderMiddoBoxes->first()?->order;
                 $destinationKitchen = $box->kitchen
+                    ?? $stagedByBoxId->get($box->id)?->request?->kitchen
                     ?? $linkedOrder?->orderGroup?->kitchen;
                 $latestAction = $latestActions->get($box->id)?->log_action;
                 $enRouteToWarehouse = $latestAction === 'dispatched_to_warehouse';
+                $isStagedPickup = $stagedByBoxId->has($box->id);
+                $isAcceptedWarehouseStock = $latestAction === 'rider_accepted_kitchen_stock'
+                    && (int) $box->held_by_user_id === $riderId
+                    && $box->kitchen_id !== null
+                    && ! $linkedOrder;
 
+                $canAcceptPickup = $isStagedPickup;
+                $canHandWarehouseStock = $isAcceptedWarehouseStock;
                 $canHandToKitchen = ! $enRouteToWarehouse
+                    && ! $isStagedPickup
+                    && ! $isAcceptedWarehouseStock
                     && $box->kitchen_id === null
                     && $linkedOrder !== null
                     && $linkedOrder->orderGroup?->kitchen_id;
 
                 $runLabel = 'With you';
-                if ($enRouteToWarehouse) {
+                if ($isStagedPickup) {
+                    $runLabel = 'Ready for pickup at warehouse';
+                } elseif ($enRouteToWarehouse) {
                     $runLabel = 'Return to Middo warehouse';
-                } elseif ($box->isIncomingToKitchen()) {
+                } elseif ($latestAction === 'handed_to_kitchen_stock' || $latestAction === 'returned_to_kitchen') {
                     $runLabel = 'Handed — awaiting kitchen receive';
+                } elseif ($isAcceptedWarehouseStock) {
+                    $runLabel = 'On the way to kitchen';
                 } elseif ($linkedOrder && $linkedOrder->delivery_rider_id && $box->kitchen_id === null) {
                     $runLabel = 'Return to kitchen';
                 } elseif ($box->kitchen_id !== null) {
@@ -146,6 +246,8 @@ class PendingBoxRuns extends Component
                     'customer_name' => $linkedOrder
                         ? $linkedOrder->partyPayload()['customer_name']
                         : null,
+                    'can_accept_pickup' => (bool) $canAcceptPickup,
+                    'can_hand_warehouse_stock' => (bool) $canHandWarehouseStock,
                     'can_hand_to_kitchen' => (bool) $canHandToKitchen,
                     'can_deliver_to_warehouse' => $enRouteToWarehouse,
                 ];
