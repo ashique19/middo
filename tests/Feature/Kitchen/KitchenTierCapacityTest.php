@@ -138,6 +138,7 @@ class KitchenTierCapacityTest extends TestCase
             ->call('save')
             ->assertHasNoErrors()
             ->assertSee('Meal grouping')
+            ->assertSee('Corporate allowed order per day')
             ->assertSee('Accept window')
             ->assertSee('Kitchen tier defaults')
             ->assertSee('Daily Order Cutoff time')

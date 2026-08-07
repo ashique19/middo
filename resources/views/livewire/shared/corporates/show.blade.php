@@ -25,6 +25,13 @@
         </div>
     </div>
 
+    @if($statusMessage)
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{{ $statusMessage }}</div>
+    @endif
+    @if($errorMessage)
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $errorMessage }}</div>
+    @endif
+
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Balance</p>
@@ -80,7 +87,38 @@
                         {{ $corporate->created_at?->timezone('Asia/Dhaka')->format('M d, Y') ?: '—' }}
                     </dd>
                 </div>
+                <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Allowed meals / day</dt>
+                    <dd class="font-semibold text-gray-800 mt-0.5">
+                        {{ $this->effectiveMaxOrderQty() }}
+                        @if($corporate->max_order_qty_allowed === null)
+                            <span class="text-xs font-medium text-gray-400">(platform default)</span>
+                        @else
+                            <span class="text-xs font-medium text-gray-400">(override)</span>
+                        @endif
+                    </dd>
+                </div>
             </dl>
+
+            @if($this->canEditOrderLimit())
+                <div class="border-t border-gray-100 pt-4 space-y-3">
+                    <h3 class="text-sm font-bold text-middo-dark">Order limit override</h3>
+                    <p class="text-xs text-gray-500">
+                        Leave blank to use the platform default ({{ $this->defaultMaxOrderQty() }} meals/day from Admin Settings).
+                    </p>
+                    <div class="flex flex-wrap gap-2 items-end">
+                        <div class="flex-1 min-w-[8rem]">
+                            <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-1">Max meals / day</label>
+                            <input type="number" min="1" max="500" wire:model="maxOrderQtyAllowed" placeholder="Default {{ $this->defaultMaxOrderQty() }}"
+                                   class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
+                        </div>
+                        <button type="button" wire:click="saveOrderLimit"
+                                class="inline-flex px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold">
+                            Save limit
+                        </button>
+                    </div>
+                </div>
+            @endif
         </div>
 
         <div class="lg:col-span-2 space-y-6">
@@ -88,12 +126,6 @@
                 <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-3">
                     <h2 class="text-lg font-bold text-middo-dark">Wallet adjustment</h2>
                     <p class="text-sm text-gray-500">Credit goodwill / corrections or debit the corporate Middo Balance. Reason is required.</p>
-                    @if($statusMessage)
-                        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{{ $statusMessage }}</div>
-                    @endif
-                    @if($errorMessage)
-                        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $errorMessage }}</div>
-                    @endif
                     <div class="flex flex-wrap gap-2">
                         <button type="button" wire:click="$set('adjustDirection', 'credit')"
                             @class(['px-3 py-1.5 rounded-xl text-xs font-bold border', 'bg-emerald-600 text-white border-emerald-600' => $adjustDirection === 'credit', 'bg-white border-gray-200' => $adjustDirection !== 'credit'])>

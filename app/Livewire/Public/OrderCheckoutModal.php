@@ -517,7 +517,7 @@ class OrderCheckoutModal extends Component
     protected function dailyLimitMessage(string $date): string
     {
         $formattedDate = Carbon::parse($date)->format('M d, Y');
-        $max = CorporateOrderLimit::maxAllowed();
+        $max = CorporateOrderLimit::maxAllowed(Auth::id());
         $remaining = $this->remainingQtyForDate($date);
 
         return "Maximum {$max} meals allowed per day on {$formattedDate}. You can order up to {$remaining} more.";
@@ -539,7 +539,7 @@ class OrderCheckoutModal extends Component
             'area_id' => 'required|exists:areas,id',
             'mobile' => 'required|string|regex:/^01[3-9]\d{8}$/',
             'quantities' => 'required|array',
-            'quantities.*' => 'required|integer|min:0|max:'.CorporateOrderLimit::maxAllowed(),
+            'quantities.*' => 'required|integer|min:0|max:'.CorporateOrderLimit::maxAllowed(Auth::id()),
         ], [
             'customerName.required' => 'Please provide the receiver name.',
             'addressLine1.required' => 'Please provide your specific street address details.',

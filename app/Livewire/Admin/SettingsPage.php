@@ -17,6 +17,8 @@ class SettingsPage extends Component
 
     public string $order_cutoff_time = '15:28';
 
+    public int $max_order_qty_allowed = 5;
+
     public int $auto_group_quantity = 10;
 
     public int $tier_silver = 1;
@@ -68,6 +70,7 @@ class SettingsPage extends Component
         $this->accept_window_warn_minutes = MiddoSettings::acceptWindowWarnMinutes();
         $this->accept_window_starts_at = MiddoSettings::acceptWindowStartsAt() ?? '';
         $this->order_cutoff_time = MiddoSettings::orderCutoffTime();
+        $this->max_order_qty_allowed = MiddoSettings::maxOrderQtyAllowed();
         $this->auto_group_quantity = MiddoSettings::autoGroupQuantity();
         $defaults = MiddoSettings::tierDefaults();
         $this->tier_silver = $defaults[KitchenTier::SILVER];
@@ -118,6 +121,7 @@ class SettingsPage extends Component
                     $fail('Enter a valid cutoff time (e.g. 15:28).');
                 }
             }],
+            'max_order_qty_allowed' => 'required|integer|min:1|max:500',
             'auto_group_quantity' => 'required|integer|min:1|max:500',
             'tier_silver' => 'required|integer|min:0|max:100',
             'tier_gold' => 'required|integer|min:0|max:100',
@@ -143,6 +147,7 @@ class SettingsPage extends Component
             'accept_window_warn_minutes' => $this->accept_window_warn_minutes,
             'accept_window_starts_at' => $this->accept_window_starts_at,
             'order_cutoff_time' => $this->order_cutoff_time,
+            'max_order_qty_allowed' => $this->max_order_qty_allowed,
             'auto_group_quantity' => $this->auto_group_quantity,
             'tier_defaults' => [
                 KitchenTier::SILVER => $this->tier_silver,

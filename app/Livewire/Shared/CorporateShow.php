@@ -26,6 +26,8 @@ class CorporateShow extends Component
 
     public string $adjustReason = '';
 
+    public string $maxOrderQtyAllowed = '';
+
     public string $statusMessage = '';
 
     public string $errorMessage = '';
@@ -38,6 +40,9 @@ class CorporateShow extends Component
         abort_unless($corporate->role?->name === 'corporate', 404);
 
         $this->corporate = $corporate;
+        $this->maxOrderQtyAllowed = $corporate->max_order_qty_allowed !== null
+            ? (string) $corporate->max_order_qty_allowed
+            : '';
     }
 
     public function indexRoute(): string
@@ -59,6 +64,49 @@ class CorporateShow extends Component
     public function canAdjustWallet(): bool
     {
         return StaffPortal::canWriteMoney();
+    }
+
+    public function canEditOrderLimit(): bool
+    {
+        return StaffPortal::isDayOps();
+    }
+
+    public function effectiveMaxOrderQty(): int
+    {
+        return \App\Support\CorporateOrderLimit::maxAllowed($this->corporate->id);
+    }
+
+    public function defaultMaxOrderQty(): int
+    {
+        return \App\Support\CorporateOrderLimit::defaultMaxAllowed();
+    }
+
+    public function saveOrderLimit(): void
+    {
+        abort_unless($this->canEditOrderLimit(), 403);
+
+        $this->statusMessage = '';
+        $this->errorMessage = '';
+
+        $raw = trim($this->maxOrderQtyAllowed);
+        if ($raw === '') {
+            $this->corporate->update(['max_order_qty_allowed' => null]);
+            $this->corporate->refresh();
+            $this->statusMessage = 'Order limit cleared — using platform default ('.$this->defaultMaxOrderQty().' meals/day).';
+
+            return;
+        }
+
+        if (! ctype_digit($raw) || (int) $raw < 1 || (int) $raw > 500) {
+            $this->errorMessage = 'Enter a whole number from 1 to 500, or leave blank for the platform default.';
+
+            return;
+        }
+
+        $this->corporate->update(['max_order_qty_allowed' => (int) $raw]);
+        $this->corporate->refresh();
+        $this->maxOrderQtyAllowed = (string) $this->corporate->max_order_qty_allowed;
+        $this->statusMessage = 'Order limit set to '.$this->corporate->max_order_qty_allowed.' meals/day for this corporate.';
     }
 
     public function postWalletAdjustment(): void

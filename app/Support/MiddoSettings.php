@@ -18,6 +18,9 @@ class MiddoSettings
     /** Daily corporate order place/edit/cancel cutoff as H:i (Asia/Dhaka). */
     public const KEY_ORDER_CUTOFF_TIME = 'order.cutoff_time';
 
+    /** Default max meals a corporate may order per delivery date. */
+    public const KEY_MAX_ORDER_QTY_ALLOWED = 'order.max_order_qty_allowed';
+
     public const KEY_AUTO_GROUP_QUANTITY = 'meal.auto_group_quantity';
 
     public const KEY_MID_RUN_RESCUE = 'delivery.commission.mid_run_rescue';
@@ -148,6 +151,17 @@ class MiddoSettings
         } catch (\Throwable) {
             return $fallback;
         }
+    }
+
+    /**
+     * Default max meals per corporate per delivery date (overridable per user).
+     */
+    public static function maxOrderQtyAllowed(): int
+    {
+        return max(1, (int) self::get(
+            self::KEY_MAX_ORDER_QTY_ALLOWED,
+            config('middo.max_order_qty_allowed', 5)
+        ));
     }
 
     /**
@@ -322,7 +336,7 @@ class MiddoSettings
     }
 
     /**
-     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, accept_window_starts_at?: string|null, order_cutoff_time?: string, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool, vat_rate_pct?: float|int, eps_fee_rates?: array<string, float|int>, default_eps_bank_account_id?: int|null, full_prepay_from_active_orders?: int}  $payload
+     * @param  array{accept_window_minutes?: int, accept_window_warn_minutes?: int, accept_window_starts_at?: string|null, order_cutoff_time?: string, max_order_qty_allowed?: int, auto_group_quantity?: int, tier_defaults?: array<string, int>, delivery_commissions?: array<string, int>, mid_run_rescue_commission?: int, kitchen_to_ops_via_rider?: bool, vat_rate_pct?: float|int, eps_fee_rates?: array<string, float|int>, default_eps_bank_account_id?: int|null, full_prepay_from_active_orders?: int}  $payload
      */
     public static function updateMealAndKitchenDefaults(array $payload): void
     {
@@ -363,6 +377,10 @@ class MiddoSettings
             } catch (\Throwable) {
                 throw new \InvalidArgumentException('Daily order cutoff time is invalid.');
             }
+        }
+
+        if (array_key_exists('max_order_qty_allowed', $payload)) {
+            self::set(self::KEY_MAX_ORDER_QTY_ALLOWED, max(1, (int) $payload['max_order_qty_allowed']));
         }
 
         if (array_key_exists('auto_group_quantity', $payload)) {

@@ -9,6 +9,7 @@ use App\Models\MenuItem;
 use App\Models\PackageSubscription;
 use App\Models\User;
 use App\Support\ChargeService;
+use App\Support\CorporateOrderLimit;
 use App\Support\CouponService;
 use App\Support\OrderConfirmationOtp;
 use App\Support\PackageBilling;
@@ -290,7 +291,7 @@ class PackageSubscribeModal extends Component
 
     public function updatedQuantity(): void
     {
-        $this->quantity = max(1, min((int) config('middo.max_order_qty_allowed', 5), (int) $this->quantity));
+        $this->quantity = max(1, min(CorporateOrderLimit::maxAllowed(Auth::id()), (int) $this->quantity));
         $this->refreshQuote();
     }
 
@@ -298,7 +299,7 @@ class PackageSubscribeModal extends Component
     {
         $this->quantity = max(
             1,
-            min((int) config('middo.max_order_qty_allowed', 5), $this->quantity + $delta)
+            min(CorporateOrderLimit::maxAllowed(Auth::id()), $this->quantity + $delta)
         );
         $this->errorMessage = '';
         $this->refreshQuote();
@@ -658,7 +659,7 @@ class PackageSubscribeModal extends Component
                 'city_id' => 'required|exists:cities,id',
                 'area_id' => 'required|exists:areas,id',
                 'deliveryWindow' => 'required|in:12:00 PM,11:30 AM',
-                'quantity' => 'required|integer|min:1|max:'.(int) config('middo.max_order_qty_allowed', 5),
+                'quantity' => 'required|integer|min:1|max:'.CorporateOrderLimit::maxAllowed(Auth::id()),
                 'targetMonth' => 'required|date_format:Y-m',
             ]);
         } catch (ValidationException $e) {

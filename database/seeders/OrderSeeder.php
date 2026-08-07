@@ -36,7 +36,7 @@ class OrderSeeder extends Seeder
         $address = 'Level 8, Gulshan Tower, Gulshan-2, Dhaka 1212';
         $deliveryTimes = ['11:30 AM', '12:00 PM', '12:30 PM'];
         $today = Carbon::now('Asia/Dhaka')->startOfDay();
-        $maxQty = max(1, (int) config('middo.max_order_qty_allowed', 5));
+        $maxQty = CorporateOrderLimit::maxAllowed();
 
         // Past delivered lunches (order history)
         $pastOrders = [

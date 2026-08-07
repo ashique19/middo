@@ -994,7 +994,7 @@ class CorporateMobileController extends Controller
                         sprintf(
                             'Daily limit exceeded for %s. Max %d meals/day.',
                             $date,
-                            CorporateOrderLimit::maxAllowed()
+                            CorporateOrderLimit::maxAllowed($userId)
                         ),
                     ],
                 ]);
@@ -1354,7 +1354,7 @@ class CorporateMobileController extends Controller
     {
         $model = MealPackage::query()->published()->findOrFail($package);
         $data = $request->validate([
-            'quantity' => ['required', 'integer', 'min:1', 'max:'.CorporateOrderLimit::maxAllowed()],
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.CorporateOrderLimit::maxAllowed($request->user()->id)],
             'target_month' => ['required', 'date_format:Y-m'],
             'omitted_weekdays' => ['nullable', 'array'],
             'omitted_weekdays.*' => ['integer', 'min:0', 'max:6'],
@@ -1388,7 +1388,7 @@ class CorporateMobileController extends Controller
     {
         $model = MealPackage::query()->published()->findOrFail($package);
         $data = $request->validate([
-            'quantity' => ['required', 'integer', 'min:1', 'max:'.CorporateOrderLimit::maxAllowed()],
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.CorporateOrderLimit::maxAllowed($request->user()->id)],
             'target_month' => ['required', 'date_format:Y-m'],
             'omitted_weekdays' => ['nullable', 'array'],
             'omitted_weekdays.*' => ['integer', 'min:0', 'max:6'],

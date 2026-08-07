@@ -31,6 +31,7 @@ use Laravel\Sanctum\HasApiTokens;
     'rider_shift_status',
     'kitchen_tier',
     'allowed_open_groups',
+    'max_order_qty_allowed',
     'is_mobile_verified',
     'address',
     'city_id',
@@ -56,6 +57,7 @@ class User extends Authenticatable
             'is_mobile_verified' => 'boolean', // Ensures 0/1 becomes false/true
             'balance' => 'integer',
             'allowed_open_groups' => 'integer',
+            'max_order_qty_allowed' => 'integer',
             'rider_commission_overrides' => 'array',
         ];
     }

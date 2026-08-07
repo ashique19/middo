@@ -51,6 +51,28 @@
             </div>
         </section>
 
+        {{-- Corporate daily order limit --}}
+        <section class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Corporate allowed order per day</h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    Default max meals a corporate can order for one delivery date (active + cart, non-cancelled).
+                    Override per corporate on their profile page.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">
+                        Default max meals / day
+                    </label>
+                    <input type="number" min="1" max="500" wire:model="max_order_qty_allowed"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    @error('max_order_qty_allowed') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    <p class="text-xs text-gray-400 mt-1">Applies to corporates without an individual override.</p>
+                </div>
+            </div>
+        </section>
+
         {{-- Accept window --}}
         <section class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
             <div>

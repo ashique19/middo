@@ -3,12 +3,25 @@
 namespace App\Support;
 
 use App\Models\Order;
+use App\Models\User;
 
 class CorporateOrderLimit
 {
-    public static function maxAllowed(): int
+    public static function defaultMaxAllowed(): int
     {
-        return max(1, (int) config('middo.max_order_qty_allowed', 5));
+        return MiddoSettings::maxOrderQtyAllowed();
+    }
+
+    public static function maxAllowed(?int $userId = null): int
+    {
+        if ($userId) {
+            $override = User::query()->whereKey($userId)->value('max_order_qty_allowed');
+            if ($override !== null && (int) $override > 0) {
+                return max(1, (int) $override);
+            }
+        }
+
+        return self::defaultMaxAllowed();
     }
 
     public static function existingQtyForDate(int $userId, string $date, ?int $excludeOrderId = null): int
@@ -27,7 +40,7 @@ class CorporateOrderLimit
 
     public static function remainingQtyForDate(int $userId, string $date, ?int $excludeOrderId = null): int
     {
-        return max(0, self::maxAllowed() - self::existingQtyForDate($userId, $date, $excludeOrderId));
+        return max(0, self::maxAllowed($userId) - self::existingQtyForDate($userId, $date, $excludeOrderId));
     }
 
     public static function exceedsDailyLimit(int $userId, string $date, int $requestedQty, ?int $excludeOrderId = null): bool
