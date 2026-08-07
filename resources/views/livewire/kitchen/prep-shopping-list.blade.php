@@ -8,18 +8,33 @@
         </p>
     </div>
 
-    <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm space-y-3 sm:space-y-0 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
-        <div class="w-full sm:w-auto">
-            <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Delivery date</label>
-            <input type="date" wire:model.live="deliveryDate"
-                   class="w-full sm:w-auto rounded-xl border border-gray-200 px-3 py-2.5 sm:py-2 text-sm">
+    <div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm space-y-4">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+            <div class="w-full sm:max-w-xs min-w-0">
+                <label for="prep-shopping-delivery-date" class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                    Delivery date
+                </label>
+                <input
+                    id="prep-shopping-delivery-date"
+                    type="date"
+                    wire:model.live="deliveryDate"
+                    class="block w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-middo-dark shadow-none focus:border-middo-orange focus:outline-none focus:ring-2 focus:ring-middo-orange/20"
+                >
+            </div>
+            <a href="{{ route('kitchen.menus.today') }}"
+               class="inline-flex items-center text-xs font-bold text-middo-orange hover:underline sm:pb-2.5">
+                Today’s menus →
+            </a>
         </div>
-        <div class="text-sm text-gray-600">
-            <span class="font-bold text-middo-orange">{{ $rollup['group_count'] }}</span> group(s) ·
-            <span class="font-bold text-middo-orange">{{ $rollup['plate_count'] }}</span> plate(s)
-        </div>
-        <div class="sm:ml-auto">
-            <a href="{{ route('kitchen.menus.today') }}" class="text-xs font-bold text-middo-orange hover:underline">Today’s menus →</a>
+        <div class="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Groups</p>
+                <p class="mt-0.5 text-lg font-black text-middo-orange tabular-nums">{{ $rollup['group_count'] }}</p>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Plates</p>
+                <p class="mt-0.5 text-lg font-black text-middo-orange tabular-nums">{{ $rollup['plate_count'] }}</p>
+            </div>
         </div>
     </div>
 
