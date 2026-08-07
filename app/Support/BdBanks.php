@@ -2,29 +2,33 @@
 
 namespace App\Support;
 
+use App\Models\BdBank;
+use App\Models\BdBankBranch;
+use App\Models\BdBankCity;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
+
 class BdBanks
 {
-    /** @var list<array{name: string, cities: list<array{city: string, branches: list<string>}>}>|null */
-    protected static ?array $catalog = null;
+    public const CACHE_KEY = 'bd_banks.catalog.v1';
 
     /**
      * @return list<array{name: string, cities: list<array{city: string, branches: list<string>}>}>
      */
     public static function catalog(): array
     {
-        if (self::$catalog !== null) {
-            return self::$catalog;
-        }
+        return Cache::remember(self::CACHE_KEY, 600, function () {
+            if (self::databaseReady() && BdBank::query()->exists()) {
+                return self::catalogFromDatabase();
+            }
 
-        $path = resource_path('data/bd_banks.json');
-        if (! is_readable($path)) {
-            return self::$catalog = [];
-        }
+            return self::catalogFromJson();
+        });
+    }
 
-        $decoded = json_decode((string) file_get_contents($path), true);
-        self::$catalog = is_array($decoded) ? $decoded : [];
-
-        return self::$catalog;
+    public static function forgetCache(): void
+    {
+        Cache::forget(self::CACHE_KEY);
     }
 
     /**
@@ -79,14 +83,74 @@ class BdBanks
             return false;
         }
 
-        $branches = self::branchesFor($bankName, $cityName);
-        foreach ($branches as $branch) {
+        foreach (self::branchesFor($bankName, $cityName) as $branch) {
             if (strcasecmp($branch, $branchName) === 0) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    protected static function databaseReady(): bool
+    {
+        return Schema::hasTable('bd_banks')
+            && Schema::hasTable('bd_bank_cities')
+            && Schema::hasTable('bd_bank_branches');
+    }
+
+    /**
+     * @return list<array{name: string, cities: list<array{city: string, branches: list<string>}>}>
+     */
+    protected static function catalogFromDatabase(): array
+    {
+        $banks = BdBank::query()
+            ->where('is_active', true)
+            ->with(['cities.branches' => fn ($q) => $q->where('is_active', true)->orderBy('name')])
+            ->orderBy('name')
+            ->get();
+
+        $catalog = [];
+        foreach ($banks as $bank) {
+            $cities = [];
+            foreach ($bank->cities as $city) {
+                $branches = $city->branches->pluck('name')->filter()->values()->all();
+                if ($branches === []) {
+                    continue;
+                }
+                $cities[] = [
+                    'city' => (string) $city->name,
+                    'branches' => $branches,
+                ];
+            }
+            if ($cities === []) {
+                continue;
+            }
+            $catalog[] = [
+                'name' => (string) $bank->name,
+                'cities' => $cities,
+            ];
+        }
+
+        return $catalog;
+    }
+
+    /**
+     * @return list<array{name: string, cities: list<array{city: string, branches: list<string>}>}>
+     */
+    protected static function catalogFromJson(): array
+    {
+        foreach ([database_path('data/bd_banks.json'), resource_path('data/bd_banks.json')] as $path) {
+            if (! is_readable($path)) {
+                continue;
+            }
+            $decoded = json_decode((string) file_get_contents($path), true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
     }
 
     /**

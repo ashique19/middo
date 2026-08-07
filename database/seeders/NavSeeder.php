@@ -91,6 +91,14 @@ class NavSeeder extends Seeder
         ]);
 
         Nav::create([
+            'title' => 'Payout banks',
+            'route_name' => 'admin.payout-banks.index',
+            'icon' => '🏛️',
+            'order' => 7,
+            'role_id' => $adminId,
+        ]);
+
+        Nav::create([
             'title' => 'Bank accounts',
             'route_name' => 'admin.bank-accounts.index',
             'icon' => '🏦',

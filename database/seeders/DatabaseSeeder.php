@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             AreaSeeder::class,
             RolePermissionSeeder::class,
             NavSeeder::class,
+            BdBankSeeder::class,
             SitePageSeeder::class,
             UserSeeder::class,
             MenuItemSeeder::class,

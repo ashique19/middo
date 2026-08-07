@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\NavRoleController;
 use App\Livewire\Admin\BankAccountsPage;
+use App\Livewire\Admin\BdBankBranchesPage;
 use App\Livewire\Admin\KitchenOnboarding;
 use App\Livewire\Admin\SettingsPage;
 use App\Livewire\Admin\UserShow;
@@ -82,6 +83,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('admin.middo-cash');
     Route::get('/cash-positions', CashPositionsBoard::class)->name('admin.cash-positions');
     Route::get('/bank-accounts', BankAccountsPage::class)->name('admin.bank-accounts.index');
+    Route::get('/payout-banks', BdBankBranchesPage::class)->name('admin.payout-banks.index');
     Route::get('/bank-ledger', MiddoBankLedgerPage::class)->name('admin.bank-ledger');
     Route::get('/period-pnl', PeriodPnlPage::class)->name('admin.period-pnl');
     Route::get('/cash-handovers', CashHandovers::class)->name('admin.cash-handovers');

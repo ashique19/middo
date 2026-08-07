@@ -12,6 +12,8 @@ class PayoutChannelValidationTest extends TestCase
     #[Test]
     public function bank_catalog_loads_with_cities_and_branches(): void
     {
+        // Empty DB falls back to database/data/bd_banks.json.
+        BdBanks::forgetCache();
         $banks = BdBanks::bankNames();
         $this->assertNotEmpty($banks);
         $this->assertContains('Dutch-Bangla Bank Limited', $banks);
