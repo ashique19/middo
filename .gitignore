@@ -37,3 +37,4 @@ Thumbs.db
 !/public/img/kitchen-transfers/.gitkeep
 /public/img/withdrawal-attachments/*
 !/public/img/withdrawal-attachments/.gitkeep
+*.pem
