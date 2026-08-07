@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\CorporateOrderLimit;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 
