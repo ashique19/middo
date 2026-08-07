@@ -3,6 +3,7 @@
 namespace App\Livewire\Operation;
 
 use App\Models\Area;
+use App\Models\KitchenBoxRequest;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Models\User;
@@ -10,6 +11,7 @@ use App\Support\DeliveryRunType;
 use App\Support\MiddoOperatingCosts;
 use App\Support\RiderCommission;
 use App\Support\StaffAlerts;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -28,6 +30,8 @@ class AssignMiddoBoxesModal extends Component
     public array $riders = [];
 
     public array $kitchens = [];
+
+    public int $selectedKitchenPendingQty = 0;
 
     #[On('open-assign-middo-boxes-modal')]
     public function openModal($boxIds = []): void
@@ -48,16 +52,19 @@ class AssignMiddoBoxesModal extends Component
         $this->resetErrorBag();
         $this->selectedRiderId = null;
         $this->selectedKitchenId = null;
+        $this->selectedKitchenPendingQty = 0;
         $this->riders = $this->fetchRiders();
-        $this->kitchens = $this->fetchKitchens();
+        $this->kitchens = $this->fetchKitchensWithPendingRequests();
         $this->showModal = true;
     }
 
     public function updatedSelectedKitchenId($value): void
     {
-        $this->riders = $this->fetchRiders(
-            $value ? (int) $value : null
-        );
+        $kitchenId = $value ? (int) $value : null;
+        $this->selectedKitchenPendingQty = $kitchenId
+            ? KitchenBoxRequest::pendingQuantityForKitchen($kitchenId)
+            : 0;
+        $this->riders = $this->fetchRiders($kitchenId);
         if ($this->selectedRiderId && ! collect($this->riders)->contains('id', $this->selectedRiderId)) {
             $this->selectedRiderId = null;
         }
@@ -69,6 +76,7 @@ class AssignMiddoBoxesModal extends Component
         $this->boxIds = [];
         $this->selectedRiderId = null;
         $this->selectedKitchenId = null;
+        $this->selectedKitchenPendingQty = 0;
         $this->riders = [];
         $this->kitchens = [];
     }
@@ -89,56 +97,69 @@ class AssignMiddoBoxesModal extends Component
         $rider = null;
         $kitchen = null;
 
-        DB::transaction(function () use (&$assignedCount, &$assignedBoxes, &$rider, &$kitchen) {
-            $boxes = MiddoBox::query()
-                ->whereIn('id', $this->boxIds)
-                ->where('asset_status', 'at_middo_warehouse')
-                ->lockForUpdate()
-                ->get();
+        try {
+            DB::transaction(function () use (&$assignedCount, &$assignedBoxes, &$rider, &$kitchen) {
+                $boxes = MiddoBox::query()
+                    ->whereIn('id', $this->boxIds)
+                    ->where('asset_status', 'at_middo_warehouse')
+                    ->lockForUpdate()
+                    ->get();
 
-            if ($boxes->isEmpty()) {
-                return;
-            }
-
-            $boxIds = $boxes->pluck('id');
-
-            MiddoBox::query()
-                ->whereIn('id', $boxIds)
-                ->update([
-                    'held_by_user_id' => $this->selectedRiderId,
-                    'kitchen_id' => $this->selectedKitchenId,
-                    'asset_status' => 'active',
-                ]);
-
-            foreach ($boxIds as $boxId) {
-                MiddoBoxLog::create([
-                    'middo_box_id' => $boxId,
-                    'custody_status' => 'in_transit',
-                    'log_action' => 'dispatched_to_kitchen',
-                ]);
-            }
-
-            $rider = User::query()->find($this->selectedRiderId);
-            $kitchen = User::query()->find($this->selectedKitchenId);
-            if ($rider) {
-                $perBox = RiderCommission::forSettingsRun($rider, DeliveryRunType::OPS_TO_KITCHEN);
-                foreach ($boxIds as $boxId) {
-                    $box = $boxes->firstWhere('id', $boxId);
-                    MiddoOperatingCosts::bookRiderCommission(
-                        $rider,
-                        DeliveryRunType::OPS_TO_KITCHEN,
-                        $perBox,
-                        MiddoBox::class,
-                        (int) $boxId,
-                        'Ops→kitchen box #'.($box?->qr_code_id ?? $boxId),
-                        $rider->id
-                    );
+                if ($boxes->isEmpty()) {
+                    return;
                 }
-            }
 
-            $assignedBoxes = $boxes;
-            $assignedCount = $boxIds->count();
-        });
+                $boxIds = $boxes->pluck('id');
+                $shipQty = $boxIds->count();
+
+                KitchenBoxRequest::consumePendingForKitchen(
+                    (int) $this->selectedKitchenId,
+                    $shipQty,
+                    Auth::id() ? (int) Auth::id() : null
+                );
+
+                MiddoBox::query()
+                    ->whereIn('id', $boxIds)
+                    ->update([
+                        'held_by_user_id' => $this->selectedRiderId,
+                        'kitchen_id' => $this->selectedKitchenId,
+                        'asset_status' => 'active',
+                    ]);
+
+                foreach ($boxIds as $boxId) {
+                    MiddoBoxLog::create([
+                        'middo_box_id' => $boxId,
+                        'custody_status' => 'in_transit',
+                        'log_action' => 'dispatched_to_kitchen',
+                    ]);
+                }
+
+                $rider = User::query()->find($this->selectedRiderId);
+                $kitchen = User::query()->find($this->selectedKitchenId);
+                if ($rider) {
+                    $perBox = RiderCommission::forSettingsRun($rider, DeliveryRunType::OPS_TO_KITCHEN);
+                    foreach ($boxIds as $boxId) {
+                        $box = $boxes->firstWhere('id', $boxId);
+                        MiddoOperatingCosts::bookRiderCommission(
+                            $rider,
+                            DeliveryRunType::OPS_TO_KITCHEN,
+                            $perBox,
+                            MiddoBox::class,
+                            (int) $boxId,
+                            'Ops→kitchen box #'.($box?->qr_code_id ?? $boxId),
+                            $rider->id
+                        );
+                    }
+                }
+
+                $assignedBoxes = $boxes;
+                $assignedCount = $shipQty;
+            });
+        } catch (\RuntimeException $e) {
+            $this->addError('selectedKitchenId', $e->getMessage());
+
+            return;
+        }
 
         if ($assignedCount === 0) {
             $this->addError('selectedRiderId', 'No warehouse boxes were available to assign.');
@@ -192,25 +213,43 @@ class AssignMiddoBoxesModal extends Component
             ->all();
     }
 
-    protected function fetchKitchens(): array
+    /**
+     * Only kitchens with a pending box request can receive warehouse boxes.
+     */
+    protected function fetchKitchensWithPendingRequests(): array
     {
+        $pendingByKitchen = KitchenBoxRequest::query()
+            ->pending()
+            ->selectRaw('kitchen_id, SUM(quantity) as pending_qty')
+            ->groupBy('kitchen_id')
+            ->pluck('pending_qty', 'kitchen_id');
+
+        if ($pendingByKitchen->isEmpty()) {
+            return [];
+        }
+
         return User::query()
             ->with(['area', 'city'])
             ->whereHas('role', fn ($query) => $query->where('name', 'kitchen'))
             ->where('status', 'active')
+            ->whereIn('id', $pendingByKitchen->keys())
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get()
-            ->map(function (User $user) {
+            ->map(function (User $user) use ($pendingByKitchen) {
                 $area = trim((string) ($user->area?->name ?? ''));
                 $city = trim((string) ($user->city?->name ?? ''));
                 $location = collect([$area, $city])->filter()->implode(', ');
+                $pendingQty = (int) ($pendingByKitchen[$user->id] ?? 0);
+                $requestLabel = 'Requested '.$pendingQty.' '.str('box')->plural($pendingQty);
+                $subtitle = collect([$requestLabel, $location !== '' ? $location : null])->filter()->implode(' · ');
 
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
-                    'subtitle' => $location !== '' ? $location : null,
-                    'search' => strtolower(trim($user->name.' '.$location)),
+                    'subtitle' => $subtitle,
+                    'pending_qty' => $pendingQty,
+                    'search' => strtolower(trim($user->name.' '.$location.' '.$requestLabel)),
                 ];
             })
             ->all();

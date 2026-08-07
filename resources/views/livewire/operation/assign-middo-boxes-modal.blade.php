@@ -8,6 +8,7 @@
                         <p class="text-sm text-gray-500 mt-1">
                             Assigning <span class="font-semibold text-middo-dark">{{ count($boxIds) }}</span>
                             {{ str('box')->plural(count($boxIds)) }} from warehouse inventory.
+                            Only kitchens with a pending box request can receive stock — up to the requested quantity.
                         </p>
                     </div>
                     <button
@@ -106,6 +107,15 @@
                                 <li x-show="filtered.length === 0" class="px-3 py-3 text-sm text-gray-400">No kitchens match.</li>
                             </ul>
                         </div>
+                        @if($selectedKitchenId && $selectedKitchenPendingQty > 0)
+                            <p class="text-xs font-semibold text-emerald-700 mt-1.5">
+                                Pending request: {{ $selectedKitchenPendingQty }}
+                                {{ str('box')->plural($selectedKitchenPendingQty) }}
+                                @if(count($boxIds) > $selectedKitchenPendingQty)
+                                    <span class="text-red-600">· selected {{ count($boxIds) }} exceeds request</span>
+                                @endif
+                            </p>
+                        @endif
                         @error('selectedKitchenId')
                             <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span>
                         @enderror
@@ -206,10 +216,8 @@
 
                     @if($kitchens === [] || $riders === [])
                         <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                            @if($kitchens === [] && $riders === [])
-                                No active kitchens or delivery riders found.
-                            @elseif($kitchens === [])
-                                No active kitchens found. Activate a kitchen user first.
+                            @if($kitchens === [])
+                                No kitchens with a pending box request. Ask the kitchen to Request box first.
                             @else
                                 No active delivery riders found. Activate a delivery user first.
                             @endif
@@ -226,7 +234,7 @@
                         <button
                             type="submit"
                             wire:loading.attr="disabled"
-                            @disabled($kitchens === [] || $riders === [])
+                            @disabled($kitchens === [] || $riders === [] || ($selectedKitchenPendingQty > 0 && count($boxIds) > $selectedKitchenPendingQty))
                             class="px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
                             <span wire:loading.remove wire:target="save">Send to kitchen</span>
                             <span wire:loading wire:target="save">Sending...</span>

@@ -7,6 +7,7 @@ use App\Livewire\Operation\AssignMiddoBoxesModal;
 use App\Livewire\Shared\StaffAlertsPage;
 use App\Models\Area;
 use App\Models\City;
+use App\Models\KitchenBoxRequest;
 use App\Models\MiddoBox;
 use App\Models\Role;
 use App\Models\StaffAlert;
@@ -92,6 +93,13 @@ class BoxOpsStaffAlertsN4Test extends TestCase
             'held_by_user_id' => null,
             'kitchen_id' => null,
             'total_uses_count' => 0,
+        ]);
+
+        KitchenBoxRequest::create([
+            'kitchen_id' => $kitchen->id,
+            'quantity' => 1,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $kitchen->id,
         ]);
 
         Livewire::actingAs($operator)

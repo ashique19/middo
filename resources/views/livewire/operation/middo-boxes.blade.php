@@ -60,7 +60,7 @@
                 <div>
                     <h2 class="text-lg font-bold text-amber-950">Kitchen box requests</h2>
                     <p class="text-sm font-semibold text-amber-800/80">
-                        {{ $pendingBoxRequests->count() }} pending — assign warehouse boxes, then mark fulfilled.
+                        {{ $pendingBoxRequests->count() }} pending — select warehouse boxes and Send to kitchen (qty capped by request). Sending auto-fulfills.
                     </p>
                 </div>
             </div>
@@ -154,8 +154,9 @@
         <p class="text-sm font-semibold text-gray-600">
             @if(count($selectedBoxIds) > 0)
                 <span class="text-middo-orange">{{ count($selectedBoxIds) }}</span> warehouse {{ str('box')->plural(count($selectedBoxIds)) }} selected
+                <span class="text-gray-400 font-medium">· only against a kitchen’s pending request</span>
             @else
-                Select warehouse boxes to send to a kitchen
+                Select warehouse boxes to send against a kitchen box request
             @endif
         </p>
 

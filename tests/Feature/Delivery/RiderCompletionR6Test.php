@@ -9,6 +9,7 @@ use App\Livewire\Kitchen\CashHandovers as KitchenCashHandovers;
 use App\Livewire\Operation\AssignMiddoBoxesModal;
 use App\Livewire\Shared\AccountsHub;
 use App\Models\CashHandover;
+use App\Models\KitchenBoxRequest;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\MiddoOperatingCost;
@@ -211,6 +212,13 @@ class RiderCompletionR6Test extends TestCase
             'kitchen_id' => null,
             'held_by_user_id' => null,
             'total_uses_count' => 0,
+        ]);
+
+        KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 2,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
         ]);
 
         Livewire::actingAs($this->admin)

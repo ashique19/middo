@@ -7,6 +7,7 @@ use App\Livewire\Kitchen\BoxesAtKitchen;
 use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Livewire\Kitchen\IncomingBoxes;
 use App\Livewire\Operation\AssignMiddoBoxesModal;
+use App\Models\KitchenBoxRequest;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
@@ -354,6 +355,13 @@ class KitchenMiddoBoxesTest extends TestCase
             'kitchen_id' => null,
         ]);
 
+        KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 1,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+
         $operationRole = Role::create(['name' => 'operation']);
         $operator = User::create([
             'first_name' => 'Ops',
@@ -376,6 +384,7 @@ class KitchenMiddoBoxesTest extends TestCase
         $this->assertSame($this->kitchen->id, $box->kitchen_id);
         $this->assertSame($this->rider->id, $box->held_by_user_id);
         $this->assertTrue($box->isIncomingToKitchen($this->kitchen->id));
+        $this->assertSame(KitchenBoxRequest::STATUS_FULFILLED, KitchenBoxRequest::query()->first()->status);
     }
 
     public function test_send_boxes_modal_lists_riders_even_when_kitchen_area_does_not_match(): void
@@ -406,6 +415,13 @@ class KitchenMiddoBoxesTest extends TestCase
             'status' => 'active',
         ]);
 
+        KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 1,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+
         $component = Livewire::actingAs($operator)
             ->test(AssignMiddoBoxesModal::class)
             ->call('openModal', ['boxIds' => [$box->id]])
@@ -422,6 +438,7 @@ class KitchenMiddoBoxesTest extends TestCase
         $kitchenRow = collect($component->get('kitchens'))->firstWhere('id', $this->kitchen->id);
         $this->assertNotNull($kitchenRow);
         $this->assertArrayHasKey('search', $kitchenRow);
+        $this->assertStringContainsString('Requested 1', (string) $kitchenRow['subtitle']);
 
         $component
             ->set('selectedRiderId', $this->rider->id)
