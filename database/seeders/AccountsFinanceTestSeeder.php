@@ -257,7 +257,9 @@ class AccountsFinanceTestSeeder extends Seeder
                 'notes' => 'Demo bank-channel withdrawal (AccountsFinanceTestSeeder)',
                 'payout_channel' => PayoutChannel::BANK,
                 'payout_details' => [
-                    'bank_name' => 'Dutch Bangla',
+                    'bank_name' => 'Dutch-Bangla Bank Limited',
+                    'city' => 'Dhaka',
+                    'branch' => 'Abdullahpur Branch',
                     'account_name' => 'Gulshan Kitchen',
                     'account_number' => '2051100012345',
                 ],
@@ -294,7 +296,6 @@ class AccountsFinanceTestSeeder extends Seeder
                 'notes' => 'Demo bKash withdrawal (AccountsFinanceTestSeeder)',
                 'payout_channel' => PayoutChannel::BKASH,
                 'payout_details' => [
-                    'account_name' => 'Demo Rider',
                     'mobile' => '01711112222',
                 ],
             ]);

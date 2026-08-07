@@ -82,11 +82,11 @@ class ProfileEditModal extends Component
             $rules = array_merge($rules, $this->payoutMethodValidationRules());
         }
 
-        $validated = $this->validate($rules, [
+        $validated = $this->validate($rules, array_merge([
             'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g., 01710123456).',
             'city_id.required' => 'Please select a city.',
             'area_id.required' => 'Please select an area.',
-        ]);
+        ], $this->showPayoutMethods ? $this->payoutMethodValidationMessages() : []));
 
         $user->first_name = $validated['first_name'];
         $user->last_name = $validated['last_name'];

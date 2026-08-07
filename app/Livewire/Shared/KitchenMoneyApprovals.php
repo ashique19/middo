@@ -9,12 +9,14 @@ use App\Models\MiddoBankAccount;
 use App\Models\PartnerPayable;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\BdBanks;
 use App\Support\KitchenAccountLedger;
 use App\Support\KitchenMoneyService;
 use App\Support\MiddoCashLedger;
 use App\Support\PayoutChannel;
 use App\Support\StaffPortal;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -50,6 +52,10 @@ class KitchenMoneyApprovals extends Component
 
     public string $batchPayoutBankName = '';
 
+    public string $batchPayoutCity = '';
+
+    public string $batchPayoutBranch = '';
+
     public string $batchPayoutAccountName = '';
 
     public string $batchPayoutAccountNumber = '';
@@ -80,6 +86,17 @@ class KitchenMoneyApprovals extends Component
     public function updatedBatchPayoutChannel(): void
     {
         $this->resetValidation();
+    }
+
+    public function updatedBatchPayoutBankName(): void
+    {
+        $this->batchPayoutCity = '';
+        $this->batchPayoutBranch = '';
+    }
+
+    public function updatedBatchPayoutCity(): void
+    {
+        $this->batchPayoutBranch = '';
     }
 
     public function approveWithdrawal(int $id): void
@@ -181,15 +198,25 @@ class KitchenMoneyApprovals extends Component
                 'batchPayableIds.*' => 'integer',
             ];
             if ($this->batchPayoutChannel === PayoutChannel::BANK) {
-                $rules['batchPayoutAccountNumber'] = 'required|string|max:64';
+                $rules['batchPayoutBankName'] = ['required', 'string', 'max:120', Rule::in(BdBanks::bankNames())];
+                $rules['batchPayoutCity'] = ['required', 'string', 'max:120', Rule::in(BdBanks::citiesFor($this->batchPayoutBankName))];
+                $rules['batchPayoutBranch'] = ['required', 'string', 'max:120', Rule::in(BdBanks::branchesFor($this->batchPayoutBankName, $this->batchPayoutCity))];
+                $rules['batchPayoutAccountName'] = ['required', 'string', 'min:2', 'max:120', 'regex:'.PayoutChannel::ACCOUNT_NAME_PATTERN];
+                $rules['batchPayoutAccountNumber'] = ['required', 'string', 'min:5', 'max:32', 'regex:'.PayoutChannel::ACCOUNT_NUMBER_PATTERN];
             }
             if (in_array($this->batchPayoutChannel, [PayoutChannel::BKASH, PayoutChannel::NAGAD], true)) {
-                $rules['batchPayoutMobile'] = 'required|string|max:32';
+                $rules['batchPayoutMobile'] = ['required', 'regex:'.PayoutChannel::PERSONAL_MOBILE_PATTERN];
             }
-            $this->validate($rules);
+            $this->validate($rules, [
+                'batchPayoutAccountName.regex' => 'Account name may only contain letters, spaces, dots, and hyphens.',
+                'batchPayoutAccountNumber.regex' => 'Account number must be digits only.',
+                'batchPayoutMobile.regex' => 'Provide a valid 11-digit personal number (e.g., 01710123456).',
+            ]);
 
             $details = PayoutChannel::normalizeDetails($this->batchPayoutChannel, [
                 'bank_name' => $this->batchPayoutBankName,
+                'city' => $this->batchPayoutCity,
+                'branch' => $this->batchPayoutBranch,
                 'account_name' => $this->batchPayoutAccountName,
                 'account_number' => $this->batchPayoutAccountNumber,
                 'mobile' => $this->batchPayoutMobile,
@@ -210,6 +237,8 @@ class KitchenMoneyApprovals extends Component
             $this->batchPayableIds = [];
             $this->batchPayoutChannel = PayoutChannel::CASH;
             $this->batchPayoutBankName = '';
+            $this->batchPayoutCity = '';
+            $this->batchPayoutBranch = '';
             $this->batchPayoutAccountName = '';
             $this->batchPayoutAccountNumber = '';
             $this->batchPayoutMobile = '';

@@ -12,6 +12,12 @@ class PayoutChannel
 
     public const NAGAD = 'nagad';
 
+    public const ACCOUNT_NAME_PATTERN = '/^[A-Za-z.\-\s]+$/';
+
+    public const ACCOUNT_NUMBER_PATTERN = '/^\d+$/';
+
+    public const PERSONAL_MOBILE_PATTERN = '/^01[3-9]\d{8}$/';
+
     /**
      * @return list<string>
      */
@@ -43,16 +49,32 @@ class PayoutChannel
     public static function normalizeDetails(string $channel, array $details): array
     {
         $clean = [];
-        foreach (['account_name', 'account_number', 'bank_name', 'mobile'] as $key) {
+        foreach (['account_name', 'account_number', 'bank_name', 'city', 'branch', 'mobile'] as $key) {
             $value = trim((string) ($details[$key] ?? ''));
             if ($value !== '') {
                 $clean[$key] = mb_substr($value, 0, 120);
             }
         }
 
+        if (isset($clean['account_number'])) {
+            $clean['account_number'] = preg_replace('/\D+/', '', $clean['account_number']) ?: '';
+            if ($clean['account_number'] === '') {
+                unset($clean['account_number']);
+            }
+        }
+
+        if (isset($clean['mobile'])) {
+            $clean['mobile'] = preg_replace('/\D+/', '', $clean['mobile']) ?: '';
+            if ($clean['mobile'] === '') {
+                unset($clean['mobile']);
+            }
+        }
+
         return match ($channel) {
-            self::BANK => array_intersect_key($clean, array_flip(['account_name', 'account_number', 'bank_name'])),
-            self::BKASH, self::NAGAD => array_intersect_key($clean, array_flip(['account_name', 'mobile'])),
+            self::BANK => array_intersect_key($clean, array_flip([
+                'bank_name', 'city', 'branch', 'account_name', 'account_number',
+            ])),
+            self::BKASH, self::NAGAD => array_intersect_key($clean, array_flip(['mobile'])),
             default => [],
         };
     }
@@ -69,14 +91,36 @@ class PayoutChannel
         $normalized = self::normalizeDetails($channel, $details);
 
         if ($channel === self::BANK) {
-            if (($normalized['account_number'] ?? '') === '') {
-                throw new \InvalidArgumentException('Bank account number is required.');
+            foreach (['bank_name' => 'Bank', 'city' => 'City', 'branch' => 'Branch', 'account_name' => 'Account name', 'account_number' => 'Account number'] as $key => $label) {
+                if (($normalized[$key] ?? '') === '') {
+                    throw new \InvalidArgumentException($label.' is required.');
+                }
+            }
+
+            if (! preg_match(self::ACCOUNT_NAME_PATTERN, $normalized['account_name'])) {
+                throw new \InvalidArgumentException('Account name may only contain letters, spaces, dots, and hyphens.');
+            }
+
+            if (! preg_match(self::ACCOUNT_NUMBER_PATTERN, $normalized['account_number'])) {
+                throw new \InvalidArgumentException('Account number must be digits only.');
+            }
+
+            if (! BdBanks::isValidSelection(
+                $normalized['bank_name'],
+                $normalized['city'],
+                $normalized['branch']
+            )) {
+                throw new \InvalidArgumentException('Select a valid bank, city, and branch.');
             }
         }
 
         if (in_array($channel, [self::BKASH, self::NAGAD], true)) {
-            if (($normalized['mobile'] ?? '') === '') {
-                throw new \InvalidArgumentException(self::label($channel).' mobile number is required.');
+            $mobile = $normalized['mobile'] ?? '';
+            if ($mobile === '') {
+                throw new \InvalidArgumentException(self::label($channel).' personal number is required.');
+            }
+            if (! preg_match(self::PERSONAL_MOBILE_PATTERN, $mobile)) {
+                throw new \InvalidArgumentException('Provide a valid 11-digit personal number (e.g., 01710123456).');
             }
         }
     }
@@ -90,11 +134,12 @@ class PayoutChannel
         $parts = match ($channel) {
             self::BANK => array_filter([
                 $details['bank_name'] ?? null,
+                $details['city'] ?? null,
+                $details['branch'] ?? null,
                 $details['account_name'] ?? null,
                 $details['account_number'] ?? null,
             ]),
             self::BKASH, self::NAGAD => array_filter([
-                $details['account_name'] ?? null,
                 $details['mobile'] ?? null,
             ]),
             default => ['Cash payout'],

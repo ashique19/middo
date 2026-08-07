@@ -73,9 +73,9 @@ class Profile extends Component
                 'hours.*.is_closed' => 'boolean',
                 'hours.*.opens_at' => 'nullable|date_format:H:i',
                 'hours.*.closes_at' => 'nullable|date_format:H:i',
-            ], $this->payoutMethodValidationRules()), [
+            ], $this->payoutMethodValidationRules()), array_merge([
                 'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g., 01710123456).',
-            ]);
+            ], $this->payoutMethodValidationMessages()));
 
             foreach ($this->hours as $day => $row) {
                 if (! empty($row['is_closed'])) {

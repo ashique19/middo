@@ -135,7 +135,9 @@ class WithdrawalChannelsF0dTest extends TestCase
         $this->kitchen->storePayoutMethods([
             'preferred' => PayoutChannel::BANK,
             PayoutChannel::BANK => [
-                'bank_name' => 'Dutch Bangla',
+                'bank_name' => 'Dutch-Bangla Bank Limited',
+                'city' => 'Dhaka',
+                'branch' => 'Abdullahpur Branch',
                 'account_name' => 'Kitchen Owner',
                 'account_number' => '1234567890',
             ],

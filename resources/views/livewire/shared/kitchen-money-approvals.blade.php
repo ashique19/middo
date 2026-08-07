@@ -156,17 +156,41 @@
                     </select>
                 </div>
                 @if($batchPayoutChannel === \App\Support\PayoutChannel::BANK)
+                    @php
+                        $batchBankCities = \App\Support\BdBanks::citiesFor($batchPayoutBankName);
+                        $batchBankBranches = \App\Support\BdBanks::branchesFor($batchPayoutBankName, $batchPayoutCity);
+                    @endphp
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <input type="text" wire:model="batchPayoutBankName" placeholder="Bank name" class="rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        <select wire:model.live="batchPayoutBankName" class="sm:col-span-2 rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                            <option value="">Select bank</option>
+                            @foreach(\App\Support\BdBanks::bankNames() as $name)
+                                <option value="{{ $name }}">{{ $name }}</option>
+                            @endforeach
+                        </select>
+                        <select wire:model.live="batchPayoutCity" class="rounded-xl border border-gray-200 px-3 py-2 text-sm" @disabled($batchPayoutBankName === '')>
+                            <option value="">Select city</option>
+                            @foreach($batchBankCities as $city)
+                                <option value="{{ $city }}">{{ $city }}</option>
+                            @endforeach
+                        </select>
+                        <select wire:model="batchPayoutBranch" class="rounded-xl border border-gray-200 px-3 py-2 text-sm" @disabled($batchPayoutCity === '')>
+                            <option value="">Select branch</option>
+                            @foreach($batchBankBranches as $branch)
+                                <option value="{{ $branch }}">{{ $branch }}</option>
+                            @endforeach
+                        </select>
                         <input type="text" wire:model="batchPayoutAccountName" placeholder="Account name" class="rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                        <input type="text" wire:model="batchPayoutAccountNumber" placeholder="Account number" class="sm:col-span-2 rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        <input type="text" inputmode="numeric" wire:model="batchPayoutAccountNumber" placeholder="Account number" class="rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        @error('batchPayoutBankName') <p class="text-red-500 text-xs sm:col-span-2">{{ $message }}</p> @enderror
+                        @error('batchPayoutCity') <p class="text-red-500 text-xs sm:col-span-2">{{ $message }}</p> @enderror
+                        @error('batchPayoutBranch') <p class="text-red-500 text-xs sm:col-span-2">{{ $message }}</p> @enderror
+                        @error('batchPayoutAccountName') <p class="text-red-500 text-xs sm:col-span-2">{{ $message }}</p> @enderror
                         @error('batchPayoutAccountNumber') <p class="text-red-500 text-xs sm:col-span-2">{{ $message }}</p> @enderror
                     </div>
                 @elseif(in_array($batchPayoutChannel, [\App\Support\PayoutChannel::BKASH, \App\Support\PayoutChannel::NAGAD], true))
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <input type="text" wire:model="batchPayoutAccountName" placeholder="Account name" class="rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                        <input type="text" wire:model="batchPayoutMobile" placeholder="Mobile" class="rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                        @error('batchPayoutMobile') <p class="text-red-500 text-xs">{{ $message }}</p> @enderror
+                    <div>
+                        <input type="text" inputmode="numeric" wire:model="batchPayoutMobile" placeholder="Personal number (01XXXXXXXXX)" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        @error('batchPayoutMobile') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                 @endif
                 <div>
