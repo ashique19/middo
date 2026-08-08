@@ -284,7 +284,14 @@ class KitchenBoxRequestFlow
                 ['box_id' => $box->id]
             );
 
-            return $box->fresh();
+            $fresh = $box->fresh();
+            $rider = User::query()->find($riderId);
+            $kitchen = User::query()->find($kitchenId);
+            if ($rider && $kitchen && $fresh) {
+                StaffAlerts::notifyKitchenOpsToKitchenHanded($rider, $kitchen, [$fresh]);
+            }
+
+            return $fresh;
         });
     }
 
