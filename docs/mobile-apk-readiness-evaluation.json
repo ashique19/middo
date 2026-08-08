@@ -1,0 +1,294 @@
+{
+  "id": "middo-mobile-apk-readiness-2026-08-08",
+  "title": "Mobile APK readiness — corporate / kitchen / delivery",
+  "updated": "2026-08-08",
+  "purpose": "Evaluate web structure maturity and business-logic maturity for Android APK preparation across the three field/customer roles.",
+  "scoring": {
+    "scale": "1–5",
+    "labels": {
+      "1": "Missing / not started",
+      "2": "Prototype / fragmented",
+      "3": "Usable web, not APK-ready",
+      "4": "APK-ready with known gaps",
+      "5": "Production-ready for native/APK"
+    },
+    "dimensions": {
+      "web_structure": [
+        "Route IA & role isolation",
+        "Presentation layer organization (Livewire/views/layouts)",
+        "Mobile chrome (PWA / thumbs-first shell)",
+        "Auth surface for clients (session vs token API)",
+        "JSON/API contract for native clients",
+        "Realtime / push readiness"
+      ],
+      "business_logic": [
+        "Domain extraction into Support/services (not trapped in Livewire)",
+        "Canonical status / money / box flows",
+        "Role completion backlog status",
+        "Feature-test depth",
+        "Known oracle gaps / deferred items"
+      ]
+    }
+  },
+  "architecture_baseline": {
+    "pattern": "Laravel 13 + Livewire 4 monolith; domain in app/Support/*",
+    "order_state_machine": "app/Support/OrderTransition.php — pending→processing→ready→rider_assigned→packed→on_the_way_to_delivery→delivered|delivered_and_paid (+ cancel from pending)",
+    "auth_web": "session cookie + middleware role:/permission:",
+    "auth_mobile": "Sanctum bearer tokens — corporate only today",
+    "existing_native": "mobile/corporate Flutter app; release APK artifact at mobile/corporate/releases/middo-corporate-release.apk",
+    "existing_pwa": [
+      "public/manifest-kitchen.webmanifest → /kitchen/dashboard",
+      "public/manifest-delivery.webmanifest → /delivery/dashboard"
+    ],
+    "no_api_yet": ["/api/kitchen/*", "/api/delivery/*"]
+  },
+  "roles": {
+    "corporate": {
+      "apk_verdict": "ready",
+      "apk_path": "Flutter already ships; continue hardening API parity + push",
+      "scores": {
+        "web_structure": 5,
+        "business_logic": 4,
+        "overall_apk_readiness": 5
+      },
+      "web_structure": {
+        "score": 5,
+        "evidence": [
+          "Dedicated web portal routes/web/corporates.php under /corporate (auth + role:corporate)",
+          "Full Sanctum REST surface routes/api/corporate.php (~30 endpoints) + CorporateMobileController (~1545 LOC)",
+          "CorporateApiPresenter + shared Support services used by web and API (cancel, packages, wallet, prepay)",
+          "Flutter app mobile/corporate with go_router shell, Sanctum AuthStore, FCM device tokens",
+          "Web↔mobile parity tests (WebMobileParityTest, Feature/Api/CorporateMobileApiTest)",
+          "Release APK build path documented in mobile/corporate/README.md"
+        ],
+        "gaps": [
+          "Corporate web uses public site layout (layouts.public.app), not a staff PWA shell — irrelevant for APK since Flutter is the mobile client",
+          "CorporateMobileController is a large single controller; further extraction would ease maintenance, not block APK"
+        ]
+      },
+      "business_logic": {
+        "score": 4,
+        "evidence": [
+          "Ordering, OTP, gateway prepay, packages/subscriptions, wallet top-up, cancel/skip, track, support, box ready-for-pickup all wired through Support classes",
+          "OrderCancellation, PackageRefund, OrderPaymentMethod, CorporateOrderPrepayment shared by web + API (BL hunt remediations applied)",
+          "FCM push on status change via SendOrderStatusPush / OrderObserver",
+          "Cutoff / editability (OrderCutoff, isEditableByCorporate)"
+        ],
+        "gaps": [
+          "BL-PERMISSION-PIVOT still deferred (role gates dominate; no Policies)",
+          "Status machine is light string guard (OrderTransition), not a formal enum/state machine",
+          "Some package / multi-date edge cases historically fragile — covered by tests but worth regression vigilance before store release"
+        ]
+      },
+      "capability_matrix": {
+        "auth_login_register_reset": "api+flutter",
+        "dashboard": "api+flutter",
+        "menu_checkout": "api+flutter",
+        "packages_subscriptions": "api+flutter",
+        "orders_schedule_history_track": "api+flutter",
+        "wallet": "api+flutter",
+        "support_complaints": "api+flutter",
+        "boxes_ready_for_pickup": "api+flutter",
+        "push_notifications": "api+flutter (FCM HTTP v1)"
+      },
+      "recommended_next": [
+        "Treat corporate APK as production path; focus on release QA, store listing, and API contract freeze",
+        "Optional: split CorporateMobileController by resource for maintainability",
+        "Keep WebMobileParityTest green whenever checkout/wallet/package rules change"
+      ]
+    },
+    "kitchen": {
+      "apk_verdict": "not_ready_for_native_apk",
+      "apk_path": "Ship/keep PWA now; native APK needs a new /api/kitchen Sanctum surface that wraps existing Support services",
+      "scores": {
+        "web_structure": 4,
+        "business_logic": 4,
+        "overall_apk_readiness": 2
+      },
+      "web_structure": {
+        "score": 4,
+        "evidence": [
+          "Complete role portal routes/web/kitchen.php with permission:kitchen.* matrix (KitchenPermissions)",
+          "Rich Livewire surface (Dashboard, MiddoOrderGroups, ActiveOrders, Dispatch, menus/recipes, prep shopping list, boxes, cash handovers, account, complaints, profile)",
+          "Thumbs-first shell resources/views/components/kitchen/layout/* (bottom nav, more-sheet, safe-area)",
+          "Installable PWA manifest-kitchen.webmanifest (standalone, portrait)",
+          "KitchenAppShellTest + e2e/kitchen.spec.ts",
+          "Completion backlog K0–K6 marked done (docs/kitchen-completion-todo.json)"
+        ],
+        "gaps": [
+          "No /api/kitchen JSON API — native APK cannot reuse domain without Livewire HTML",
+          "No Sanctum token auth for kitchen users",
+          "No kitchen FCM / device-token pipeline (StaffAlerts are in-app DB only; K5 is web SLA warnings)",
+          "Native apps explicitly out_of_scope_unless_requested in kitchen completion backlog",
+          "Livewire still owns many direct DB ops (~74 rough hits across kitchen Livewire) — API layer must call Support, not re-implement Livewire methods"
+        ]
+      },
+      "business_logic": {
+        "score": 4,
+        "evidence": [
+          "Accept window, capacity/tiers, decline/shortage/release, ready vs pack/dispatch split (OrderGroupKitchenAssignment, OrderKitchenAcceptance, OrderKitchenActions, KitchenAcceptWindow, KitchenCapacity)",
+          "Box custody + damage + requests (MiddoBoxKitchenActions, KitchenBoxStock, KitchenBoxRequestFlow)",
+          "Kitchen money: dispatch credits, cash-handover debits, withdrawals, transfer to Middo (KitchenMoneyService, KitchenAccountLedger)",
+          "Prep shopping list from recipes (KitchenIngredientRollup)",
+          "Complaints inbox (KitchenComplaints)",
+          "Broad Feature/Kitchen test suite covering K1–K6 themes"
+        ],
+        "gaps": [
+          "Some transitions/actions still orchestrated inside Livewire components — extract action facades before API to avoid HTML-coupled logic",
+          "No kitchen push channel yet for accept-window / new-group alerts (field cooks need OS notifications on APK)",
+          "Permission model exists for kitchen web; API would need the same permission checks, not role-only"
+        ]
+      },
+      "capability_matrix": {
+        "auth": "web session only",
+        "dashboard_alerts": "web/PWA",
+        "accept_decline_groups": "web/PWA + Support",
+        "mark_ready_dispatch_boxes": "web/PWA + Support",
+        "menus_recipes_prep": "web/PWA",
+        "boxes_stock_requests": "web/PWA + Support",
+        "cash_handovers_account": "web/PWA + Support",
+        "complaints": "web/PWA",
+        "json_api": "missing",
+        "push_notifications": "missing (StaffAlerts only)"
+      },
+      "recommended_next_for_apk": [
+        "Phase A: freeze kitchen IA screen list from bottom-nav (dashboard, groups, active orders, boxes, account, more)",
+        "Phase B: introduce /api/kitchen/* Sanctum API mirroring Support entry points (accept/decline/release/ready/dispatch/boxes/cash/account)",
+        "Phase C: Flutter or Cap/TWA client; prefer Flutter only if offline/camera/scan needs exceed PWA",
+        "Until then: treat Kitchen PWA as the Android delivery vehicle (Add to Home Screen / Trusted Web Activity optional)"
+      ]
+    },
+    "delivery": {
+      "apk_verdict": "not_ready_for_native_apk",
+      "apk_path": "PWA is intentional foundation for later native; native APK needs /api/delivery Sanctum + push",
+      "scores": {
+        "web_structure": 4,
+        "business_logic": 4,
+        "overall_apk_readiness": 2
+      },
+      "web_structure": {
+        "score": 4,
+        "evidence": [
+          "Portal routes/web/deliveryman.php under /delivery (auth + role:delivery)",
+          "Livewire: Dashboard (shift), KitchenDispatches, PendingBoxRuns, DeliveredOrders+PaymentModal, CashHandovers, CustomRuns, Account, alerts",
+          "R5 thumbs-first shell resources/views/components/delivery/layout/* + DeliveryMobileShellR5Test",
+          "PWA manifest-delivery.webmanifest (Middo Rider)",
+          "Rider backlog R0–R6 done (one partial commission leg); docs note shell is foundation for later native app",
+          "e2e/delivery.spec.ts + extensive Feature/Delivery money/SLA tests"
+        ],
+        "gaps": [
+          "No /api/delivery JSON API",
+          "No Sanctum token auth for riders",
+          "No rider FCM device-token / push job (parcel calls are StaffAlerts + area scope)",
+          "Routes do not use fine-grained permission: middleware (role-only); native API should still enforce DeliveryAreaScope + RiderShift + ownership",
+          "Field needs: background location optional, reliable offline claim/deliver — neither in web stack today"
+        ]
+      },
+      "business_logic": {
+        "score": 4,
+        "evidence": [
+          "Area-scoped runs (DeliveryAreaScope), shift gate (RiderShift), accept SLA (RiderAcceptSla)",
+          "Hybrid commission model (RiderCommission + OrderMoneyFlow at run start); cash due UX (collect − commission = due) via RiderMoneyService / CashHandoverActions",
+          "Order transitions for claim → pickup → deliver → settle via OrderTransition",
+          "Custom runs R2b; box runs; wallet withdrawals",
+          "Strong Feature/Delivery coverage (R0–R6, N1 shifts, N3 partial cash)"
+        ],
+        "gaps": [
+          "R2.3 partial: kitchen→ops box commission deferred until rider-mediated kitchen→warehouse leg exists",
+          "Livewire still orchestrates multi-step cash/box flows — need thin API controllers over Support before APK",
+          "No formal Policies; ownership checks are inline — acceptable if copied carefully into API middleware"
+        ]
+      },
+      "capability_matrix": {
+        "auth": "web session only",
+        "shift_on_off_unable": "web/PWA",
+        "accept_kitchen_dispatches": "web/PWA + Support",
+        "pickup_deliver_settle": "web/PWA + Support",
+        "box_runs_custom_runs": "web/PWA + Support",
+        "cash_handover_wallet": "web/PWA + Support",
+        "json_api": "missing",
+        "push_notifications": "missing (StaffAlerts only)"
+      },
+      "recommended_next_for_apk": [
+        "Phase A: document rider screen IA from R5 bottom-nav as native IA contract",
+        "Phase B: /api/delivery/* Sanctum API — claim, pickup, deliver, settle, box runs, cash handover, account, shift, alerts",
+        "Phase C: FCM for new parcel calls / SLA (reuse device_tokens + FcmClient pattern from corporate)",
+        "Phase D: Flutter rider app (mirror corporate) or enhance PWA→TWA if GPS/offline not required yet",
+        "Close R2.3 when kitchen→ops rider leg is productized"
+      ]
+    }
+  },
+  "comparative_summary": [
+    {
+      "role": "corporate",
+      "web_structure": 5,
+      "business_logic": 4,
+      "apk_readiness": 5,
+      "blocker_for_apk": "none — APK path exists"
+    },
+    {
+      "role": "kitchen",
+      "web_structure": 4,
+      "business_logic": 4,
+      "apk_readiness": 2,
+      "blocker_for_apk": "no token API + no push; domain is Livewire/PWA"
+    },
+    {
+      "role": "delivery",
+      "web_structure": 4,
+      "business_logic": 4,
+      "apk_readiness": 2,
+      "blocker_for_apk": "no token API + no push; domain is Livewire/PWA"
+    }
+  ],
+  "cross_cutting_findings": {
+    "strengths": [
+      "Business logic for all three roles is largely mature in app/Support and covered by role completion backlogs (kitchen K0–K6, rider R0–R6)",
+      "Canonical order transitions exist (OrderTransition) and money/box side effects are centralized enough to wrap in APIs",
+      "Corporate proves the APK pattern: Sanctum + presenter + Flutter + FCM + parity tests",
+      "Kitchen/delivery already have mobile IA (bottom nav PWA) — good screen contracts for future native apps"
+    ],
+    "structural_risks_for_apk": [
+      "Kitchen/delivery logic still partially lives in Livewire action methods with direct Eloquent — API work should extract/call Support, not scrape Livewire",
+      "No Policies/Gates — API must re-apply role, permission (kitchen), area/shift/ownership (delivery) consistently",
+      "Realtime is weak outside corporate FCM; field roles will feel stale without push or polling strategy",
+      "HTTPS-forced app + session cookies are fine for PWA; native APK must use Sanctum (or equivalent), not cookie scraping"
+    ],
+    "recommended_program_order": [
+      "1. Keep shipping corporate APK; freeze /api/corporate contract",
+      "2. Prefer Kitchen/Delivery PWA (or TWA wrapper APK) as interim Android distribution — web structure already mobile-shaped",
+      "3. When native is required: Delivery API first (field offline pressure), then Kitchen API — both cloning corporate Sanctum+FCM pattern",
+      "4. Before each role API: extract remaining Livewire-only mutations into Support action classes; add API feature tests parallel to Livewire tests"
+    ]
+  },
+  "evidence_index": {
+    "routes": [
+      "routes/web/corporates.php",
+      "routes/web/kitchen.php",
+      "routes/web/deliveryman.php",
+      "routes/api/corporate.php"
+    ],
+    "mobile": [
+      "mobile/corporate/",
+      "mobile/corporate/README.md",
+      "mobile/corporate/releases/middo-corporate-release.apk",
+      "public/manifest-kitchen.webmanifest",
+      "public/manifest-delivery.webmanifest"
+    ],
+    "backlogs": [
+      "docs/kitchen-completion-todo.json",
+      "docs/rider-completion-todo.json",
+      "docs/business-logic-hunt-findings.json",
+      "docs/middo-process-flow.json"
+    ],
+    "core_support": [
+      "app/Support/OrderTransition.php",
+      "app/Support/OrderCancellation.php",
+      "app/Support/OrderKitchenActions.php",
+      "app/Support/OrderGroupKitchenAssignment.php",
+      "app/Support/RiderCommission.php",
+      "app/Support/RiderMoneyService.php",
+      "app/Support/CorporateApiPresenter.php"
+    ]
+  }
+}
