@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\NavRoleController;
 use App\Livewire\Admin\BankAccountsPage;
 use App\Livewire\Admin\BdBankBranchesPage;
 use App\Livewire\Admin\KitchenOnboarding;
+use App\Livewire\Admin\SettingsAuditPage;
 use App\Livewire\Admin\SettingsPage;
 use App\Livewire\Admin\UserShow;
 use App\Livewire\Operation\ActiveOrders;
@@ -80,6 +81,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 
     Route::get('/navs-roles', [NavRoleController::class, 'index'])->name('admin.navrole.index');
     Route::get('/settings', SettingsPage::class)->name('admin.settings.index');
+    Route::get('/settings/audit', SettingsAuditPage::class)->name('admin.settings.audit');
     Route::get('/middo-cash', MiddoCashLedgerPage::class)->name('admin.middo-cash');
     Route::get('/cash-positions', CashPositionsBoard::class)->name('admin.cash-positions');
     Route::get('/bank-accounts', BankAccountsPage::class)->name('admin.bank-accounts.index');

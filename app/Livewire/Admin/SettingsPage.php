@@ -5,6 +5,8 @@ namespace App\Livewire\Admin;
 use App\Support\DeliveryRunType;
 use App\Support\KitchenTier;
 use App\Support\MiddoSettings;
+use App\Support\SettingsAudit;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class SettingsPage extends Component
@@ -142,6 +144,7 @@ class SettingsPage extends Component
             'full_prepay_from_active_orders' => 'required|integer|min:1|max:100',
         ]);
 
+        MiddoSettings::beginAudit();
         MiddoSettings::updateMealAndKitchenDefaults([
             'accept_window_minutes' => $this->accept_window_minutes,
             'accept_window_warn_minutes' => $this->accept_window_warn_minutes,
@@ -173,6 +176,11 @@ class SettingsPage extends Component
                 'other' => $this->eps_fee_other,
             ],
         ]);
+        SettingsAudit::recordBatch(
+            MiddoSettings::takeAuditChanges(),
+            Auth::id() ? (int) Auth::id() : null,
+            SettingsAudit::SOURCE_ADMIN_SETTINGS
+        );
 
         $this->loadFromSettings();
         $this->statusMessage = 'Settings saved. Existing kitchens keep their own allowed quantity until reset or re-activated with a null override.';

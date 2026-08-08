@@ -1,10 +1,17 @@
 <div class="max-w-3xl mx-auto py-8 px-4 sm:px-6 space-y-6">
-    <div>
-        <h1 class="text-3xl font-bold text-middo-dark">Settings</h1>
-        <p class="text-sm text-gray-500 mt-1">
-            Meal grouping, kitchen capacity, order cutoff, and rider commission defaults.
-            Lunch kitchen→corporate commission stays on each menu item.
-        </p>
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-middo-dark">Settings</h1>
+            <p class="text-sm text-gray-500 mt-1">
+                Meal grouping, kitchen capacity, order cutoff, and rider commission defaults.
+                Lunch kitchen→corporate commission stays on each menu item.
+            </p>
+        </div>
+        <div class="flex flex-wrap gap-3 justify-end">
+            <a href="{{ route('admin.settings.audit') }}" class="text-sm font-bold text-middo-orange hover:underline">
+                Settings audit log →
+            </a>
+        </div>
     </div>
 
     @if($statusMessage)

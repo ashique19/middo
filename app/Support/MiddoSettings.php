@@ -45,6 +45,9 @@ class MiddoSettings
      */
     public const KEY_FULL_PREPAY_FROM_ACTIVE_ORDERS = 'order.full_prepay_from_active_orders';
 
+    /** @var list<array{key: string, old: mixed, new: mixed}>|null */
+    protected static ?array $auditBuffer = null;
+
     protected static function tierDefaultKey(string $tier): string
     {
         return 'kitchen.tier_defaults.'.KitchenTier::normalize($tier).'.allowed_open_groups';
@@ -53,6 +56,22 @@ class MiddoSettings
     protected static function deliveryCommissionKey(string $runType): string
     {
         return 'delivery.commission.'.$runType;
+    }
+
+    public static function beginAudit(): void
+    {
+        self::$auditBuffer = [];
+    }
+
+    /**
+     * @return list<array{key: string, old: mixed, new: mixed}>
+     */
+    public static function takeAuditChanges(): array
+    {
+        $changes = self::$auditBuffer ?? [];
+        self::$auditBuffer = null;
+
+        return $changes;
     }
 
     public static function get(string $key, mixed $default = null): mixed
@@ -70,12 +89,25 @@ class MiddoSettings
 
     public static function set(string $key, mixed $value): void
     {
+        $old = self::tableReady()
+            ? Setting::query()->whereKey($key)->value('value')
+            : null;
+        $new = $value === null ? null : (string) $value;
+
         Setting::query()->updateOrCreate(
             ['key' => $key],
-            ['value' => $value === null ? null : (string) $value]
+            ['value' => $new]
         );
 
         Cache::forget(self::cacheKey($key));
+
+        if (self::$auditBuffer !== null && (string) ($old ?? '') !== (string) ($new ?? '')) {
+            self::$auditBuffer[] = [
+                'key' => $key,
+                'old' => $old,
+                'new' => $new,
+            ];
+        }
     }
 
     public static function acceptWindowMinutes(): int
