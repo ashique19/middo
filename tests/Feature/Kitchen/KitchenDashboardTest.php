@@ -132,7 +132,9 @@ class KitchenDashboardTest extends TestCase
         $this->actingAs($this->kitchen)
             ->get(route('kitchen.dashboard'))
             ->assertOk()
-            ->assertSee(KitchenBoxStock::dashboardWarningMessage(), false);
+            ->assertSee(KitchenBoxStock::dashboardWarningMessage(), false)
+            ->assertSee('Request Middo boxes', false)
+            ->assertSee(route('kitchen.middo-boxes.at-kitchen', ['request' => 1]), false);
     }
 
     public function test_kitchen_can_accept_unassigned_order_group(): void
