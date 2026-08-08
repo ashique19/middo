@@ -94,7 +94,7 @@ class KitchenBoxRequestFlow
                         'middo_box_id' => $box->id,
                         'custody_status' => 'warehouse',
                         'log_action' => 'staged_for_kitchen_pickup',
-                        'notes' => 'Ready for rider pickup → '.$kitchen->name,
+                        'notes' => 'Ready for rider pickup by '.$rider->name.' → '.$kitchen->name,
                         'performed_by' => $opsUserId,
                     ]);
                 }
