@@ -276,7 +276,10 @@ class BoxesAtKitchen extends Component
     }
 
     /**
-     * @return list<array{id: int, name: string}>
+     * Kitchen→ops box runs are not customer deliveries: show every active rider
+     * (same policy as ops→kitchen staging). Area-matched riders are listed first.
+     *
+     * @return list<array{id: int, name: string, areas_label: string}>
      */
     protected function fetchRidersForKitchen(): array
     {
@@ -284,21 +287,32 @@ class BoxesAtKitchen extends Component
         $kitchenAreaId = $kitchen?->area_id !== null ? (int) $kitchen->area_id : null;
 
         return User::query()
-            ->with(['role', 'areas'])
+            ->with(['role', 'areas', 'area'])
             ->whereHas('role', fn ($query) => $query->where('name', 'delivery'))
             ->where('status', 'active')
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get()
-            ->when(
-                $kitchenAreaId !== null,
-                fn ($riders) => $riders->filter(fn (User $user) => $user->servesArea($kitchenAreaId))
-            )
+            ->sortBy(function (User $user) use ($kitchenAreaId) {
+                if ($kitchenAreaId === null) {
+                    return 1;
+                }
+
+                return $user->servesArea($kitchenAreaId) ? 0 : 1;
+            })
             ->values()
-            ->map(fn (User $user) => [
-                'id' => $user->id,
-                'name' => $user->name,
-            ])
+            ->map(function (User $user) {
+                $names = $user->areas->pluck('name')->filter()->sort()->values()->all();
+                if ($names === [] && $user->area?->name) {
+                    $names = [$user->area->name];
+                }
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'areas_label' => $names === [] ? 'No coverage areas' : implode(', ', $names),
+                ];
+            })
             ->all();
     }
 

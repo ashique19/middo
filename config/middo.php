@@ -83,7 +83,7 @@ return [
     | When true, kitchen can also assign a rider (books kitchen_to_ops commission).
     |
     */
-    'kitchen_to_ops_via_rider' => (bool) env('KITCHEN_TO_OPS_VIA_RIDER', false),
+    'kitchen_to_ops_via_rider' => (bool) env('KITCHEN_TO_OPS_VIA_RIDER', true),
 
     /*
     |--------------------------------------------------------------------------

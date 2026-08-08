@@ -100,6 +100,48 @@ class KitchenToOpsRiderLegN5Test extends TestCase
         $this->assertNull($box->held_by_user_id);
     }
 
+    public function test_tag_rider_lists_riders_outside_kitchen_area(): void
+    {
+        MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
+
+        $kitchen = $this->makeKitchen();
+        $otherArea = Area::create(['name' => 'Banani', 'city_id' => $this->city->id]);
+        $outOfAreaRider = User::create([
+            'first_name' => 'Out',
+            'last_name' => 'Rider',
+            'mobile' => '01790000099',
+            'password' => 'password',
+            'role_id' => $this->deliveryRole->id,
+            'status' => 'active',
+            'city_id' => $this->city->id,
+            'area_id' => $otherArea->id,
+        ]);
+        $outOfAreaRider->areas()->sync([$otherArea->id]);
+
+        $box = MiddoBox::create([
+            'qr_code_id' => 'MB-N5-AREA',
+            'box_model_type' => 'standard_insulated',
+            'kitchen_id' => $kitchen->id,
+            'held_by_user_id' => $kitchen->id,
+            'asset_status' => 'active',
+            'total_uses_count' => 0,
+        ]);
+
+        Livewire::actingAs($kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->call('openViaRider', $box->id)
+            ->assertSee('Out Rider')
+            ->set('selectedRiderId', $outOfAreaRider->id)
+            ->call('sendViaRider')
+            ->assertSet('errorMessage', null);
+
+        $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
+            'middo_box_id' => $box->id,
+            'rider_id' => $outOfAreaRider->id,
+            'status' => KitchenWarehouseHandoff::STATUS_READY_FOR_PICKUP,
+        ]);
+    }
+
     public function test_tag_rider_stages_then_accept_books_commission_and_rider_delivers(): void
     {
         MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
@@ -230,6 +272,8 @@ class KitchenToOpsRiderLegN5Test extends TestCase
         Livewire::actingAs($rider)
             ->test(StaffAlertsPage::class)
             ->assertOk()
-            ->assertSee('Kitchen→ops box run', false);
+            ->assertSee('Kitchen→ops box run', false)
+            ->assertSee('Open pending box runs', false)
+            ->assertSee(route('delivery.middo-boxes.pending-run'), false);
     }
 }

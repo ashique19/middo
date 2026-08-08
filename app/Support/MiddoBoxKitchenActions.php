@@ -7,6 +7,7 @@ use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class MiddoBoxKitchenActions
 {
@@ -94,6 +95,12 @@ class MiddoBoxKitchenActions
     public static function stageForWarehousePickup(MiddoBox $box, int $kitchenId, int $riderId): MiddoBox
     {
         return DB::transaction(function () use ($box, $kitchenId, $riderId) {
+            if (! Schema::hasTable('kitchen_warehouse_handoffs')) {
+                throw new \RuntimeException(
+                    'Kitchen→ops rider handoff is not installed yet. Run migrations (kitchen_warehouse_handoffs).'
+                );
+            }
+
             $box = MiddoBox::query()->with('warehouseHandoff')->whereKey($box->id)->lockForUpdate()->firstOrFail();
 
             if (! $box->isAtKitchen($kitchenId)) {
@@ -321,12 +328,8 @@ class MiddoBoxKitchenActions
             throw new \RuntimeException('Selected rider is not available.');
         }
 
-        $kitchen = User::query()->find($kitchenId);
-        $kitchenAreaId = $kitchen?->area_id !== null ? (int) $kitchen->area_id : null;
-        if ($kitchenAreaId !== null && ! $rider->servesArea($kitchenAreaId)) {
-            throw new \RuntimeException('Selected rider does not serve this kitchen’s area.');
-        }
-
+        // Area is a preference for listing order only — kitchen→ops empty-box runs
+        // may use any active delivery rider (same as ops→kitchen staging).
         return $rider;
     }
 

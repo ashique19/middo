@@ -156,11 +156,20 @@
                 <select wire:model="selectedRiderId"
                         class="w-full max-w-md rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange bg-white">
                     <option value="">Select rider…</option>
-                    @foreach($riders as $rider)
-                        <option value="{{ $rider['id'] }}">{{ $rider['name'] }}</option>
-                    @endforeach
+                    @forelse($riders as $rider)
+                        <option value="{{ $rider['id'] }}">
+                            {{ $rider['name'] }}@if(!empty($rider['areas_label'])) — {{ $rider['areas_label'] }}@endif
+                        </option>
+                    @empty
+                        <option value="" disabled>No active delivery riders found</option>
+                    @endforelse
                 </select>
                 @error('selectedRiderId') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                @if($riders === [])
+                    <p class="text-xs font-semibold text-amber-800 mt-2">
+                        Add an active user with the delivery role before tagging a rider.
+                    </p>
+                @endif
             </div>
             <div class="flex flex-col-reverse sm:flex-row flex-wrap gap-2">
                 <button type="button" wire:click="sendViaRider"
