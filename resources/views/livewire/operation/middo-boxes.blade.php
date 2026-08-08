@@ -170,16 +170,24 @@
             ];
         @endphp
         @foreach($tiles as $tile)
+            @php
+                $tileActive = match ($tile['key']) {
+                    'warehouse' => $custodyFilter === 'warehouse' || ($custodyFilter === 'all' && $statusFilter === 'at_middo_warehouse'),
+                    'to_kitchen' => $custodyFilter === 'to_kitchen',
+                    'returns' => $custodyFilter === 'returns',
+                    'damaged' => $statusFilter === 'damaged',
+                    default => false,
+                };
+                $tileClickable = in_array($tile['key'], ['warehouse', 'to_kitchen', 'returns', 'damaged'], true);
+            @endphp
             <button
                 type="button"
-                @if($tile['key'] === 'returns')
-                    wire:click="$set('custodyFilter', '{{ $custodyFilter === 'returns' ? 'all' : 'returns' }}')"
+                @if($tile['key'] === 'returns' || $tile['key'] === 'warehouse' || $tile['key'] === 'to_kitchen')
+                    wire:click="toggleCustodyFilter('{{ $tile['key'] }}')"
                 @elseif($tile['key'] === 'damaged')
                     wire:click="$set('statusFilter', '{{ $statusFilter === 'damaged' ? '' : 'damaged' }}')"
-                @elseif($tile['key'] === 'warehouse')
-                    wire:click="$set('statusFilter', '{{ $statusFilter === 'at_middo_warehouse' ? '' : 'at_middo_warehouse' }}')"
                 @endif
-                class="rounded-2xl border p-4 text-left {{ $tile['classes'] }} {{ in_array($tile['key'], ['returns', 'damaged', 'warehouse'], true) ? 'hover:opacity-90 transition' : 'cursor-default' }}">
+                class="rounded-2xl border p-4 text-left {{ $tile['classes'] }} {{ $tileClickable ? 'hover:opacity-90 transition' : 'cursor-default' }} {{ $tileActive ? 'ring-2 ring-middo-orange/40' : '' }}">
                 <p class="text-[11px] font-bold uppercase {{ $tile['labelClass'] }}">{{ $tile['label'] }}</p>
                 <p class="text-2xl font-black mt-1 {{ $tile['valueClass'] }}">{{ $custody[$tile['key']] ?? 0 }}</p>
             </button>
@@ -191,8 +199,30 @@
             <p class="text-sm font-semibold text-rose-900">
                 Showing inbound kitchen returns awaiting ops ack ({{ $custody['returns'] ?? 0 }}).
             </p>
-            <button type="button" wire:click="$set('custodyFilter', 'all')" class="text-xs font-bold text-rose-800 hover:underline">
+            <button type="button" wire:click="toggleCustodyFilter('returns')" class="text-xs font-bold text-rose-800 hover:underline">
                 Clear returns filter
+            </button>
+        </div>
+    @endif
+
+    @if($custodyFilter === 'warehouse')
+        <div class="rounded-xl border border-sky-200 bg-sky-50/70 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm font-semibold text-sky-900">
+                Showing free warehouse stock ready to stage ({{ $custody['warehouse'] ?? 0 }}). Staged pickup boxes are under To kitchen.
+            </p>
+            <button type="button" wire:click="toggleCustodyFilter('warehouse')" class="text-xs font-bold text-sky-800 hover:underline">
+                Clear warehouse filter
+            </button>
+        </div>
+    @endif
+
+    @if($custodyFilter === 'to_kitchen')
+        <div class="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm font-semibold text-amber-900">
+                Showing staged pickup + boxes en route to kitchens ({{ $custody['to_kitchen'] ?? 0 }}).
+            </p>
+            <button type="button" wire:click="toggleCustodyFilter('to_kitchen')" class="text-xs font-bold text-amber-800 hover:underline">
+                Clear to-kitchen filter
             </button>
         </div>
     @endif
@@ -245,7 +275,7 @@
                                 @if($box->isAvailableForKitchenStaging())
                                     <input
                                         type="checkbox"
-                                        wire:click.prevent="toggleBoxSelection({{ $box->id }})"
+                                        wire:click="toggleBoxSelection({{ $box->id }})"
                                         @checked(in_array($box->id, $selectedBoxIds, true))
                                         class="h-4 w-4 rounded border-gray-300 text-middo-orange focus:ring-middo-orange cursor-pointer"
                                     >

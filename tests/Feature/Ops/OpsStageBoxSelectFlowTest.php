@@ -173,7 +173,7 @@ class OpsStageBoxSelectFlowTest extends TestCase
             ->test(MiddoBoxes::class)
             ->assertSee('MB-SEL-2', false)
             ->assertSee('Staged for pickup', false)
-            ->assertDontSeeHtml('wire:click.prevent="toggleBoxSelection('.$box->id.')"')
+            ->assertDontSeeHtml('wire:click="toggleBoxSelection('.$box->id.')"')
             ->call('toggleBoxSelection', $box->id)
             ->assertSet('selectedBoxIds', [])
             ->assertSet('errorMessage', fn ($msg) => is_string($msg) && str_contains($msg, 'Only free warehouse boxes'));
@@ -187,5 +187,57 @@ class OpsStageBoxSelectFlowTest extends TestCase
             ->assertHasErrors(['selectedKitchenId']);
 
         $this->assertSame(1, (int) $request->fresh()->allocated_qty);
+    }
+
+    public function test_warehouse_tile_filter_excludes_staged_boxes(): void
+    {
+        $free = MiddoBox::create([
+            'qr_code_id' => 'MB-FREE-1',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+        $staged = MiddoBox::create([
+            'qr_code_id' => 'MB-STAGED-1',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+        $request = KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 1,
+            'allocated_qty' => 1,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+        KitchenBoxRequestBox::create([
+            'kitchen_box_request_id' => $request->id,
+            'middo_box_id' => $staged->id,
+            'rider_id' => $this->rider->id,
+            'status' => KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP,
+        ]);
+
+        $summary = OpsBoxCustody::summary();
+        $this->assertSame(1, $summary['warehouse']);
+        $this->assertSame(1, $summary['to_kitchen']);
+
+        Livewire::actingAs($this->ops)
+            ->test(MiddoBoxes::class)
+            ->call('toggleCustodyFilter', 'warehouse')
+            ->assertSet('custodyFilter', 'warehouse')
+            ->assertSee('MB-FREE-1', false)
+            ->assertDontSee('MB-STAGED-1', false)
+            ->assertSee('free warehouse stock', false);
+
+        Livewire::actingAs($this->ops)
+            ->test(MiddoBoxes::class)
+            ->call('toggleCustodyFilter', 'to_kitchen')
+            ->assertSet('custodyFilter', 'to_kitchen')
+            ->assertSee('MB-STAGED-1', false)
+            ->assertDontSee('MB-FREE-1', false)
+            ->assertSee('Staged for pickup', false);
+
+        $this->assertSame($free->id, OpsBoxCustody::warehouseFreeQuery()->value('id'));
+        $this->assertSame($staged->id, OpsBoxCustody::toKitchenQuery()->value('id'));
     }
 }
