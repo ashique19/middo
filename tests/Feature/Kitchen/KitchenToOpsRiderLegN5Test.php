@@ -7,6 +7,7 @@ use App\Livewire\Kitchen\BoxesAtKitchen;
 use App\Livewire\Shared\StaffAlertsPage;
 use App\Models\Area;
 use App\Models\City;
+use App\Models\KitchenWarehouseHandoff;
 use App\Models\MiddoBox;
 use App\Models\MiddoOperatingCost;
 use App\Models\Role;
@@ -14,6 +15,7 @@ use App\Models\StaffAlert;
 use App\Models\User;
 use App\Support\DeliveryRunType;
 use App\Support\MiddoSettings;
+use App\Support\RiderPendingBoxes;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -89,7 +91,7 @@ class KitchenToOpsRiderLegN5Test extends TestCase
 
         Livewire::actingAs($kitchen)
             ->test(BoxesAtKitchen::class)
-            ->assertDontSee('Send via rider')
+            ->assertDontSee('Tag rider')
             ->call('sendToWarehouse', $box->id)
             ->assertSet('statusMessage', "{$box->qr_code_id} sent to Middo warehouse.");
 
@@ -98,7 +100,7 @@ class KitchenToOpsRiderLegN5Test extends TestCase
         $this->assertNull($box->held_by_user_id);
     }
 
-    public function test_via_rider_books_commission_alerts_and_rider_can_deliver(): void
+    public function test_tag_rider_stages_then_accept_books_commission_and_rider_delivers(): void
     {
         MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
         MiddoSettings::set('delivery.commission.'.DeliveryRunType::KITCHEN_TO_OPS, '33');
@@ -125,23 +127,29 @@ class KitchenToOpsRiderLegN5Test extends TestCase
 
         Livewire::actingAs($kitchen)
             ->test(BoxesAtKitchen::class)
-            ->assertSee('Send via rider')
+            ->assertSee('Tag rider')
             ->call('openViaRider', $box->id)
             ->set('selectedRiderId', $rider->id)
             ->call('sendViaRider')
             ->assertSet('errorMessage', null)
-            ->assertSet('statusMessage', "{$box->qr_code_id} handed to rider for Middo warehouse.");
+            ->assertSee('tagged for', false);
 
         $box->refresh();
-        $this->assertSame($rider->id, $box->held_by_user_id);
-        $this->assertNull($box->kitchen_id);
+        $this->assertSame($kitchen->id, $box->held_by_user_id);
+        $this->assertSame($kitchen->id, $box->kitchen_id);
         $this->assertSame('active', $box->asset_status);
+        $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
+            'middo_box_id' => $box->id,
+            'kitchen_id' => $kitchen->id,
+            'rider_id' => $rider->id,
+            'status' => KitchenWarehouseHandoff::STATUS_READY_FOR_PICKUP,
+        ]);
         $this->assertDatabaseHas('middo_box_logs', [
             'middo_box_id' => $box->id,
-            'log_action' => 'dispatched_to_warehouse',
+            'log_action' => 'staged_for_warehouse_pickup',
             'performed_by' => $kitchen->id,
         ]);
-        $this->assertSame(1, MiddoOperatingCost::query()
+        $this->assertSame(0, MiddoOperatingCost::query()
             ->where('reference_type', MiddoBox::class)
             ->where('reference_id', $box->id)
             ->where('run_type', DeliveryRunType::KITCHEN_TO_OPS)
@@ -150,6 +158,49 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             ->where('user_id', $rider->id)
             ->where('type', StaffAlert::TYPE_KITCHEN_TO_OPS_BOX)
             ->exists());
+        $this->assertFalse(StaffAlert::query()
+            ->where('user_id', $ops->id)
+            ->where('type', StaffAlert::TYPE_KITCHEN_TO_OPS_BOX)
+            ->exists());
+
+        $this->assertSame(1, RiderPendingBoxes::countForRider($rider->id));
+
+        Livewire::actingAs($kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->assertSee('Tagged for pickup', false)
+            ->assertSee('Rider Gulshan', false)
+            ->assertDontSee('Tag rider');
+
+        Livewire::actingAs($rider)
+            ->test(PendingBoxRuns::class)
+            ->assertSee('Ready for pickup at kitchen', false)
+            ->assertSee('Accept custody', false)
+            ->call('acceptKitchenReturn', $box->id)
+            ->assertSet('errorMessage', null)
+            ->assertSet('statusMessage', "{$box->qr_code_id} accepted — deliver to Middo warehouse.");
+
+        $box->refresh();
+        $this->assertSame($rider->id, $box->held_by_user_id);
+        $this->assertNull($box->kitchen_id);
+        $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
+            'middo_box_id' => $box->id,
+            'status' => KitchenWarehouseHandoff::STATUS_RIDER_ACCEPTED,
+        ]);
+        $this->assertDatabaseHas('middo_box_logs', [
+            'middo_box_id' => $box->id,
+            'log_action' => 'rider_accepted_warehouse_return',
+            'performed_by' => $rider->id,
+        ]);
+        $this->assertDatabaseHas('middo_box_logs', [
+            'middo_box_id' => $box->id,
+            'log_action' => 'dispatched_to_warehouse',
+            'performed_by' => $rider->id,
+        ]);
+        $this->assertSame(1, MiddoOperatingCost::query()
+            ->where('reference_type', MiddoBox::class)
+            ->where('reference_id', $box->id)
+            ->where('run_type', DeliveryRunType::KITCHEN_TO_OPS)
+            ->count());
         $this->assertTrue(StaffAlert::query()
             ->where('user_id', $ops->id)
             ->where('type', StaffAlert::TYPE_KITCHEN_TO_OPS_BOX)
@@ -166,6 +217,10 @@ class KitchenToOpsRiderLegN5Test extends TestCase
         $box->refresh();
         $this->assertSame('at_middo_warehouse', $box->asset_status);
         $this->assertNull($box->held_by_user_id);
+        $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
+            'middo_box_id' => $box->id,
+            'status' => KitchenWarehouseHandoff::STATUS_DELIVERED,
+        ]);
         $this->assertDatabaseHas('middo_box_logs', [
             'middo_box_id' => $box->id,
             'log_action' => 'returned_to_warehouse',

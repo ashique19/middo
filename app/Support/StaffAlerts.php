@@ -376,12 +376,20 @@ class StaffAlerts
     }
 
     /**
-     * Kitchen assigned empty Middo boxes to a rider bound for Middo warehouse.
+     * Kitchen tagged empty Middo boxes for a rider → Middo warehouse run.
+     * Alerts the rider to pick up at the kitchen. Ops is notified when the rider accepts.
      *
      * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
-     * @return int number of alerts created (rider + ops/admin)
      */
     public static function notifyKitchenToOpsBoxes(User $rider, User $kitchen, Collection|array $boxes): int
+    {
+        return self::notifyRiderKitchenToOpsPickup($rider, $kitchen, $boxes);
+    }
+
+    /**
+     * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
+     */
+    public static function notifyRiderKitchenToOpsPickup(User $rider, User $kitchen, Collection|array $boxes): int
     {
         $boxes = collect($boxes)->filter()->values();
         if ($boxes->isEmpty()) {
@@ -393,24 +401,47 @@ class StaffAlerts
         $count = $boxes->count();
         $boxList = implode(', ', array_slice($labels, 0, 5)).($count > 5 ? '…' : '');
         $dedupeBase = 'kitchen_ops:'.$rider->id.':'.$kitchen->id.':'.implode('-', $boxIds);
-        $created = 0;
 
         $riderAlert = self::createOnce(
             (int) $rider->id,
             StaffAlert::TYPE_KITCHEN_TO_OPS_BOX,
             $count === 1 ? 'Kitchen→ops box run' : "Kitchen→ops box run ({$count})",
-            sprintf('Return %s from %s to Middo warehouse.', $boxList, $kitchen->name),
+            sprintf(
+                'Pick up %s at %s, then deliver to Middo warehouse.',
+                $boxList,
+                $kitchen->name
+            ),
             null,
             [
                 'box_ids' => $boxIds,
                 'kitchen_id' => $kitchen->id,
                 'run_type' => DeliveryRunType::KITCHEN_TO_OPS,
+                'phase' => 'staged',
             ],
             $dedupeBase.':rider'
         );
-        if ($riderAlert) {
-            $created++;
+
+        return $riderAlert ? 1 : 0;
+    }
+
+    /**
+     * Rider accepted kitchen→ops empty-box custody — ops can expect inbound warehouse returns.
+     *
+     * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
+     */
+    public static function notifyOpsKitchenToOpsInbound(User $rider, User $kitchen, Collection|array $boxes): int
+    {
+        $boxes = collect($boxes)->filter()->values();
+        if ($boxes->isEmpty()) {
+            return 0;
         }
+
+        $boxIds = $boxes->map(fn (MiddoBox $b) => (int) $b->id)->sort()->values()->all();
+        $labels = $boxes->map(fn (MiddoBox $b) => $b->qr_code_id ?: '#'.$b->id)->all();
+        $count = $boxes->count();
+        $boxList = implode(', ', array_slice($labels, 0, 5)).($count > 5 ? '…' : '');
+        $dedupeBase = 'kitchen_ops_inbound:'.$rider->id.':'.$kitchen->id.':'.implode('-', $boxIds);
+        $created = 0;
 
         foreach (self::opsAndAdminUserIds() as $userId) {
             $alert = self::createOnce(
@@ -424,6 +455,7 @@ class StaffAlerts
                     'rider_id' => $rider->id,
                     'kitchen_id' => $kitchen->id,
                     'run_type' => DeliveryRunType::KITCHEN_TO_OPS,
+                    'phase' => 'accepted',
                 ],
                 $dedupeBase.':ops:'.$userId
             );

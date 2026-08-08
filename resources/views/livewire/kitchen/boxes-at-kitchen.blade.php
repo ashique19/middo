@@ -142,10 +142,15 @@
 
     @if($viaRiderBoxId && $viaRiderEnabled)
         <div class="rounded-2xl border border-sky-200 bg-sky-50/60 p-4 sm:p-5 shadow-sm space-y-3">
-            <h2 class="text-lg font-bold text-middo-dark">Send via rider to Middo warehouse</h2>
+            <h2 class="text-lg font-bold text-middo-dark">Tag rider for warehouse return</h2>
             <p class="text-sm text-gray-600">
-                Assigns the empty box to a rider (kitchen→ops commission). Rider delivers to warehouse; ops ack stays the same.
+                Box stays at your kitchen until the rider accepts custody, then they deliver it to Middo warehouse for ops acknowledgment.
             </p>
+            <ol class="text-sm text-gray-600 list-decimal ps-5 space-y-0.5">
+                <li>You tag a rider (box still here)</li>
+                <li>Rider accepts → holds the box</li>
+                <li>Rider delivers to warehouse → ops confirms</li>
+            </ol>
             <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Rider</label>
                 <select wire:model="selectedRiderId"
@@ -159,9 +164,9 @@
             </div>
             <div class="flex flex-col-reverse sm:flex-row flex-wrap gap-2">
                 <button type="button" wire:click="sendViaRider"
-                        wire:confirm="Hand this empty box to the selected rider for Middo warehouse?"
+                        wire:confirm="Tag this rider to pick up the empty box for Middo warehouse?"
                         class="inline-flex justify-center px-4 py-2.5 sm:py-2 rounded-xl bg-middo-orange text-white text-sm font-bold hover:bg-[#733614] w-full sm:w-auto">
-                    Confirm send via rider
+                    Tag rider
                 </button>
                 <button type="button" wire:click="cancelViaRider"
                         class="inline-flex justify-center px-4 py-2.5 sm:py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-white w-full sm:w-auto">
@@ -189,8 +194,8 @@
                         'inline-flex px-2 py-0.5 rounded-lg text-xs font-bold border',
                         'bg-rose-50 text-rose-800 border-rose-200' => str_contains($log->log_action, 'damaged'),
                         'bg-emerald-50 text-emerald-800 border-emerald-200' => $log->log_action === 'received_at_kitchen',
-                        'bg-sky-50 text-sky-800 border-sky-200' => in_array($log->log_action, ['returned_to_warehouse', 'dispatched_to_warehouse'], true),
-                        'bg-gray-50 text-gray-700 border-gray-200' => ! str_contains($log->log_action, 'damaged') && ! in_array($log->log_action, ['received_at_kitchen', 'returned_to_warehouse', 'dispatched_to_warehouse'], true),
+                        'bg-sky-50 text-sky-800 border-sky-200' => in_array($log->log_action, ['returned_to_warehouse', 'dispatched_to_warehouse', 'staged_for_warehouse_pickup'], true),
+                        'bg-gray-50 text-gray-700 border-gray-200' => ! str_contains($log->log_action, 'damaged') && ! in_array($log->log_action, ['received_at_kitchen', 'returned_to_warehouse', 'dispatched_to_warehouse', 'staged_for_warehouse_pickup'], true),
                     ])>
                         {{ str($log->log_action)->replace('_', ' ')->headline() }}
                     </span>
@@ -229,8 +234,8 @@
                                         'inline-flex px-2 py-0.5 rounded-lg text-xs font-bold border',
                                         'bg-rose-50 text-rose-800 border-rose-200' => str_contains($log->log_action, 'damaged'),
                                         'bg-emerald-50 text-emerald-800 border-emerald-200' => $log->log_action === 'received_at_kitchen',
-                                        'bg-sky-50 text-sky-800 border-sky-200' => in_array($log->log_action, ['returned_to_warehouse', 'dispatched_to_warehouse'], true),
-                                        'bg-gray-50 text-gray-700 border-gray-200' => ! str_contains($log->log_action, 'damaged') && ! in_array($log->log_action, ['received_at_kitchen', 'returned_to_warehouse', 'dispatched_to_warehouse'], true),
+                                        'bg-sky-50 text-sky-800 border-sky-200' => in_array($log->log_action, ['returned_to_warehouse', 'dispatched_to_warehouse', 'staged_for_warehouse_pickup'], true),
+                                        'bg-gray-50 text-gray-700 border-gray-200' => ! str_contains($log->log_action, 'damaged') && ! in_array($log->log_action, ['received_at_kitchen', 'returned_to_warehouse', 'dispatched_to_warehouse', 'staged_for_warehouse_pickup'], true),
                                     ])>
                                         {{ str($log->log_action)->replace('_', ' ')->headline() }}
                                     </span>
@@ -266,6 +271,8 @@
                 @php
                     $reserved = (int) ($box->order_middo_boxes_count ?? 0) > 0;
                     $damaged = $box->asset_status === 'damaged';
+                    $stagedForWarehouse = $box->isStagedForWarehousePickup();
+                    $stagedRiderName = $box->warehouseHandoff?->rider?->name;
                 @endphp
                 <div wire:key="kitchen-box-m-{{ $box->id }}"
                      class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm space-y-3">
@@ -278,6 +285,10 @@
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
                                 Damaged
                             </span>
+                        @elseif($stagedForWarehouse)
+                            <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                                Tagged for pickup
+                            </span>
                         @elseif($reserved)
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                 Reserved
@@ -289,7 +300,13 @@
                         @endif
                     </div>
 
-                    @if($damaged || ! $reserved)
+                    @if($stagedForWarehouse)
+                        <p class="text-sm font-semibold text-sky-800">
+                            Waiting for {{ $stagedRiderName ?? 'rider' }} to accept custody → Middo warehouse
+                        </p>
+                    @endif
+
+                    @if($damaged || (! $reserved && ! $stagedForWarehouse))
                         <div class="flex flex-col gap-2 pt-1 border-t border-gray-100">
                             @if($damaged)
                                 <button
@@ -318,7 +335,7 @@
                                         type="button"
                                         wire:click="openViaRider({{ $box->id }})"
                                         class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl border border-sky-300 bg-sky-50 text-xs font-bold text-sky-800 hover:bg-sky-100 transition">
-                                        Send via rider
+                                        Tag rider
                                     </button>
                                 @endif
                                 <button
@@ -356,6 +373,8 @@
                             @php
                                 $reserved = (int) ($box->order_middo_boxes_count ?? 0) > 0;
                                 $damaged = $box->asset_status === 'damaged';
+                                $stagedForWarehouse = $box->isStagedForWarehousePickup();
+                                $stagedRiderName = $box->warehouseHandoff?->rider?->name;
                             @endphp
                             <tr wire:key="kitchen-box-{{ $box->id }}" class="hover:bg-gray-50/70 transition">
                                 <td class="p-4 font-mono font-bold text-middo-dark">{{ $box->qr_code_id }}</td>
@@ -365,6 +384,15 @@
                                         <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
                                             Damaged
                                         </span>
+                                    @elseif($stagedForWarehouse)
+                                        <div class="space-y-1">
+                                            <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                                                Tagged for pickup
+                                            </span>
+                                            <p class="text-xs font-semibold text-sky-800">
+                                                Waiting for {{ $stagedRiderName ?? 'rider' }} → Middo warehouse
+                                            </p>
+                                        </div>
                                     @elseif($reserved)
                                         <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                             Reserved for order
@@ -389,6 +417,10 @@
                                                 <span wire:loading.remove wire:target="sendDamagedToWarehouse({{ $box->id }})">Send damaged to Middo</span>
                                                 <span wire:loading wire:target="sendDamagedToWarehouse({{ $box->id }})">Sending...</span>
                                             </button>
+                                        @elseif($stagedForWarehouse)
+                                            <span class="inline-flex items-center px-3 py-1.5 rounded-xl border border-sky-200 bg-sky-50 text-xs font-bold text-sky-800">
+                                                Awaiting rider accept
+                                            </span>
                                         @elseif(! $reserved)
                                             <button
                                                 type="button"
@@ -401,7 +433,7 @@
                                                     type="button"
                                                     wire:click="openViaRider({{ $box->id }})"
                                                     class="inline-flex items-center px-3 py-1.5 rounded-xl border border-sky-300 bg-sky-50 text-xs font-bold text-sky-800 hover:bg-sky-100 transition">
-                                                    Send via rider
+                                                    Tag rider
                                                 </button>
                                             @endif
                                             <button
