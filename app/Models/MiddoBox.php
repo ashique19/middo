@@ -57,6 +57,33 @@ class MiddoBox extends Model
         return $this->hasOne(KitchenBoxRequestBox::class);
     }
 
+    public function warehouseHandoff(): HasOne
+    {
+        return $this->hasOne(KitchenWarehouseHandoff::class);
+    }
+
+    public function hasOpenWarehouseHandoff(): bool
+    {
+        $link = $this->relationLoaded('warehouseHandoff')
+            ? $this->warehouseHandoff
+            : $this->warehouseHandoff()->first();
+
+        return $link !== null && in_array($link->status, [
+            KitchenWarehouseHandoff::STATUS_READY_FOR_PICKUP,
+            KitchenWarehouseHandoff::STATUS_RIDER_ACCEPTED,
+        ], true);
+    }
+
+    public function isStagedForWarehousePickup(): bool
+    {
+        $link = $this->relationLoaded('warehouseHandoff')
+            ? $this->warehouseHandoff
+            : $this->warehouseHandoff()->first();
+
+        return $link?->status === KitchenWarehouseHandoff::STATUS_READY_FOR_PICKUP
+            && $this->isAtKitchen();
+    }
+
     /**
      * Free warehouse stock that can be staged against a kitchen box request.
      */
@@ -119,7 +146,8 @@ class MiddoBox extends Model
         return $query
             ->atKitchen($kitchenId)
             ->where('asset_status', '!=', 'damaged')
-            ->whereDoesntHave('orderMiddoBoxes');
+            ->whereDoesntHave('orderMiddoBoxes')
+            ->whereDoesntHave('warehouseHandoff', fn (Builder $q) => $q->open());
     }
 
     public function scopeDamagedAtKitchen(Builder $query, int $kitchenId): Builder
@@ -141,6 +169,10 @@ class MiddoBox extends Model
         }
 
         if ($this->isDamaged()) {
+            return false;
+        }
+
+        if ($this->hasOpenWarehouseHandoff()) {
             return false;
         }
 

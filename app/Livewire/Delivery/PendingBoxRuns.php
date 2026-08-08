@@ -3,6 +3,7 @@
 namespace App\Livewire\Delivery;
 
 use App\Models\KitchenBoxRequestBox;
+use App\Models\KitchenWarehouseHandoff;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Support\KitchenBoxRequestFlow;
@@ -29,6 +30,20 @@ class PendingBoxRuns extends Component
         try {
             $box = KitchenBoxRequestFlow::acceptCustody($boxId, (int) Auth::id());
             $this->statusMessage = "{$box->qr_code_id} accepted — deliver to kitchen, then mark handed.";
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not accept this box.';
+        }
+    }
+
+    public function acceptKitchenReturn(int $boxId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        try {
+            $box = MiddoBoxKitchenActions::acceptWarehouseReturnCustody($boxId, (int) Auth::id());
+            $this->statusMessage = "{$box->qr_code_id} accepted — deliver to Middo warehouse.";
             $this->resetPage();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not accept this box.';
@@ -144,6 +159,7 @@ class PendingBoxRuns extends Component
 
         $allBoxes = RiderPendingBoxes::boxesForRider($riderId);
         $stagedByBoxId = RiderPendingBoxes::stagedLinksForRider($riderId);
+        $kitchenReturnByBoxId = RiderPendingBoxes::stagedWarehouseReturnLinksForRider($riderId);
 
         $page = max(1, (int) $this->getPage());
         $perPage = 20;
@@ -165,23 +181,31 @@ class PendingBoxRuns extends Component
             ->keyBy('middo_box_id');
 
         $nodes = $items
-            ->map(function (MiddoBox $box) use ($latestActions, $stagedByBoxId, $riderId) {
+            ->map(function (MiddoBox $box) use ($latestActions, $stagedByBoxId, $kitchenReturnByBoxId, $riderId) {
                 $linkedOrder = $box->orderMiddoBoxes->first()?->order;
+                $kitchenReturn = $kitchenReturnByBoxId->get($box->id);
                 $destinationKitchen = $box->kitchen
+                    ?? $kitchenReturn?->kitchen
                     ?? $stagedByBoxId->get($box->id)?->request?->kitchen
                     ?? $linkedOrder?->orderGroup?->kitchen;
                 $latestAction = $latestActions->get($box->id)?->log_action;
-                $enRouteToWarehouse = $latestAction === 'dispatched_to_warehouse';
+                $enRouteToWarehouse = in_array($latestAction, [
+                    'dispatched_to_warehouse',
+                    'rider_accepted_warehouse_return',
+                ], true);
                 $isStagedPickup = $stagedByBoxId->has($box->id);
+                $isStagedKitchenReturn = $kitchenReturn instanceof KitchenWarehouseHandoff;
                 $isAcceptedWarehouseStock = $latestAction === 'rider_accepted_kitchen_stock'
                     && (int) $box->held_by_user_id === $riderId
                     && $box->kitchen_id !== null
                     && ! $linkedOrder;
 
                 $canAcceptPickup = $isStagedPickup;
+                $canAcceptKitchenReturn = $isStagedKitchenReturn;
                 $canHandWarehouseStock = $isAcceptedWarehouseStock;
                 $canHandToKitchen = ! $enRouteToWarehouse
                     && ! $isStagedPickup
+                    && ! $isStagedKitchenReturn
                     && ! $isAcceptedWarehouseStock
                     && $box->kitchen_id === null
                     && $linkedOrder !== null
@@ -190,6 +214,8 @@ class PendingBoxRuns extends Component
                 $runLabel = 'With you';
                 if ($isStagedPickup) {
                     $runLabel = 'Ready for pickup at warehouse';
+                } elseif ($isStagedKitchenReturn) {
+                    $runLabel = 'Ready for pickup at kitchen';
                 } elseif ($enRouteToWarehouse) {
                     $runLabel = 'Return to Middo warehouse';
                 } elseif ($latestAction === 'handed_to_kitchen_stock' || $latestAction === 'returned_to_kitchen') {
@@ -202,23 +228,32 @@ class PendingBoxRuns extends Component
                     $runLabel = 'On the way to kitchen';
                 }
 
+                $showWarehouseDestination = $enRouteToWarehouse || $isStagedKitchenReturn;
+
                 return [
                     'id' => $box->id,
                     'qr_code_id' => $box->qr_code_id,
                     'model' => str($box->box_model_type)->headline()->toString(),
                     'run_label' => $runLabel,
-                    'kitchen_name' => $enRouteToWarehouse ? 'Middo warehouse' : $destinationKitchen?->name,
-                    'kitchen_mobile' => $enRouteToWarehouse ? null : $destinationKitchen?->mobile,
-                    'kitchen_address' => $enRouteToWarehouse ? null : $destinationKitchen?->address,
+                    'kitchen_name' => $showWarehouseDestination
+                        ? ($isStagedKitchenReturn ? ($destinationKitchen?->name.' → Middo warehouse') : 'Middo warehouse')
+                        : $destinationKitchen?->name,
+                    'kitchen_mobile' => $showWarehouseDestination && ! $isStagedKitchenReturn
+                        ? null
+                        : $destinationKitchen?->mobile,
+                    'kitchen_address' => $showWarehouseDestination && ! $isStagedKitchenReturn
+                        ? null
+                        : $destinationKitchen?->address,
                     'order_id' => $linkedOrder?->id,
                     'menu_name' => $linkedOrder?->menuItem?->name,
                     'customer_name' => $linkedOrder
                         ? $linkedOrder->partyPayload()['customer_name']
                         : null,
                     'can_accept_pickup' => (bool) $canAcceptPickup,
+                    'can_accept_kitchen_return' => (bool) $canAcceptKitchenReturn,
                     'can_hand_warehouse_stock' => (bool) $canHandWarehouseStock,
                     'can_hand_to_kitchen' => (bool) $canHandToKitchen,
-                    'can_deliver_to_warehouse' => $enRouteToWarehouse,
+                    'can_deliver_to_warehouse' => $enRouteToWarehouse && ! $isStagedKitchenReturn,
                 ];
             })
             ->all();

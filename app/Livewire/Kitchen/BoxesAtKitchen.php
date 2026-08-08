@@ -167,6 +167,14 @@ class BoxesAtKitchen extends Component
 
         $this->errorMessage = null;
         $this->cancelDamage();
+
+        $box = MiddoBox::query()->with('warehouseHandoff')->find($boxId);
+        if ($box?->hasOpenWarehouseHandoff()) {
+            $this->errorMessage = 'This box is already tagged for rider pickup to Middo warehouse.';
+
+            return;
+        }
+
         $this->viaRiderBoxId = $boxId;
         $this->selectedRiderId = null;
     }
@@ -238,16 +246,17 @@ class BoxesAtKitchen extends Component
             ]);
 
             $box = MiddoBox::query()->findOrFail($this->viaRiderBoxId);
-            $sent = MiddoBoxKitchenActions::dispatchToWarehouseViaRider(
+            $tagged = MiddoBoxKitchenActions::stageForWarehousePickup(
                 $box,
                 (int) Auth::id(),
                 (int) $this->selectedRiderId
             );
-            $this->statusMessage = "{$sent->qr_code_id} handed to rider for Middo warehouse.";
+            $riderName = $tagged->warehouseHandoff?->rider?->name ?? 'rider';
+            $this->statusMessage = "{$tagged->qr_code_id} tagged for {$riderName}. Keep it at kitchen until they accept custody.";
             $this->cancelViaRider();
             $this->resetPage();
         } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage() ?: 'Could not assign rider.';
+            $this->errorMessage = $e->getMessage() ?: 'Could not tag rider.';
         }
     }
 
@@ -307,6 +316,7 @@ class BoxesAtKitchen extends Component
                 ->whereIn('log_action', [
                     'returned_to_warehouse',
                     'dispatched_to_warehouse',
+                    'staged_for_warehouse_pickup',
                     'returned_damaged_to_warehouse',
                     'marked_damaged_at_kitchen',
                     'received_at_kitchen',
@@ -327,6 +337,7 @@ class BoxesAtKitchen extends Component
                 ->whereIn('log_action', [
                     'returned_to_warehouse',
                     'dispatched_to_warehouse',
+                    'staged_for_warehouse_pickup',
                     'returned_damaged_to_warehouse',
                     'marked_damaged_at_kitchen',
                     'received_at_kitchen',
@@ -344,7 +355,10 @@ class BoxesAtKitchen extends Component
             ])->layout('kitchen.layout.app', ['title' => 'Boxes at Kitchen']);
         }
 
-        $boxesQuery = MiddoBox::query()->atKitchen($kitchenId)->withCount('orderMiddoBoxes');
+        $boxesQuery = MiddoBox::query()
+            ->atKitchen($kitchenId)
+            ->with(['warehouseHandoff.rider'])
+            ->withCount('orderMiddoBoxes');
 
         $boxesQuery = match ($this->filter) {
             'sendable' => $boxesQuery->where('asset_status', '!=', 'damaged')->whereDoesntHave('orderMiddoBoxes'),
