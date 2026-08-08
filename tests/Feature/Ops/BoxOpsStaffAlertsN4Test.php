@@ -115,10 +115,10 @@ class BoxOpsStaffAlertsN4Test extends TestCase
             ->where('type', StaffAlert::TYPE_OPS_TO_KITCHEN_BOX)
             ->where('meta->kitchen_id', $kitchen->id)
             ->exists());
-        $this->assertTrue(StaffAlert::query()
+        // Kitchen is alerted when the rider hands stock, not at stage time.
+        $this->assertFalse(StaffAlert::query()
             ->where('user_id', $kitchen->id)
             ->where('type', StaffAlert::TYPE_OPS_TO_KITCHEN_BOX)
-            ->where('meta->rider_id', $rider->id)
             ->exists());
         $this->assertFalse(StaffAlert::query()
             ->where('user_id', $otherRider->id)
@@ -129,11 +129,6 @@ class BoxOpsStaffAlertsN4Test extends TestCase
             ->test(StaffAlertsPage::class)
             ->assertOk()
             ->assertSee('Ops→kitchen box run', false);
-
-        Livewire::actingAs($kitchen)
-            ->test(StaffAlertsPage::class)
-            ->assertOk()
-            ->assertSee('Incoming Middo box', false);
     }
 
     public function test_empty_box_ready_alerts_riders_in_corporate_area(): void

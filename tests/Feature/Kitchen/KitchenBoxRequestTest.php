@@ -340,9 +340,10 @@ class KitchenBoxRequestTest extends TestCase
             ->set('selectedKitchenId', $this->kitchen->id)
             ->call('save');
 
-        // Staged-only stock is not incoming yet.
+        // Staged-only stock is not incoming yet (still at warehouse).
         Livewire::actingAs($this->kitchen)
             ->test(IncomingBoxes::class)
+            ->assertDontSee('MB-REQ-FLOW', false)
             ->call('receiveBox', $box->id)
             ->assertSet('errorMessage', 'This box is not incoming to your kitchen.');
 
@@ -356,9 +357,12 @@ class KitchenBoxRequestTest extends TestCase
         $this->assertSame($this->kitchen->id, (int) $box->kitchen_id);
         $this->assertSame('rider_accepted_kitchen_stock', MiddoBoxLog::query()->where('middo_box_id', $box->id)->latest('id')->value('log_action'));
 
-        // Accepted but not handed — kitchen must wait.
+        // After rider accepts, kitchen sees it as en route but cannot confirm yet.
         Livewire::actingAs($this->kitchen)
             ->test(IncomingBoxes::class)
+            ->assertSee('MB-REQ-FLOW', false)
+            ->assertSee('On the way', false)
+            ->assertSee('Waiting for rider handoff', false)
             ->call('receiveBox', $box->id)
             ->assertSet('errorMessage', 'Wait for the rider to hand this box before confirming receive.');
 
@@ -369,8 +373,17 @@ class KitchenBoxRequestTest extends TestCase
 
         $this->assertSame('handed_to_kitchen_stock', MiddoBoxLog::query()->where('middo_box_id', $box->id)->latest('id')->value('log_action'));
 
+        $this->assertTrue(StaffAlert::query()
+            ->where('user_id', $this->kitchen->id)
+            ->where('type', StaffAlert::TYPE_OPS_TO_KITCHEN_BOX)
+            ->where('meta->phase', 'handed')
+            ->exists());
+
         Livewire::actingAs($this->kitchen)
             ->test(IncomingBoxes::class)
+            ->assertSee('MB-REQ-FLOW', false)
+            ->assertSee('Ready to receive', false)
+            ->assertSee('Confirm receive', false)
             ->call('receiveBox', $box->id)
             ->assertSet('errorMessage', null);
 

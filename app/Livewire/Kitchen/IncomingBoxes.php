@@ -18,6 +18,21 @@ class IncomingBoxes extends Component
 
     public ?string $errorMessage = null;
 
+    /** @var list<string> */
+    public const LIST_ACTIONS = [
+        'rider_accepted_kitchen_stock', // en route after rider pickup
+        'handed_to_kitchen_stock',
+        'returned_to_kitchen',
+        'dispatched_to_kitchen', // legacy immediate-assign path
+    ];
+
+    /** @var list<string> */
+    public const RECEIVE_ACTIONS = [
+        'handed_to_kitchen_stock',
+        'returned_to_kitchen',
+        'dispatched_to_kitchen',
+    ];
+
     public function receiveBox(int $boxId): void
     {
         $this->statusMessage = null;
@@ -37,13 +52,7 @@ class IncomingBoxes extends Component
                 }
 
                 $latestAction = KitchenBoxRequestFlow::latestBoxAction($box->id);
-                $receivable = in_array($latestAction, [
-                    'handed_to_kitchen_stock',
-                    'returned_to_kitchen',
-                    'dispatched_to_kitchen', // legacy immediate-assign path
-                ], true);
-
-                if (! $receivable) {
+                if (! in_array($latestAction, self::RECEIVE_ACTIONS, true)) {
                     throw new \RuntimeException('Wait for the rider to hand this box before confirming receive.');
                 }
 
@@ -78,27 +87,52 @@ class IncomingBoxes extends Component
         $kitchenId = Auth::id();
 
         $latestLogIds = MiddoBoxLog::query()
-            ->selectRaw('MAX(id)')
-            ->groupBy('middo_box_id');
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('middo_box_id')
+            ->pluck('id');
 
-        $receivableBoxIds = MiddoBoxLog::query()
+        $visibleBoxIds = MiddoBoxLog::query()
             ->whereIn('id', $latestLogIds)
-            ->whereIn('log_action', [
-                'handed_to_kitchen_stock',
-                'returned_to_kitchen',
-                'dispatched_to_kitchen', // legacy immediate-assign path
-            ])
+            ->whereIn('log_action', self::LIST_ACTIONS)
             ->pluck('middo_box_id');
 
         $boxes = MiddoBox::query()
             ->with(['heldByUser', 'logs' => fn ($q) => $q->latest('id')->limit(1)])
             ->incomingToKitchen($kitchenId)
-            ->whereIn('id', $receivableBoxIds)
+            ->whereIn('id', $visibleBoxIds)
             ->orderBy('qr_code_id')
             ->paginate(20);
 
+        $nodes = collect($boxes->items())
+            ->map(function (MiddoBox $box) {
+                $latestAction = $box->logs->first()?->log_action;
+                $canReceive = in_array($latestAction, self::RECEIVE_ACTIONS, true);
+                $sourceLabel = match ($latestAction) {
+                    'returned_to_kitchen' => 'Rider return',
+                    'handed_to_kitchen_stock', 'dispatched_to_kitchen', 'rider_accepted_kitchen_stock' => 'Warehouse',
+                    default => 'Incoming',
+                };
+                $statusLabel = match ($latestAction) {
+                    'rider_accepted_kitchen_stock' => 'On the way',
+                    'handed_to_kitchen_stock', 'dispatched_to_kitchen', 'returned_to_kitchen' => 'Ready to receive',
+                    default => 'Awaiting',
+                };
+
+                return [
+                    'id' => $box->id,
+                    'qr_code_id' => $box->qr_code_id,
+                    'model' => str($box->box_model_type)->headline()->toString(),
+                    'source_label' => $sourceLabel,
+                    'status_label' => $statusLabel,
+                    'held_by' => $box->heldByUser?->name ?? '—',
+                    'can_receive' => $canReceive,
+                ];
+            })
+            ->all();
+
         return view('livewire.kitchen.incoming-boxes', [
             'boxes' => $boxes,
+            'nodes' => $nodes,
         ])->layout('kitchen.layout.app', ['title' => 'Incoming Middo Boxes']);
     }
 }

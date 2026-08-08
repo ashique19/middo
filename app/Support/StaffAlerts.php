@@ -287,7 +287,21 @@ class StaffAlerts
      * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
      * @return int number of alerts created (rider + kitchen)
      */
+    /**
+     * Ops staged warehouse stock for a rider → kitchen run.
+     * Alerts the rider to pick up. Kitchen is notified later when the rider hands stock.
+     *
+     * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
+     */
     public static function notifyOpsToKitchenBoxes(User $rider, User $kitchen, Collection|array $boxes): int
+    {
+        return self::notifyRiderOpsToKitchenPickup($rider, $kitchen, $boxes);
+    }
+
+    /**
+     * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
+     */
+    public static function notifyRiderOpsToKitchenPickup(User $rider, User $kitchen, Collection|array $boxes): int
     {
         $boxes = collect($boxes)->filter()->values();
         if ($boxes->isEmpty()) {
@@ -299,7 +313,6 @@ class StaffAlerts
         $count = $boxes->count();
         $boxList = implode(', ', array_slice($labels, 0, 5)).($count > 5 ? '…' : '');
         $dedupeBase = 'ops_kitchen:'.$rider->id.':'.$kitchen->id.':'.implode('-', $boxIds);
-        $created = 0;
 
         $riderAlert = self::createOnce(
             (int) $rider->id,
@@ -318,16 +331,34 @@ class StaffAlerts
             ],
             $dedupeBase.':rider'
         );
-        if ($riderAlert) {
-            $created++;
+
+        return $riderAlert ? 1 : 0;
+    }
+
+    /**
+     * Rider handed warehouse stock at the kitchen — ready for kitchen confirm receive.
+     *
+     * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
+     */
+    public static function notifyKitchenOpsToKitchenHanded(User $rider, User $kitchen, Collection|array $boxes): int
+    {
+        $boxes = collect($boxes)->filter()->values();
+        if ($boxes->isEmpty()) {
+            return 0;
         }
+
+        $boxIds = $boxes->map(fn (MiddoBox $b) => (int) $b->id)->sort()->values()->all();
+        $labels = $boxes->map(fn (MiddoBox $b) => $b->qr_code_id ?: '#'.$b->id)->all();
+        $count = $boxes->count();
+        $boxList = implode(', ', array_slice($labels, 0, 5)).($count > 5 ? '…' : '');
+        $dedupeBase = 'ops_kitchen_handed:'.$rider->id.':'.$kitchen->id.':'.implode('-', $boxIds);
 
         $kitchenAlert = self::createOnce(
             (int) $kitchen->id,
             StaffAlert::TYPE_OPS_TO_KITCHEN_BOX,
             $count === 1 ? 'Incoming Middo box' : "Incoming Middo boxes ({$count})",
             sprintf(
-                '%s will bring %s from warehouse after pickup.',
+                '%s handed %s at your kitchen — confirm receive on Incoming.',
                 $rider->name,
                 $boxList
             ),
@@ -336,14 +367,12 @@ class StaffAlerts
                 'box_ids' => $boxIds,
                 'rider_id' => $rider->id,
                 'run_type' => DeliveryRunType::OPS_TO_KITCHEN,
+                'phase' => 'handed',
             ],
             $dedupeBase.':kitchen'
         );
-        if ($kitchenAlert) {
-            $created++;
-        }
 
-        return $created;
+        return $kitchenAlert ? 1 : 0;
     }
 
     /**
