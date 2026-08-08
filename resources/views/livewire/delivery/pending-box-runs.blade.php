@@ -62,9 +62,19 @@
                         wire:click="deliverToWarehouse({{ $box['id'] }})"
                         wire:loading.attr="disabled"
                         wire:target="deliverToWarehouse({{ $box['id'] }})"
-                        wire:confirm="Mark this box as delivered to Middo warehouse?"
+                        wire:confirm="Mark this empty box as handed over to Middo ops?"
                         class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
-                        Deliver to warehouse
+                        Hand to Middo ops
+                    </button>
+                @elseif($box['can_claim_kitchen_return'] ?? false)
+                    <button
+                        type="button"
+                        wire:click="claimKitchenReturn({{ $box['id'] }})"
+                        wire:loading.attr="disabled"
+                        wire:target="claimKitchenReturn({{ $box['id'] }})"
+                        wire:confirm="Claim this kitchen→ops warehouse run?"
+                        class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
+                        Claim run
                     </button>
                 @elseif($box['can_accept_pickup'] ?? false)
                     <button
@@ -82,9 +92,9 @@
                         wire:click="acceptKitchenReturn({{ $box['id'] }})"
                         wire:loading.attr="disabled"
                         wire:target="acceptKitchenReturn({{ $box['id'] }})"
-                        wire:confirm="Accept custody of this empty box at the kitchen for Middo warehouse?"
+                        wire:confirm="Accept this empty box at the kitchen and start the warehouse run?"
                         class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
-                        Accept custody
+                        Accept box & start run
                     </button>
                 @elseif($box['can_hand_warehouse_stock'] ?? false)
                     <button
@@ -167,9 +177,19 @@
                                         wire:click="deliverToWarehouse({{ $box['id'] }})"
                                         wire:loading.attr="disabled"
                                         wire:target="deliverToWarehouse({{ $box['id'] }})"
-                                        wire:confirm="Mark this box as delivered to Middo warehouse?"
+                                        wire:confirm="Mark this empty box as handed over to Middo ops?"
                                         class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
-                                        Deliver to warehouse
+                                        Hand to Middo ops
+                                    </button>
+                                @elseif($box['can_claim_kitchen_return'] ?? false)
+                                    <button
+                                        type="button"
+                                        wire:click="claimKitchenReturn({{ $box['id'] }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="claimKitchenReturn({{ $box['id'] }})"
+                                        wire:confirm="Claim this kitchen→ops warehouse run?"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
+                                        Claim run
                                     </button>
                                 @elseif($box['can_accept_pickup'] ?? false)
                                     <button
@@ -187,9 +207,9 @@
                                         wire:click="acceptKitchenReturn({{ $box['id'] }})"
                                         wire:loading.attr="disabled"
                                         wire:target="acceptKitchenReturn({{ $box['id'] }})"
-                                        wire:confirm="Accept custody of this empty box at the kitchen for Middo warehouse?"
+                                        wire:confirm="Accept this empty box at the kitchen and start the warehouse run?"
                                         class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
-                                        Accept custody
+                                        Accept box & start run
                                     </button>
                                 @elseif($box['can_hand_warehouse_stock'] ?? false)
                                     <button

@@ -29,7 +29,7 @@ class MiddoBoxKitchenActions
             }
 
             if ($box->hasOpenWarehouseHandoff()) {
-                throw new \RuntimeException('Cancel the rider pickup tag before marking this box damaged.');
+                throw new \RuntimeException('Cancel the warehouse run before marking this box damaged.');
             }
 
             $box->update([
@@ -49,7 +49,21 @@ class MiddoBoxKitchenActions
         });
     }
 
+    /**
+     * Empty-box return entry point.
+     * Via-rider on → mark ready to ship (area riders notified).
+     * Via-rider off → teleport to warehouse inventory.
+     */
     public static function sendToWarehouse(MiddoBox $box, int $kitchenId): MiddoBox
+    {
+        if (MiddoSettings::kitchenToOpsViaRider()) {
+            return self::markReadyToShip($box, $kitchenId);
+        }
+
+        return self::teleportToWarehouse($box, $kitchenId);
+    }
+
+    public static function teleportToWarehouse(MiddoBox $box, int $kitchenId): MiddoBox
     {
         return DB::transaction(function () use ($box, $kitchenId) {
             $box = MiddoBox::query()->whereKey($box->id)->lockForUpdate()->firstOrFail();
@@ -67,7 +81,7 @@ class MiddoBoxKitchenActions
             }
 
             if ($box->hasOpenWarehouseHandoff()) {
-                throw new \RuntimeException('This box is already tagged for a rider. Wait for pickup or keep it on the rider path.');
+                throw new \RuntimeException('This box is already on a warehouse return run.');
             }
 
             $box->update([
@@ -89,12 +103,11 @@ class MiddoBoxKitchenActions
     }
 
     /**
-     * Kitchen tags a rider for empty-box return. Box stays at kitchen until the rider accepts.
-     * Caller must enforce MiddoSettings::kitchenToOpsViaRider().
+     * Kitchen marks empty box ready to ship → area riders notified to claim the run.
      */
-    public static function stageForWarehousePickup(MiddoBox $box, int $kitchenId, int $riderId): MiddoBox
+    public static function markReadyToShip(MiddoBox $box, int $kitchenId): MiddoBox
     {
-        return DB::transaction(function () use ($box, $kitchenId, $riderId) {
+        return DB::transaction(function () use ($box, $kitchenId) {
             if (! Schema::hasTable('kitchen_warehouse_handoffs')) {
                 throw new \RuntimeException(
                     'Kitchen→ops rider handoff is not installed yet. Run migrations (kitchen_warehouse_handoffs).'
@@ -116,50 +129,161 @@ class MiddoBoxKitchenActions
             }
 
             if ($box->hasOpenWarehouseHandoff()) {
-                throw new \RuntimeException('This box is already tagged for rider pickup.');
+                throw new \RuntimeException('This box is already on a warehouse return run.');
             }
 
-            $rider = self::assertActiveDeliveryRider($riderId, $kitchenId);
             $kitchen = User::query()->findOrFail($kitchenId);
 
-            // Unique middo_box_id: clear completed handoffs so stock can return again later.
             KitchenWarehouseHandoff::query()
                 ->where('middo_box_id', $box->id)
-                ->where('status', KitchenWarehouseHandoff::STATUS_DELIVERED)
+                ->whereIn('status', [
+                    KitchenWarehouseHandoff::STATUS_RECEIVED,
+                    KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS,
+                ])
                 ->delete();
 
             KitchenWarehouseHandoff::create([
                 'middo_box_id' => $box->id,
                 'kitchen_id' => $kitchenId,
-                'rider_id' => $rider->id,
-                'status' => KitchenWarehouseHandoff::STATUS_READY_FOR_PICKUP,
+                'rider_id' => null,
+                'status' => KitchenWarehouseHandoff::STATUS_RUN_REQUESTED,
             ]);
 
             MiddoBoxLog::create([
                 'middo_box_id' => $box->id,
                 'custody_status' => 'assigned_at_kitchen',
-                'log_action' => 'staged_for_warehouse_pickup',
-                'notes' => 'Ready for rider pickup by '.$rider->name.' → Middo warehouse',
+                'log_action' => 'warehouse_run_requested',
+                'notes' => 'Ready to ship to Middo warehouse — awaiting rider claim',
                 'performed_by' => $kitchenId,
             ]);
 
-            $fresh = $box->fresh(['warehouseHandoff.rider']);
-            StaffAlerts::notifyKitchenToOpsBoxes($rider, $kitchen, [$fresh]);
+            // Keep legacy log for older history filters.
+            MiddoBoxLog::create([
+                'middo_box_id' => $box->id,
+                'custody_status' => 'assigned_at_kitchen',
+                'log_action' => 'staged_for_warehouse_pickup',
+                'notes' => 'Ready to ship to Middo warehouse — awaiting rider claim',
+                'performed_by' => $kitchenId,
+            ]);
+
+            $fresh = $box->fresh(['warehouseHandoff']);
+            StaffAlerts::notifyAreaRidersKitchenToOpsRunRequested($kitchen, [$fresh]);
 
             return $fresh;
         });
     }
 
     /**
-     * @deprecated Use stageForWarehousePickup — kept as alias for older call sites/tests.
+     * Rider claims an open kitchen→ops run request for their area.
      */
-    public static function dispatchToWarehouseViaRider(MiddoBox $box, int $kitchenId, int $riderId): MiddoBox
+    public static function claimWarehouseRun(int $boxId, int $riderId): MiddoBox
     {
-        return self::stageForWarehousePickup($box, $kitchenId, $riderId);
+        return DB::transaction(function () use ($boxId, $riderId) {
+            $handoff = KitchenWarehouseHandoff::query()
+                ->with(['kitchen', 'box'])
+                ->where('middo_box_id', $boxId)
+                ->where('status', KitchenWarehouseHandoff::STATUS_RUN_REQUESTED)
+                ->whereNull('rider_id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $handoff) {
+                throw new \RuntimeException('This warehouse run is no longer available to claim.');
+            }
+
+            $rider = User::query()
+                ->with('role')
+                ->whereKey($riderId)
+                ->where('status', 'active')
+                ->whereHas('role', fn ($q) => $q->where('name', 'delivery'))
+                ->first();
+            if (! $rider) {
+                throw new \RuntimeException('Only active delivery riders can claim this run.');
+            }
+
+            $kitchen = $handoff->kitchen ?? User::query()->find($handoff->kitchen_id);
+            $kitchenAreaId = $kitchen?->area_id !== null ? (int) $kitchen->area_id : null;
+            if ($kitchenAreaId !== null && ! $rider->servesArea($kitchenAreaId)) {
+                throw new \RuntimeException('This run is outside your service areas.');
+            }
+
+            if (method_exists($rider, 'canAcceptNewRuns') && ! $rider->canAcceptNewRuns()) {
+                throw new \RuntimeException('You are not on shift. Set On shift on the dashboard before accepting runs.');
+            }
+
+            $box = MiddoBox::query()->whereKey($boxId)->lockForUpdate()->firstOrFail();
+            if (! $box->isAtKitchen((int) $handoff->kitchen_id)) {
+                throw new \RuntimeException('This box is not available at the kitchen.');
+            }
+
+            $handoff->update([
+                'rider_id' => $rider->id,
+                'status' => KitchenWarehouseHandoff::STATUS_RUN_CLAIMED,
+            ]);
+
+            MiddoBoxLog::create([
+                'middo_box_id' => $box->id,
+                'custody_status' => 'assigned_at_kitchen',
+                'log_action' => 'rider_claimed_warehouse_run',
+                'notes' => $rider->name.' claimed warehouse return run',
+                'performed_by' => $rider->id,
+            ]);
+
+            $fresh = $box->fresh(['warehouseHandoff.rider']);
+            if ($kitchen) {
+                StaffAlerts::notifyKitchenWarehouseRunClaimed($rider, $kitchen, [$fresh]);
+            }
+
+            return $fresh;
+        });
     }
 
     /**
-     * Rider accepts kitchen→ops empty-box custody at the kitchen.
+     * Kitchen dispatches the claimed box to the rider.
+     */
+    public static function dispatchWarehouseRun(int $boxId, int $kitchenId): MiddoBox
+    {
+        return DB::transaction(function () use ($boxId, $kitchenId) {
+            $handoff = KitchenWarehouseHandoff::query()
+                ->with(['rider', 'kitchen'])
+                ->where('middo_box_id', $boxId)
+                ->where('kitchen_id', $kitchenId)
+                ->where('status', KitchenWarehouseHandoff::STATUS_RUN_CLAIMED)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $handoff || ! $handoff->rider_id) {
+                throw new \RuntimeException('No rider has claimed this warehouse run yet.');
+            }
+
+            $box = MiddoBox::query()->whereKey($boxId)->lockForUpdate()->firstOrFail();
+            if (! $box->isAtKitchen($kitchenId)) {
+                throw new \RuntimeException('This box is not in your kitchen inventory.');
+            }
+
+            $handoff->update(['status' => KitchenWarehouseHandoff::STATUS_DISPATCHED]);
+
+            MiddoBoxLog::create([
+                'middo_box_id' => $box->id,
+                'custody_status' => 'assigned_at_kitchen',
+                'log_action' => 'kitchen_dispatched_warehouse_run',
+                'notes' => 'Dispatched to '.($handoff->rider?->name ?? 'rider').' for Middo warehouse',
+                'performed_by' => $kitchenId,
+            ]);
+
+            $fresh = $box->fresh(['warehouseHandoff.rider']);
+            $kitchen = $handoff->kitchen ?? User::query()->find($kitchenId);
+            $rider = $handoff->rider ?? User::query()->find($handoff->rider_id);
+            if ($kitchen && $rider) {
+                StaffAlerts::notifyRiderKitchenToOpsDispatched($rider, $kitchen, [$fresh]);
+            }
+
+            return $fresh;
+        });
+    }
+
+    /**
+     * Rider accepts the physical box at kitchen and starts the warehouse run.
      */
     public static function acceptWarehouseReturnCustody(int $boxId, int $riderId): MiddoBox
     {
@@ -168,12 +292,12 @@ class MiddoBoxKitchenActions
                 ->with(['kitchen', 'box'])
                 ->where('middo_box_id', $boxId)
                 ->where('rider_id', $riderId)
-                ->where('status', KitchenWarehouseHandoff::STATUS_READY_FOR_PICKUP)
+                ->where('status', KitchenWarehouseHandoff::STATUS_DISPATCHED)
                 ->lockForUpdate()
                 ->first();
 
             if (! $handoff) {
-                throw new \RuntimeException('This box is not staged for your kitchen→warehouse pickup.');
+                throw new \RuntimeException('Kitchen has not dispatched this box to you yet.');
             }
 
             $box = MiddoBox::query()->whereKey($boxId)->lockForUpdate()->firstOrFail();
@@ -190,17 +314,16 @@ class MiddoBoxKitchenActions
                 'last_scanned_at' => now(),
             ]);
 
-            $handoff->update(['status' => KitchenWarehouseHandoff::STATUS_RIDER_ACCEPTED]);
+            $handoff->update(['status' => KitchenWarehouseHandoff::STATUS_IN_TRANSIT]);
 
             MiddoBoxLog::create([
                 'middo_box_id' => $box->id,
                 'custody_status' => 'in_transit',
                 'log_action' => 'rider_accepted_warehouse_return',
-                'notes' => 'Rider accepted empty box for Middo warehouse return',
+                'notes' => 'Rider accepted empty box — run started to Middo warehouse',
                 'performed_by' => $riderId,
             ]);
 
-            // Keep legacy action so deliverToWarehouseByRider / UI gates stay compatible.
             MiddoBoxLog::create([
                 'middo_box_id' => $box->id,
                 'custody_status' => 'in_transit',
@@ -231,9 +354,9 @@ class MiddoBoxKitchenActions
     }
 
     /**
-     * Rider completes kitchen→ops leg: box arrives at Middo warehouse (ops ack queue).
+     * Rider marks box handed over to ops (ops receive queue).
      */
-    public static function deliverToWarehouseByRider(MiddoBox $box, int $riderId): MiddoBox
+    public static function handToOpsByRider(MiddoBox $box, int $riderId): MiddoBox
     {
         return DB::transaction(function () use ($box, $riderId) {
             $box = MiddoBox::query()->whereKey($box->id)->lockForUpdate()->firstOrFail();
@@ -242,17 +365,22 @@ class MiddoBoxKitchenActions
                 throw new \RuntimeException('This box is not in your custody.');
             }
 
-            if ($box->asset_status !== 'active') {
-                throw new \RuntimeException('This box cannot be delivered to the warehouse.');
-            }
-
-            $latestAction = MiddoBoxLog::query()
+            $handoff = KitchenWarehouseHandoff::query()
                 ->where('middo_box_id', $box->id)
-                ->orderByDesc('id')
-                ->value('log_action');
+                ->where('rider_id', $riderId)
+                ->where('status', KitchenWarehouseHandoff::STATUS_IN_TRANSIT)
+                ->lockForUpdate()
+                ->first();
 
-            if ($latestAction !== 'dispatched_to_warehouse') {
-                throw new \RuntimeException('This box is not on a kitchen→warehouse run.');
+            if (! $handoff) {
+                // Legacy path: latest log dispatched_to_warehouse.
+                $latestAction = MiddoBoxLog::query()
+                    ->where('middo_box_id', $box->id)
+                    ->orderByDesc('id')
+                    ->value('log_action');
+                if ($latestAction !== 'dispatched_to_warehouse') {
+                    throw new \RuntimeException('This box is not on an active kitchen→warehouse run.');
+                }
             }
 
             $box->update([
@@ -265,18 +393,58 @@ class MiddoBoxKitchenActions
             MiddoBoxLog::create([
                 'middo_box_id' => $box->id,
                 'custody_status' => 'warehouse',
+                'log_action' => 'handed_to_ops_warehouse',
+                'notes' => 'Rider handed empty box to Middo ops',
+                'performed_by' => $riderId,
+            ]);
+
+            // Ops returns queue keys off returned_to_warehouse as latest action.
+            MiddoBoxLog::create([
+                'middo_box_id' => $box->id,
+                'custody_status' => 'warehouse',
                 'log_action' => 'returned_to_warehouse',
                 'performed_by' => $riderId,
             ]);
 
-            KitchenWarehouseHandoff::query()
-                ->where('middo_box_id', $box->id)
-                ->where('rider_id', $riderId)
-                ->where('status', KitchenWarehouseHandoff::STATUS_RIDER_ACCEPTED)
-                ->update(['status' => KitchenWarehouseHandoff::STATUS_DELIVERED]);
+            if ($handoff) {
+                $handoff->update(['status' => KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS]);
+            } else {
+                KitchenWarehouseHandoff::query()
+                    ->where('middo_box_id', $box->id)
+                    ->where('rider_id', $riderId)
+                    ->where('status', KitchenWarehouseHandoff::STATUS_IN_TRANSIT)
+                    ->update(['status' => KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS]);
+            }
 
             return $box->fresh();
         });
+    }
+
+    /**
+     * @deprecated Use handToOpsByRider
+     */
+    public static function deliverToWarehouseByRider(MiddoBox $box, int $riderId): MiddoBox
+    {
+        return self::handToOpsByRider($box, $riderId);
+    }
+
+    /**
+     * @deprecated Prefer markReadyToShip — kept for older call sites that tagged a rider directly.
+     */
+    public static function stageForWarehousePickup(MiddoBox $box, int $kitchenId, int $riderId): MiddoBox
+    {
+        $box = self::markReadyToShip($box, $kitchenId);
+        self::claimWarehouseRun((int) $box->id, $riderId);
+
+        return self::dispatchWarehouseRun((int) $box->id, $kitchenId);
+    }
+
+    /**
+     * @deprecated Use stageForWarehousePickup / markReadyToShip
+     */
+    public static function dispatchToWarehouseViaRider(MiddoBox $box, int $kitchenId, int $riderId): MiddoBox
+    {
+        return self::stageForWarehousePickup($box, $kitchenId, $riderId);
     }
 
     public static function sendDamagedToWarehouse(MiddoBox $box, int $kitchenId, ?string $notes = null): MiddoBox
@@ -313,24 +481,6 @@ class MiddoBoxKitchenActions
 
             return $box->fresh();
         });
-    }
-
-    protected static function assertActiveDeliveryRider(int $riderId, int $kitchenId): User
-    {
-        $rider = User::query()
-            ->with(['role', 'areas'])
-            ->whereKey($riderId)
-            ->where('status', 'active')
-            ->whereHas('role', fn ($q) => $q->where('name', 'delivery'))
-            ->first();
-
-        if (! $rider) {
-            throw new \RuntimeException('Selected rider is not available.');
-        }
-
-        // Area is a preference for listing order only — kitchen→ops empty-box runs
-        // may use any active delivery rider (same as ops→kitchen staging).
-        return $rider;
     }
 
     protected static function normalizeNotes(?string $notes): ?string

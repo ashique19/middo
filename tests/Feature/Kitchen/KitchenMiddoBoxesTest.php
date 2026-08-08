@@ -164,6 +164,8 @@ class KitchenMiddoBoxesTest extends TestCase
 
     public function test_kitchen_can_send_box_at_kitchen_to_warehouse(): void
     {
+        \App\Support\MiddoSettings::set(\App\Support\MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
+
         $box = $this->makeBox([
             'kitchen_id' => $this->kitchen->id,
             'held_by_user_id' => $this->kitchen->id,
@@ -179,15 +181,19 @@ class KitchenMiddoBoxesTest extends TestCase
         Livewire::actingAs($this->kitchen)
             ->test(BoxesAtKitchen::class)
             ->call('sendToWarehouse', $box->id)
-            ->assertSet('statusMessage', "{$box->qr_code_id} sent to Middo warehouse.");
+            ->assertSet('errorMessage', null)
+            ->assertSee('marked ready to ship', false);
 
         $box->refresh();
-        $this->assertNull($box->kitchen_id);
-        $this->assertNull($box->held_by_user_id);
-        $this->assertSame('at_middo_warehouse', $box->asset_status);
+        $this->assertSame($this->kitchen->id, $box->kitchen_id);
+        $this->assertSame($this->kitchen->id, $box->held_by_user_id);
+        $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
+            'middo_box_id' => $box->id,
+            'status' => \App\Models\KitchenWarehouseHandoff::STATUS_RUN_REQUESTED,
+        ]);
         $this->assertDatabaseHas('middo_box_logs', [
             'middo_box_id' => $box->id,
-            'log_action' => 'returned_to_warehouse',
+            'log_action' => 'warehouse_run_requested',
             'performed_by' => $this->kitchen->id,
         ]);
     }

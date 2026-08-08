@@ -14,8 +14,8 @@ return new class extends Migration
                 $table->id();
                 $table->foreignId('middo_box_id')->constrained('middo_boxes')->restrictOnDelete();
                 $table->foreignId('kitchen_id')->constrained('users')->cascadeOnDelete();
-                $table->foreignId('rider_id')->constrained('users')->cascadeOnDelete();
-                $table->string('status', 32)->default('ready_for_pickup');
+                $table->foreignId('rider_id')->nullable()->constrained('users')->cascadeOnDelete();
+                $table->string('status', 32)->default('run_requested');
                 $table->timestamps();
 
                 $table->unique('middo_box_id');

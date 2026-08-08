@@ -68,10 +68,7 @@ class MiddoBox extends Model
             ? $this->warehouseHandoff
             : $this->warehouseHandoff()->first();
 
-        return $link !== null && in_array($link->status, [
-            KitchenWarehouseHandoff::STATUS_READY_FOR_PICKUP,
-            KitchenWarehouseHandoff::STATUS_RIDER_ACCEPTED,
-        ], true);
+        return $link !== null && in_array($link->status, KitchenWarehouseHandoff::openStatuses(), true);
     }
 
     public function isStagedForWarehousePickup(): bool
@@ -80,8 +77,13 @@ class MiddoBox extends Model
             ? $this->warehouseHandoff
             : $this->warehouseHandoff()->first();
 
-        return $link?->status === KitchenWarehouseHandoff::STATUS_READY_FOR_PICKUP
-            && $this->isAtKitchen();
+        return $link !== null
+            && $this->isAtKitchen()
+            && in_array($link->status, [
+                KitchenWarehouseHandoff::STATUS_RUN_REQUESTED,
+                KitchenWarehouseHandoff::STATUS_RUN_CLAIMED,
+                KitchenWarehouseHandoff::STATUS_DISPATCHED,
+            ], true);
     }
 
     /**

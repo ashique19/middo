@@ -198,7 +198,7 @@
                                class="mt-1 rounded border-gray-300 text-middo-orange focus:ring-middo-orange">
                         <span>
                             <span class="block text-sm font-bold text-middo-dark">Kitchen → ops via rider</span>
-                            <span class="block text-[11px] text-gray-400 mt-0.5">When on, kitchen can tag a rider for empty-box returns (stage → accept → deliver; books the kitchen→ops rate on accept). Direct warehouse send stays available. Default on.</span>
+                            <span class="block text-[11px] text-gray-400 mt-0.5">When on, “Send to Middo warehouse” requests an area-rider run (claim → kitchen dispatch → accept box → hand to ops → ops receive). Commission books when the rider accepts the box. Default on.</span>
                         </span>
                     </label>
                     @error('kitchen_to_ops_via_rider') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror

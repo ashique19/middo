@@ -140,51 +140,6 @@
         </div>
     @endif
 
-    @if($viaRiderBoxId && $viaRiderEnabled)
-        <div class="rounded-2xl border border-sky-200 bg-sky-50/60 p-4 sm:p-5 shadow-sm space-y-3">
-            <h2 class="text-lg font-bold text-middo-dark">Tag rider for warehouse return</h2>
-            <p class="text-sm text-gray-600">
-                Box stays at your kitchen until the rider accepts custody, then they deliver it to Middo warehouse for ops acknowledgment.
-            </p>
-            <ol class="text-sm text-gray-600 list-decimal ps-5 space-y-0.5">
-                <li>You tag a rider (box still here)</li>
-                <li>Rider accepts → holds the box</li>
-                <li>Rider delivers to warehouse → ops confirms</li>
-            </ol>
-            <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Rider</label>
-                <select wire:model="selectedRiderId"
-                        class="w-full max-w-md rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange bg-white">
-                    <option value="">Select rider…</option>
-                    @forelse($riders as $rider)
-                        <option value="{{ $rider['id'] }}">
-                            {{ $rider['name'] }}@if(!empty($rider['areas_label'])) — {{ $rider['areas_label'] }}@endif
-                        </option>
-                    @empty
-                        <option value="" disabled>No active delivery riders found</option>
-                    @endforelse
-                </select>
-                @error('selectedRiderId') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                @if($riders === [])
-                    <p class="text-xs font-semibold text-amber-800 mt-2">
-                        Add an active user with the delivery role before tagging a rider.
-                    </p>
-                @endif
-            </div>
-            <div class="flex flex-col-reverse sm:flex-row flex-wrap gap-2">
-                <button type="button" wire:click="sendViaRider"
-                        wire:confirm="Tag this rider to pick up the empty box for Middo warehouse?"
-                        class="inline-flex justify-center px-4 py-2.5 sm:py-2 rounded-xl bg-middo-orange text-white text-sm font-bold hover:bg-[#733614] w-full sm:w-auto">
-                    Tag rider
-                </button>
-                <button type="button" wire:click="cancelViaRider"
-                        class="inline-flex justify-center px-4 py-2.5 sm:py-2 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-white w-full sm:w-auto">
-                    Cancel
-                </button>
-            </div>
-        </div>
-    @endif
-
     @if($filter === 'history')
         {{-- Mobile cards --}}
         <div class="md:hidden space-y-3">
@@ -280,8 +235,12 @@
                 @php
                     $reserved = (int) ($box->order_middo_boxes_count ?? 0) > 0;
                     $damaged = $box->asset_status === 'damaged';
-                    $stagedForWarehouse = $box->isStagedForWarehousePickup();
-                    $stagedRiderName = $box->warehouseHandoff?->rider?->name;
+                    $handoff = $box->warehouseHandoff;
+                    $runRequested = $handoff?->status === \App\Models\KitchenWarehouseHandoff::STATUS_RUN_REQUESTED;
+                    $runClaimed = $handoff?->status === \App\Models\KitchenWarehouseHandoff::STATUS_RUN_CLAIMED;
+                    $runDispatched = $handoff?->status === \App\Models\KitchenWarehouseHandoff::STATUS_DISPATCHED;
+                    $onWarehouseRun = $runRequested || $runClaimed || $runDispatched;
+                    $stagedRiderName = $handoff?->rider?->name;
                 @endphp
                 <div wire:key="kitchen-box-m-{{ $box->id }}"
                      class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm space-y-3">
@@ -294,9 +253,17 @@
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
                                 Damaged
                             </span>
-                        @elseif($stagedForWarehouse)
+                        @elseif($runRequested)
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
-                                Tagged for pickup
+                                Ready to ship
+                            </span>
+                        @elseif($runClaimed)
+                            <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                                Rider claimed
+                            </span>
+                        @elseif($runDispatched)
+                            <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-violet-50 text-violet-800 border border-violet-200">
+                                Dispatched
                             </span>
                         @elseif($reserved)
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
@@ -309,13 +276,21 @@
                         @endif
                     </div>
 
-                    @if($stagedForWarehouse)
+                    @if($runRequested)
                         <p class="text-sm font-semibold text-sky-800">
-                            Waiting for {{ $stagedRiderName ?? 'rider' }} to accept custody → Middo warehouse
+                            Waiting for an area rider to claim this warehouse run
+                        </p>
+                    @elseif($runClaimed)
+                        <p class="text-sm font-semibold text-amber-900">
+                            {{ $stagedRiderName ?? 'Rider' }} claimed — dispatch when ready
+                        </p>
+                    @elseif($runDispatched)
+                        <p class="text-sm font-semibold text-violet-800">
+                            Waiting for {{ $stagedRiderName ?? 'rider' }} to accept the box
                         </p>
                     @endif
 
-                    @if($damaged || (! $reserved && ! $stagedForWarehouse))
+                    @if($damaged || (! $reserved && ! $onWarehouseRun) || $runClaimed)
                         <div class="flex flex-col gap-2 pt-1 border-t border-gray-100">
                             @if($damaged)
                                 <button
@@ -328,25 +303,28 @@
                                     <span wire:loading.remove wire:target="sendDamagedToWarehouse({{ $box->id }})">Send damaged to Middo</span>
                                     <span wire:loading wire:target="sendDamagedToWarehouse({{ $box->id }})">Sending...</span>
                                 </button>
+                            @elseif($runClaimed)
+                                <button
+                                    type="button"
+                                    wire:click="dispatchWarehouseRun({{ $box->id }})"
+                                    wire:loading.attr="disabled"
+                                    wire:target="dispatchWarehouseRun({{ $box->id }})"
+                                    wire:confirm="Dispatch this box to {{ $stagedRiderName ?? 'the claiming rider' }}?"
+                                    class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange text-white text-xs font-bold hover:bg-[#733614] transition disabled:opacity-60">
+                                    <span wire:loading.remove wire:target="dispatchWarehouseRun({{ $box->id }})">Dispatch to {{ $stagedRiderName ?? 'rider' }}</span>
+                                    <span wire:loading wire:target="dispatchWarehouseRun({{ $box->id }})">Dispatching...</span>
+                                </button>
                             @else
                                 <button
                                     type="button"
                                     wire:click="sendToWarehouse({{ $box->id }})"
                                     wire:loading.attr="disabled"
                                     wire:target="sendToWarehouse({{ $box->id }})"
-                                    wire:confirm="Send this empty box back to Middo warehouse?"
+                                    wire:confirm="{{ $viaRiderEnabled ? 'Mark this empty box ready to ship to Middo warehouse? Area riders will be notified.' : 'Send this empty box back to Middo warehouse?' }}"
                                     class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-middo-dark hover:border-middo-orange hover:text-middo-orange transition disabled:opacity-60">
                                     <span wire:loading.remove wire:target="sendToWarehouse({{ $box->id }})">Send to Middo warehouse</span>
                                     <span wire:loading wire:target="sendToWarehouse({{ $box->id }})">Sending...</span>
                                 </button>
-                                @if($viaRiderEnabled)
-                                    <button
-                                        type="button"
-                                        wire:click="openViaRider({{ $box->id }})"
-                                        class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl border border-sky-300 bg-sky-50 text-xs font-bold text-sky-800 hover:bg-sky-100 transition">
-                                        Tag rider
-                                    </button>
-                                @endif
                                 <button
                                     type="button"
                                     wire:click="openDamage({{ $box->id }})"
@@ -382,8 +360,11 @@
                             @php
                                 $reserved = (int) ($box->order_middo_boxes_count ?? 0) > 0;
                                 $damaged = $box->asset_status === 'damaged';
-                                $stagedForWarehouse = $box->isStagedForWarehousePickup();
-                                $stagedRiderName = $box->warehouseHandoff?->rider?->name;
+                                $handoff = $box->warehouseHandoff;
+                                $runRequested = $handoff?->status === \App\Models\KitchenWarehouseHandoff::STATUS_RUN_REQUESTED;
+                                $runClaimed = $handoff?->status === \App\Models\KitchenWarehouseHandoff::STATUS_RUN_CLAIMED;
+                                $runDispatched = $handoff?->status === \App\Models\KitchenWarehouseHandoff::STATUS_DISPATCHED;
+                                $stagedRiderName = $handoff?->rider?->name;
                             @endphp
                             <tr wire:key="kitchen-box-{{ $box->id }}" class="hover:bg-gray-50/70 transition">
                                 <td class="p-4 font-mono font-bold text-middo-dark">{{ $box->qr_code_id }}</td>
@@ -393,14 +374,26 @@
                                         <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
                                             Damaged
                                         </span>
-                                    @elseif($stagedForWarehouse)
+                                    @elseif($runRequested)
                                         <div class="space-y-1">
                                             <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
-                                                Tagged for pickup
+                                                Ready to ship
                                             </span>
-                                            <p class="text-xs font-semibold text-sky-800">
-                                                Waiting for {{ $stagedRiderName ?? 'rider' }} → Middo warehouse
-                                            </p>
+                                            <p class="text-xs font-semibold text-sky-800">Awaiting rider claim</p>
+                                        </div>
+                                    @elseif($runClaimed)
+                                        <div class="space-y-1">
+                                            <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                                                Rider claimed
+                                            </span>
+                                            <p class="text-xs font-semibold text-amber-900">{{ $stagedRiderName ?? 'Rider' }} — dispatch when ready</p>
+                                        </div>
+                                    @elseif($runDispatched)
+                                        <div class="space-y-1">
+                                            <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-violet-50 text-violet-800 border border-violet-200">
+                                                Dispatched
+                                            </span>
+                                            <p class="text-xs font-semibold text-violet-800">Waiting for {{ $stagedRiderName ?? 'rider' }} accept</p>
                                         </div>
                                     @elseif($reserved)
                                         <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
@@ -426,9 +419,20 @@
                                                 <span wire:loading.remove wire:target="sendDamagedToWarehouse({{ $box->id }})">Send damaged to Middo</span>
                                                 <span wire:loading wire:target="sendDamagedToWarehouse({{ $box->id }})">Sending...</span>
                                             </button>
-                                        @elseif($stagedForWarehouse)
+                                        @elseif($runClaimed)
+                                            <button
+                                                type="button"
+                                                wire:click="dispatchWarehouseRun({{ $box->id }})"
+                                                wire:loading.attr="disabled"
+                                                wire:target="dispatchWarehouseRun({{ $box->id }})"
+                                                wire:confirm="Dispatch this box to {{ $stagedRiderName ?? 'the claiming rider' }}?"
+                                                class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold hover:bg-[#733614] transition disabled:opacity-60">
+                                                <span wire:loading.remove wire:target="dispatchWarehouseRun({{ $box->id }})">Dispatch to {{ $stagedRiderName ?? 'rider' }}</span>
+                                                <span wire:loading wire:target="dispatchWarehouseRun({{ $box->id }})">Dispatching...</span>
+                                            </button>
+                                        @elseif($runRequested || $runDispatched)
                                             <span class="inline-flex items-center px-3 py-1.5 rounded-xl border border-sky-200 bg-sky-50 text-xs font-bold text-sky-800">
-                                                Awaiting rider accept
+                                                {{ $runRequested ? 'Awaiting rider claim' : 'Awaiting rider accept' }}
                                             </span>
                                         @elseif(! $reserved)
                                             <button
@@ -437,20 +441,12 @@
                                                 class="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-300 bg-white text-xs font-bold text-amber-800 hover:bg-amber-50 transition">
                                                 Mark damaged
                                             </button>
-                                            @if($viaRiderEnabled)
-                                                <button
-                                                    type="button"
-                                                    wire:click="openViaRider({{ $box->id }})"
-                                                    class="inline-flex items-center px-3 py-1.5 rounded-xl border border-sky-300 bg-sky-50 text-xs font-bold text-sky-800 hover:bg-sky-100 transition">
-                                                    Tag rider
-                                                </button>
-                                            @endif
                                             <button
                                                 type="button"
                                                 wire:click="sendToWarehouse({{ $box->id }})"
                                                 wire:loading.attr="disabled"
                                                 wire:target="sendToWarehouse({{ $box->id }})"
-                                                wire:confirm="Send this empty box back to Middo warehouse?"
+                                                wire:confirm="{{ $viaRiderEnabled ? 'Mark this empty box ready to ship to Middo warehouse? Area riders will be notified.' : 'Send this empty box back to Middo warehouse?' }}"
                                                 class="inline-flex items-center px-3 py-1.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-middo-dark hover:border-middo-orange hover:text-middo-orange transition disabled:opacity-60">
                                                 <span wire:loading.remove wire:target="sendToWarehouse({{ $box->id }})">Send to Middo warehouse</span>
                                                 <span wire:loading wire:target="sendToWarehouse({{ $box->id }})">Sending...</span>

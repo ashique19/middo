@@ -218,15 +218,35 @@ class BoxesAtKitchen extends Component
         try {
             $box = MiddoBox::query()->findOrFail($boxId);
             $sent = MiddoBoxKitchenActions::sendToWarehouse($box, (int) Auth::id());
-            $this->statusMessage = "{$sent->qr_code_id} sent to Middo warehouse.";
+            if (MiddoSettings::kitchenToOpsViaRider()) {
+                $this->statusMessage = "{$sent->qr_code_id} marked ready to ship. Area riders were notified to claim the run.";
+            } else {
+                $this->statusMessage = "{$sent->qr_code_id} sent to Middo warehouse.";
+            }
             $this->resetPage();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not send box to warehouse.';
         }
     }
 
+    public function dispatchWarehouseRun(int $boxId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        try {
+            $box = MiddoBoxKitchenActions::dispatchWarehouseRun($boxId, (int) Auth::id());
+            $riderName = $box->warehouseHandoff?->rider?->name ?? 'rider';
+            $this->statusMessage = "{$box->qr_code_id} dispatched to {$riderName}. They can accept the box and start the run.";
+            $this->resetPage();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not dispatch this run.';
+        }
+    }
+
     public function sendViaRider(): void
     {
+        // Legacy fast-path kept for tests: claim+dispatch a named rider after ready-to-ship.
         $this->statusMessage = null;
         $this->errorMessage = null;
 
@@ -252,11 +272,11 @@ class BoxesAtKitchen extends Component
                 (int) $this->selectedRiderId
             );
             $riderName = $tagged->warehouseHandoff?->rider?->name ?? 'rider';
-            $this->statusMessage = "{$tagged->qr_code_id} tagged for {$riderName}. Keep it at kitchen until they accept custody.";
+            $this->statusMessage = "{$tagged->qr_code_id} dispatched to {$riderName}.";
             $this->cancelViaRider();
             $this->resetPage();
         } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage() ?: 'Could not tag rider.';
+            $this->errorMessage = $e->getMessage() ?: 'Could not assign rider.';
         }
     }
 
@@ -331,6 +351,10 @@ class BoxesAtKitchen extends Component
                     'returned_to_warehouse',
                     'dispatched_to_warehouse',
                     'staged_for_warehouse_pickup',
+                    'warehouse_run_requested',
+                    'rider_claimed_warehouse_run',
+                    'kitchen_dispatched_warehouse_run',
+                    'handed_to_ops_warehouse',
                     'returned_damaged_to_warehouse',
                     'marked_damaged_at_kitchen',
                     'received_at_kitchen',
@@ -352,6 +376,10 @@ class BoxesAtKitchen extends Component
                     'returned_to_warehouse',
                     'dispatched_to_warehouse',
                     'staged_for_warehouse_pickup',
+                    'warehouse_run_requested',
+                    'rider_claimed_warehouse_run',
+                    'kitchen_dispatched_warehouse_run',
+                    'handed_to_ops_warehouse',
                     'returned_damaged_to_warehouse',
                     'marked_damaged_at_kitchen',
                     'received_at_kitchen',

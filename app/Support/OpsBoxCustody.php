@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\KitchenWarehouseHandoff;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Models\Role;
@@ -124,6 +125,16 @@ class OpsBoxCustody
             'notes' => 'Ops acknowledged inbound return',
             'performed_by' => $actorId,
         ]);
+
+        if (Schema::hasTable('kitchen_warehouse_handoffs')) {
+            KitchenWarehouseHandoff::query()
+                ->where('middo_box_id', $box->id)
+                ->whereIn('status', [
+                    KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS,
+                    KitchenWarehouseHandoff::STATUS_IN_TRANSIT,
+                ])
+                ->update(['status' => KitchenWarehouseHandoff::STATUS_RECEIVED]);
+        }
 
         return $box->fresh();
     }

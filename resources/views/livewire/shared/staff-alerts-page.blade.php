@@ -50,6 +50,11 @@
                            class="inline-flex mt-1 text-xs font-bold text-middo-orange hover:underline">
                             Open incoming boxes →
                         </a>
+                    @elseif($alert->type === \App\Models\StaffAlert::TYPE_KITCHEN_TO_OPS_BOX && auth()->user()?->role?->name === 'kitchen' && ($alert->meta['phase'] ?? null) === 'run_claimed')
+                        <a href="{{ route('kitchen.middo-boxes.at-kitchen') }}"
+                           class="inline-flex mt-1 text-xs font-bold text-middo-orange hover:underline">
+                            Open boxes at kitchen →
+                        </a>
                     @endif
                 </div>
                 @if($alert->isUnread())
