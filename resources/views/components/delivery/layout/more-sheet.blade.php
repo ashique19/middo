@@ -6,7 +6,7 @@
         ['title' => 'Delivered orders', 'route' => 'delivery.orders.delivered', 'hint' => 'Collect payment & receive boxes'],
         ['title' => 'Cash handovers', 'route' => 'delivery.cash-handovers', 'hint' => 'Hand over Due when you hold cash'],
         ['title' => 'Kitchen dispatches', 'route' => 'delivery.kitchen-dispatches', 'hint' => 'Lunch runs to accept'],
-        ['title' => 'Pending box runs', 'route' => 'delivery.middo-boxes.pending-run', 'hint' => 'Return boxes to kitchen'],
+        ['title' => 'Pending box runs', 'route' => 'delivery.middo-boxes.pending-run', 'hint' => 'Warehouse pickups & box returns'],
     ];
 @endphp
 
