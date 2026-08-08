@@ -33,6 +33,7 @@ class OpsBoxCustody
                 'with_rider' => 0,
                 'damaged' => 0,
                 'returns' => 0,
+                'staged_pickup' => 0,
             ];
         }
 
@@ -41,37 +42,50 @@ class OpsBoxCustody
             ? User::query()->where('role_id', $deliveryRoleId)->pluck('id')
             : collect();
 
-        $stagedAtWarehouse = MiddoBox::query()->stagedForKitchenPickup()->count();
-
         return [
             // Free stock only — boxes staged for rider pickup are counted under To kitchen.
-            'warehouse' => MiddoBox::query()->availableForKitchenStaging()->count(),
+            'warehouse' => self::warehouseFreeQuery()->count(),
             'at_kitchen' => MiddoBox::query()
                 ->whereNotNull('kitchen_id')
                 ->whereColumn('kitchen_id', 'held_by_user_id')
                 ->where('asset_status', '!=', 'damaged')
                 ->count(),
-            'to_kitchen' => MiddoBox::query()
-                ->where(function (Builder $q) {
-                    $q->where(function (Builder $inner) {
-                        $inner->whereNotNull('kitchen_id')
-                            ->where(function (Builder $held) {
-                                $held->whereNull('held_by_user_id')
-                                    ->orWhereColumn('held_by_user_id', '!=', 'kitchen_id');
-                            })
-                            ->where('asset_status', '!=', 'retired');
-                    })->orWhere(function (Builder $inner) {
-                        $inner->stagedForKitchenPickup();
-                    });
-                })
-                ->count(),
+            'to_kitchen' => self::toKitchenQuery()->count(),
             'with_rider' => $riderIds->isEmpty()
                 ? 0
                 : MiddoBox::query()->whereIn('held_by_user_id', $riderIds)->count(),
             'damaged' => MiddoBox::query()->where('asset_status', 'damaged')->count(),
             'returns' => self::returnsQuery()->count(),
-            'staged_pickup' => $stagedAtWarehouse,
+            'staged_pickup' => MiddoBox::query()->stagedForKitchenPickup()->count(),
         ];
+    }
+
+    /**
+     * Free warehouse stock available to stage for a kitchen request.
+     */
+    public static function warehouseFreeQuery(): Builder
+    {
+        return MiddoBox::query()->availableForKitchenStaging();
+    }
+
+    /**
+     * Staged-for-pickup at warehouse + boxes already destined/en route to a kitchen.
+     */
+    public static function toKitchenQuery(): Builder
+    {
+        return MiddoBox::query()
+            ->where(function (Builder $q) {
+                $q->where(function (Builder $inner) {
+                    $inner->whereNotNull('kitchen_id')
+                        ->where(function (Builder $held) {
+                            $held->whereNull('held_by_user_id')
+                                ->orWhereColumn('held_by_user_id', '!=', 'kitchen_id');
+                        })
+                        ->where('asset_status', '!=', 'retired');
+                })->orWhere(function (Builder $inner) {
+                    $inner->stagedForKitchenPickup();
+                });
+            });
     }
 
     /**

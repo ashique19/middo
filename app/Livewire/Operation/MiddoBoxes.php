@@ -20,7 +20,7 @@ class MiddoBoxes extends Component
 
     public string $statusFilter = '';
 
-    /** all|returns */
+    /** all|returns|warehouse|to_kitchen */
     public string $custodyFilter = 'all';
 
     /** @var int[] */
@@ -43,10 +43,27 @@ class MiddoBoxes extends Component
     {
         $this->resetPage();
         $this->selectedBoxIds = [];
+        // Status dropdown and custody tiles are mutually exclusive filters.
+        if ($this->custodyFilter !== 'all' && $this->custodyFilter !== 'returns') {
+            $this->custodyFilter = 'all';
+        }
     }
 
     public function updatingCustodyFilter(): void
     {
+        $this->resetPage();
+        $this->selectedBoxIds = [];
+    }
+
+    public function toggleCustodyFilter(string $key): void
+    {
+        $allowed = ['warehouse', 'to_kitchen', 'returns'];
+        if (! in_array($key, $allowed, true)) {
+            return;
+        }
+
+        $this->statusFilter = '';
+        $this->custodyFilter = $this->custodyFilter === $key ? 'all' : $key;
         $this->resetPage();
         $this->selectedBoxIds = [];
     }
@@ -267,11 +284,14 @@ class MiddoBoxes extends Component
     {
         $summary = OpsBoxCustody::summary();
 
-        $query = MiddoBox::query()->with(['heldByUser', 'requestBox.rider', 'requestBox.request.kitchen']);
+        $relations = ['heldByUser', 'requestBox.rider', 'requestBox.request.kitchen'];
 
-        if ($this->custodyFilter === 'returns') {
-            $query = OpsBoxCustody::returnsQuery()->with(['heldByUser', 'requestBox.rider', 'requestBox.request.kitchen']);
-        }
+        $query = match ($this->custodyFilter) {
+            'returns' => OpsBoxCustody::returnsQuery()->with($relations),
+            'warehouse' => OpsBoxCustody::warehouseFreeQuery()->with($relations),
+            'to_kitchen' => OpsBoxCustody::toKitchenQuery()->with($relations),
+            default => MiddoBox::query()->with($relations),
+        };
 
         $boxes = $query
             ->when($this->search !== '', function ($q) {
@@ -281,7 +301,17 @@ class MiddoBoxes extends Component
                         ->orWhere('asset_status', 'like', '%'.$this->search.'%');
                 });
             })
-            ->when($this->statusFilter !== '', fn ($q) => $q->where('asset_status', $this->statusFilter))
+            ->when(
+                $this->statusFilter !== '' && $this->custodyFilter === 'all',
+                function ($q) {
+                    // Dropdown "Warehouse" = free stock (same as Warehouse tile), not staged pickup.
+                    if ($this->statusFilter === 'at_middo_warehouse') {
+                        $q->availableForKitchenStaging();
+                    } else {
+                        $q->where('asset_status', $this->statusFilter);
+                    }
+                }
+            )
             ->orderByRaw("CASE WHEN asset_status = 'damaged' THEN 0 ELSE 1 END")
             ->orderByDesc('id')
             ->paginate(20);
