@@ -74,6 +74,23 @@ class MiddoBoxes extends Component
             return;
         }
 
+        // Drop any selection that became unavailable (e.g. staged in another tab).
+        $availableIds = MiddoBox::query()
+            ->availableForKitchenStaging()
+            ->whereIn('id', $this->selectedBoxIds)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $this->selectedBoxIds = $availableIds;
+
+        if ($this->selectedBoxIds === []) {
+            $this->errorMessage = 'Selected boxes are no longer free warehouse stock. Pick boxes that are not already staged.';
+
+            return;
+        }
+
+        $this->errorMessage = null;
         $this->dispatch('open-assign-middo-boxes-modal', boxIds: $this->selectedBoxIds);
     }
 
@@ -84,9 +101,19 @@ class MiddoBoxes extends Component
                 $this->selectedBoxIds,
                 fn (int $id) => $id !== $boxId
             ));
-        } else {
-            $this->selectedBoxIds[] = $boxId;
+
+            return;
         }
+
+        $box = MiddoBox::query()->with('requestBox')->find($boxId);
+        if (! $box || ! $box->isAvailableForKitchenStaging()) {
+            $this->errorMessage = 'Only free warehouse boxes can be staged. Already staged boxes stay reserved for their rider.';
+
+            return;
+        }
+
+        $this->selectedBoxIds[] = $boxId;
+        $this->errorMessage = null;
     }
 
     public function retire(int $boxId): void
@@ -240,10 +267,10 @@ class MiddoBoxes extends Component
     {
         $summary = OpsBoxCustody::summary();
 
-        $query = MiddoBox::query()->with('heldByUser');
+        $query = MiddoBox::query()->with(['heldByUser', 'requestBox.rider', 'requestBox.request.kitchen']);
 
         if ($this->custodyFilter === 'returns') {
-            $query = OpsBoxCustody::returnsQuery()->with('heldByUser');
+            $query = OpsBoxCustody::returnsQuery()->with(['heldByUser', 'requestBox.rider', 'requestBox.request.kitchen']);
         }
 
         $boxes = $query

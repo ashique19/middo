@@ -163,7 +163,7 @@
             $tiles = [
                 ['key' => 'warehouse', 'label' => 'Warehouse', 'classes' => 'border-sky-100 bg-sky-50', 'labelClass' => 'text-sky-700', 'valueClass' => 'text-sky-900'],
                 ['key' => 'at_kitchen', 'label' => 'At kitchen', 'classes' => 'border-emerald-100 bg-emerald-50', 'labelClass' => 'text-emerald-700', 'valueClass' => 'text-emerald-900'],
-                ['key' => 'to_kitchen', 'label' => 'To kitchen', 'classes' => 'border-amber-100 bg-amber-50', 'labelClass' => 'text-amber-700', 'valueClass' => 'text-amber-900'],
+                ['key' => 'to_kitchen', 'label' => 'To kitchen', 'classes' => 'border-amber-100 bg-amber-50', 'labelClass' => 'text-amber-700', 'valueClass' => 'text-amber-900'], // includes staged pickup
                 ['key' => 'with_rider', 'label' => 'With rider', 'classes' => 'border-violet-100 bg-violet-50', 'labelClass' => 'text-violet-700', 'valueClass' => 'text-violet-900'],
                 ['key' => 'damaged', 'label' => 'Damaged', 'classes' => 'border-orange-100 bg-orange-50', 'labelClass' => 'text-orange-700', 'valueClass' => 'text-orange-900'],
                 ['key' => 'returns', 'label' => 'Inbound returns', 'classes' => 'border-rose-100 bg-rose-50', 'labelClass' => 'text-rose-700', 'valueClass' => 'text-rose-900'],
@@ -242,13 +242,15 @@
                     @forelse($boxes as $box)
                         <tr wire:key="middo-box-row-{{ $box->id }}" class="hover:bg-gray-50/70 transition">
                             <td class="p-4">
-                                @if($box->asset_status === 'at_middo_warehouse')
+                                @if($box->isAvailableForKitchenStaging())
                                     <input
                                         type="checkbox"
-                                        wire:click="toggleBoxSelection({{ $box->id }})"
+                                        wire:click.prevent="toggleBoxSelection({{ $box->id }})"
                                         @checked(in_array($box->id, $selectedBoxIds, true))
                                         class="h-4 w-4 rounded border-gray-300 text-middo-orange focus:ring-middo-orange cursor-pointer"
                                     >
+                                @elseif($box->isStagedForKitchenPickup())
+                                    <span class="inline-flex h-4 w-4 items-center justify-center rounded border border-amber-300 bg-amber-50 text-[9px] font-black text-amber-800" title="Staged for rider pickup">S</span>
                                 @endif
                             </td>
                             <td class="p-4 font-mono font-semibold text-gray-800">
@@ -260,22 +262,38 @@
                             <td class="p-4 text-gray-700">{{ str($box->box_model_type)->headline() }}</td>
                             <td class="p-4">
                                 @php
-                                    $statusClasses = match ($box->asset_status) {
-                                        'active' => 'bg-emerald-50 text-emerald-700 border-emerald-200/70',
-                                        'at_middo_warehouse' => 'bg-sky-50 text-sky-700 border-sky-200/70',
-                                        'maintenance' => 'bg-amber-50 text-amber-900 border-amber-200/70',
-                                        'damaged' => 'bg-orange-50 text-orange-800 border-orange-200/70',
-                                        'lost' => 'bg-red-50 text-red-700 border-red-200/70',
-                                        'retired' => 'bg-gray-100 text-gray-600 border-gray-200',
-                                        default => 'bg-gray-50 text-gray-700 border-gray-200',
-                                    };
+                                    $stagedPickup = $box->isStagedForKitchenPickup();
+                                    $statusClasses = $stagedPickup
+                                        ? 'bg-amber-50 text-amber-900 border-amber-200/70'
+                                        : match ($box->asset_status) {
+                                            'active' => 'bg-emerald-50 text-emerald-700 border-emerald-200/70',
+                                            'at_middo_warehouse' => 'bg-sky-50 text-sky-700 border-sky-200/70',
+                                            'maintenance' => 'bg-amber-50 text-amber-900 border-amber-200/70',
+                                            'damaged' => 'bg-orange-50 text-orange-800 border-orange-200/70',
+                                            'lost' => 'bg-red-50 text-red-700 border-red-200/70',
+                                            'retired' => 'bg-gray-100 text-gray-600 border-gray-200',
+                                            default => 'bg-gray-50 text-gray-700 border-gray-200',
+                                        };
+                                    $statusLabel = $stagedPickup
+                                        ? 'Staged for pickup'
+                                        : str($box->asset_status)->headline()->toString();
                                 @endphp
                                 <span class="inline-flex px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border {{ $statusClasses }}">
-                                    {{ str($box->asset_status)->headline() }}
+                                    {{ $statusLabel }}
                                 </span>
+                                @if($stagedPickup && $box->requestBox?->request?->kitchen)
+                                    <div class="text-[11px] font-semibold text-amber-800 mt-1">
+                                        → {{ $box->requestBox->request->kitchen->name }}
+                                    </div>
+                                @endif
                             </td>
                             <td class="p-4 font-medium text-gray-800">
-                                {{ $box->heldByUser?->name ?? '—' }}
+                                @if($stagedPickup && $box->requestBox?->rider)
+                                    {{ $box->requestBox->rider->name }}
+                                    <div class="text-[11px] font-semibold text-gray-500">Awaiting accept</div>
+                                @else
+                                    {{ $box->heldByUser?->name ?? '—' }}
+                                @endif
                             </td>
                             <td class="p-4 text-center font-mono font-bold text-middo-orange">
                                 {{ $box->total_uses_count }}
