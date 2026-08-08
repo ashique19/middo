@@ -19,7 +19,8 @@ class OpsBoxCustody
      *   to_kitchen:int,
      *   with_rider:int,
      *   damaged:int,
-     *   returns:int
+     *   returns:int,
+     *   staged_pickup:int
      * }
      */
     public static function summary(): array
