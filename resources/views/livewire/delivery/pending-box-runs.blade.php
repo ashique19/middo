@@ -3,7 +3,8 @@
         <a href="{{ route('delivery.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
         <h1 class="text-2xl sm:text-3xl font-bold text-middo-dark">Middo boxes pending run</h1>
         <p class="text-sm font-semibold text-gray-500">
-            Boxes currently in your custody. Showing {{ $boxes->count() }} of {{ $boxes->total() }}.
+            Warehouse pickups assigned to you and boxes already in your custody.
+            Showing {{ $boxes->count() }} of {{ $boxes->total() }}.
         </p>
     </div>
 
@@ -99,7 +100,7 @@
             </div>
         @empty
             <div class="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm font-semibold text-gray-400 italic">
-                No Middo boxes in your pending runs.
+                No Middo boxes in your pending runs. When Ops stages stock for you, it appears here as Ready for pickup.
             </div>
         @endforelse
     </div>
@@ -198,7 +199,7 @@
                     @empty
                         <tr>
                             <td colspan="6" class="p-12 text-center text-sm font-semibold text-gray-400 italic">
-                                No Middo boxes in your pending runs.
+                                No Middo boxes in your pending runs. When Ops stages stock for you, it appears here as Ready for pickup.
                             </td>
                         </tr>
                     @endforelse

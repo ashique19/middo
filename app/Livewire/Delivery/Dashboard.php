@@ -3,9 +3,9 @@
 namespace App\Livewire\Delivery;
 
 use App\Models\CustomRun;
-use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Support\DeliveryAreaScope;
+use App\Support\RiderPendingBoxes;
 use App\Support\RiderShift;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -75,10 +75,8 @@ class Dashboard extends Component
             ],
             [
                 'label' => 'Middo boxes pending run',
-                'count' => MiddoBox::query()
-                    ->where('held_by_user_id', $riderId)
-                    ->where('asset_status', 'active')
-                    ->count(),
+                // Include warehouse stock staged for this rider (not yet in custody).
+                'count' => RiderPendingBoxes::countForRider((int) $riderId),
                 'route' => 'delivery.middo-boxes.pending-run',
             ],
             [

@@ -37,6 +37,17 @@
                         <p class="text-sm text-gray-600">{{ $alert->body }}</p>
                     @endif
                     <p class="text-xs text-gray-400">{{ $alert->created_at?->timezone('Asia/Dhaka')->format('M j, g:i A') }}</p>
+                    @if($alert->type === \App\Models\StaffAlert::TYPE_OPS_TO_KITCHEN_BOX && auth()->user()?->role?->name === 'delivery')
+                        <a href="{{ route('delivery.middo-boxes.pending-run') }}"
+                           class="inline-flex mt-1 text-xs font-bold text-middo-orange hover:underline">
+                            Open pending box runs →
+                        </a>
+                    @elseif($alert->type === \App\Models\StaffAlert::TYPE_OPS_TO_KITCHEN_BOX && auth()->user()?->role?->name === 'kitchen' && ($alert->meta['phase'] ?? null) === 'handed')
+                        <a href="{{ route('kitchen.middo-boxes.incoming') }}"
+                           class="inline-flex mt-1 text-xs font-bold text-middo-orange hover:underline">
+                            Open incoming boxes →
+                        </a>
+                    @endif
                 </div>
                 @if($alert->isUnread())
                     <button type="button" wire:click="markRead({{ $alert->id }})"

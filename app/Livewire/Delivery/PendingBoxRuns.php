@@ -7,6 +7,7 @@ use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Support\KitchenBoxRequestFlow;
 use App\Support\MiddoBoxKitchenActions;
+use App\Support\RiderPendingBoxes;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -141,40 +142,10 @@ class PendingBoxRuns extends Component
     {
         $riderId = (int) Auth::id();
 
-        $heldBoxes = MiddoBox::query()
-            ->with([
-                'kitchen',
-                'orderMiddoBoxes.order.menuItem',
-                'orderMiddoBoxes.order.user',
-                'orderMiddoBoxes.order.orderGroup.kitchen',
-            ])
-            ->where('held_by_user_id', $riderId)
-            ->where('asset_status', 'active')
-            ->orderBy('qr_code_id')
-            ->get();
+        $allBoxes = RiderPendingBoxes::boxesForRider($riderId);
+        $stagedByBoxId = RiderPendingBoxes::stagedLinksForRider($riderId);
 
-        $stagedLinks = KitchenBoxRequestBox::query()
-            ->with([
-                'box.kitchen',
-                'box.orderMiddoBoxes.order.menuItem',
-                'box.orderMiddoBoxes.order.user',
-                'box.orderMiddoBoxes.order.orderGroup.kitchen',
-                'request.kitchen',
-            ])
-            ->where('rider_id', $riderId)
-            ->where('status', KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP)
-            ->whereHas('box', fn ($q) => $q->where('asset_status', 'at_middo_warehouse'))
-            ->orderBy('id')
-            ->get();
-
-        $stagedBoxes = $stagedLinks
-            ->map(fn (KitchenBoxRequestBox $link) => $link->box)
-            ->filter()
-            ->values();
-
-        $allBoxes = $heldBoxes->concat($stagedBoxes)->unique('id')->sortBy('qr_code_id')->values();
-
-        $page = max(1, (int) request()->get('page', 1));
+        $page = max(1, (int) $this->getPage());
         $perPage = 20;
         $total = $allBoxes->count();
         $items = $allBoxes->slice(($page - 1) * $perPage, $perPage)->values();
@@ -192,8 +163,6 @@ class PendingBoxRuns extends Component
             ->get()
             ->unique('middo_box_id')
             ->keyBy('middo_box_id');
-
-        $stagedByBoxId = $stagedLinks->keyBy('middo_box_id');
 
         $nodes = $items
             ->map(function (MiddoBox $box) use ($latestActions, $stagedByBoxId, $riderId) {
