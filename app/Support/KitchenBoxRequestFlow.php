@@ -48,23 +48,24 @@ class KitchenBoxRequestFlow
             }
 
             $boxes = MiddoBox::query()
+                ->availableForKitchenStaging()
                 ->whereIn('id', $ids)
-                ->where('asset_status', 'at_middo_warehouse')
-                ->whereNull('held_by_user_id')
-                ->whereNull('kitchen_id')
                 ->lockForUpdate()
                 ->get();
 
             if ($boxes->isEmpty()) {
-                throw new \RuntimeException('No warehouse boxes were available to stage.');
+                throw new \RuntimeException('No warehouse boxes were available to stage. Staged or in-transit boxes cannot be selected again.');
             }
 
-            $alreadyLinked = KitchenBoxRequestBox::query()
-                ->whereIn('middo_box_id', $boxes->pluck('id'))
-                ->exists();
-            if ($alreadyLinked) {
-                throw new \RuntimeException('One or more selected boxes are already staged on a box request.');
+            if ($boxes->count() !== $ids->count()) {
+                throw new \RuntimeException('One or more selected boxes are already staged or not free warehouse stock.');
             }
+
+            // Unique middo_box_id: clear completed links so returned stock can be staged again.
+            KitchenBoxRequestBox::query()
+                ->whereIn('middo_box_id', $boxes->pluck('id'))
+                ->where('status', KitchenBoxRequestBox::STATUS_RECEIVED)
+                ->delete();
 
             $shipQty = $boxes->count();
             $allocations = self::allocateAgainstOpenRequests($kitchenId, $shipQty, $opsUserId);

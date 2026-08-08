@@ -19,7 +19,8 @@ class OpsBoxCustody
      *   to_kitchen:int,
      *   with_rider:int,
      *   damaged:int,
-     *   returns:int
+     *   returns:int,
+     *   staged_pickup:int
      * }
      */
     public static function summary(): array
@@ -40,29 +41,36 @@ class OpsBoxCustody
             ? User::query()->where('role_id', $deliveryRoleId)->pluck('id')
             : collect();
 
+        $stagedAtWarehouse = MiddoBox::query()->stagedForKitchenPickup()->count();
+
         return [
-            'warehouse' => MiddoBox::query()
-                ->where('asset_status', 'at_middo_warehouse')
-                ->whereNull('kitchen_id')
-                ->count(),
+            // Free stock only — boxes staged for rider pickup are counted under To kitchen.
+            'warehouse' => MiddoBox::query()->availableForKitchenStaging()->count(),
             'at_kitchen' => MiddoBox::query()
                 ->whereNotNull('kitchen_id')
                 ->whereColumn('kitchen_id', 'held_by_user_id')
                 ->where('asset_status', '!=', 'damaged')
                 ->count(),
             'to_kitchen' => MiddoBox::query()
-                ->whereNotNull('kitchen_id')
                 ->where(function (Builder $q) {
-                    $q->whereNull('held_by_user_id')
-                        ->orWhereColumn('held_by_user_id', '!=', 'kitchen_id');
+                    $q->where(function (Builder $inner) {
+                        $inner->whereNotNull('kitchen_id')
+                            ->where(function (Builder $held) {
+                                $held->whereNull('held_by_user_id')
+                                    ->orWhereColumn('held_by_user_id', '!=', 'kitchen_id');
+                            })
+                            ->where('asset_status', '!=', 'retired');
+                    })->orWhere(function (Builder $inner) {
+                        $inner->stagedForKitchenPickup();
+                    });
                 })
-                ->where('asset_status', '!=', 'retired')
                 ->count(),
             'with_rider' => $riderIds->isEmpty()
                 ? 0
                 : MiddoBox::query()->whereIn('held_by_user_id', $riderIds)->count(),
             'damaged' => MiddoBox::query()->where('asset_status', 'damaged')->count(),
             'returns' => self::returnsQuery()->count(),
+            'staged_pickup' => $stagedAtWarehouse,
         ];
     }
 

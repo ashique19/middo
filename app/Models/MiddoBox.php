@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\DB;
 
 class MiddoBox extends Model
@@ -49,6 +50,61 @@ class MiddoBox extends Model
     public function orderMiddoBoxes(): HasMany
     {
         return $this->hasMany(OrderMiddoBox::class);
+    }
+
+    public function requestBox(): HasOne
+    {
+        return $this->hasOne(KitchenBoxRequestBox::class);
+    }
+
+    /**
+     * Free warehouse stock that can be staged against a kitchen box request.
+     */
+    public function scopeAvailableForKitchenStaging(Builder $query): Builder
+    {
+        return $query
+            ->where('asset_status', 'at_middo_warehouse')
+            ->whereNull('held_by_user_id')
+            ->whereNull('kitchen_id')
+            ->whereDoesntHave('requestBox', fn (Builder $q) => $q->openHandoff());
+    }
+
+    public function scopeStagedForKitchenPickup(Builder $query): Builder
+    {
+        return $query
+            ->where('asset_status', 'at_middo_warehouse')
+            ->whereNull('held_by_user_id')
+            ->whereHas('requestBox', fn (Builder $q) => $q->where('status', KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP));
+    }
+
+    public function isAvailableForKitchenStaging(): bool
+    {
+        if ($this->asset_status !== 'at_middo_warehouse') {
+            return false;
+        }
+
+        if ($this->held_by_user_id !== null || $this->kitchen_id !== null) {
+            return false;
+        }
+
+        $link = $this->relationLoaded('requestBox')
+            ? $this->requestBox
+            : $this->requestBox()->first();
+
+        return ! ($link && $link->isOpenHandoff());
+    }
+
+    public function isStagedForKitchenPickup(): bool
+    {
+        if ($this->asset_status !== 'at_middo_warehouse' || $this->held_by_user_id !== null) {
+            return false;
+        }
+
+        $link = $this->relationLoaded('requestBox')
+            ? $this->requestBox
+            : $this->requestBox()->first();
+
+        return $link?->status === KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP;
     }
 
     public function scopeAtKitchen(Builder $query, int $kitchenId): Builder
