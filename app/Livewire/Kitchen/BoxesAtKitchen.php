@@ -39,6 +39,13 @@ class BoxesAtKitchen extends Component
 
     public string $requestNote = '';
 
+    public function mount(): void
+    {
+        if (request()->boolean('request')) {
+            $this->openRequestModal();
+        }
+    }
+
     public function updatingFilter(): void
     {
         $this->resetPage();

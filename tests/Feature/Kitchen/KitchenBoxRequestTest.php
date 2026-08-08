@@ -66,6 +66,14 @@ class KitchenBoxRequestTest extends TestCase
         ]);
     }
 
+    public function test_request_query_opens_box_request_modal(): void
+    {
+        Livewire::actingAs($this->kitchen)
+            ->withQueryParams(['request' => 1])
+            ->test(BoxesAtKitchen::class)
+            ->assertSet('showRequestModal', true);
+    }
+
     public function test_kitchen_can_request_boxes_and_ops_sees_pending_request(): void
     {
         Livewire::actingAs($this->kitchen)

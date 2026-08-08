@@ -12,6 +12,10 @@
     @if($insufficientBoxStock)
         <div class="rounded-2xl border border-red-300 bg-red-50 px-4 py-3.5 text-sm font-bold text-red-900">
             {{ \App\Support\KitchenBoxStock::dashboardWarningMessage() }}
+            <a href="{{ route('kitchen.middo-boxes.at-kitchen', ['request' => 1]) }}"
+               class="ml-1 underline decoration-2 underline-offset-2 hover:text-red-700">
+                Request Middo boxes
+            </a>
         </div>
     @endif
 
