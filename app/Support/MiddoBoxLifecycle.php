@@ -70,7 +70,7 @@ class MiddoBoxLifecycle
      */
     public static function trackingTree(MiddoBox $box): Collection
     {
-        $box->loadMissing(['logs.order.menuItem', 'logs.performedBy']);
+        $box->loadMissing(['logs.order.menuItem', 'logs.performedBy', 'requestBox.rider']);
 
         return $box->logs
             ->sortByDesc('id')
@@ -80,12 +80,29 @@ class MiddoBoxLifecycle
                 'action' => (string) $log->log_action,
                 'action_label' => str((string) $log->log_action)->replace('_', ' ')->headline()->toString(),
                 'custody' => (string) $log->custody_status,
-                'notes' => $log->notes,
+                'notes' => self::displayNotes($log, $box),
                 'order_id' => $log->order_id,
                 'order_menu' => $log->order?->menuItem?->name,
                 'actor' => $log->performedBy?->name,
                 'at' => $log->created_at?->timezone('Asia/Dhaka'),
                 'at_label' => $log->created_at?->timezone('Asia/Dhaka')->format('M d, Y g:i A'),
             ]);
+    }
+
+    protected static function displayNotes(MiddoBoxLog $log, MiddoBox $box): ?string
+    {
+        $notes = $log->notes;
+
+        // Older staged logs omitted the rider; surface it from the request link when present.
+        if ($log->log_action === 'staged_for_kitchen_pickup') {
+            $riderName = $box->requestBox?->rider?->name;
+            if ($riderName && ($notes === null || ! str_contains($notes, $riderName))) {
+                $notes = $notes
+                    ? rtrim($notes).' · Rider: '.$riderName
+                    : 'Ready for rider pickup by '.$riderName;
+            }
+        }
+
+        return $notes;
     }
 }
