@@ -98,6 +98,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Delivery VAT (inclusive)
+    |--------------------------------------------------------------------------
+    |
+    | Applied to net delivery charge after any delivery coupon:
+    |   net = delivery_charge − delivery_coupon
+    |   VAT unbundled inclusively at this rate (default 15%).
+    | Delivery fee amounts are managed under Admin → Charges (category: delivery).
+    |
+    */
+    'delivery_vat_rate_pct' => (float) env('MIDDO_DELIVERY_VAT_RATE_PCT', 15),
+
+    /*
+    |--------------------------------------------------------------------------
     | EPS sub-gateway fee defaults (% of gross)
     |--------------------------------------------------------------------------
     */

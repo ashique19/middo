@@ -30,8 +30,14 @@
             </div>
             @if(($tree['summary']['vat'] ?? 0) > 0)
                 <div class="rounded-xl bg-violet-50 p-3 col-span-2 md:col-span-1">
-                    <p class="text-[10px] font-bold uppercase text-violet-700/70">VAT ({{ number_format($tree['summary']['vat_rate_pct'] ?? 0, 2) }}%)</p>
+                    <p class="text-[10px] font-bold uppercase text-violet-700/70">Food VAT ({{ number_format($tree['summary']['vat_rate_pct'] ?? 0, 2) }}%)</p>
                     <p class="font-mono font-black text-violet-900">৳{{ number_format($tree['summary']['vat'] ?? 0) }}</p>
+                </div>
+            @endif
+            @if(($tree['summary']['delivery_vat'] ?? 0) > 0 || ($tree['summary']['delivery_charge'] ?? 0) > 0)
+                <div class="rounded-xl bg-indigo-50 p-3 col-span-2 md:col-span-1">
+                    <p class="text-[10px] font-bold uppercase text-indigo-700/70">Delivery VAT ({{ number_format($tree['summary']['delivery_vat_rate_pct'] ?? 0, 2) }}%)</p>
+                    <p class="font-mono font-black text-indigo-900">৳{{ number_format($tree['summary']['delivery_vat'] ?? 0) }}</p>
                 </div>
             @endif
         </div>
@@ -50,14 +56,29 @@
                     @empty
                         <p class="text-xs text-gray-400">No billing events.</p>
                     @endforelse
-                    <div class="text-xs text-gray-500 pt-1">
-                        Food ৳{{ number_format($tree['summary']['food'] ?? 0) }}
-                        @if(($tree['summary']['vat'] ?? 0) > 0)
-                            (ex-VAT ৳{{ number_format($tree['summary']['food_ex_vat'] ?? 0) }}
-                            · VAT ৳{{ number_format($tree['summary']['vat']) }})
-                        @endif
-                        · Charges ৳{{ number_format($tree['summary']['charges'] ?? 0) }}
-                        · Discount ৳{{ number_format($tree['summary']['discount'] ?? 0) }}
+                    <div class="text-xs text-gray-500 pt-1 space-y-1">
+                        <div>
+                            Food ৳{{ number_format($tree['summary']['food'] ?? 0) }}
+                            @if(($tree['summary']['vat'] ?? 0) > 0)
+                                (ex-VAT ৳{{ number_format($tree['summary']['food_ex_vat'] ?? 0) }}
+                                · food VAT ৳{{ number_format($tree['summary']['vat']) }})
+                            @endif
+                        </div>
+                        <div>
+                            Delivery net ৳{{ number_format($tree['summary']['delivery_charge'] ?? 0) }}
+                            @if(($tree['summary']['delivery_discount'] ?? 0) > 0)
+                                (after coupon −৳{{ number_format($tree['summary']['delivery_discount']) }})
+                            @endif
+                            @if(($tree['summary']['delivery_vat'] ?? 0) > 0 || ($tree['summary']['delivery_charge'] ?? 0) > 0)
+                                · ex-VAT ৳{{ number_format($tree['summary']['delivery_ex_vat'] ?? 0) }}
+                                · delivery VAT {{ number_format($tree['summary']['delivery_vat_rate_pct'] ?? 0, 2) }}% = ৳{{ number_format($tree['summary']['delivery_vat'] ?? 0) }}
+                            @endif
+                        </div>
+                        <div>
+                            Other charges ৳{{ number_format($tree['summary']['other_charges'] ?? 0) }}
+                            · All charges ৳{{ number_format($tree['summary']['charges'] ?? 0) }}
+                            · Discount ৳{{ number_format($tree['summary']['discount'] ?? 0) }}
+                        </div>
                     </div>
                 </div>
             </div>

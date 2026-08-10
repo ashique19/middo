@@ -970,7 +970,8 @@ class OrderCheckoutModal extends Component
             $cartTotal,
             $discountAmount,
             $perOrderCharges,
-            $scope
+            $scope,
+            $appliedCoupon
         ) {
             $currentUserId = $currentUser->id;
             $cityModel = City::find($this->city_id);
@@ -1003,6 +1004,12 @@ class OrderCheckoutModal extends Component
                 $lineDiscount = (int) ($discountShares[$index] ?? 0);
                 $index++;
 
+                $deliveryQuote = \App\Support\DeliveryChargeVat::quote(
+                    $appliedCoupon,
+                    $lineDiscount,
+                    $feeLines
+                );
+
                 $order = Order::create([
                     'user_id' => $currentUserId,
                     'menu_item_id' => $this->dish['id'],
@@ -1011,6 +1018,11 @@ class OrderCheckoutModal extends Component
                     'delivery_time' => $this->deliveryWindow,
                     'total_amount' => $lineTotal,
                     'charges_amount' => $feesTotal,
+                    'delivery_charge_amount' => $deliveryQuote['delivery_net'],
+                    'other_charges_amount' => $deliveryQuote['other_gross'],
+                    'delivery_discount_amount' => $deliveryQuote['delivery_discount'],
+                    'delivery_vat_rate_pct' => $deliveryQuote['delivery_vat_rate_pct'],
+                    'delivery_vat_amount' => $deliveryQuote['delivery_vat_amount'],
                     'amount_paid' => $amountPaid,
                     'prepaid_amount' => $amountPaid,
                     'cash_collected' => 0,

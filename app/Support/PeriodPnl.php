@@ -45,6 +45,7 @@ class PeriodPnl
         $epsFees = self::epsFeesTotal($fromDate, $toDate);
 
         $foodExVat = (int) $orders['food_amount'] - (int) $orders['vat_amount'];
+        $deliveryExVat = (int) ($orders['delivery_charge_amount'] ?? 0) - (int) ($orders['delivery_vat_amount'] ?? 0);
         $middoRest = (int) $orders['middo_rest_amount'];
         $contribution = $middoRest - $operating - $epsFees;
 
@@ -54,28 +55,42 @@ class PeriodPnl
                 'label' => 'Food revenue (ex-VAT)',
                 'amount' => $foodExVat,
                 'section' => 'revenue',
-                'note' => 'Inclusive food less unbundled VAT',
+                'note' => 'Inclusive food less unbundled food VAT',
             ],
             [
-                'key' => 'charges',
-                'label' => 'Charges',
-                'amount' => (int) $orders['charges_amount'],
+                'key' => 'delivery_ex_vat',
+                'label' => 'Delivery revenue (ex-VAT)',
+                'amount' => max(0, $deliveryExVat),
                 'section' => 'revenue',
-                'note' => null,
+                'note' => 'Net delivery after coupon, less inclusive delivery VAT',
+            ],
+            [
+                'key' => 'other_charges',
+                'label' => 'Other charges',
+                'amount' => (int) ($orders['other_charges_amount'] ?? 0),
+                'section' => 'revenue',
+                'note' => 'Handling/packaging/other — no delivery VAT',
             ],
             [
                 'key' => 'discounts',
                 'label' => 'Discounts',
                 'amount' => -1 * (int) $orders['discount_amount'],
                 'section' => 'revenue',
-                'note' => null,
+                'note' => 'Includes delivery coupons',
             ],
             [
-                'key' => 'vat',
-                'label' => 'VAT (tax payable)',
+                'key' => 'vat_food',
+                'label' => 'Food VAT (tax payable)',
                 'amount' => (int) $orders['vat_amount'],
                 'section' => 'tax',
                 'note' => 'Unbundled from inclusive food — not Middo margin',
+            ],
+            [
+                'key' => 'vat_delivery',
+                'label' => 'Delivery VAT (tax payable)',
+                'amount' => (int) ($orders['delivery_vat_amount'] ?? 0),
+                'section' => 'tax',
+                'note' => 'Unbundled from net delivery (charge − delivery coupon)',
             ],
             [
                 'key' => 'kitchen_share',
@@ -161,6 +176,9 @@ class PeriodPnl
             'food_amount' => 0,
             'vat_amount' => 0,
             'charges_amount' => 0,
+            'delivery_charge_amount' => 0,
+            'other_charges_amount' => 0,
+            'delivery_vat_amount' => 0,
             'discount_amount' => 0,
             'kitchen_share_amount' => 0,
             'delivery_share_amount' => 0,
@@ -172,7 +190,7 @@ class PeriodPnl
             return $empty;
         }
 
-        $row = Order::query()
+        $query = Order::query()
             ->whereDate('delivery_date', '>=', $fromDate)
             ->whereDate('delivery_date', '<=', $toDate)
             ->where('order_status', '!=', 'cancelled')
@@ -184,10 +202,17 @@ class PeriodPnl
             ->selectRaw('COALESCE(SUM(kitchen_share_amount), 0) as kitchen_share_amount')
             ->selectRaw('COALESCE(SUM(delivery_share_amount), 0) as delivery_share_amount')
             ->selectRaw('COALESCE(SUM(direct_cost_amount), 0) as direct_cost_amount')
-            ->selectRaw('COALESCE(SUM(middo_rest_amount), 0) as middo_rest_amount')
-            ->first();
+            ->selectRaw('COALESCE(SUM(middo_rest_amount), 0) as middo_rest_amount');
 
-        return $row ? $row->toArray() : $empty;
+        if (Schema::hasColumn('orders', 'delivery_charge_amount')) {
+            $query->selectRaw('COALESCE(SUM(delivery_charge_amount), 0) as delivery_charge_amount')
+                ->selectRaw('COALESCE(SUM(other_charges_amount), 0) as other_charges_amount')
+                ->selectRaw('COALESCE(SUM(delivery_vat_amount), 0) as delivery_vat_amount');
+        }
+
+        $row = $query->first();
+
+        return $row ? array_merge($empty, $row->toArray()) : $empty;
     }
 
     protected static function operatingCostsTotal(Carbon $from, Carbon $to): int

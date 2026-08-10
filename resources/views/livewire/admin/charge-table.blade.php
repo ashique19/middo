@@ -13,7 +13,7 @@
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="space-y-1">
             <h1 class="text-2xl font-black text-gray-900 tracking-tight">Charges</h1>
-            <p class="text-sm text-gray-500">Global and scoped fees applied at corporate menu or package checkout.</p>
+            <p class="text-sm text-gray-500">Global and scoped fees for corporate menu or package checkout. Delivery is independent of other charges and carries inclusive delivery VAT (admin rate under Settings).</p>
         </div>
         <button type="button" wire:click="openCreate"
                 class="inline-flex items-center justify-center rounded-xl bg-middo-orange px-4 py-2.5 text-sm font-bold text-white hover:bg-[#733614] transition whitespace-nowrap">

@@ -33,6 +33,9 @@ class MiddoSettings
     /** Inclusive food VAT % (default 5). Snapshot onto orders at place. */
     public const KEY_VAT_RATE_PCT = 'finance.vat_rate_pct';
 
+    /** Inclusive delivery VAT % (default 15). Applied to net delivery after delivery coupon. */
+    public const KEY_DELIVERY_VAT_RATE_PCT = 'finance.delivery_vat_rate_pct';
+
     /** JSON map of EPS sub-gateway → fee % e.g. {"bank":1.5,"bkash":1.8}. */
     public const KEY_EPS_FEE_RATES = 'finance.eps_fee_rates_json';
 
@@ -308,6 +311,19 @@ class MiddoSettings
     }
 
     /**
+     * Inclusive VAT % on net delivery charge (after delivery coupon). Default 15.
+     */
+    public static function deliveryVatRatePct(): float
+    {
+        $raw = self::get(
+            self::KEY_DELIVERY_VAT_RATE_PCT,
+            config('middo.delivery_vat_rate_pct', 15)
+        );
+
+        return max(0, min(100, (float) $raw));
+    }
+
+    /**
      * @return array<string, float>
      */
     public static function epsFeeRates(): array
@@ -454,6 +470,11 @@ class MiddoSettings
         if (array_key_exists('vat_rate_pct', $payload)) {
             $pct = max(0, min(100, (float) $payload['vat_rate_pct']));
             self::set(self::KEY_VAT_RATE_PCT, rtrim(rtrim(number_format($pct, 2, '.', ''), '0'), '.') ?: '0');
+        }
+
+        if (array_key_exists('delivery_vat_rate_pct', $payload)) {
+            $pct = max(0, min(100, (float) $payload['delivery_vat_rate_pct']));
+            self::set(self::KEY_DELIVERY_VAT_RATE_PCT, rtrim(rtrim(number_format($pct, 2, '.', ''), '0'), '.') ?: '0');
         }
 
         if (array_key_exists('eps_fee_rates', $payload) && is_array($payload['eps_fee_rates'])) {

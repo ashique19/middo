@@ -30,6 +30,7 @@ class SettingsAudit
             MiddoSettings::KEY_MID_RUN_RESCUE => 'Mid-run rescue commission',
             MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER => 'Kitchen → ops via rider',
             MiddoSettings::KEY_VAT_RATE_PCT => 'VAT rate %',
+            MiddoSettings::KEY_DELIVERY_VAT_RATE_PCT => 'Delivery VAT rate %',
             MiddoSettings::KEY_EPS_FEE_RATES => 'EPS fee rates',
             MiddoSettings::KEY_DEFAULT_EPS_BANK_ACCOUNT_ID => 'Default EPS bank account',
             MiddoSettings::KEY_FULL_PREPAY_FROM_ACTIVE_ORDERS => 'Full prepay from active orders',

@@ -120,6 +120,12 @@ class PackageSubscriptionService
             $discountAmount = (int) $quoted['discount_amount'];
         }
 
+        $deliveryVatQuote = DeliveryChargeVat::quote(
+            $coupon,
+            $discountAmount,
+            $chargesQuote['lines'] ?? []
+        );
+
         $total = max(0, $originalTotal + $chargesTotal - $discountAmount);
 
         return DB::transaction(function () use (
@@ -143,7 +149,8 @@ class PackageSubscriptionService
             $coupon,
             $chargesTotal,
             $chargesQuote,
-            $couponScope
+            $couponScope,
+            $deliveryVatQuote
         ) {
             /** @var User $locked */
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
@@ -211,6 +218,11 @@ class PackageSubscriptionService
                 'price_per_day' => $quote['price_per_day'],
                 'total_amount' => $originalTotal,
                 'charges_amount' => $chargesTotal,
+                'delivery_charge_amount' => $deliveryVatQuote['delivery_net'],
+                'other_charges_amount' => $deliveryVatQuote['other_gross'],
+                'delivery_discount_amount' => $deliveryVatQuote['delivery_discount'],
+                'delivery_vat_rate_pct' => $deliveryVatQuote['delivery_vat_rate_pct'],
+                'delivery_vat_amount' => $deliveryVatQuote['delivery_vat_amount'],
                 'amount_paid' => $total,
                 'payment_status' => 'paid',
                 'coupon_id' => $coupon?->id,

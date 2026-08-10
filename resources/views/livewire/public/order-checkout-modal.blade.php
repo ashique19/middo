@@ -231,21 +231,40 @@
                                 <span>Cumulative Subtotal:</span>
                                 <span class="font-bold text-gray-900">৳{{ number_format($subtotal, 2) }}</span>
                             </div>
-                            @forelse($chargeLines as $chargeLine)
-                                <div class="flex justify-between text-gray-500" wire:key="fee-{{ $loop->index }}">
+                            @php
+                                $deliveryLines = collect($chargeLines)->where('category', 'delivery')->values();
+                                $otherFeeLines = collect($chargeLines)->where('category', '!=', 'delivery')->values();
+                                $deliveryGross = (int) $deliveryLines->sum('amount');
+                                $otherGross = (int) $otherFeeLines->sum('amount');
+                            @endphp
+                            @foreach($deliveryLines as $chargeLine)
+                                <div class="flex justify-between text-gray-500" wire:key="fee-del-{{ $loop->index }}">
+                                    <span>Delivery — {{ $chargeLine['name'] }}:</span>
+                                    <span class="font-bold text-gray-700">৳{{ number_format($chargeLine['amount'], 2) }}</span>
+                                </div>
+                            @endforeach
+                            @foreach($otherFeeLines as $chargeLine)
+                                <div class="flex justify-between text-gray-500" wire:key="fee-oth-{{ $loop->index }}">
                                     <span>{{ $chargeLine['name'] }}:</span>
                                     <span class="font-bold text-gray-700">৳{{ number_format($chargeLine['amount'], 2) }}</span>
                                 </div>
-                            @empty
+                            @endforeach
+                            @if($deliveryLines->isEmpty() && $otherFeeLines->isEmpty() && $taxesAndFees > 0)
                                 <div class="flex justify-between text-gray-400">
                                     <span>Charges:</span>
                                     <span class="font-bold text-gray-600">৳{{ number_format($taxesAndFees, 2) }}</span>
                                 </div>
-                            @endforelse
+                            @endif
                             @if($couponDiscount > 0)
                                 <div class="flex justify-between text-emerald-700">
                                     <span>Coupon ({{ $appliedCouponCode }}):</span>
                                     <span class="font-bold">−৳{{ number_format($couponDiscount) }}</span>
+                                </div>
+                            @endif
+                            @if($deliveryGross > 0)
+                                <div class="flex justify-between text-gray-400 text-[10px]">
+                                    <span>Delivery VAT (incl., admin rate)</span>
+                                    <span>on net delivery after delivery coupon</span>
                                 </div>
                             @endif
                             <div class="flex justify-between text-sm font-black text-gray-900 pt-1">

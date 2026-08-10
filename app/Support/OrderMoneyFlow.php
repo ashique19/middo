@@ -43,10 +43,11 @@ class OrderMoneyFlow
             self::write($order, OrderMoneyEvent::TYPE_VAT, OrderMoneyEvent::BUCKET_VAT, (int) $breakdown['vat_amount'], [
                 'channel' => 'system',
                 'description' => sprintf(
-                    'VAT %.2f%% unbundled from food (inclusive)',
+                    'Food VAT %.2f%% unbundled (inclusive)',
                     (float) $breakdown['vat_rate_pct']
                 ),
                 'meta' => [
+                    'scope' => 'food',
                     'vat_rate_pct' => (float) $breakdown['vat_rate_pct'],
                     'food_inclusive' => (int) $breakdown['food_amount'],
                     'food_ex_vat' => (int) $breakdown['food_amount'] - (int) $breakdown['vat_amount'],
@@ -54,17 +55,65 @@ class OrderMoneyFlow
             ]);
         }
 
-        if ((int) $breakdown['charges_amount'] > 0) {
-            self::write($order, OrderMoneyEvent::TYPE_CHARGE, OrderMoneyEvent::BUCKET_CHARGE, (int) $breakdown['charges_amount'], [
+        $deliveryNet = (int) ($breakdown['delivery_charge_amount'] ?? 0);
+        $otherCharges = (int) ($breakdown['other_charges_amount'] ?? 0);
+        $deliveryDiscount = (int) ($breakdown['delivery_discount_amount'] ?? 0);
+        $deliveryVat = (int) ($breakdown['delivery_vat_amount'] ?? 0);
+
+        if ($deliveryNet + $deliveryDiscount > 0) {
+            self::write($order, OrderMoneyEvent::TYPE_CHARGE, OrderMoneyEvent::BUCKET_CHARGE, $deliveryNet + $deliveryDiscount, [
                 'channel' => 'system',
-                'description' => 'Customer charges (delivery/handling/packaging/other)',
+                'description' => 'Delivery charge (gross, VAT-inclusive)',
+                'meta' => [
+                    'scope' => 'delivery',
+                    'delivery_gross' => $deliveryNet + $deliveryDiscount,
+                    'delivery_discount' => $deliveryDiscount,
+                    'delivery_net' => $deliveryNet,
+                    'delivery_vat_rate_pct' => (float) ($breakdown['delivery_vat_rate_pct'] ?? 0),
+                    'delivery_vat_amount' => $deliveryVat,
+                    'delivery_ex_vat' => max(0, $deliveryNet - $deliveryVat),
+                ],
             ]);
         }
 
-        if ((int) $breakdown['discount_amount'] > 0) {
-            self::write($order, OrderMoneyEvent::TYPE_DISCOUNT, OrderMoneyEvent::BUCKET_DISCOUNT, -1 * (int) $breakdown['discount_amount'], [
+        if ($deliveryDiscount > 0) {
+            self::write($order, OrderMoneyEvent::TYPE_DISCOUNT, OrderMoneyEvent::BUCKET_DISCOUNT, -1 * $deliveryDiscount, [
                 'channel' => 'system',
-                'description' => 'Discount / coupon',
+                'description' => 'Delivery coupon',
+                'meta' => ['scope' => 'delivery'],
+            ]);
+        }
+
+        if ($deliveryVat > 0) {
+            self::write($order, OrderMoneyEvent::TYPE_VAT, OrderMoneyEvent::BUCKET_VAT, $deliveryVat, [
+                'channel' => 'system',
+                'description' => sprintf(
+                    'Delivery VAT %.2f%% unbundled from net delivery (inclusive)',
+                    (float) ($breakdown['delivery_vat_rate_pct'] ?? 0)
+                ),
+                'meta' => [
+                    'scope' => 'delivery',
+                    'vat_rate_pct' => (float) ($breakdown['delivery_vat_rate_pct'] ?? 0),
+                    'delivery_net_inclusive' => $deliveryNet,
+                    'delivery_ex_vat' => max(0, $deliveryNet - $deliveryVat),
+                ],
+            ]);
+        }
+
+        if ($otherCharges > 0) {
+            self::write($order, OrderMoneyEvent::TYPE_CHARGE, OrderMoneyEvent::BUCKET_CHARGE, $otherCharges, [
+                'channel' => 'system',
+                'description' => 'Other charges (handling/packaging/other — no delivery VAT)',
+                'meta' => ['scope' => 'other_charges'],
+            ]);
+        }
+
+        $nonDeliveryDiscount = max(0, (int) $breakdown['discount_amount'] - $deliveryDiscount);
+        if ($nonDeliveryDiscount > 0) {
+            self::write($order, OrderMoneyEvent::TYPE_DISCOUNT, OrderMoneyEvent::BUCKET_DISCOUNT, -1 * $nonDeliveryDiscount, [
+                'channel' => 'system',
+                'description' => 'Discount / coupon (non-delivery)',
+                'meta' => ['scope' => 'other'],
             ]);
         }
 
@@ -651,6 +700,8 @@ class OrderMoneyFlow
 
         $food = (int) ($order->food_amount ?: max(0, (int) $order->total_amount - (int) ($order->charges_amount ?? 0)));
         $vat = (int) ($order->vat_amount ?? 0);
+        $deliveryNet = (int) ($order->delivery_charge_amount ?? 0);
+        $deliveryVat = (int) ($order->delivery_vat_amount ?? 0);
 
         return [
             'summary' => [
@@ -660,6 +711,12 @@ class OrderMoneyFlow
                 'vat' => $vat,
                 'vat_rate_pct' => (float) ($order->vat_rate_pct ?? 0),
                 'charges' => (int) ($order->charges_amount ?? 0),
+                'delivery_charge' => $deliveryNet,
+                'delivery_discount' => (int) ($order->delivery_discount_amount ?? 0),
+                'other_charges' => (int) ($order->other_charges_amount ?? 0),
+                'delivery_vat' => $deliveryVat,
+                'delivery_vat_rate_pct' => (float) ($order->delivery_vat_rate_pct ?? 0),
+                'delivery_ex_vat' => max(0, $deliveryNet - $deliveryVat),
                 'discount' => (int) ($order->discount_amount ?? 0),
                 'paid' => (int) $order->amount_paid,
                 'due' => $order->amountDue(),
@@ -684,6 +741,11 @@ class OrderMoneyFlow
      *   vat_rate_pct:float,
      *   vat_amount:int,
      *   charges_amount:int,
+     *   delivery_charge_amount:int,
+     *   other_charges_amount:int,
+     *   delivery_discount_amount:int,
+     *   delivery_vat_rate_pct:float,
+     *   delivery_vat_amount:int,
      *   discount_amount:int,
      *   kitchen_share_amount:int,
      *   delivery_share_amount:int,
@@ -723,6 +785,64 @@ class OrderMoneyFlow
         $foodEx = $rate > 0 ? (int) round($food / (1 + ($rate / 100))) : $food;
         $vat = max(0, $food - $foodEx);
 
+        $deliveryChargeAmount = (int) ($order->delivery_charge_amount ?? 0);
+        $otherChargesAmount = (int) ($order->other_charges_amount ?? 0);
+        $deliveryDiscountAmount = (int) ($order->delivery_discount_amount ?? 0);
+        $deliveryVatRate = (float) ($order->delivery_vat_rate_pct ?? 0);
+        $deliveryVatAmount = (int) ($order->delivery_vat_amount ?? 0);
+
+        // Derive delivery split from order_charges when not yet snapshotted on the order.
+        if (
+            Schema::hasColumn('orders', 'delivery_charge_amount')
+            && $order->exists
+            && $deliveryChargeAmount < 1
+            && $otherChargesAmount < 1
+            && $charges > 0
+        ) {
+            $order->loadMissing('appliedCharges', 'coupon');
+            $lines = $order->appliedCharges->map(fn ($row) => [
+                'charge_id' => $row->charge_id,
+                'category' => $row->category,
+                'amount' => (int) $row->amount,
+            ])->all();
+
+            if ($lines !== []) {
+                $quoted = DeliveryChargeVat::quote(
+                    $order->coupon,
+                    $discount,
+                    $lines,
+                    MiddoSettings::deliveryVatRatePct()
+                );
+                $deliveryChargeAmount = $quoted['delivery_net'];
+                $otherChargesAmount = $quoted['other_gross'];
+                $deliveryDiscountAmount = $quoted['delivery_discount'];
+                $deliveryVatRate = $quoted['delivery_vat_rate_pct'];
+                $deliveryVatAmount = $quoted['delivery_vat_amount'];
+            } else {
+                $otherChargesAmount = $charges;
+                $deliveryVatRate = MiddoSettings::deliveryVatRatePct();
+            }
+        } elseif ($deliveryChargeAmount > 0 || $deliveryDiscountAmount > 0) {
+            // Keep snapshotted rate when present; otherwise unbundle with current/settings rate.
+            if ($deliveryVatRate <= 0 && $order->exists && (int) ($order->delivery_charge_amount ?? 0) > 0) {
+                $deliveryVatRate = (float) ($order->delivery_vat_rate_pct ?? 0);
+            }
+            if ($deliveryVatRate <= 0) {
+                $deliveryVatRate = MiddoSettings::deliveryVatRatePct();
+            }
+            if ($deliveryVatAmount < 1 && $deliveryChargeAmount > 0) {
+                $unbundled = DeliveryChargeVat::unbundleInclusive($deliveryChargeAmount, $deliveryVatRate);
+                $deliveryVatRate = $unbundled['rate'];
+                $deliveryVatAmount = $unbundled['vat'];
+            }
+        } elseif ($charges > 0 && $otherChargesAmount < 1 && $deliveryChargeAmount < 1) {
+            $otherChargesAmount = $charges;
+        }
+
+        if ($charges < 1) {
+            $charges = $deliveryChargeAmount + $deliveryDiscountAmount + $otherChargesAmount;
+        }
+
         $kitchenUnit = (int) ($menu?->kitchen_commission ?? 0);
         $deliveryUnit = (int) ($menu?->delivery_commission ?? 0);
         $directUnit = (int) ($menu?->meals_cost ?? 0) + (int) ($menu?->other_cost ?? 0);
@@ -739,14 +859,19 @@ class OrderMoneyFlow
             $kitchen = $scaledKitchen;
             $delivery = $billNet - $scaledKitchen;
         }
-        // Middo rest uses food ex-VAT so VAT is tax payable, not Middo margin.
-        $middoRest = max(0, $billNet - $vat - $kitchen - $delivery);
+        // Middo rest uses food + delivery ex-VAT so VAT is tax payable, not Middo margin.
+        $middoRest = max(0, $billNet - $vat - $deliveryVatAmount - $kitchen - $delivery);
 
         return [
             'food_amount' => $food,
             'vat_rate_pct' => $rate,
             'vat_amount' => $vat,
             'charges_amount' => $charges,
+            'delivery_charge_amount' => $deliveryChargeAmount,
+            'other_charges_amount' => $otherChargesAmount,
+            'delivery_discount_amount' => $deliveryDiscountAmount,
+            'delivery_vat_rate_pct' => $deliveryVatRate,
+            'delivery_vat_amount' => $deliveryVatAmount,
             'discount_amount' => $discount,
             'kitchen_share_amount' => $kitchen,
             'delivery_share_amount' => $delivery,
@@ -885,6 +1010,12 @@ class OrderMoneyFlow
                 'vat' => $breakdown['vat_amount'],
                 'vat_rate_pct' => $breakdown['vat_rate_pct'],
                 'charges' => $breakdown['charges_amount'],
+                'delivery_charge' => $breakdown['delivery_charge_amount'],
+                'delivery_discount' => $breakdown['delivery_discount_amount'],
+                'other_charges' => $breakdown['other_charges_amount'],
+                'delivery_vat' => $breakdown['delivery_vat_amount'],
+                'delivery_vat_rate_pct' => $breakdown['delivery_vat_rate_pct'],
+                'delivery_ex_vat' => max(0, $breakdown['delivery_charge_amount'] - $breakdown['delivery_vat_amount']),
                 'discount' => $breakdown['discount_amount'],
                 'paid' => (int) $order->amount_paid,
                 'due' => $order->amountDue(),

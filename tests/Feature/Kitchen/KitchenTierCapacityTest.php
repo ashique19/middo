@@ -144,7 +144,7 @@ class KitchenTierCapacityTest extends TestCase
             ->assertSee('Kitchen tier defaults')
             ->assertSee('Daily Order Cutoff time')
             ->assertSee('Rider commissions')
-            ->assertSee('Finance — food VAT')
+            ->assertSee('Finance — VAT')
             ->assertSee('EPS gateway fees');
 
         $this->assertSame(2, MiddoSettings::defaultAllowedOpenGroupsForTier(KitchenTier::SILVER));

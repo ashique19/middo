@@ -43,6 +43,8 @@ class SettingsPage extends Component
 
     public float $vat_rate_pct = 5;
 
+    public float $delivery_vat_rate_pct = 15;
+
     public float $eps_fee_bank = 1.5;
 
     public float $eps_fee_bkash = 1.8;
@@ -87,6 +89,7 @@ class SettingsPage extends Component
         $this->commission_mid_run_rescue = MiddoSettings::midRunRescueCommission();
         $this->kitchen_to_ops_via_rider = MiddoSettings::kitchenToOpsViaRider();
         $this->vat_rate_pct = MiddoSettings::vatRatePct();
+        $this->delivery_vat_rate_pct = MiddoSettings::deliveryVatRatePct();
         $this->full_prepay_from_active_orders = MiddoSettings::fullPrepayFromActiveOrders();
 
         $fees = MiddoSettings::epsFeeRates();
@@ -135,6 +138,7 @@ class SettingsPage extends Component
             'commission_mid_run_rescue' => 'required|integer|min:0|max:100000',
             'kitchen_to_ops_via_rider' => 'boolean',
             'vat_rate_pct' => 'required|numeric|min:0|max:100',
+            'delivery_vat_rate_pct' => 'required|numeric|min:0|max:100',
             'eps_fee_bank' => 'required|numeric|min:0|max:100',
             'eps_fee_bkash' => 'required|numeric|min:0|max:100',
             'eps_fee_nagad' => 'required|numeric|min:0|max:100',
@@ -166,6 +170,7 @@ class SettingsPage extends Component
             'mid_run_rescue_commission' => $this->commission_mid_run_rescue,
             'kitchen_to_ops_via_rider' => $this->kitchen_to_ops_via_rider,
             'vat_rate_pct' => $this->vat_rate_pct,
+            'delivery_vat_rate_pct' => $this->delivery_vat_rate_pct,
             'full_prepay_from_active_orders' => $this->full_prepay_from_active_orders,
             'eps_fee_rates' => [
                 'bank' => $this->eps_fee_bank,

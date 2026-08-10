@@ -235,18 +235,27 @@
         {{-- Finance VAT --}}
         <section class="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 sm:p-6 space-y-4">
             <div>
-                <h2 class="text-lg font-bold text-middo-dark">Finance — food VAT</h2>
+                <h2 class="text-lg font-bold text-middo-dark">Finance — VAT</h2>
                 <p class="text-sm text-gray-500 mt-1">
-                    Inclusive VAT on food only (not charges). Snapshotted onto each order at place time; Middo rest uses food ex-VAT.
+                    Inclusive rates, snapshotted at place time. Food VAT does not apply to charges.
+                    Delivery VAT applies only to net delivery (delivery charge − delivery coupon).
+                    Delivery fee amounts are managed under Admin → Charges (category: delivery).
                 </p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">VAT rate (%)</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Food VAT rate (%)</label>
                     <input type="number" min="0" max="100" step="0.01" wire:model="vat_rate_pct"
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
-                    <p class="text-[11px] text-gray-400 mt-1">Default 5% for food business. Admin editable.</p>
+                    <p class="text-[11px] text-gray-400 mt-1">Default 5%. Unbundled from inclusive menu price for Middo rest / tax.</p>
                     @error('vat_rate_pct') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Delivery VAT rate (%)</label>
+                    <input type="number" min="0" max="100" step="0.01" wire:model="delivery_vat_rate_pct"
+                           class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                    <p class="text-[11px] text-gray-400 mt-1">Default 15%. Inclusive on net delivery after delivery coupon.</p>
+                    @error('delivery_vat_rate_pct') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
             </div>
         </section>
