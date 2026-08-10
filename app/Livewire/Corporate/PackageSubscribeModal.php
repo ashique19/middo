@@ -499,7 +499,30 @@ class PackageSubscribeModal extends Component
     {
         $subtotal = (int) ($this->quote['total_amount'] ?? 0);
 
-        return max(0, $subtotal - $this->couponDiscount) + $this->chargesTotal;
+        return max(0, $subtotal + $this->chargesTotal - $this->couponDiscount);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function couponScope(): array
+    {
+        $user = Auth::user();
+        $menuIds = collect($this->selectionPayload())
+            ->pluck('menu_item_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return [
+            'area_id' => $this->area_id ? (int) $this->area_id : null,
+            'menu_item_ids' => $menuIds,
+            'quantity' => (int) $this->quantity,
+            'company_id' => $user?->company_id ? (int) $user->company_id : null,
+            'charge_lines' => $this->chargeLines,
+        ];
     }
 
     public function applyCoupon(): void
@@ -507,14 +530,17 @@ class PackageSubscribeModal extends Component
         $this->couponMessage = '';
         $this->errorMessage = '';
         $this->refreshQuote();
+        $this->refreshChargesQuote();
         $subtotal = (int) ($this->quote['total_amount'] ?? 0);
+        $scope = $this->couponScope();
 
         try {
             $quoted = app(CouponService::class)->quote(
                 $this->couponCode,
                 Auth::user(),
                 \App\Models\CouponRedemption::CONTEXT_PACKAGE,
-                $subtotal
+                $subtotal,
+                $scope
             );
         } catch (\Illuminate\Validation\ValidationException $e) {
             $this->appliedCouponCode = '';
@@ -550,7 +576,7 @@ class PackageSubscribeModal extends Component
         }
 
         $subtotal = (int) ($this->quote['total_amount'] ?? 0);
-        if ($subtotal < 1) {
+        if ($subtotal < 1 && $this->chargesTotal < 1) {
             $this->removeCoupon();
 
             return;
@@ -561,7 +587,8 @@ class PackageSubscribeModal extends Component
                 $this->appliedCouponCode,
                 Auth::user(),
                 \App\Models\CouponRedemption::CONTEXT_PACKAGE,
-                $subtotal
+                $subtotal,
+                $this->couponScope()
             );
             $this->couponDiscount = (int) $quoted['discount_amount'];
             $this->appliedCouponCode = $quoted['coupon']->code;
@@ -591,6 +618,7 @@ class PackageSubscribeModal extends Component
         $this->chargesTotal = (int) ($quote['total'] ?? 0);
         $this->chargeLines = collect($quote['lines'] ?? [])
             ->map(fn ($line) => [
+                'charge_id' => isset($line['charge_id']) ? (int) $line['charge_id'] : null,
                 'name' => (string) ($line['name'] ?? 'Charge'),
                 'amount' => (int) ($line['amount'] ?? 0),
                 'category' => (string) ($line['category'] ?? 'other'),

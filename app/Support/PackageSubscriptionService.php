@@ -94,19 +94,33 @@ class PackageSubscriptionService
         $originalTotal = (int) $quote['total_amount'];
         $discountAmount = 0;
         $coupon = null;
+        $couponScope = [
+            'area_id' => $areaId,
+            'menu_item_ids' => collect($quote['selections'] ?? [])
+                ->pluck('menu_item_id')
+                ->map(fn ($id) => (int) $id)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'quantity' => $quantity,
+            'company_id' => $user->company_id ? (int) $user->company_id : null,
+            'charge_lines' => $chargesQuote['lines'] ?? [],
+        ];
 
         if (filled($couponCode)) {
             $quoted = app(CouponService::class)->quote(
                 (string) $couponCode,
                 $user,
                 CouponRedemption::CONTEXT_PACKAGE,
-                $originalTotal
+                $originalTotal,
+                $couponScope
             );
             $coupon = $quoted['coupon'];
             $discountAmount = (int) $quoted['discount_amount'];
         }
 
-        $total = max(0, $originalTotal - $discountAmount) + $chargesTotal;
+        $total = max(0, $originalTotal + $chargesTotal - $discountAmount);
 
         return DB::transaction(function () use (
             $user,
@@ -128,7 +142,8 @@ class PackageSubscriptionService
             $discountAmount,
             $coupon,
             $chargesTotal,
-            $chargesQuote
+            $chargesQuote,
+            $couponScope
         ) {
             /** @var User $locked */
             $locked = User::query()->lockForUpdate()->findOrFail($user->id);
@@ -242,7 +257,8 @@ class PackageSubscriptionService
                     [
                         'meal_package_id' => $package->id,
                         'target_month' => $quote['target_month'],
-                    ]
+                    ],
+                    $couponScope
                 );
             }
 

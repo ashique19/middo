@@ -242,6 +242,7 @@ class OrderCheckoutModal extends Component
         $this->taxesAndFees = (float) ($quote['total'] ?? 0);
         $this->chargeLines = collect($quote['lines'] ?? [])
             ->map(fn ($line) => [
+                'charge_id' => isset($line['charge_id']) ? (int) $line['charge_id'] : null,
                 'name' => (string) ($line['name'] ?? 'Charge'),
                 'amount' => (int) ($line['amount'] ?? 0),
                 'category' => (string) ($line['category'] ?? 'other'),
@@ -254,17 +255,35 @@ class OrderCheckoutModal extends Component
         $this->refreshPrepaymentQuote();
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    protected function couponScope(): array
+    {
+        $user = Auth::user();
+
+        return [
+            'area_id' => $this->area_id ? (int) $this->area_id : null,
+            'menu_item_ids' => array_filter([(int) ($this->dish['id'] ?? 0)]),
+            'quantity' => (int) array_sum($this->quantities),
+            'company_id' => $user?->company_id ? (int) $user->company_id : null,
+            'charge_lines' => $this->chargeLines,
+        ];
+    }
+
     public function applyCoupon(): void
     {
         $this->couponMessage = '';
         $quoteBase = (int) round($this->subtotal + $this->taxesAndFees);
+        $scope = $this->couponScope();
 
         try {
             $quoted = app(CouponService::class)->quote(
                 $this->couponCode,
                 Auth::user(),
                 CouponRedemption::CONTEXT_ORDER,
-                $quoteBase
+                $quoteBase,
+                $scope
             );
         } catch (\Illuminate\Validation\ValidationException $e) {
             $this->appliedCouponCode = '';
@@ -318,7 +337,8 @@ class OrderCheckoutModal extends Component
                 $this->appliedCouponCode,
                 Auth::user(),
                 CouponRedemption::CONTEXT_ORDER,
-                $quoteBase
+                $quoteBase,
+                $this->couponScope()
             );
             $this->couponDiscount = (int) $quoted['discount_amount'];
             $this->appliedCouponCode = $quoted['coupon']->code;
@@ -844,18 +864,18 @@ class OrderCheckoutModal extends Component
         $chargeAmount = $this->checkoutChargeAmount($prepayment, $payableCart);
         // Allocate coupon first, then split prepaid across post-discount line nets so
         // no line is overpaid relative to what the customer still owes on that day.
-        $discountShares = app(CouponService::class)->allocateDiscount($lineTotals, $discountAmount);
-        $netLineTotals = [];
-        foreach ($lineTotals as $i => $gross) {
-            $netLineTotals[] = max(0, (int) $gross - (int) ($discountShares[$i] ?? 0));
-        }
-        $allocations = CorporateOrderPrepayment::allocate($chargeAmount, $netLineTotals);
-        $couponId = null;
+        $couponService = app(CouponService::class);
+        $appliedCoupon = null;
+        $scope = $this->couponScope();
         if ($this->appliedCouponCode !== '' && $discountAmount > 0) {
             try {
-                $couponId = app(CouponService::class)
-                    ->findApplicable($this->appliedCouponCode, $currentUser, CouponRedemption::CONTEXT_ORDER, $cartTotal)
-                    ->id;
+                $appliedCoupon = $couponService->findApplicable(
+                    $this->appliedCouponCode,
+                    $currentUser,
+                    CouponRedemption::CONTEXT_ORDER,
+                    $cartTotal,
+                    $scope
+                );
             } catch (\Throwable $e) {
                 $this->addError('couponCode', $e instanceof \Illuminate\Validation\ValidationException
                     ? collect($e->validator->errors()->all())->implode(' ')
@@ -864,6 +884,28 @@ class OrderCheckoutModal extends Component
                 return;
             }
         }
+
+        if ($appliedCoupon?->isWaiveCharge()) {
+            $feeTotals = [];
+            foreach ($activeOrders as $date => $qty) {
+                $dateFees = 0;
+                foreach ($perOrderCharges[(string) $date] ?? [] as $feeLine) {
+                    if ($couponService->chargeLineMatchesCoupon($appliedCoupon, $feeLine)) {
+                        $dateFees += (int) ($feeLine['amount'] ?? 0);
+                    }
+                }
+                $feeTotals[] = $dateFees;
+            }
+            $discountShares = $couponService->allocateWaiveAcrossFees($feeTotals, $discountAmount);
+        } else {
+            $discountShares = $couponService->allocateDiscount($lineTotals, $discountAmount);
+        }
+        $netLineTotals = [];
+        foreach ($lineTotals as $i => $gross) {
+            $netLineTotals[] = max(0, (int) $gross - (int) ($discountShares[$i] ?? 0));
+        }
+        $allocations = CorporateOrderPrepayment::allocate($chargeAmount, $netLineTotals);
+        $couponId = $appliedCoupon?->id;
         $profileMatches = CorporateOrderPrepayment::profileMatchesReceiver(
             $currentUser,
             $this->customerName,
@@ -927,7 +969,8 @@ class OrderCheckoutModal extends Component
             $couponId,
             $cartTotal,
             $discountAmount,
-            $perOrderCharges
+            $perOrderCharges,
+            $scope
         ) {
             $currentUserId = $currentUser->id;
             $cityModel = City::find($this->city_id);
@@ -997,7 +1040,8 @@ class OrderCheckoutModal extends Component
                     $discountAmount,
                     $firstOrder,
                     null,
-                    ['order_ids' => $createdOrderIds]
+                    ['order_ids' => $createdOrderIds],
+                    $scope
                 );
             }
 
