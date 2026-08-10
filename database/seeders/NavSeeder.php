@@ -47,6 +47,8 @@ class NavSeeder extends Seeder
         Nav::create(['title' => 'Subscriptions', 'route_name' => 'admin.subscriptions.index', 'order' => 4, 'role_id' => $adminId, 'parent_id' => $adminMenuNav->id]);
         Nav::create(['title' => 'Package demand', 'route_name' => 'admin.packages.demand', 'order' => 5, 'role_id' => $adminId, 'parent_id' => $adminMenuNav->id]);
         Nav::create(['title' => 'Package insights', 'route_name' => 'admin.packages.insights', 'order' => 6, 'role_id' => $adminId, 'parent_id' => $adminMenuNav->id]);
+        Nav::create(['title' => 'Coupons', 'route_name' => 'admin.coupons.index', 'order' => 7, 'role_id' => $adminId, 'parent_id' => $adminMenuNav->id]);
+        Nav::create(['title' => 'Charges', 'route_name' => 'admin.charges.index', 'order' => 8, 'role_id' => $adminId, 'parent_id' => $adminMenuNav->id]);
 
         $adminOrdersNav = Nav::create([
             'title' => 'Orders',
