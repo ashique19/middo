@@ -289,7 +289,11 @@ class BoxesAtKitchen extends Component
         try {
             $box = MiddoBox::query()->findOrFail($boxId);
             $sent = MiddoBoxKitchenActions::sendDamagedToWarehouse($box, (int) Auth::id());
-            $this->statusMessage = "{$sent->qr_code_id} sent to Middo as damaged. Ops will review — not restocked as normal inventory.";
+            if (MiddoSettings::kitchenToOpsViaRider()) {
+                $this->statusMessage = "{$sent->qr_code_id} (damaged) marked ready to ship. Active riders were notified — they claim it on Middo boxes pending run (or Alerts).";
+            } else {
+                $this->statusMessage = "{$sent->qr_code_id} sent to Middo as damaged. Ops will review — not restocked as normal inventory.";
+            }
             $this->resetPage();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not send damaged box.';
