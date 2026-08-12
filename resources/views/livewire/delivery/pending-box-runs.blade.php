@@ -31,6 +31,7 @@
                             @if($group['kitchen_name']) · {{ $group['kitchen_name'] }} @endif
                         </p>
                     </div>
+                    <div class="flex flex-wrap items-center gap-2">
                     @if(count($group['accept_all_ids']) > 1 && $group['request_id'])
                         <button
                             type="button"
@@ -40,6 +41,21 @@
                             Accept all ({{ count($group['accept_all_ids']) }})
                         </button>
                     @endif
+                    @if(count($group['hand_all_ids']) >= 1)
+                        <button
+                            type="button"
+                            @if($group['request_id'])
+                                wire:click="handRunToKitchen({{ $group['request_id'] }})"
+                            @else
+                                wire:click="handAllToKitchen({{ json_encode($group['hand_all_ids']) }})"
+                            @endif
+                            wire:confirm="{{ e($group['hand_confirm_label']) }}"
+                            wire:loading.attr="disabled"
+                            class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
+                            Hand over ({{ count($group['hand_all_ids']) }}) to kitchen
+                        </button>
+                    @endif
+                    </div>
                 </div>
                 <div class="divide-y divide-gray-100">
                     @foreach($group['nodes'] as $box)
@@ -121,6 +137,7 @@
                                     wire:click="handWarehouseStock({{ $box['id'] }})"
                                     wire:loading.attr="disabled"
                                     wire:target="handWarehouseStock({{ $box['id'] }})"
+                                    @if(! empty($box['hand_confirm_label'])) wire:confirm="{{ e($box['hand_confirm_label']) }}" @endif
                                     class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
                                     Hand to kitchen
                                 </button>
@@ -130,6 +147,7 @@
                                     wire:click="handToKitchen({{ $box['id'] }})"
                                     wire:loading.attr="disabled"
                                     wire:target="handToKitchen({{ $box['id'] }})"
+                                    @if(! empty($box['hand_confirm_label'])) wire:confirm="{{ e($box['hand_confirm_label']) }}" @endif
                                     class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
                                     Hand to kitchen
                                 </button>
@@ -156,6 +174,7 @@
                             @if($group['kitchen_name']) · {{ $group['kitchen_name'] }} @endif
                         </p>
                     </div>
+                    <div class="flex flex-wrap items-center gap-2">
                     @if(count($group['accept_all_ids']) > 1 && $group['request_id'])
                         <button
                             type="button"
@@ -165,6 +184,21 @@
                             Accept all ({{ count($group['accept_all_ids']) }})
                         </button>
                     @endif
+                    @if(count($group['hand_all_ids']) >= 1)
+                        <button
+                            type="button"
+                            @if($group['request_id'])
+                                wire:click="handRunToKitchen({{ $group['request_id'] }})"
+                            @else
+                                wire:click="handAllToKitchen({{ json_encode($group['hand_all_ids']) }})"
+                            @endif
+                            wire:confirm="{{ e($group['hand_confirm_label']) }}"
+                            wire:loading.attr="disabled"
+                            class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
+                            Hand over ({{ count($group['hand_all_ids']) }}) to kitchen
+                        </button>
+                    @endif
+                    </div>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse min-w-[720px]">
@@ -193,6 +227,9 @@
                                             <div class="font-semibold text-middo-dark">{{ $box['kitchen_name'] }}</div>
                                             @if($box['kitchen_mobile'])
                                                 <div class="text-xs text-gray-500">{{ $box['kitchen_mobile'] }}</div>
+                                            @endif
+                                            @if($box['kitchen_address'])
+                                                <div class="text-xs text-gray-500">{{ $box['kitchen_address'] }}</div>
                                             @endif
                                         @else
                                             <span class="text-gray-400">—</span>
@@ -232,11 +269,13 @@
                                             </button>
                                         @elseif($box['can_hand_warehouse_stock'] ?? false)
                                             <button type="button" wire:click="handWarehouseStock({{ $box['id'] }})" wire:loading.attr="disabled"
+                                                    @if(! empty($box['hand_confirm_label'])) wire:confirm="{{ e($box['hand_confirm_label']) }}" @endif
                                                     class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
                                                 Hand to kitchen
                                             </button>
                                         @elseif($box['can_hand_to_kitchen'])
                                             <button type="button" wire:click="handToKitchen({{ $box['id'] }})" wire:loading.attr="disabled"
+                                                    @if(! empty($box['hand_confirm_label'])) wire:confirm="{{ e($box['hand_confirm_label']) }}" @endif
                                                     class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
                                                 Hand to kitchen
                                             </button>

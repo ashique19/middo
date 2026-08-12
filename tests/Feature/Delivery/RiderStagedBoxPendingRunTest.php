@@ -39,6 +39,7 @@ class RiderStagedBoxPendingRunTest extends TestCase
             'first_name' => 'Tomato',
             'last_name' => 'Kitchen',
             'mobile' => '01720000001',
+            'address' => '12 Gulshan Ave',
             'password' => 'password',
             'role_id' => $kitchenRole->id,
             'status' => 'active',
@@ -166,6 +167,55 @@ class RiderStagedBoxPendingRunTest extends TestCase
         );
         $this->assertSame(
             KitchenBoxRequestBox::STATUS_RIDER_ACCEPTED,
+            KitchenBoxRequestBox::query()->where('middo_box_id', $boxB->id)->value('status')
+        );
+    }
+
+    public function test_rider_can_hand_over_run_to_kitchen_with_confirm_details(): void
+    {
+        $request = KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 2,
+            'allocated_qty' => 0,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+
+        $boxA = MiddoBox::create([
+            'qr_code_id' => 'MB-HAND-1',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+        $boxB = MiddoBox::create([
+            'qr_code_id' => 'MB-HAND-2',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+
+        Livewire::actingAs($this->ops)
+            ->test(AssignMiddoBoxesModal::class)
+            ->call('openModal', [$boxA->id, $boxB->id], $this->kitchen->id, $request->id)
+            ->set('selectedRiderId', $this->rider->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        Livewire::actingAs($this->rider)
+            ->test(PendingBoxRuns::class)
+            ->call('acceptRunPickup', $request->id)
+            ->assertSet('errorMessage', null)
+            ->assertSee('Hand over (2) to kitchen', false)
+            ->assertSeeHtml('Confirm Hand over 2 boxes to Kitchen Tomato Kitchen, 12 Gulshan Ave, 01720000001?')
+            ->call('handRunToKitchen', $request->id)
+            ->assertSet('errorMessage', null);
+
+        $this->assertSame(
+            KitchenBoxRequestBox::STATUS_HANDED_TO_KITCHEN,
+            KitchenBoxRequestBox::query()->where('middo_box_id', $boxA->id)->value('status')
+        );
+        $this->assertSame(
+            KitchenBoxRequestBox::STATUS_HANDED_TO_KITCHEN,
             KitchenBoxRequestBox::query()->where('middo_box_id', $boxB->id)->value('status')
         );
     }
