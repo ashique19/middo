@@ -101,7 +101,6 @@
                         wire:click="handWarehouseStock({{ $box['id'] }})"
                         wire:loading.attr="disabled"
                         wire:target="handWarehouseStock({{ $box['id'] }})"
-                        wire:confirm="Mark this warehouse stock as handed to the kitchen?"
                         class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
                         Hand to kitchen
                     </button>
@@ -111,7 +110,6 @@
                         wire:click="handToKitchen({{ $box['id'] }})"
                         wire:loading.attr="disabled"
                         wire:target="handToKitchen({{ $box['id'] }})"
-                        wire:confirm="Mark this box as handed to the kitchen?"
                         class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
                         Hand to kitchen
                     </button>
