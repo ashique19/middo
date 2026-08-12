@@ -20,8 +20,10 @@ return new class extends Migration
 
         $adminMenuParent = Nav::query()
             ->where('role_id', $adminId)
-            ->where('title', 'Menu')
+            ->whereIn('title', ['Catalog', 'Menu'])
             ->whereNull('parent_id')
+            ->whereNull('route_name')
+            ->orderByRaw("CASE WHEN title = 'Catalog' THEN 0 ELSE 1 END")
             ->value('id');
 
         foreach ([
