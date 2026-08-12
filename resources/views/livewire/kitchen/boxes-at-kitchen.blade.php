@@ -96,6 +96,8 @@
                                 class="text-xs font-bold text-amber-900 hover:underline">
                             Cancel
                         </button>
+                    @elseif($req->remainingQuantity() === 0)
+                        <span class="text-xs font-bold text-emerald-700">Completed</span>
                     @else
                         <span class="text-xs font-bold text-amber-800">In progress</span>
                     @endif

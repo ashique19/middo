@@ -311,6 +311,23 @@ class KitchenBoxRequestTest extends TestCase
         ]);
     }
 
+    public function test_fully_staged_request_shows_completed_not_in_progress(): void
+    {
+        KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 2,
+            'allocated_qty' => 2,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->assertSee('2 staged · 0 remaining', false)
+            ->assertSee('Completed', false)
+            ->assertDontSee('In progress', false);
+    }
+
     public function test_full_handoff_lifecycle_is_logged(): void
     {
         $request = KitchenBoxRequest::create([

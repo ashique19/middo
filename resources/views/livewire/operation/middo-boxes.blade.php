@@ -133,6 +133,8 @@
                                                     class="text-xs font-bold text-gray-500 hover:underline">
                                                 Cancel
                                             </button>
+                                        @elseif($remaining === 0)
+                                            <span class="text-xs text-emerald-700 font-semibold">Completed</span>
                                         @else
                                             <span class="text-xs text-amber-700 font-semibold">In progress</span>
                                         @endif
