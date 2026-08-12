@@ -313,6 +313,14 @@ class PendingBoxRuns extends Component
                     'can_hand_warehouse_stock' => (bool) $canHandWarehouseStock,
                     'can_hand_to_kitchen' => (bool) $canHandToKitchen,
                     'can_deliver_to_warehouse' => (bool) ($enRouteToWarehouse || $isInTransitKitchenReturn),
+                    'hand_confirm_label' => ($canHandWarehouseStock || $canHandToKitchen)
+                        ? $this->handOverConfirmLabel(
+                            1,
+                            $showWarehouseDestination ? null : $destinationKitchen?->name,
+                            $showWarehouseDestination ? null : $destinationKitchen?->address,
+                            $showWarehouseDestination ? null : $destinationKitchen?->mobile,
+                        )
+                        : null,
                 ];
             })
             ->values();
@@ -327,12 +335,25 @@ class PendingBoxRuns extends Component
                     'title' => $first['run_group_title'],
                     'request_id' => $first['request_id'],
                     'kitchen_name' => $first['kitchen_name'],
+                    'kitchen_mobile' => $first['kitchen_mobile'],
+                    'kitchen_address' => $first['kitchen_address'],
                     'box_count' => $groupNodes->count(),
                     'accept_all_ids' => $groupNodes
                         ->filter(fn (array $n) => $n['can_accept_pickup'])
                         ->pluck('id')
                         ->values()
                         ->all(),
+                    'hand_all_ids' => $groupNodes
+                        ->filter(fn (array $n) => $n['can_hand_warehouse_stock'])
+                        ->pluck('id')
+                        ->values()
+                        ->all(),
+                    'hand_confirm_label' => $this->handOverConfirmLabel(
+                        $groupNodes->filter(fn (array $n) => $n['can_hand_warehouse_stock'])->count(),
+                        $first['kitchen_name'],
+                        $first['kitchen_address'],
+                        $first['kitchen_mobile'],
+                    ),
                     'nodes' => $groupNodes->values()->all(),
                 ];
             })
@@ -389,5 +410,65 @@ class PendingBoxRuns extends Component
             ->all();
 
         $this->acceptAllWarehouseStock($ids);
+    }
+
+    public function handAllToKitchen(array $boxIds = []): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        $ids = collect($boxIds)->map(fn ($id) => (int) $id)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $handed = 0;
+        $errors = [];
+        foreach ($ids as $boxId) {
+            try {
+                KitchenBoxRequestFlow::handWarehouseStockToKitchen($boxId, (int) Auth::id());
+                $handed++;
+            } catch (\Throwable $e) {
+                $errors[] = $e->getMessage() ?: 'Could not hand a box to kitchen.';
+            }
+        }
+
+        if ($handed > 0) {
+            $this->statusMessage = "Handed {$handed} ".str('box')->plural($handed).' to kitchen. Waiting for kitchen confirmation.';
+            $this->resetPage();
+        }
+        if ($errors !== []) {
+            $this->errorMessage = $errors[0];
+        }
+    }
+
+    public function handRunToKitchen(int $requestId): void
+    {
+        $ids = KitchenBoxRequestBox::query()
+            ->where('kitchen_box_request_id', $requestId)
+            ->where('rider_id', (int) Auth::id())
+            ->where('status', KitchenBoxRequestBox::STATUS_RIDER_ACCEPTED)
+            ->pluck('middo_box_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $this->handAllToKitchen($ids);
+    }
+
+    protected function handOverConfirmLabel(int $count, ?string $name, ?string $address, ?string $mobile): string
+    {
+        if ($count < 1) {
+            return '';
+        }
+
+        $kitchenBits = collect([$name, $address, $mobile])
+            ->map(fn ($v) => is_string($v) ? trim($v) : '')
+            ->filter()
+            ->values()
+            ->all();
+
+        $kitchenLabel = $kitchenBits === [] ? 'kitchen' : implode(', ', $kitchenBits);
+
+        return 'Confirm Hand over '.$count.' '.str('box')->plural($count).' to Kitchen '.$kitchenLabel.'?';
     }
 }
