@@ -4,7 +4,9 @@ namespace App\Livewire\Kitchen;
 
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
+use App\Models\User;
 use App\Support\KitchenBoxRequestFlow;
+use App\Support\MiddoBoxLifecycle;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -107,6 +109,7 @@ class IncomingBoxes extends Component
                 'middo_box_id' => $box->id,
                 'custody_status' => 'assigned_at_kitchen',
                 'log_action' => 'received_at_kitchen',
+                'notes' => 'Received at '.(MiddoBoxLifecycle::partyLabel(User::query()->find($kitchenId)) ?: 'kitchen'),
                 'performed_by' => $kitchenId,
             ]);
 

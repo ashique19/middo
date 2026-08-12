@@ -40,7 +40,7 @@
                                     <td class="p-3 font-medium text-gray-800">
                                         {{ str($log['log_action'])->headline() }}
                                     </td>
-                                    <td class="p-3 text-gray-600 max-w-xs truncate" title="{{ $log['notes'] ?? '' }}">
+                                    <td class="p-3 text-gray-600 max-w-md whitespace-normal break-words">
                                         {{ $log['notes'] ?: '—' }}
                                     </td>
                                     <td class="p-3 font-mono text-gray-600">
