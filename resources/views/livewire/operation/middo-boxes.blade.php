@@ -64,9 +64,9 @@
         <div class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 sm:p-5 space-y-3 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <h2 class="text-lg font-bold text-amber-950">Kitchen box requests</h2>
+                    <h2 class="text-lg font-bold text-amber-950">Kitchen box runs</h2>
                     <p class="text-sm font-semibold text-amber-800/80">
-                        {{ $pendingBoxRequests->count() }} open — check a request to select warehouse boxes for its remaining qty, then Ready for pickup.
+                        {{ $pendingBoxRequests->count() }} open — each request is one run. Check a run to stage its remaining qty, then Ready for pickup. Change rider anytime while boxes are still staged.
                     </p>
                 </div>
             </div>
@@ -76,10 +76,11 @@
                         <thead>
                             <tr class="bg-amber-50/80 text-xs font-semibold uppercase tracking-wider text-amber-800">
                                 <th class="p-3 w-12"></th>
-                                <th class="p-3">Kitchen</th>
+                                <th class="p-3">Run</th>
                                 <th class="p-3 text-center">Requested</th>
                                 <th class="p-3 text-center">Staged</th>
                                 <th class="p-3 text-center">Remaining</th>
+                                <th class="p-3">Rider</th>
                                 <th class="p-3">Note</th>
                                 <th class="p-3">Requested at</th>
                                 <th class="p-3 text-right">Actions</th>
@@ -91,6 +92,8 @@
                                     $remaining = $req->remainingQuantity();
                                     $receivedCount = $req->requestBoxes->where('status', 'received')->count();
                                     $inTransitCount = $req->requestBoxes->where('status', '!=', 'received')->count();
+                                    $stagedPickupLinks = $req->requestBoxes->where('status', 'ready_for_pickup');
+                                    $runRiderNames = $stagedPickupLinks->map(fn ($link) => $link->rider?->name)->filter()->unique()->values();
                                     $requestSelected = $selectedRequestId === $req->id;
                                     $canSelectRequest = $remaining > 0 && $warehouseFreeCount >= $remaining;
                                 @endphp
@@ -104,13 +107,14 @@
                                             title="{{ $remaining < 1
                                                 ? 'No remaining boxes to stage'
                                                 : ($canSelectRequest
-                                                    ? 'Select '.$remaining.' warehouse '.str('box')->plural($remaining).' for this request'
+                                                    ? 'Select '.$remaining.' warehouse '.str('box')->plural($remaining).' for this run'
                                                     : 'Need '.$remaining.' free warehouse boxes ('.$warehouseFreeCount.' available)') }}"
-                                            aria-label="Select warehouse boxes for {{ $req->kitchen?->name ?? 'kitchen' }} request"
+                                            aria-label="Select warehouse boxes for run #{{ $req->id }}"
                                             class="h-4 w-4 rounded border-gray-300 text-middo-orange focus:ring-middo-orange cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                                         >
                                     </td>
                                     <td class="p-3 font-semibold text-middo-dark">
+                                        <div class="text-[11px] font-bold uppercase tracking-wide text-amber-700">Run #{{ $req->id }}</div>
                                         {{ $req->kitchen?->name ?? 'Kitchen #'.$req->kitchen_id }}
                                         @if($inTransitCount > 0)
                                             <div class="text-[11px] font-semibold text-amber-700 mt-0.5">{{ $inTransitCount }} in transit</div>
@@ -121,11 +125,28 @@
                                     <td class="p-3 text-center font-black text-middo-orange">{{ $req->quantity }}</td>
                                     <td class="p-3 text-center font-semibold text-gray-800">{{ (int) $req->allocated_qty }}</td>
                                     <td class="p-3 text-center font-semibold text-gray-800">{{ $remaining }}</td>
+                                    <td class="p-3 text-sm text-gray-700">
+                                        @if($runRiderNames->isNotEmpty())
+                                            {{ $runRiderNames->implode(', ') }}
+                                            @if($stagedPickupLinks->isNotEmpty())
+                                                <div class="text-[11px] text-gray-500">{{ $stagedPickupLinks->count() }} awaiting pickup</div>
+                                            @endif
+                                        @else
+                                            <span class="text-gray-400">—</span>
+                                        @endif
+                                    </td>
                                     <td class="p-3 text-gray-600 max-w-xs">{{ $req->note ?: '—' }}</td>
                                     <td class="p-3 text-xs font-semibold text-gray-500 whitespace-nowrap">
                                         {{ $req->created_at?->timezone('Asia/Dhaka')->format('M j, g:i A') }}
                                     </td>
                                     <td class="p-3 text-right space-x-2 whitespace-nowrap">
+                                        @if($stagedPickupLinks->isNotEmpty())
+                                            <button type="button"
+                                                    wire:click="openReassignRider({{ $req->id }})"
+                                                    class="text-xs font-bold text-sky-700 hover:underline">
+                                                Change rider
+                                            </button>
+                                        @endif
                                         @if($req->canClose())
                                             <button type="button"
                                                     wire:click="openCloseRequest({{ $req->id }})"
@@ -178,6 +199,41 @@
                     <button type="button" wire:click="closeBoxRequest" wire:loading.attr="disabled"
                             class="px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold disabled:opacity-60">
                         Close request
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($reassignRequestId)
+        <div class="fixed inset-0 bg-gray-900/50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-middo-dark">Change rider · run #{{ $reassignRequestId }}</h2>
+                        <p class="text-sm text-gray-500 mt-1">Updates all boxes still staged for pickup on this run.</p>
+                    </div>
+                    <button type="button" wire:click="cancelReassignRider" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+                </div>
+                <div>
+                    <label for="ops-reassign-rider" class="block text-sm font-semibold text-gray-700 mb-1.5">Pickup rider</label>
+                    <select id="ops-reassign-rider" wire:model="reassignRiderId"
+                            class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:border-middo-orange focus:ring-middo-orange">
+                        <option value="">Select rider…</option>
+                        @foreach($reassignRiders as $rider)
+                            <option value="{{ $rider['id'] }}">{{ $rider['name'] }}</option>
+                        @endforeach
+                    </select>
+                    @error('reassignRiderId') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" wire:click="cancelReassignRider"
+                            class="px-4 py-2.5 rounded-xl border border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="button" wire:click="saveReassignRider" wire:loading.attr="disabled"
+                            class="px-4 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold disabled:opacity-60">
+                        Save rider
                     </button>
                 </div>
             </div>

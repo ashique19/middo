@@ -30,18 +30,20 @@ class KitchenBoxRequestFlow
     }
 
     /**
-     * Stage warehouse boxes as ready for a rider to pick up against open kitchen requests (FIFO).
+     * Stage warehouse boxes as ready for a rider to pick up against open kitchen requests.
+     * Pass $requestId to bind the shipment to one specific request (treated as one run).
      *
-     * @param  list<int>|\Illuminate\Support\Collection<int, int>  $boxIds
-     * @return array{boxes: Collection<int, MiddoBox>, rider: User, kitchen: User, count: int}
+     * @param  list<int>|Collection<int, int>  $boxIds
+     * @return array{boxes: Collection<int, MiddoBox>, rider: User, kitchen: User, count: int, request_id:?int}
      */
     public static function stageForPickup(
         array|Collection $boxIds,
         int $kitchenId,
         int $riderId,
-        ?int $opsUserId = null
+        ?int $opsUserId = null,
+        ?int $requestId = null,
     ): array {
-        return DB::transaction(function () use ($boxIds, $kitchenId, $riderId, $opsUserId) {
+        return DB::transaction(function () use ($boxIds, $kitchenId, $riderId, $opsUserId, $requestId) {
             $ids = collect($boxIds)->map(fn ($id) => (int) $id)->filter()->unique()->values();
             if ($ids->isEmpty()) {
                 throw new \InvalidArgumentException('No boxes selected.');
@@ -68,16 +70,18 @@ class KitchenBoxRequestFlow
                 ->delete();
 
             $shipQty = $boxes->count();
-            $allocations = self::allocateAgainstOpenRequests($kitchenId, $shipQty, $opsUserId);
+            $allocations = self::allocateAgainstOpenRequests($kitchenId, $shipQty, $opsUserId, $requestId);
 
             $rider = User::query()->findOrFail($riderId);
             $kitchen = User::query()->findOrFail($kitchenId);
 
             $boxQueue = $boxes->values();
             $cursor = 0;
+            $primaryRequestId = null;
             foreach ($allocations as $allocation) {
                 /** @var KitchenBoxRequest $request */
                 $request = $allocation['request'];
+                $primaryRequestId ??= (int) $request->id;
                 $take = (int) $allocation['qty'];
                 $chunk = $boxQueue->slice($cursor, $take);
                 $cursor += $take;
@@ -94,7 +98,7 @@ class KitchenBoxRequestFlow
                         'middo_box_id' => $box->id,
                         'custody_status' => 'warehouse',
                         'log_action' => 'staged_for_kitchen_pickup',
-                        'notes' => 'Ready for rider pickup by '.$rider->name.' → '.$kitchen->name,
+                        'notes' => 'Ready for rider pickup by '.$rider->name.' → '.$kitchen->name.' (run #'.$request->id.')',
                         'performed_by' => $opsUserId,
                     ]);
                 }
@@ -117,25 +121,105 @@ class KitchenBoxRequestFlow
                 'rider' => $rider,
                 'kitchen' => $kitchen,
                 'count' => $shipQty,
+                'request_id' => $primaryRequestId,
             ];
+        });
+    }
+
+    /**
+     * Reassign the rider on all still-staged (ready for pickup) boxes for a request run.
+     */
+    public static function reassignStagedRider(int $requestId, int $newRiderId, ?int $opsUserId = null): int
+    {
+        return DB::transaction(function () use ($requestId, $newRiderId, $opsUserId) {
+            $request = KitchenBoxRequest::query()
+                ->with('kitchen')
+                ->whereKey($requestId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $request || ! $request->isOpen()) {
+                throw new \RuntimeException('That box request is no longer open.');
+            }
+
+            $rider = User::query()->findOrFail($newRiderId);
+            if (! $rider->isDelivery()) {
+                throw new \RuntimeException('Pick an active delivery rider.');
+            }
+
+            $links = KitchenBoxRequestBox::query()
+                ->with('box')
+                ->where('kitchen_box_request_id', $requestId)
+                ->where('status', KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP)
+                ->lockForUpdate()
+                ->get();
+
+            if ($links->isEmpty()) {
+                throw new \RuntimeException('No staged boxes waiting for pickup on this run.');
+            }
+
+            $updated = 0;
+            foreach ($links as $link) {
+                if ((int) $link->rider_id === $newRiderId) {
+                    continue;
+                }
+
+                $link->update(['rider_id' => $newRiderId]);
+                $box = $link->box;
+                if ($box) {
+                    MiddoBoxLog::create([
+                        'middo_box_id' => $box->id,
+                        'custody_status' => 'warehouse',
+                        'log_action' => 'staged_rider_reassigned',
+                        'notes' => 'Pickup rider changed to '.$rider->name.' for run #'.$request->id,
+                        'performed_by' => $opsUserId,
+                    ]);
+                }
+                $updated++;
+            }
+
+            if ($updated > 0) {
+                self::logRequestEvent(
+                    $request,
+                    KitchenBoxRequestLog::EVENT_STAGED_FOR_PICKUP,
+                    $opsUserId,
+                    'Rider reassigned to '.$rider->name,
+                    ['rider_id' => $newRiderId, 'qty' => $updated]
+                );
+            }
+
+            return $updated;
         });
     }
 
     /**
      * @return list<array{request: KitchenBoxRequest, qty: int}>
      */
-    protected static function allocateAgainstOpenRequests(int $kitchenId, int $shipQty, ?int $opsUserId): array
-    {
+    protected static function allocateAgainstOpenRequests(
+        int $kitchenId,
+        int $shipQty,
+        ?int $opsUserId,
+        ?int $requestId = null,
+    ): array {
         if ($shipQty < 1) {
             throw new \InvalidArgumentException('Quantity must be at least 1.');
         }
 
-        $requests = KitchenBoxRequest::query()
+        $query = KitchenBoxRequest::query()
             ->open()
             ->where('kitchen_id', $kitchenId)
             ->orderBy('id')
-            ->lockForUpdate()
-            ->get();
+            ->lockForUpdate();
+
+        if ($requestId) {
+            $query->whereKey($requestId);
+        }
+
+        $requests = $query->get();
+
+        if ($requestId && $requests->isEmpty()) {
+            throw new \RuntimeException('That box request is no longer open for this kitchen.');
+        }
 
         $available = (int) $requests->sum(fn (KitchenBoxRequest $r) => $r->remainingQuantity());
         if ($available < 1) {

@@ -7,8 +7,13 @@
                         <h2 class="text-xl font-bold text-gray-800">Ready for rider pickup</h2>
                         <p class="text-sm text-gray-500 mt-1">
                             Stage <span class="font-semibold text-middo-dark">{{ count($boxIds) }}</span>
-                            {{ str('box')->plural(count($boxIds)) }} at warehouse for a rider.
-                            Boxes stay at Middo until the rider accepts custody — capped by the kitchen’s remaining request.
+                            {{ str('box')->plural(count($boxIds)) }} as
+                            @if($selectedRequestId)
+                                <span class="font-semibold text-middo-dark">run #{{ $selectedRequestId }}</span>
+                            @else
+                                a kitchen box run
+                            @endif
+                            for one rider. Boxes stay at Middo until the rider accepts custody.
                         </p>
                     </div>
                     <button

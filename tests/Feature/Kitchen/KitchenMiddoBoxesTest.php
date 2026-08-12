@@ -2,12 +2,16 @@
 
 namespace Tests\Feature\Kitchen;
 
+use App\Livewire\Delivery\KitchenDispatches;
 use App\Livewire\Kitchen\ActiveOrders;
 use App\Livewire\Kitchen\BoxesAtKitchen;
 use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Livewire\Kitchen\IncomingBoxes;
 use App\Livewire\Operation\AssignMiddoBoxesModal;
+use App\Models\Area;
+use App\Models\City;
 use App\Models\KitchenBoxRequest;
+use App\Models\KitchenWarehouseHandoff;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
@@ -15,7 +19,9 @@ use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\MiddoSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -164,7 +170,7 @@ class KitchenMiddoBoxesTest extends TestCase
 
     public function test_kitchen_can_send_box_at_kitchen_to_warehouse(): void
     {
-        \App\Support\MiddoSettings::set(\App\Support\MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
+        MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
 
         $box = $this->makeBox([
             'kitchen_id' => $this->kitchen->id,
@@ -189,7 +195,7 @@ class KitchenMiddoBoxesTest extends TestCase
         $this->assertSame($this->kitchen->id, $box->held_by_user_id);
         $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
             'middo_box_id' => $box->id,
-            'status' => \App\Models\KitchenWarehouseHandoff::STATUS_RUN_REQUESTED,
+            'status' => KitchenWarehouseHandoff::STATUS_RUN_REQUESTED,
         ]);
         $this->assertDatabaseHas('middo_box_logs', [
             'middo_box_id' => $box->id,
@@ -262,7 +268,7 @@ class KitchenMiddoBoxesTest extends TestCase
             ->call('markReady', $order->id);
 
         Livewire::actingAs($this->rider)
-            ->test(\App\Livewire\Delivery\KitchenDispatches::class)
+            ->test(KitchenDispatches::class)
             ->call('acceptOrder', $order->id)
             ->assertSet('errorMessage', null);
 
@@ -320,7 +326,7 @@ class KitchenMiddoBoxesTest extends TestCase
             ->call('markReady', $order->id);
 
         Livewire::actingAs($this->rider)
-            ->test(\App\Livewire\Delivery\KitchenDispatches::class)
+            ->test(KitchenDispatches::class)
             ->call('acceptOrder', $order->id)
             ->assertSet('errorMessage', null);
 
@@ -380,7 +386,7 @@ class KitchenMiddoBoxesTest extends TestCase
 
         Livewire::actingAs($operator)
             ->test(AssignMiddoBoxesModal::class)
-            ->call('openModal', ['boxIds' => [$box->id]])
+            ->call('openModal', [$box->id])
             ->set('selectedRiderId', $this->rider->id)
             ->set('selectedKitchenId', $this->kitchen->id)
             ->call('save')
@@ -401,13 +407,13 @@ class KitchenMiddoBoxesTest extends TestCase
 
     public function test_send_boxes_modal_lists_riders_even_when_kitchen_area_does_not_match(): void
     {
-        $city = \App\Models\City::create(['name' => 'Dhaka']);
-        $kitchenArea = \App\Models\Area::create(['name' => 'Banani', 'city_id' => $city->id]);
-        $riderArea = \App\Models\Area::create(['name' => 'Mirpur', 'city_id' => $city->id]);
+        $city = City::create(['name' => 'Dhaka']);
+        $kitchenArea = Area::create(['name' => 'Banani', 'city_id' => $city->id]);
+        $riderArea = Area::create(['name' => 'Mirpur', 'city_id' => $city->id]);
 
         $this->kitchen->update(['area_id' => $kitchenArea->id]);
         $this->rider->update(['area_id' => $riderArea->id]);
-        if (\Illuminate\Support\Facades\Schema::hasTable('area_user')) {
+        if (Schema::hasTable('area_user')) {
             $this->rider->areas()->sync([$riderArea->id]);
         }
 
@@ -437,7 +443,7 @@ class KitchenMiddoBoxesTest extends TestCase
 
         $component = Livewire::actingAs($operator)
             ->test(AssignMiddoBoxesModal::class)
-            ->call('openModal', ['boxIds' => [$box->id]])
+            ->call('openModal', [$box->id])
             ->set('selectedKitchenId', $this->kitchen->id);
 
         $riderIds = collect($component->get('riders'))->pluck('id')->all();

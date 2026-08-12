@@ -3,8 +3,10 @@
 namespace App\Livewire\Operation;
 
 use App\Models\KitchenBoxRequest;
+use App\Models\KitchenBoxRequestBox;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
+use App\Models\User;
 use App\Support\KitchenBoxRequestFlow;
 use App\Support\OpsBoxCustody;
 use Illuminate\Support\Facades\Auth;
@@ -37,6 +39,13 @@ class MiddoBoxes extends Component
     public ?int $closingRequestId = null;
 
     public string $closeNote = '';
+
+    public ?int $reassignRequestId = null;
+
+    public ?int $reassignRiderId = null;
+
+    /** @var list<array{id:int,name:string}> */
+    public array $reassignRiders = [];
 
     public function updatingSearch(): void
     {
@@ -132,6 +141,7 @@ class MiddoBoxes extends Component
             'open-assign-middo-boxes-modal',
             boxIds: $this->selectedBoxIds,
             kitchenId: $kitchenId,
+            requestId: $this->selectedRequestId,
         );
     }
 
@@ -284,6 +294,70 @@ class MiddoBoxes extends Component
         ));
     }
 
+    public function openReassignRider(int $requestId): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+        $this->warningMessage = null;
+        $this->resetErrorBag();
+
+        $request = KitchenBoxRequest::query()
+            ->with(['requestBoxes' => fn ($q) => $q->where('status', KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP)])
+            ->open()
+            ->whereKey($requestId)
+            ->first();
+
+        if (! $request || $request->requestBoxes->isEmpty()) {
+            $this->errorMessage = 'No staged boxes waiting for pickup on this run.';
+
+            return;
+        }
+
+        $this->reassignRequestId = $requestId;
+        $this->reassignRiderId = (int) ($request->requestBoxes->first()->rider_id ?: 0) ?: null;
+        $this->reassignRiders = User::query()
+            ->whereHas('role', fn ($q) => $q->where('name', 'delivery'))
+            ->where('status', 'active')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name])
+            ->all();
+    }
+
+    public function cancelReassignRider(): void
+    {
+        $this->reassignRequestId = null;
+        $this->reassignRiderId = null;
+        $this->reassignRiders = [];
+        $this->resetErrorBag();
+    }
+
+    public function saveReassignRider(): void
+    {
+        $this->validate([
+            'reassignRequestId' => 'required|integer',
+            'reassignRiderId' => 'required|exists:users,id',
+        ]);
+
+        try {
+            $updated = KitchenBoxRequestFlow::reassignStagedRider(
+                (int) $this->reassignRequestId,
+                (int) $this->reassignRiderId,
+                Auth::id() ? (int) Auth::id() : null
+            );
+        } catch (\RuntimeException $e) {
+            $this->errorMessage = $e->getMessage();
+
+            return;
+        }
+
+        $this->statusMessage = $updated > 0
+            ? "Updated pickup rider on {$updated} staged ".str('box')->plural($updated).' for run #'.$this->reassignRequestId.'.'
+            : 'Rider was already assigned to this run.';
+        $this->cancelReassignRider();
+    }
+
     public function openCloseRequest(int $requestId): void
     {
         $this->statusMessage = null;
@@ -410,7 +484,7 @@ class MiddoBoxes extends Component
             ->paginate(20);
 
         $openBoxRequests = KitchenBoxRequest::query()
-            ->with(['kitchen', 'requestedBy', 'requestBoxes'])
+            ->with(['kitchen', 'requestedBy', 'requestBoxes.rider'])
             ->open()
             ->latest('id')
             ->get();
