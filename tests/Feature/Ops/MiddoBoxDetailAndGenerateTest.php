@@ -54,6 +54,33 @@ class MiddoBoxDetailAndGenerateTest extends TestCase
         $this->assertTrue($newer->id > $older->id);
     }
 
+    public function test_list_shows_held_by_name_and_phone(): void
+    {
+        $kitchenRole = Role::create(['name' => 'kitchen']);
+        $holder = User::create([
+            'first_name' => 'Gulshan',
+            'last_name' => 'Kitchen',
+            'mobile' => '01718001122',
+            'password' => 'password',
+            'role_id' => $kitchenRole->id,
+            'status' => 'active',
+        ]);
+
+        MiddoBox::create([
+            'qr_code_id' => 'MB-HELD-1',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'active',
+            'held_by_user_id' => $holder->id,
+            'kitchen_id' => $holder->id,
+            'total_uses_count' => 1,
+        ]);
+
+        Livewire::actingAs($this->ops)
+            ->test(MiddoBoxes::class)
+            ->assertSee('Gulshan Kitchen', false)
+            ->assertSee('01718001122', false);
+    }
+
     public function test_generate_modal_lists_new_ids(): void
     {
         Livewire::actingAs($this->ops)

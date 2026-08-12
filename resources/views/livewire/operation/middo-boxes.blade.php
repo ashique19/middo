@@ -401,10 +401,18 @@
                             </td>
                             <td class="p-4 font-medium text-gray-800">
                                 @if($stagedPickup && $box->requestBox?->rider)
-                                    {{ $box->requestBox->rider->name }}
+                                    <div>{{ $box->requestBox->rider->name }}</div>
+                                    @if($box->requestBox->rider->mobile)
+                                        <div class="text-[11px] font-semibold text-gray-500 font-mono">{{ $box->requestBox->rider->mobile }}</div>
+                                    @endif
                                     <div class="text-[11px] font-semibold text-gray-500">Awaiting accept</div>
+                                @elseif($box->heldByUser)
+                                    <div>{{ $box->heldByUser->name }}</div>
+                                    @if($box->heldByUser->mobile)
+                                        <div class="text-[11px] font-semibold text-gray-500 font-mono">{{ $box->heldByUser->mobile }}</div>
+                                    @endif
                                 @else
-                                    {{ $box->heldByUser?->name ?? '—' }}
+                                    —
                                 @endif
                             </td>
                             <td class="p-4 text-center font-mono font-bold text-middo-orange">
