@@ -92,15 +92,20 @@
                                     $receivedCount = $req->requestBoxes->where('status', 'received')->count();
                                     $inTransitCount = $req->requestBoxes->where('status', '!=', 'received')->count();
                                     $requestSelected = $selectedRequestId === $req->id;
+                                    $canSelectRequest = $remaining > 0 && $warehouseFreeCount >= $remaining;
                                 @endphp
                                 <tr wire:key="ops-box-req-{{ $req->id }}" @class(['bg-amber-50/60' => $requestSelected])>
                                     <td class="p-3">
                                         <input
                                             type="checkbox"
-                                            wire:click="toggleRequestBoxSelection({{ $req->id }})"
+                                            wire:click.prevent="toggleRequestBoxSelection({{ $req->id }})"
                                             @checked($requestSelected)
                                             @disabled($remaining < 1)
-                                            title="{{ $remaining < 1 ? 'No remaining boxes to stage' : 'Select '.$remaining.' warehouse '.str('box')->plural($remaining).' for this request' }}"
+                                            title="{{ $remaining < 1
+                                                ? 'No remaining boxes to stage'
+                                                : ($canSelectRequest
+                                                    ? 'Select '.$remaining.' warehouse '.str('box')->plural($remaining).' for this request'
+                                                    : 'Need '.$remaining.' free warehouse boxes ('.$warehouseFreeCount.' available)') }}"
                                             aria-label="Select warehouse boxes for {{ $req->kitchen?->name ?? 'kitchen' }} request"
                                             class="h-4 w-4 rounded border-gray-300 text-middo-orange focus:ring-middo-orange cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                                         >

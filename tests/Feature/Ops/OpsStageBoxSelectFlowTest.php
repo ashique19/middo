@@ -277,13 +277,13 @@ class OpsStageBoxSelectFlowTest extends TestCase
 
     public function test_request_checkbox_warns_when_warehouse_stock_is_insufficient(): void
     {
-        $a = MiddoBox::create([
+        MiddoBox::create([
             'qr_code_id' => 'MB-SHORT-1',
             'box_model_type' => 'standard_insulated',
             'asset_status' => 'at_middo_warehouse',
             'total_uses_count' => 0,
         ]);
-        $b = MiddoBox::create([
+        MiddoBox::create([
             'qr_code_id' => 'MB-SHORT-2',
             'box_model_type' => 'standard_insulated',
             'asset_status' => 'at_middo_warehouse',
@@ -301,9 +301,9 @@ class OpsStageBoxSelectFlowTest extends TestCase
         Livewire::actingAs($this->ops)
             ->test(MiddoBoxes::class)
             ->call('toggleRequestBoxSelection', $request->id)
-            ->assertSet('selectedRequestId', $request->id)
-            ->assertSet('selectedBoxIds', [$b->id, $a->id])
-            ->assertSet('warningMessage', 'Insufficient warehouse boxes for Kit Chen. Need 5, selected 2 available.');
+            ->assertSet('selectedRequestId', null)
+            ->assertSet('selectedBoxIds', [])
+            ->assertSet('warningMessage', 'Insufficient warehouse boxes for Kit Chen. Need 5, have 2 available.');
     }
 
     public function test_request_checkbox_warns_when_no_warehouse_stock(): void

@@ -163,6 +163,7 @@ class MiddoBoxes extends Component
     /**
      * Checkbox on a kitchen box request: select (or clear) warehouse boxes
      * for that request's remaining quantity (latest free stock first).
+     * Only selects when enough free warehouse stock exists for the full remaining qty.
      */
     public function toggleRequestBoxSelection(int $requestId): void
     {
@@ -183,15 +184,17 @@ class MiddoBoxes extends Component
             ->first();
 
         if (! $request) {
+            $this->clearBoxSelection();
             $this->errorMessage = 'That box request is no longer open.';
 
             return;
         }
 
         $needed = $request->remainingQuantity();
+        $kitchenName = $request->kitchen?->name ?? ('Kitchen #'.$request->kitchen_id);
+
         if ($needed < 1) {
-            $this->selectedRequestId = null;
-            $this->selectedBoxIds = [];
+            $this->clearBoxSelection();
             $this->warningMessage = 'This request has no remaining boxes to stage.';
 
             return;
@@ -207,22 +210,17 @@ class MiddoBoxes extends Component
             ->all();
 
         $availableCount = count($availableIds);
-        $kitchenName = $request->kitchen?->name ?? ('Kitchen #'.$request->kitchen_id);
 
-        if ($availableCount === 0) {
-            $this->selectedRequestId = null;
-            $this->selectedBoxIds = [];
-            $this->warningMessage = "Insufficient warehouse boxes for {$kitchenName}. Need {$needed}, have 0 available.";
+        // Require a full fill — never enable Ready for pickup on a short/empty warehouse.
+        if ($availableCount < $needed) {
+            $this->clearBoxSelection();
+            $this->warningMessage = "Insufficient warehouse boxes for {$kitchenName}. Need {$needed}, have {$availableCount} available.";
 
             return;
         }
 
         $this->selectedRequestId = $requestId;
         $this->selectedBoxIds = $availableIds;
-
-        if ($availableCount < $needed) {
-            $this->warningMessage = "Insufficient warehouse boxes for {$kitchenName}. Need {$needed}, selected {$availableCount} available.";
-        }
     }
 
     public function retire(int $boxId): void
@@ -417,11 +415,14 @@ class MiddoBoxes extends Component
             ->latest('id')
             ->get();
 
+        $warehouseFreeCount = (int) ($summary['warehouse'] ?? 0);
+
         return view('livewire.operation.middo-boxes', [
             'boxes' => $boxes,
             'damagedCount' => $summary['damaged'],
             'custody' => $summary,
             'pendingBoxRequests' => $openBoxRequests,
+            'warehouseFreeCount' => $warehouseFreeCount,
         ])->layout('layouts.private.app', ['title' => 'Middo Boxes']);
     }
 }
