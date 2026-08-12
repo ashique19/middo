@@ -82,9 +82,8 @@
                         wire:click="acceptWarehouseStock({{ $box['id'] }})"
                         wire:loading.attr="disabled"
                         wire:target="acceptWarehouseStock({{ $box['id'] }})"
-                        wire:confirm="Accept custody of this box from the warehouse?"
                         class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
-                        Accept custody
+                        Accept
                     </button>
                 @elseif($box['can_accept_kitchen_return'] ?? false)
                     <button
@@ -197,9 +196,8 @@
                                         wire:click="acceptWarehouseStock({{ $box['id'] }})"
                                         wire:loading.attr="disabled"
                                         wire:target="acceptWarehouseStock({{ $box['id'] }})"
-                                        wire:confirm="Accept custody of this box from the warehouse?"
                                         class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
-                                        Accept custody
+                                        Accept
                                     </button>
                                 @elseif($box['can_accept_kitchen_return'] ?? false)
                                     <button

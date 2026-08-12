@@ -103,14 +103,14 @@ class RiderStagedBoxPendingRunTest extends TestCase
             ->test(PendingBoxRuns::class)
             ->assertSee('MB-PEND-1', false)
             ->assertSee('Ready for pickup at warehouse', false)
-            ->assertSee('Accept custody', false)
+            ->assertSee('Accept', false)
             ->assertSee('Tomato Kitchen', false);
 
         $this->actingAs($this->rider)
             ->get(route('delivery.middo-boxes.pending-run'))
             ->assertOk()
             ->assertSee('MB-PEND-1', false)
-            ->assertSee('Accept custody', false);
+            ->assertSee('Accept', false);
 
         Livewire::actingAs($this->rider)
             ->test(StaffAlertsPage::class)
