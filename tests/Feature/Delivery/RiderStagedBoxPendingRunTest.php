@@ -80,7 +80,7 @@ class RiderStagedBoxPendingRunTest extends TestCase
 
         Livewire::actingAs($this->ops)
             ->test(AssignMiddoBoxesModal::class)
-            ->call('openModal', ['boxIds' => [$box->id]])
+            ->call('openModal', [$box->id])
             ->set('selectedRiderId', $this->rider->id)
             ->set('selectedKitchenId', $this->kitchen->id)
             ->call('save')
@@ -117,5 +117,56 @@ class RiderStagedBoxPendingRunTest extends TestCase
             ->assertSee('Ops→kitchen box run', false)
             ->assertSee('Open pending box runs', false)
             ->assertSee(route('delivery.middo-boxes.pending-run'), false);
+    }
+
+    public function test_rider_sees_ops_kitchen_run_group_and_can_accept_all(): void
+    {
+        $request = KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 2,
+            'allocated_qty' => 0,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+
+        $boxA = MiddoBox::create([
+            'qr_code_id' => 'MB-RUN-1',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+        $boxB = MiddoBox::create([
+            'qr_code_id' => 'MB-RUN-2',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+
+        Livewire::actingAs($this->ops)
+            ->test(AssignMiddoBoxesModal::class)
+            ->call('openModal', [$boxA->id, $boxB->id], $this->kitchen->id, $request->id)
+            ->set('selectedRiderId', $this->rider->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        Livewire::actingAs($this->rider)
+            ->test(PendingBoxRuns::class)
+            ->assertSee('Ops→kitchen run #'.$request->id, false)
+            ->assertSee('Accept all (2)', false)
+            ->assertSee('MB-RUN-1', false)
+            ->assertSee('MB-RUN-2', false)
+            ->call('acceptRunPickup', $request->id)
+            ->assertSet('errorMessage', null);
+
+        $this->assertSame($this->rider->id, (int) $boxA->fresh()->held_by_user_id);
+        $this->assertSame($this->rider->id, (int) $boxB->fresh()->held_by_user_id);
+        $this->assertSame(
+            KitchenBoxRequestBox::STATUS_RIDER_ACCEPTED,
+            KitchenBoxRequestBox::query()->where('middo_box_id', $boxA->id)->value('status')
+        );
+        $this->assertSame(
+            KitchenBoxRequestBox::STATUS_RIDER_ACCEPTED,
+            KitchenBoxRequestBox::query()->where('middo_box_id', $boxB->id)->value('status')
+        );
     }
 }

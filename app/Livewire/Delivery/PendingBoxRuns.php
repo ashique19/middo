@@ -9,6 +9,7 @@ use App\Models\MiddoBoxLog;
 use App\Support\KitchenBoxRequestFlow;
 use App\Support\MiddoBoxKitchenActions;
 use App\Support\RiderPendingBoxes;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -178,7 +179,7 @@ class PendingBoxRuns extends Component
         $perPage = 20;
         $total = $allBoxes->count();
         $items = $allBoxes->slice(($page - 1) * $perPage, $perPage)->values();
-        $boxes = new \Illuminate\Pagination\LengthAwarePaginator(
+        $boxes = new LengthAwarePaginator(
             $items,
             $total,
             $perPage,
@@ -193,13 +194,22 @@ class PendingBoxRuns extends Component
             ->unique('middo_box_id')
             ->keyBy('middo_box_id');
 
+        $requestLinksByBoxId = KitchenBoxRequestBox::query()
+            ->whereIn('middo_box_id', $items->pluck('id'))
+            ->where('rider_id', $riderId)
+            ->orderByDesc('id')
+            ->get()
+            ->unique('middo_box_id')
+            ->keyBy('middo_box_id');
+
         $nodes = $items
-            ->map(function (MiddoBox $box) use ($latestActions, $stagedByBoxId, $kitchenToOpsByBoxId, $riderId) {
+            ->map(function (MiddoBox $box) use ($latestActions, $stagedByBoxId, $kitchenToOpsByBoxId, $requestLinksByBoxId, $riderId) {
                 $linkedOrder = $box->orderMiddoBoxes->first()?->order;
                 $kitchenReturn = $kitchenToOpsByBoxId->get($box->id);
+                $stagedLink = $stagedByBoxId->get($box->id);
                 $destinationKitchen = $box->kitchen
                     ?? $kitchenReturn?->kitchen
-                    ?? $stagedByBoxId->get($box->id)?->request?->kitchen
+                    ?? $stagedLink?->request?->kitchen
                     ?? $linkedOrder?->orderGroup?->kitchen;
                 $latestAction = $latestActions->get($box->id)?->log_action;
 
@@ -260,11 +270,29 @@ class PendingBoxRuns extends Component
                     || $isDispatchedKitchenReturn
                     || $isInTransitKitchenReturn;
 
+                $opsKitchenRequestId = $stagedLink?->kitchen_box_request_id
+                    ?? $requestLinksByBoxId->get($box->id)?->kitchen_box_request_id;
+
+                $runGroupKey = $opsKitchenRequestId
+                    ? 'ops-kitchen-'.$opsKitchenRequestId
+                    : ($kitchenReturn
+                        ? 'kitchen-ops-'.($kitchenReturn->kitchen_id ?? 'x').'-'.$kitchenReturn->status
+                        : 'solo-'.$box->id);
+
+                $runGroupTitle = $opsKitchenRequestId
+                    ? 'Ops→kitchen run #'.$opsKitchenRequestId
+                    : ($kitchenReturn
+                        ? 'Kitchen→ops return'
+                        : 'Single box');
+
                 return [
                     'id' => $box->id,
                     'qr_code_id' => $box->qr_code_id,
                     'model' => str($box->box_model_type)->headline()->toString(),
                     'run_label' => $runLabel,
+                    'run_group_key' => $runGroupKey,
+                    'run_group_title' => $runGroupTitle,
+                    'request_id' => $opsKitchenRequestId ? (int) $opsKitchenRequestId : null,
                     'kitchen_name' => $showWarehouseDestination
                         ? (($destinationKitchen?->name ? $destinationKitchen->name.' → ' : '').'Middo warehouse')
                         : $destinationKitchen?->name,
@@ -287,13 +315,79 @@ class PendingBoxRuns extends Component
                     'can_deliver_to_warehouse' => (bool) ($enRouteToWarehouse || $isInTransitKitchenReturn),
                 ];
             })
+            ->values();
+
+        $runGroups = $nodes
+            ->groupBy('run_group_key')
+            ->map(function ($groupNodes, $key) {
+                $first = $groupNodes->first();
+
+                return [
+                    'key' => $key,
+                    'title' => $first['run_group_title'],
+                    'request_id' => $first['request_id'],
+                    'kitchen_name' => $first['kitchen_name'],
+                    'box_count' => $groupNodes->count(),
+                    'accept_all_ids' => $groupNodes
+                        ->filter(fn (array $n) => $n['can_accept_pickup'])
+                        ->pluck('id')
+                        ->values()
+                        ->all(),
+                    'nodes' => $groupNodes->values()->all(),
+                ];
+            })
+            ->values()
             ->all();
 
         return view('livewire.delivery.pending-box-runs', [
             'boxes' => $boxes,
-            'nodes' => $nodes,
+            'nodes' => $nodes->all(),
+            'runGroups' => $runGroups,
             'statusMessage' => $this->statusMessage,
             'errorMessage' => $this->errorMessage,
         ])->layout('delivery.layout.app', ['title' => 'Middo Boxes Pending Run']);
+    }
+
+    public function acceptAllWarehouseStock(array $boxIds = []): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        $ids = collect($boxIds)->map(fn ($id) => (int) $id)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $accepted = 0;
+        $errors = [];
+        foreach ($ids as $boxId) {
+            try {
+                KitchenBoxRequestFlow::acceptCustody($boxId, (int) Auth::id());
+                $accepted++;
+            } catch (\Throwable $e) {
+                $errors[] = $e->getMessage() ?: 'Could not accept a box.';
+            }
+        }
+
+        if ($accepted > 0) {
+            $this->statusMessage = "Accepted {$accepted} ".str('box')->plural($accepted).' — deliver to kitchen, then mark handed.';
+            $this->resetPage();
+        }
+        if ($errors !== []) {
+            $this->errorMessage = $errors[0];
+        }
+    }
+
+    public function acceptRunPickup(int $requestId): void
+    {
+        $ids = KitchenBoxRequestBox::query()
+            ->where('kitchen_box_request_id', $requestId)
+            ->where('rider_id', (int) Auth::id())
+            ->where('status', KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP)
+            ->pluck('middo_box_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $this->acceptAllWarehouseStock($ids);
     }
 }

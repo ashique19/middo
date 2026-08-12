@@ -104,7 +104,7 @@ class BoxOpsStaffAlertsN4Test extends TestCase
 
         Livewire::actingAs($operator)
             ->test(AssignMiddoBoxesModal::class)
-            ->call('openModal', ['boxIds' => [$box->id]])
+            ->call('openModal', [$box->id])
             ->set('selectedRiderId', $rider->id)
             ->set('selectedKitchenId', $kitchen->id)
             ->call('save')

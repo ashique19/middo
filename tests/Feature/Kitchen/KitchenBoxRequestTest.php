@@ -113,7 +113,8 @@ class KitchenBoxRequestTest extends TestCase
 
         Livewire::actingAs($this->ops)
             ->test(MiddoBoxes::class)
-            ->assertSee('Kitchen box requests', false)
+            ->assertSee('Kitchen box runs', false)
+            ->assertSee('Run #', false)
             ->assertSee('Gulshan Kitchen', false)
             ->assertSee('Need stock for lunch', false)
             ->assertSee('4', false);
@@ -138,7 +139,7 @@ class KitchenBoxRequestTest extends TestCase
 
         Livewire::actingAs($this->ops)
             ->test(AssignMiddoBoxesModal::class)
-            ->call('openModal', ['boxIds' => [$box->id]])
+            ->call('openModal', [$box->id])
             ->set('selectedRiderId', $this->rider->id)
             ->set('selectedKitchenId', $this->kitchen->id)
             ->call('save')
@@ -162,7 +163,7 @@ class KitchenBoxRequestTest extends TestCase
             ->set('closeNote', 'Kitchen confirmed receipt')
             ->call('closeBoxRequest')
             ->assertSet('errorMessage', null)
-            ->assertDontSee('Kitchen box requests', false);
+            ->assertDontSee('Kitchen box runs', false);
 
         $request->refresh();
         $this->assertSame(KitchenBoxRequest::STATUS_CLOSED, $request->status);
@@ -216,7 +217,7 @@ class KitchenBoxRequestTest extends TestCase
 
         Livewire::actingAs($this->ops)
             ->test(AssignMiddoBoxesModal::class)
-            ->call('openModal', ['boxIds' => [$box->id]])
+            ->call('openModal', [$box->id])
             ->assertSet('kitchens', [])
             ->set('selectedRiderId', $this->rider->id)
             ->set('selectedKitchenId', $this->kitchen->id)
@@ -251,7 +252,7 @@ class KitchenBoxRequestTest extends TestCase
 
         Livewire::actingAs($this->ops)
             ->test(AssignMiddoBoxesModal::class)
-            ->call('openModal', ['boxIds' => [$boxA->id, $boxB->id]])
+            ->call('openModal', [$boxA->id, $boxB->id])
             ->set('selectedRiderId', $this->rider->id)
             ->set('selectedKitchenId', $this->kitchen->id)
             ->call('save')
@@ -280,7 +281,7 @@ class KitchenBoxRequestTest extends TestCase
 
         Livewire::actingAs($this->ops)
             ->test(AssignMiddoBoxesModal::class)
-            ->call('openModal', ['boxIds' => [$box->id]])
+            ->call('openModal', [$box->id])
             ->set('selectedRiderId', $this->rider->id)
             ->set('selectedKitchenId', $this->kitchen->id)
             ->call('save')
@@ -352,7 +353,7 @@ class KitchenBoxRequestTest extends TestCase
 
         Livewire::actingAs($this->ops)
             ->test(AssignMiddoBoxesModal::class)
-            ->call('openModal', ['boxIds' => [$box->id]])
+            ->call('openModal', [$box->id])
             ->set('selectedRiderId', $this->rider->id)
             ->set('selectedKitchenId', $this->kitchen->id)
             ->call('save');
@@ -424,5 +425,80 @@ class KitchenBoxRequestTest extends TestCase
             KitchenBoxRequestLog::EVENT_HANDED_TO_KITCHEN,
             KitchenBoxRequestLog::EVENT_RECEIVED_AT_KITCHEN,
         ], $events);
+    }
+
+    public function test_ops_can_stage_against_specific_run_and_reassign_rider(): void
+    {
+        $requestA = KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 1,
+            'allocated_qty' => 0,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+        $requestB = KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 1,
+            'allocated_qty' => 0,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+
+        $box = MiddoBox::create([
+            'qr_code_id' => 'MB-RUN-A',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+
+        $riderTwo = User::create([
+            'first_name' => 'Rider',
+            'last_name' => 'Two',
+            'mobile' => '01718000099',
+            'password' => 'password',
+            'role_id' => $this->rider->role_id,
+            'status' => 'active',
+        ]);
+
+        // Stage against run B specifically (not the older open run A).
+        Livewire::actingAs($this->ops)
+            ->test(AssignMiddoBoxesModal::class)
+            ->call('openModal', [$box->id], $this->kitchen->id, $requestB->id)
+            ->assertSet('selectedRequestId', $requestB->id)
+            ->assertSet('selectedKitchenId', $this->kitchen->id)
+            ->assertSet('selectedKitchenPendingQty', 1)
+            ->set('selectedRiderId', $this->rider->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('kitchen_box_request_boxes', [
+            'kitchen_box_request_id' => $requestB->id,
+            'middo_box_id' => $box->id,
+            'rider_id' => $this->rider->id,
+            'status' => KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP,
+        ]);
+        $this->assertSame(0, (int) $requestA->fresh()->allocated_qty);
+        $this->assertSame(1, (int) $requestB->fresh()->allocated_qty);
+
+        Livewire::actingAs($this->ops)
+            ->test(MiddoBoxes::class)
+            ->assertSee('Change rider', false)
+            ->call('openReassignRider', $requestB->id)
+            ->assertSet('reassignRequestId', $requestB->id)
+            ->set('reassignRiderId', $riderTwo->id)
+            ->call('saveReassignRider')
+            ->assertSet('errorMessage', null)
+            ->assertSet('reassignRequestId', null);
+
+        $this->assertDatabaseHas('kitchen_box_request_boxes', [
+            'kitchen_box_request_id' => $requestB->id,
+            'middo_box_id' => $box->id,
+            'rider_id' => $riderTwo->id,
+            'status' => KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP,
+        ]);
+        $this->assertDatabaseHas('middo_box_logs', [
+            'middo_box_id' => $box->id,
+            'log_action' => 'staged_rider_reassigned',
+        ]);
     }
 }

@@ -22,6 +22,8 @@ class AssignMiddoBoxesModal extends Component
 
     public ?int $selectedKitchenId = null;
 
+    public ?int $selectedRequestId = null;
+
     public array $riders = [];
 
     public array $kitchens = [];
@@ -29,7 +31,7 @@ class AssignMiddoBoxesModal extends Component
     public int $selectedKitchenPendingQty = 0;
 
     #[On('open-assign-middo-boxes-modal')]
-    public function openModal(array $boxIds = [], ?int $kitchenId = null): void
+    public function openModal(array $boxIds = [], ?int $kitchenId = null, ?int $requestId = null): void
     {
         $this->boxIds = collect($boxIds)
             ->map(fn ($id) => (int) $id)
@@ -45,13 +47,29 @@ class AssignMiddoBoxesModal extends Component
         $this->resetErrorBag();
         $this->selectedRiderId = null;
         $this->selectedKitchenId = null;
+        $this->selectedRequestId = $requestId ? (int) $requestId : null;
         $this->selectedKitchenPendingQty = 0;
         $this->riders = $this->fetchRiders();
         $this->kitchens = $this->fetchKitchensWithPendingRequests();
 
+        if ($this->selectedRequestId) {
+            $request = KitchenBoxRequest::query()->open()->whereKey($this->selectedRequestId)->first();
+            if ($request) {
+                $kitchenId = (int) $request->kitchen_id;
+                $this->selectedKitchenPendingQty = $request->remainingQuantity();
+            }
+        }
+
         if ($kitchenId && collect($this->kitchens)->contains('id', $kitchenId)) {
             $this->selectedKitchenId = $kitchenId;
             $this->updatedSelectedKitchenId($kitchenId);
+            if ($this->selectedRequestId) {
+                // Keep pending qty tied to this specific run/request, not kitchen total.
+                $request = KitchenBoxRequest::query()->open()->whereKey($this->selectedRequestId)->first();
+                if ($request) {
+                    $this->selectedKitchenPendingQty = $request->remainingQuantity();
+                }
+            }
         }
 
         $this->showModal = true;
@@ -60,9 +78,14 @@ class AssignMiddoBoxesModal extends Component
     public function updatedSelectedKitchenId($value): void
     {
         $kitchenId = $value ? (int) $value : null;
-        $this->selectedKitchenPendingQty = $kitchenId
-            ? KitchenBoxRequest::pendingQuantityForKitchen($kitchenId)
-            : 0;
+        if ($this->selectedRequestId) {
+            $request = KitchenBoxRequest::query()->open()->whereKey($this->selectedRequestId)->first();
+            $this->selectedKitchenPendingQty = $request ? $request->remainingQuantity() : 0;
+        } else {
+            $this->selectedKitchenPendingQty = $kitchenId
+                ? KitchenBoxRequest::pendingQuantityForKitchen($kitchenId)
+                : 0;
+        }
         $this->riders = $this->fetchRiders($kitchenId);
         if ($this->selectedRiderId && ! collect($this->riders)->contains('id', $this->selectedRiderId)) {
             $this->selectedRiderId = null;
@@ -75,6 +98,7 @@ class AssignMiddoBoxesModal extends Component
         $this->boxIds = [];
         $this->selectedRiderId = null;
         $this->selectedKitchenId = null;
+        $this->selectedRequestId = null;
         $this->selectedKitchenPendingQty = 0;
         $this->riders = [];
         $this->kitchens = [];
@@ -96,7 +120,8 @@ class AssignMiddoBoxesModal extends Component
                 $this->boxIds,
                 (int) $this->selectedKitchenId,
                 (int) $this->selectedRiderId,
-                Auth::id() ? (int) Auth::id() : null
+                Auth::id() ? (int) Auth::id() : null,
+                $this->selectedRequestId,
             );
         } catch (\RuntimeException|\InvalidArgumentException $e) {
             $this->addError('selectedKitchenId', $e->getMessage());

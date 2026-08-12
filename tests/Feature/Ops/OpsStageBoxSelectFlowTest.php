@@ -143,7 +143,7 @@ class OpsStageBoxSelectFlowTest extends TestCase
 
         Livewire::actingAs($this->ops)
             ->test(AssignMiddoBoxesModal::class)
-            ->call('openModal', ['boxIds' => [$box->id]])
+            ->call('openModal', [$box->id])
             ->set('selectedRiderId', $this->rider->id)
             ->set('selectedKitchenId', $this->kitchen->id)
             ->call('save')
@@ -157,7 +157,7 @@ class OpsStageBoxSelectFlowTest extends TestCase
         $this->assertDatabaseHas('middo_box_logs', [
             'middo_box_id' => $box->id,
             'log_action' => 'staged_for_kitchen_pickup',
-            'notes' => 'Ready for rider pickup by '.$this->rider->name.' → '.$this->kitchen->name,
+            'notes' => 'Ready for rider pickup by '.$this->rider->name.' → '.$this->kitchen->name.' (run #'.$request->id.')',
         ]);
 
         $this->assertSame('at_middo_warehouse', $box->fresh()->asset_status);
@@ -179,7 +179,7 @@ class OpsStageBoxSelectFlowTest extends TestCase
 
         Livewire::actingAs($this->ops)
             ->test(AssignMiddoBoxesModal::class)
-            ->call('openModal', ['boxIds' => [$box->id]])
+            ->call('openModal', [$box->id])
             ->set('selectedRiderId', $this->rider->id)
             ->set('selectedKitchenId', $this->kitchen->id)
             ->call('save')
