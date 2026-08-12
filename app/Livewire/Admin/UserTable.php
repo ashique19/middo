@@ -72,7 +72,7 @@ class UserTable extends Component
     {
         $users = User::query()
             // Filter by the role passed in the URL
-            ->with('role') // Add this!
+            ->with(['role', 'area', 'areas'])
             ->when($this->roleType, function ($query) {
                 $query->whereHas('role', function ($q) {
                     $q->where('name', $this->roleType);

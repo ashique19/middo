@@ -50,7 +50,8 @@ class UserShow extends Component
 
         return match ($role) {
             'corporate' => 'Corporates',
-            'admin', 'operation', 'accounts', 'kitchen', 'delivery' => ucfirst($role).' users',
+            'delivery' => 'Delivery Riders',
+            'admin', 'operation', 'accounts', 'kitchen' => ucfirst($role).' users',
             default => 'Users',
         };
     }
