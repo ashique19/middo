@@ -101,7 +101,6 @@
                                         wire:click="receiveBox({{ $box['id'] }})"
                                         wire:loading.attr="disabled"
                                         wire:target="receiveBox({{ $box['id'] }})"
-                                        wire:confirm="Confirm you received this box into kitchen inventory?"
                                         class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
                                         <span wire:loading.remove wire:target="receiveBox({{ $box['id'] }})">Confirm receive</span>
                                         <span wire:loading wire:target="receiveBox({{ $box['id'] }})">Receiving...</span>
