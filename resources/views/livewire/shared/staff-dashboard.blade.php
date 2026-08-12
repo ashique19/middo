@@ -27,17 +27,17 @@
                 <a href="{{ route($boxReqRoute) }}"
                    title="{{ $boxReqCount === 1 ? '1 open box request' : $boxReqCount.' open box requests' }}"
                    aria-label="{{ $boxReqCount === 1 ? '1 open box request' : $boxReqCount.' open box requests' }}"
-                   class="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border transition
+                   class="inline-flex h-10 items-center gap-1.5 rounded-xl border px-2.5 transition
                           {{ $boxReqCount > 0
                               ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
                               : 'border-gray-200 bg-white text-gray-500 hover:border-middo-orange hover:text-middo-dark' }}">
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+                    <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-4.5-9 4.5m18 0l-9 4.5m9-4.5v9l-9 4.5m0-13.5L3 7.5m9 4.5v9M3 7.5v9l9 4.5" />
                     </svg>
                     <span @class([
-                        'absolute -top-1.5 -right-1.5 min-w-[1.25rem] h-5 px-1 rounded-full text-[11px] font-black leading-5 text-center',
-                        'bg-middo-orange text-white' => $boxReqCount > 0,
-                        'bg-gray-200 text-gray-600' => $boxReqCount === 0,
+                        'min-w-[1.25rem] text-center text-sm font-black tabular-nums',
+                        'text-amber-950' => $boxReqCount > 0,
+                        'text-gray-600' => $boxReqCount === 0,
                     ])>{{ $boxReqCount }}</span>
                 </a>
             @endif
