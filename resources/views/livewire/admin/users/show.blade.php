@@ -133,7 +133,7 @@
                             </p>
                         </div>
                         <p class="text-sm text-gray-600 mt-0.5">
-                            Source: {{ str_replace('_', ' ', $log->source ?? 'system') }}
+                            Via {{ $this->sourceLabel($log->source) }}
                             @if($log->ip_address)
                                 · IP {{ $log->ip_address }}
                             @endif
@@ -143,8 +143,16 @@
                                 by {{ $log->performedBy->name ?: trim($log->performedBy->first_name.' '.$log->performedBy->last_name) }}
                             </p>
                         @endif
-                        @if(!empty($log->metadata))
-                            <pre class="mt-2 text-[11px] font-mono text-gray-500 bg-gray-50 rounded-lg p-2 overflow-x-auto max-w-full">{{ json_encode($log->metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                        @php($metaLines = $this->metadataLines($log->metadata))
+                        @if($metaLines !== [])
+                            <ul class="mt-2 space-y-1 text-sm text-gray-600">
+                                @foreach($metaLines as $line)
+                                    <li class="flex gap-2">
+                                        <span class="text-gray-300 select-none">•</span>
+                                        <span>{{ $line }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
                         @endif
                     </div>
                 </div>

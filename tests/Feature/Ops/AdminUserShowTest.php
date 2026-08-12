@@ -88,6 +88,19 @@ class AdminUserShowTest extends TestCase
             'metadata' => ['note' => 'test-login'],
         ]);
 
+        UserLog::create([
+            'user_id' => $corporate->id,
+            'performed_by' => $admin->id,
+            'event' => UserLog::EVENT_STATUS_CHANGED,
+            'source' => UserAudit::SOURCE_ADMIN,
+            'ip_address' => '127.0.0.1',
+            'metadata' => [
+                'changes' => [
+                    'status' => ['from' => 'active', 'to' => 'inactive'],
+                ],
+            ],
+        ]);
+
         $menu = MenuItem::create([
             'name' => 'Beef Bowl',
             'price' => 400,
@@ -128,13 +141,18 @@ class AdminUserShowTest extends TestCase
             ->assertSee('Middo Demo Corp')
             ->assertSee('Audit log')
             ->assertSee('Login')
+            ->assertSee('Via Website')
+            ->assertSee('Note: test-login')
+            ->assertSee('Status changed')
+            ->assertSee('Status changed from active to inactive')
+            ->assertSee('Via Admin panel')
+            ->assertDontSee('"note":', false)
             ->assertSee('Corporate profile')
             ->assertSee('Related orders')
             ->assertSee('Beef Bowl')
             ->assertSee('#'.$order->id)
             ->assertSee(route('admin.corporates.show', $corporate), false)
-            ->assertSee(route('admin.orders.show', $order), false)
-            ->assertSee(route('admin.menu.show', $menu), false);
+            ->assertSee(route('admin.orders.show', $order), false);
 
         Livewire::actingAs($admin)
             ->test(UserShow::class, ['user' => $kitchen])

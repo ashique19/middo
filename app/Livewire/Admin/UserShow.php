@@ -202,19 +202,21 @@ class UserShow extends Component
 
     public function eventLabel(string $event): string
     {
-        return match ($event) {
-            UserLog::EVENT_LOGIN => 'Login',
-            UserLog::EVENT_LOGOUT => 'Logout',
-            UserLog::EVENT_LOGIN_FAILED => 'Login failed',
-            UserLog::EVENT_LOGIN_BLOCKED => 'Login blocked',
-            UserLog::EVENT_CREATED => 'Account created',
-            UserLog::EVENT_UPDATED => 'Profile updated',
-            UserLog::EVENT_DELETED => 'Account deleted',
-            UserLog::EVENT_STATUS_CHANGED => 'Status changed',
-            UserLog::EVENT_PASSWORD_CHANGED => 'Password changed',
-            UserLog::EVENT_PASSWORD_RESET => 'Password reset',
-            default => str_replace('_', ' ', ucfirst($event)),
-        };
+        return \App\Support\UserAuditPresenter::eventLabel($event);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $metadata
+     * @return list<string>
+     */
+    public function metadataLines(?array $metadata): array
+    {
+        return \App\Support\UserAuditPresenter::metadataLines($metadata);
+    }
+
+    public function sourceLabel(?string $source): string
+    {
+        return \App\Support\UserAuditPresenter::sourceLabel($source);
     }
 
     public function render()
