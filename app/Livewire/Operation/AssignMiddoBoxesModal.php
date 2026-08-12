@@ -29,11 +29,9 @@ class AssignMiddoBoxesModal extends Component
     public int $selectedKitchenPendingQty = 0;
 
     #[On('open-assign-middo-boxes-modal')]
-    public function openModal($boxIds = []): void
+    public function openModal(array $boxIds = [], ?int $kitchenId = null): void
     {
-        $ids = is_array($boxIds) ? ($boxIds['boxIds'] ?? $boxIds) : [];
-
-        $this->boxIds = collect($ids)
+        $this->boxIds = collect($boxIds)
             ->map(fn ($id) => (int) $id)
             ->filter()
             ->unique()
@@ -50,6 +48,12 @@ class AssignMiddoBoxesModal extends Component
         $this->selectedKitchenPendingQty = 0;
         $this->riders = $this->fetchRiders();
         $this->kitchens = $this->fetchKitchensWithPendingRequests();
+
+        if ($kitchenId && collect($this->kitchens)->contains('id', $kitchenId)) {
+            $this->selectedKitchenId = $kitchenId;
+            $this->updatedSelectedKitchenId($kitchenId);
+        }
+
         $this->showModal = true;
     }
 

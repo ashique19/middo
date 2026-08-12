@@ -240,21 +240,94 @@ class OpsStageBoxSelectFlowTest extends TestCase
         $this->assertSame($staged->id, OpsBoxCustody::toKitchenQuery()->value('id'));
     }
 
-    public function test_header_checkbox_selects_latest_ten_unassigned_boxes(): void
+    public function test_request_checkbox_selects_remaining_warehouse_boxes(): void
     {
-        $created = [];
-        for ($i = 1; $i <= 12; $i++) {
-            $created[] = MiddoBox::create([
-                'qr_code_id' => 'MB-BATCH-'.$i,
+        $boxes = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $boxes[] = MiddoBox::create([
+                'qr_code_id' => 'MB-REQ-SEL-'.$i,
                 'box_model_type' => 'standard_insulated',
                 'asset_status' => 'at_middo_warehouse',
                 'total_uses_count' => 0,
             ]);
         }
 
-        // Staged / non-warehouse boxes must be skipped.
-        $staged = MiddoBox::create([
-            'qr_code_id' => 'MB-BATCH-STAGED',
+        $request = KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 3,
+            'allocated_qty' => 0,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+
+        $expectedIds = collect($boxes)->sortByDesc('id')->take(3)->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+
+        $component = Livewire::actingAs($this->ops)
+            ->test(MiddoBoxes::class)
+            ->call('toggleRequestBoxSelection', $request->id)
+            ->assertSet('selectedRequestId', $request->id)
+            ->assertSet('selectedBoxIds', $expectedIds)
+            ->assertSet('warningMessage', null);
+
+        $component
+            ->call('toggleRequestBoxSelection', $request->id)
+            ->assertSet('selectedRequestId', null)
+            ->assertSet('selectedBoxIds', []);
+    }
+
+    public function test_request_checkbox_warns_when_warehouse_stock_is_insufficient(): void
+    {
+        $a = MiddoBox::create([
+            'qr_code_id' => 'MB-SHORT-1',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+        $b = MiddoBox::create([
+            'qr_code_id' => 'MB-SHORT-2',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+
+        $request = KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 5,
+            'allocated_qty' => 0,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+
+        Livewire::actingAs($this->ops)
+            ->test(MiddoBoxes::class)
+            ->call('toggleRequestBoxSelection', $request->id)
+            ->assertSet('selectedRequestId', $request->id)
+            ->assertSet('selectedBoxIds', [$b->id, $a->id])
+            ->assertSet('warningMessage', 'Insufficient warehouse boxes for Kit Chen. Need 5, selected 2 available.');
+    }
+
+    public function test_request_checkbox_warns_when_no_warehouse_stock(): void
+    {
+        $request = KitchenBoxRequest::create([
+            'kitchen_id' => $this->kitchen->id,
+            'quantity' => 2,
+            'allocated_qty' => 0,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $this->kitchen->id,
+        ]);
+
+        Livewire::actingAs($this->ops)
+            ->test(MiddoBoxes::class)
+            ->call('toggleRequestBoxSelection', $request->id)
+            ->assertSet('selectedRequestId', null)
+            ->assertSet('selectedBoxIds', [])
+            ->assertSet('warningMessage', 'Insufficient warehouse boxes for Kit Chen. Need 2, have 0 available.');
+    }
+
+    public function test_request_selection_opens_assign_modal_with_kitchen_preselected(): void
+    {
+        $box = MiddoBox::create([
+            'qr_code_id' => 'MB-PRESEL-1',
             'box_model_type' => 'standard_insulated',
             'asset_status' => 'at_middo_warehouse',
             'total_uses_count' => 0,
@@ -266,52 +339,18 @@ class OpsStageBoxSelectFlowTest extends TestCase
             'status' => KitchenBoxRequest::STATUS_PENDING,
             'requested_by' => $this->kitchen->id,
         ]);
-        KitchenBoxRequestBox::create([
-            'kitchen_box_request_id' => $request->id,
-            'middo_box_id' => $staged->id,
-            'rider_id' => $this->rider->id,
-            'status' => KitchenBoxRequestBox::STATUS_READY_FOR_PICKUP,
-        ]);
-        MiddoBox::create([
-            'qr_code_id' => 'MB-BATCH-ACTIVE',
-            'box_model_type' => 'standard_insulated',
-            'asset_status' => 'active',
-            'total_uses_count' => 0,
-        ]);
-
-        $expectedIds = collect($created)->sortByDesc('id')->take(10)->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
-
-        $component = Livewire::actingAs($this->ops)
-            ->test(MiddoBoxes::class)
-            ->call('toggleSelectLatestUnassigned')
-            ->assertSet('selectedBoxIds', $expectedIds)
-            ->assertSeeHtml('aria-label="Select latest 10 unassigned boxes"');
-
-        $this->assertNotContains($staged->id, $component->get('selectedBoxIds'));
-
-        $component
-            ->call('toggleSelectLatestUnassigned')
-            ->assertSet('selectedBoxIds', []);
-    }
-
-    public function test_header_checkbox_selects_fewer_when_under_ten_available(): void
-    {
-        $a = MiddoBox::create([
-            'qr_code_id' => 'MB-FEW-1',
-            'box_model_type' => 'standard_insulated',
-            'asset_status' => 'at_middo_warehouse',
-            'total_uses_count' => 0,
-        ]);
-        $b = MiddoBox::create([
-            'qr_code_id' => 'MB-FEW-2',
-            'box_model_type' => 'standard_insulated',
-            'asset_status' => 'at_middo_warehouse',
-            'total_uses_count' => 0,
-        ]);
 
         Livewire::actingAs($this->ops)
             ->test(MiddoBoxes::class)
-            ->call('toggleSelectLatestUnassigned')
-            ->assertSet('selectedBoxIds', [$b->id, $a->id]);
+            ->call('toggleRequestBoxSelection', $request->id)
+            ->call('openAssignModal')
+            ->assertDispatched('open-assign-middo-boxes-modal', boxIds: [$box->id], kitchenId: $this->kitchen->id);
+
+        Livewire::actingAs($this->ops)
+            ->test(AssignMiddoBoxesModal::class)
+            ->dispatch('open-assign-middo-boxes-modal', boxIds: [$box->id], kitchenId: $this->kitchen->id)
+            ->assertSet('showModal', true)
+            ->assertSet('selectedKitchenId', $this->kitchen->id)
+            ->assertSet('selectedKitchenPendingQty', 1);
     }
 }

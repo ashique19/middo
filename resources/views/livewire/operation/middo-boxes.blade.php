@@ -54,13 +54,19 @@
         </div>
     @endif
 
+    @if($warningMessage)
+        <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-950">
+            {{ $warningMessage }}
+        </div>
+    @endif
+
     @if($pendingBoxRequests->isNotEmpty())
         <div class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 sm:p-5 space-y-3 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <h2 class="text-lg font-bold text-amber-950">Kitchen box requests</h2>
                     <p class="text-sm font-semibold text-amber-800/80">
-                        {{ $pendingBoxRequests->count() }} open — stage warehouse boxes for rider pickup (qty capped). Close with a note after kitchen receives.
+                        {{ $pendingBoxRequests->count() }} open — check a request to select warehouse boxes for its remaining qty, then Ready for pickup.
                     </p>
                 </div>
             </div>
@@ -69,6 +75,7 @@
                     <table class="w-full text-left text-sm min-w-[720px]">
                         <thead>
                             <tr class="bg-amber-50/80 text-xs font-semibold uppercase tracking-wider text-amber-800">
+                                <th class="p-3 w-12"></th>
                                 <th class="p-3">Kitchen</th>
                                 <th class="p-3 text-center">Requested</th>
                                 <th class="p-3 text-center">Staged</th>
@@ -84,8 +91,20 @@
                                     $remaining = $req->remainingQuantity();
                                     $receivedCount = $req->requestBoxes->where('status', 'received')->count();
                                     $inTransitCount = $req->requestBoxes->where('status', '!=', 'received')->count();
+                                    $requestSelected = $selectedRequestId === $req->id;
                                 @endphp
-                                <tr wire:key="ops-box-req-{{ $req->id }}">
+                                <tr wire:key="ops-box-req-{{ $req->id }}" @class(['bg-amber-50/60' => $requestSelected])>
+                                    <td class="p-3">
+                                        <input
+                                            type="checkbox"
+                                            wire:click="toggleRequestBoxSelection({{ $req->id }})"
+                                            @checked($requestSelected)
+                                            @disabled($remaining < 1)
+                                            title="{{ $remaining < 1 ? 'No remaining boxes to stage' : 'Select '.$remaining.' warehouse '.str('box')->plural($remaining).' for this request' }}"
+                                            aria-label="Select warehouse boxes for {{ $req->kitchen?->name ?? 'kitchen' }} request"
+                                            class="h-4 w-4 rounded border-gray-300 text-middo-orange focus:ring-middo-orange cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                    </td>
                                     <td class="p-3 font-semibold text-middo-dark">
                                         {{ $req->kitchen?->name ?? 'Kitchen #'.$req->kitchen_id }}
                                         @if($inTransitCount > 0)
@@ -237,9 +256,6 @@
                 <span class="text-gray-400 font-medium">· only against a kitchen’s pending request</span>
             @else
                 Select warehouse boxes to send against a kitchen box request
-                @if($latestUnassignedCount > 0)
-                    <span class="text-gray-400 font-medium">· header checkbox picks latest {{ min(10, $latestUnassignedCount) }} unassigned</span>
-                @endif
             @endif
         </p>
 
@@ -260,17 +276,7 @@
             <table class="w-full text-left border-collapse min-w-[960px]">
                 <thead>
                     <tr class="bg-gray-50 border-b border-gray-100 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                        <th class="p-4 w-12">
-                            <input
-                                type="checkbox"
-                                wire:click="toggleSelectLatestUnassigned"
-                                @checked($latestUnassignedSelected)
-                                @disabled($latestUnassignedCount === 0)
-                                title="Select latest {{ min(10, max(0, $latestUnassignedCount)) }} unassigned boxes"
-                                aria-label="Select latest {{ min(10, max(0, $latestUnassignedCount)) }} unassigned boxes"
-                                class="h-4 w-4 rounded border-gray-300 text-middo-orange focus:ring-middo-orange cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                        </th>
+                        <th class="p-4 w-12"></th>
                         <th class="p-4">ID</th>
                         <th class="p-4">QR Code</th>
                         <th class="p-4">Model</th>

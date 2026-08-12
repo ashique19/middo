@@ -26,9 +26,13 @@ class MiddoBoxes extends Component
     /** @var int[] */
     public array $selectedBoxIds = [];
 
+    public ?int $selectedRequestId = null;
+
     public ?string $statusMessage = null;
 
     public ?string $errorMessage = null;
+
+    public ?string $warningMessage = null;
 
     public ?int $closingRequestId = null;
 
@@ -42,7 +46,7 @@ class MiddoBoxes extends Component
     public function updatingStatusFilter(): void
     {
         $this->resetPage();
-        $this->selectedBoxIds = [];
+        $this->clearBoxSelection();
         // Status dropdown and custody tiles are mutually exclusive filters.
         if ($this->custodyFilter !== 'all' && $this->custodyFilter !== 'returns') {
             $this->custodyFilter = 'all';
@@ -52,7 +56,7 @@ class MiddoBoxes extends Component
     public function updatingCustodyFilter(): void
     {
         $this->resetPage();
-        $this->selectedBoxIds = [];
+        $this->clearBoxSelection();
     }
 
     public function toggleCustodyFilter(string $key): void
@@ -65,14 +69,14 @@ class MiddoBoxes extends Component
         $this->statusFilter = '';
         $this->custodyFilter = $this->custodyFilter === $key ? 'all' : $key;
         $this->resetPage();
-        $this->selectedBoxIds = [];
+        $this->clearBoxSelection();
     }
 
     #[On('middo-boxes-generated')]
     public function refreshBoxes(?int $count = null): void
     {
         $this->resetPage();
-        $this->selectedBoxIds = [];
+        $this->clearBoxSelection();
         if ($count !== null && $count > 0) {
             $this->statusMessage = "Generated {$count} new Middo ".str('box')->plural($count).' (latest first on this list).';
         }
@@ -81,8 +85,15 @@ class MiddoBoxes extends Component
     #[On('middo-boxes-assigned')]
     public function clearSelection(): void
     {
-        $this->selectedBoxIds = [];
+        $this->clearBoxSelection();
         $this->statusMessage = 'Boxes marked ready for rider pickup against the kitchen request.';
+    }
+
+    protected function clearBoxSelection(): void
+    {
+        $this->selectedBoxIds = [];
+        $this->selectedRequestId = null;
+        $this->warningMessage = null;
     }
 
     public function openAssignModal(): void
@@ -102,17 +113,33 @@ class MiddoBoxes extends Component
         $this->selectedBoxIds = $availableIds;
 
         if ($this->selectedBoxIds === []) {
+            $this->selectedRequestId = null;
             $this->errorMessage = 'Selected boxes are no longer free warehouse stock. Pick boxes that are not already staged.';
 
             return;
         }
 
+        $kitchenId = null;
+        if ($this->selectedRequestId) {
+            $kitchenId = KitchenBoxRequest::query()
+                ->whereKey($this->selectedRequestId)
+                ->value('kitchen_id');
+            $kitchenId = $kitchenId !== null ? (int) $kitchenId : null;
+        }
+
         $this->errorMessage = null;
-        $this->dispatch('open-assign-middo-boxes-modal', boxIds: $this->selectedBoxIds);
+        $this->dispatch(
+            'open-assign-middo-boxes-modal',
+            boxIds: $this->selectedBoxIds,
+            kitchenId: $kitchenId,
+        );
     }
 
     public function toggleBoxSelection(int $boxId): void
     {
+        $this->selectedRequestId = null;
+        $this->warningMessage = null;
+
         if (in_array($boxId, $this->selectedBoxIds, true)) {
             $this->selectedBoxIds = array_values(array_filter(
                 $this->selectedBoxIds,
@@ -134,60 +161,68 @@ class MiddoBoxes extends Component
     }
 
     /**
-     * Header checkbox: select (or clear) the latest N free warehouse boxes.
+     * Checkbox on a kitchen box request: select (or clear) warehouse boxes
+     * for that request's remaining quantity (latest free stock first).
      */
-    public function toggleSelectLatestUnassigned(int $limit = 10): void
+    public function toggleRequestBoxSelection(int $requestId): void
     {
+        $this->statusMessage = null;
         $this->errorMessage = null;
+        $this->warningMessage = null;
 
-        $ids = $this->latestUnassignedBoxIds($limit);
-
-        if ($ids === []) {
-            $this->selectedBoxIds = [];
-            $this->errorMessage = 'No unassigned warehouse boxes available.';
+        if ($this->selectedRequestId === $requestId) {
+            $this->clearBoxSelection();
 
             return;
         }
 
-        if ($this->selectionMatchesIds($ids)) {
-            $this->selectedBoxIds = [];
+        $request = KitchenBoxRequest::query()
+            ->with('kitchen')
+            ->open()
+            ->whereKey($requestId)
+            ->first();
+
+        if (! $request) {
+            $this->errorMessage = 'That box request is no longer open.';
 
             return;
         }
 
-        $this->selectedBoxIds = $ids;
-    }
+        $needed = $request->remainingQuantity();
+        if ($needed < 1) {
+            $this->selectedRequestId = null;
+            $this->selectedBoxIds = [];
+            $this->warningMessage = 'This request has no remaining boxes to stage.';
 
-    /**
-     * @return list<int>
-     */
-    protected function latestUnassignedBoxIds(int $limit = 10): array
-    {
-        return MiddoBox::query()
+            return;
+        }
+
+        $availableIds = MiddoBox::query()
             ->availableForKitchenStaging()
             ->orderByDesc('id')
-            ->limit(max(1, $limit))
+            ->limit($needed)
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->values()
             ->all();
-    }
 
-    /**
-     * @param  list<int>  $ids
-     */
-    protected function selectionMatchesIds(array $ids): bool
-    {
-        if ($ids === [] || count($this->selectedBoxIds) !== count($ids)) {
-            return false;
+        $availableCount = count($availableIds);
+        $kitchenName = $request->kitchen?->name ?? ('Kitchen #'.$request->kitchen_id);
+
+        if ($availableCount === 0) {
+            $this->selectedRequestId = null;
+            $this->selectedBoxIds = [];
+            $this->warningMessage = "Insufficient warehouse boxes for {$kitchenName}. Need {$needed}, have 0 available.";
+
+            return;
         }
 
-        $selected = $this->selectedBoxIds;
-        sort($selected);
-        $expected = $ids;
-        sort($expected);
+        $this->selectedRequestId = $requestId;
+        $this->selectedBoxIds = $availableIds;
 
-        return $selected === $expected;
+        if ($availableCount < $needed) {
+            $this->warningMessage = "Insufficient warehouse boxes for {$kitchenName}. Need {$needed}, selected {$availableCount} available.";
+        }
     }
 
     public function retire(int $boxId): void
@@ -335,6 +370,9 @@ class MiddoBoxes extends Component
         if ($this->closingRequestId === $requestId) {
             $this->cancelCloseRequest();
         }
+        if ($this->selectedRequestId === $requestId) {
+            $this->clearBoxSelection();
+        }
     }
 
     public function render()
@@ -379,16 +417,11 @@ class MiddoBoxes extends Component
             ->latest('id')
             ->get();
 
-        $latestUnassignedIds = $this->latestUnassignedBoxIds(10);
-        $latestUnassignedSelected = $this->selectionMatchesIds($latestUnassignedIds);
-
         return view('livewire.operation.middo-boxes', [
             'boxes' => $boxes,
             'damagedCount' => $summary['damaged'],
             'custody' => $summary,
             'pendingBoxRequests' => $openBoxRequests,
-            'latestUnassignedSelected' => $latestUnassignedSelected,
-            'latestUnassignedCount' => count($latestUnassignedIds),
         ])->layout('layouts.private.app', ['title' => 'Middo Boxes']);
     }
 }
