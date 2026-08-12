@@ -1,14 +1,20 @@
 <div>
     @php
         $isDeliveryRiders = $roleType === 'delivery';
-        $pageTitle = $isDeliveryRiders
-            ? 'Delivery Riders'
-            : ($roleType ? $roleType.' Users' : 'User Management');
+        $isKitchenUsers = $roleType === 'kitchen';
+        $pageTitle = match ($roleType) {
+            'delivery' => 'Delivery Riders',
+            'kitchen' => 'Middo Kitchens',
+            default => $roleType ? $roleType.' Users' : 'User Management',
+        };
+        $showAreas = $isDeliveryRiders;
+        $showArea = $isKitchenUsers;
+        $hideRole = $isDeliveryRiders || $isKitchenUsers;
     @endphp
     <div class="block w-full max-w-6xl mx-auto py-8 px-4 sm:px-6 overflow-hidden">
 
         <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-            <h1 class="text-3xl font-bold capitalize">
+            <h1 class="text-3xl font-bold {{ $isKitchenUsers ? '' : 'capitalize' }}">
                 {{ $pageTitle }}
             </h1>
 
@@ -16,7 +22,7 @@
                 <div class="relative w-full sm:w-64">
                     <input wire:model.live.debounce.300ms="search"
                         type="text"
-                        placeholder="{{ $isDeliveryRiders ? 'Search riders...' : 'Search users...' }}"
+                        placeholder="{{ $isDeliveryRiders ? 'Search riders...' : ($isKitchenUsers ? 'Search kitchens...' : 'Search users...') }}"
                         class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition">
                     <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -38,9 +44,11 @@
                         <tr>
                             <th class="p-4 font-semibold text-gray-600 whitespace-nowrap">Name</th>
                             <th class="p-4 font-semibold text-gray-600 whitespace-nowrap">Phone</th>
-                            @if($isDeliveryRiders)
+                            @if($showAreas)
                                 <th class="p-4 font-semibold text-gray-600 whitespace-nowrap">Areas</th>
-                            @else
+                            @elseif($showArea)
+                                <th class="p-4 font-semibold text-gray-600 whitespace-nowrap">Area</th>
+                            @elseif(! $hideRole)
                                 <th class="p-4 font-semibold text-gray-600 whitespace-nowrap">Role</th>
                             @endif
                             <th class="p-4"></th>
@@ -95,7 +103,7 @@
                                         <span class="text-gray-400">N/A</span>
                                     @endif
                                 </td>
-                                @if($isDeliveryRiders)
+                                @if($showAreas)
                                     <td class="p-4 text-sm text-gray-600">
                                         @php
                                             $areaNames = $user->areas->isNotEmpty()
@@ -112,7 +120,11 @@
                                             <span class="text-gray-400">—</span>
                                         @endif
                                     </td>
-                                @else
+                                @elseif($showArea)
+                                    <td class="p-4 text-sm text-gray-600 whitespace-nowrap">
+                                        {{ $user->area_name ?: ($user->area?->name ?: '—') }}
+                                    </td>
+                                @elseif(! $hideRole)
                                     <td class="p-4 whitespace-nowrap">
                                         <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-xs font-bold uppercase truncate block max-w-[150px]">
                                             {{ $user->role->name ?? 'No Role' }}
@@ -145,7 +157,13 @@
                         @empty
                             <tr>
                                 <td colspan="4" class="p-8 text-center text-gray-500">
-                                    {{ $isDeliveryRiders ? 'No riders found.' : 'No users found.' }}
+                                    @if($isDeliveryRiders)
+                                        No riders found.
+                                    @elseif($isKitchenUsers)
+                                        No kitchens found.
+                                    @else
+                                        No users found.
+                                    @endif
                                 </td>
                             </tr>
                         @endforelse
