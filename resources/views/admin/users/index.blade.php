@@ -31,7 +31,7 @@
                     <thead class="bg-gray-50 border-b">
                         <tr>
                             <th class="p-4 font-semibold text-gray-600 whitespace-nowrap">Name</th>
-                            <th class="p-4 font-semibold text-gray-600 whitespace-nowrap">Email</th>
+                            <th class="p-4 font-semibold text-gray-600 whitespace-nowrap">Phone</th>
                             <th class="p-4 font-semibold text-gray-600 whitespace-nowrap">Role</th>
                             <th class="p-4"></th>
                         </tr>
@@ -48,7 +48,43 @@
                                         <a href="{{ route('admin.users.show', $user) }}" class="hover:underline">View details →</a>
                                     </div>
                                 </td>
-                                <td class="p-4 text-gray-500 whitespace-nowrap">{{ $user->email ?: 'N/A' }}</td>
+                                <td class="p-4 text-gray-500 whitespace-nowrap">
+                                    @if(filled($user->mobile))
+                                        <button
+                                            type="button"
+                                            x-data="{ copied: false, phone: @js($user->mobile) }"
+                                            x-on:click="
+                                                const done = () => { copied = true; setTimeout(() => copied = false, 1500); };
+                                                if (navigator.clipboard && window.isSecureContext) {
+                                                    navigator.clipboard.writeText(phone).then(done).catch(() => {
+                                                        const el = document.createElement('textarea');
+                                                        el.value = phone;
+                                                        document.body.appendChild(el);
+                                                        el.select();
+                                                        document.execCommand('copy');
+                                                        document.body.removeChild(el);
+                                                        done();
+                                                    });
+                                                } else {
+                                                    const el = document.createElement('textarea');
+                                                    el.value = phone;
+                                                    document.body.appendChild(el);
+                                                    el.select();
+                                                    document.execCommand('copy');
+                                                    document.body.removeChild(el);
+                                                    done();
+                                                }
+                                            "
+                                            class="inline-flex items-center font-mono text-sm text-middo-dark hover:text-middo-orange transition cursor-pointer"
+                                            title="Copy phone number"
+                                        >
+                                            <span x-text="copied ? 'copied' : phone"
+                                                  :class="copied ? 'text-emerald-600 font-semibold not-italic' : ''"></span>
+                                        </button>
+                                    @else
+                                        <span class="text-gray-400">N/A</span>
+                                    @endif
+                                </td>
                                 <td class="p-4 whitespace-nowrap">
                                     <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-xs font-bold uppercase truncate block max-w-[150px]">
                                         {{ $user->role->name ?? 'No Role' }}
