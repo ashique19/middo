@@ -170,6 +170,40 @@ class KitchenMiddoBoxesTest extends TestCase
             ->assertSee($box->qr_code_id);
     }
 
+    public function test_kitchen_can_group_receive_incoming_boxes_from_rider(): void
+    {
+        $boxA = $this->makeBox([
+            'kitchen_id' => $this->kitchen->id,
+            'held_by_user_id' => $this->rider->id,
+        ]);
+        $boxB = $this->makeBox([
+            'kitchen_id' => $this->kitchen->id,
+            'held_by_user_id' => $this->rider->id,
+        ]);
+
+        MiddoBoxLog::create([
+            'middo_box_id' => $boxA->id,
+            'custody_status' => 'in_transit',
+            'log_action' => 'handed_to_kitchen_stock',
+        ]);
+        MiddoBoxLog::create([
+            'middo_box_id' => $boxB->id,
+            'custody_status' => 'in_transit',
+            'log_action' => 'handed_to_kitchen_stock',
+        ]);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(IncomingBoxes::class)
+            ->assertSee('Confirm receive (2)', false)
+            ->assertSeeHtml('Confirm receive 2 boxes from Rider One, 01710000002?')
+            ->call('receiveAllBoxes', [$boxA->id, $boxB->id])
+            ->assertSet('errorMessage', null)
+            ->assertSet('statusMessage', 'Received 2 boxes into kitchen inventory.');
+
+        $this->assertTrue($boxA->fresh()->isAtKitchen($this->kitchen->id));
+        $this->assertTrue($boxB->fresh()->isAtKitchen($this->kitchen->id));
+    }
+
     public function test_kitchen_can_send_box_at_kitchen_to_warehouse(): void
     {
         MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
