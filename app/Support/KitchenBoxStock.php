@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\MiddoBox;
+use App\Models\MiddoBoxLog;
 use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\User;
@@ -88,5 +89,57 @@ class KitchenBoxStock
     public static function dashboardWarningMessage(): string
     {
         return 'You have insufficient middo box in stock. contact Ops for box. You can accept order only after you have Middo box in stock.';
+    }
+
+    /**
+     * Ops→kitchen boxes currently on the way to this kitchen, grouped by holding rider.
+     *
+     * @return list<array{count: int, name: string, mobile: ?string, label: string}>
+     */
+    public static function opsIncomingNotices(int $kitchenId): array
+    {
+        $opsActions = [
+            'rider_accepted_kitchen_stock',
+            'handed_to_kitchen_stock',
+            'dispatched_to_kitchen',
+        ];
+
+        $latestLogIds = MiddoBoxLog::query()
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('middo_box_id')
+            ->pluck('id');
+
+        $visibleBoxIds = MiddoBoxLog::query()
+            ->whereIn('id', $latestLogIds)
+            ->whereIn('log_action', $opsActions)
+            ->pluck('middo_box_id');
+
+        if ($visibleBoxIds->isEmpty()) {
+            return [];
+        }
+
+        return MiddoBox::query()
+            ->with('heldByUser')
+            ->incomingToKitchen($kitchenId)
+            ->whereIn('id', $visibleBoxIds)
+            ->get()
+            ->groupBy(fn (MiddoBox $box) => (int) ($box->held_by_user_id ?? 0))
+            ->map(function ($boxes) {
+                $holder = $boxes->first()?->heldByUser;
+                $count = $boxes->count();
+                $name = $holder?->name ?: 'rider';
+                $mobile = $holder?->mobile ? (string) $holder->mobile : null;
+                $label = $count.' '.str('box')->plural($count).' incoming from Ops, by '.$name
+                    .($mobile ? ' ('.$mobile.')' : '');
+
+                return [
+                    'count' => $count,
+                    'name' => $name,
+                    'mobile' => $mobile,
+                    'label' => $label,
+                ];
+            })
+            ->values()
+            ->all();
     }
 }

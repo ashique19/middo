@@ -5,6 +5,8 @@ namespace Tests\Feature\Kitchen;
 use App\Livewire\Kitchen\MiddoOrderGroups;
 use App\Models\MealItem;
 use App\Models\MenuItem;
+use App\Models\MiddoBox;
+use App\Models\MiddoBoxLog;
 use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\Recipe;
@@ -135,6 +137,55 @@ class KitchenDashboardTest extends TestCase
             ->assertSee(KitchenBoxStock::dashboardWarningMessage(), false)
             ->assertSee('Request Middo boxes', false)
             ->assertSee(route('kitchen.middo-boxes.at-kitchen', ['request' => 1]), false);
+    }
+
+    public function test_kitchen_dashboard_shows_ops_incoming_boxes_with_rider_phone(): void
+    {
+        KitchenBoxFactory::seedSendable($this->kitchen, 3);
+
+        $deliveryRole = Role::create(['name' => 'delivery']);
+        $rider = User::create([
+            'first_name' => 'Rider',
+            'last_name' => 'One',
+            'mobile' => '01715550999',
+            'password' => 'password',
+            'role_id' => $deliveryRole->id,
+            'status' => 'active',
+        ]);
+
+        $boxA = MiddoBox::create([
+            'qr_code_id' => 'MB-IN-OPS-1',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'active',
+            'kitchen_id' => $this->kitchen->id,
+            'held_by_user_id' => $rider->id,
+            'total_uses_count' => 0,
+        ]);
+        $boxB = MiddoBox::create([
+            'qr_code_id' => 'MB-IN-OPS-2',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'active',
+            'kitchen_id' => $this->kitchen->id,
+            'held_by_user_id' => $rider->id,
+            'total_uses_count' => 0,
+        ]);
+
+        MiddoBoxLog::create([
+            'middo_box_id' => $boxA->id,
+            'custody_status' => 'in_transit',
+            'log_action' => 'rider_accepted_kitchen_stock',
+        ]);
+        MiddoBoxLog::create([
+            'middo_box_id' => $boxB->id,
+            'custody_status' => 'in_transit',
+            'log_action' => 'handed_to_kitchen_stock',
+        ]);
+
+        $this->actingAs($this->kitchen)
+            ->get(route('kitchen.dashboard'))
+            ->assertOk()
+            ->assertSee('2 boxes incoming from Ops, by Rider One (01715550999)', false)
+            ->assertSee(route('kitchen.middo-boxes.incoming'), false);
     }
 
     public function test_kitchen_can_accept_unassigned_order_group(): void

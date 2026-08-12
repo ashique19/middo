@@ -143,7 +143,9 @@ class KitchenMiddoBoxesTest extends TestCase
             ->get(route('kitchen.middo-boxes.incoming'))
             ->assertOk()
             ->assertSee($box->qr_code_id)
-            ->assertSee('Awaiting confirm')
+            ->assertSee('Ready to receive', false)
+            ->assertSee($this->rider->name, false)
+            ->assertSee($this->rider->mobile, false)
             ->assertSee('Confirm receive');
 
         Livewire::actingAs($this->kitchen)
