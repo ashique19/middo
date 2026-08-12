@@ -243,6 +243,8 @@ class KitchenMiddoBoxesTest extends TestCase
 
     public function test_kitchen_can_mark_box_damaged_and_send_on_damaged_path(): void
     {
+        MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '0');
+
         $box = $this->makeBox([
             'kitchen_id' => $this->kitchen->id,
             'held_by_user_id' => $this->kitchen->id,

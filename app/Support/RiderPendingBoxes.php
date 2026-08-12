@@ -33,8 +33,9 @@ class RiderPendingBoxes
             ->whereNull('rider_id')
             ->whereHas(
                 'box',
+                // Include damaged returns — kitchen→ops via rider keeps asset_status=damaged.
                 fn ($q) => $q->whereColumn('middo_boxes.kitchen_id', 'middo_boxes.held_by_user_id')
-                    ->where('asset_status', '!=', 'damaged')
+                    ->whereIn('asset_status', ['active', 'damaged'])
             )
             ->count();
     }
@@ -46,7 +47,7 @@ class RiderPendingBoxes
     {
         $heldIds = MiddoBox::query()
             ->where('held_by_user_id', $riderId)
-            ->where('asset_status', 'active')
+            ->whereIn('asset_status', ['active', 'damaged'])
             ->pluck('id')
             ->map(fn ($id) => (int) $id);
 
@@ -83,7 +84,7 @@ class RiderPendingBoxes
                 ->whereHas(
                     'box',
                     fn ($q) => $q->whereColumn('middo_boxes.kitchen_id', 'middo_boxes.held_by_user_id')
-                        ->where('asset_status', '!=', 'damaged')
+                        ->whereIn('asset_status', ['active', 'damaged'])
                 )
                 ->pluck('middo_box_id')
                 ->map(fn ($id) => (int) $id);

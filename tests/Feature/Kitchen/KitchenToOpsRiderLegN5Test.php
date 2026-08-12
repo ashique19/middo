@@ -292,4 +292,115 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             'status' => KitchenWarehouseHandoff::STATUS_RUN_CLAIMED,
         ]);
     }
+
+    public function test_damaged_box_uses_via_rider_claim_dispatch_accept_hand(): void
+    {
+        MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
+        MiddoSettings::set('delivery.commission.'.DeliveryRunType::KITCHEN_TO_OPS, '21');
+
+        $kitchen = $this->makeKitchen();
+        $rider = $this->makeRider('01790000111');
+        $ops = User::create([
+            'first_name' => 'Ops',
+            'last_name' => 'Damaged',
+            'mobile' => '01790000112',
+            'password' => 'password',
+            'role_id' => $this->operationRole->id,
+            'status' => 'active',
+        ]);
+
+        $box = MiddoBox::create([
+            'qr_code_id' => 'MB-N5-DMG',
+            'box_model_type' => 'standard_insulated',
+            'kitchen_id' => $kitchen->id,
+            'held_by_user_id' => $kitchen->id,
+            'asset_status' => 'active',
+            'total_uses_count' => 0,
+        ]);
+
+        Livewire::actingAs($kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->call('openDamage', $box->id)
+            ->set('damageNotes', 'Broken hinge')
+            ->call('confirmDamage')
+            ->assertSet('errorMessage', null);
+
+        $box->refresh();
+        $this->assertSame('damaged', $box->asset_status);
+
+        Livewire::actingAs($kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->set('filter', 'damaged')
+            ->call('sendDamagedToWarehouse', $box->id)
+            ->assertSet('errorMessage', null)
+            ->assertSee('marked ready to ship', false);
+
+        $box->refresh();
+        $this->assertSame('damaged', $box->asset_status);
+        $this->assertSame($kitchen->id, $box->kitchen_id);
+        $this->assertSame($kitchen->id, $box->held_by_user_id);
+        $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
+            'middo_box_id' => $box->id,
+            'status' => KitchenWarehouseHandoff::STATUS_RUN_REQUESTED,
+            'rider_id' => null,
+        ]);
+        $this->assertTrue(StaffAlert::query()
+            ->where('user_id', $rider->id)
+            ->where('type', StaffAlert::TYPE_KITCHEN_TO_OPS_BOX)
+            ->where('title', 'Kitchen→ops run requested')
+            ->exists());
+        $this->assertSame(1, RiderPendingBoxes::claimableKitchenToOpsCount());
+        $this->assertSame(1, RiderPendingBoxes::countForRider($rider->id));
+
+        Livewire::actingAs($rider)
+            ->test(PendingBoxRuns::class)
+            ->call('claimKitchenReturn', $box->id)
+            ->assertSet('errorMessage', null);
+
+        Livewire::actingAs($kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->set('filter', 'damaged')
+            ->assertSee('Dispatch to', false)
+            ->call('dispatchWarehouseRun', $box->id)
+            ->assertSet('errorMessage', null);
+
+        Livewire::actingAs($rider)
+            ->test(PendingBoxRuns::class)
+            ->call('acceptKitchenReturn', $box->id)
+            ->assertSet('errorMessage', null);
+
+        $box->refresh();
+        $this->assertSame($rider->id, $box->held_by_user_id);
+        $this->assertSame('damaged', $box->asset_status);
+        $this->assertSame(1, RiderPendingBoxes::countForRider($rider->id));
+
+        Livewire::actingAs($rider)
+            ->test(PendingBoxRuns::class)
+            ->call('deliverToWarehouse', $box->id)
+            ->assertSet('errorMessage', null);
+
+        $box->refresh();
+        $this->assertSame('damaged', $box->asset_status);
+        $this->assertNull($box->held_by_user_id);
+        $this->assertDatabaseHas('middo_box_logs', [
+            'middo_box_id' => $box->id,
+            'log_action' => 'returned_damaged_to_warehouse',
+        ]);
+        $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
+            'middo_box_id' => $box->id,
+            'status' => KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS,
+        ]);
+
+        Livewire::actingAs($ops)
+            ->test(MiddoBoxes::class)
+            ->set('custodyFilter', 'returns')
+            ->call('ackReturn', $box->id);
+
+        $box->refresh();
+        $this->assertSame('at_middo_warehouse', $box->asset_status);
+        $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
+            'middo_box_id' => $box->id,
+            'status' => KitchenWarehouseHandoff::STATUS_RECEIVED,
+        ]);
+    }
 }

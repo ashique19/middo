@@ -104,10 +104,12 @@ class MiddoBoxKitchenActions
 
     /**
      * Kitchen marks empty box ready to ship → active riders notified to claim the run.
+     *
+     * @param  bool  $damagedReturn  When true, box must already be marked damaged (kitchen→ops damaged path).
      */
-    public static function markReadyToShip(MiddoBox $box, int $kitchenId): MiddoBox
+    public static function markReadyToShip(MiddoBox $box, int $kitchenId, bool $damagedReturn = false, ?string $notes = null): MiddoBox
     {
-        $fresh = DB::transaction(function () use ($box, $kitchenId) {
+        $fresh = DB::transaction(function () use ($box, $kitchenId, $damagedReturn, $notes) {
             if (! Schema::hasTable('kitchen_warehouse_handoffs')) {
                 throw new \RuntimeException(
                     'Kitchen→ops rider handoff is not installed yet. Run migrations (kitchen_warehouse_handoffs).'
@@ -124,7 +126,11 @@ class MiddoBoxKitchenActions
                 throw new \RuntimeException('This box is reserved for a dispatched order.');
             }
 
-            if ($box->asset_status === 'damaged') {
+            if ($damagedReturn) {
+                if ($box->asset_status !== 'damaged') {
+                    throw new \RuntimeException('Only damaged boxes can be sent on the damaged return path.');
+                }
+            } elseif ($box->asset_status === 'damaged') {
                 throw new \RuntimeException('Use “Send damaged to Middo” for damaged boxes.');
             }
 
@@ -147,11 +153,17 @@ class MiddoBoxKitchenActions
                 'status' => KitchenWarehouseHandoff::STATUS_RUN_REQUESTED,
             ]);
 
+            $baseNote = $damagedReturn
+                ? 'Damaged box ready to ship to Middo warehouse — awaiting rider claim'
+                : 'Ready to ship to Middo warehouse — awaiting rider claim';
+            $extra = self::normalizeNotes($notes);
+            $logNotes = $extra ? $baseNote.' — '.$extra : $baseNote;
+
             MiddoBoxLog::create([
                 'middo_box_id' => $box->id,
                 'custody_status' => 'assigned_at_kitchen',
                 'log_action' => 'warehouse_run_requested',
-                'notes' => 'Ready to ship to Middo warehouse — awaiting rider claim',
+                'notes' => $logNotes,
                 'performed_by' => $kitchenId,
             ]);
 
@@ -160,7 +172,7 @@ class MiddoBoxKitchenActions
                 'middo_box_id' => $box->id,
                 'custody_status' => 'assigned_at_kitchen',
                 'log_action' => 'staged_for_warehouse_pickup',
-                'notes' => 'Ready to ship to Middo warehouse — awaiting rider claim',
+                'notes' => $logNotes,
                 'performed_by' => $kitchenId,
             ]);
 
@@ -305,10 +317,13 @@ class MiddoBoxKitchenActions
 
             $rider = User::query()->findOrFail($riderId);
 
+            $wasDamaged = $box->asset_status === 'damaged';
+
             $box->update([
                 'kitchen_id' => null,
                 'held_by_user_id' => $riderId,
-                'asset_status' => 'active',
+                // Keep damaged flag through the rider leg so ops still sees a damaged return.
+                'asset_status' => $wasDamaged ? 'damaged' : 'active',
                 'last_scanned_at' => now(),
             ]);
 
@@ -318,7 +333,9 @@ class MiddoBoxKitchenActions
                 'middo_box_id' => $box->id,
                 'custody_status' => 'in_transit',
                 'log_action' => 'rider_accepted_warehouse_return',
-                'notes' => 'Rider accepted empty box — run started to Middo warehouse',
+                'notes' => $wasDamaged
+                    ? 'Rider accepted damaged box — run started to Middo warehouse'
+                    : 'Rider accepted empty box — run started to Middo warehouse',
                 'performed_by' => $riderId,
             ]);
 
@@ -326,7 +343,7 @@ class MiddoBoxKitchenActions
                 'middo_box_id' => $box->id,
                 'custody_status' => 'in_transit',
                 'log_action' => 'dispatched_to_warehouse',
-                'notes' => 'En route to Middo warehouse',
+                'notes' => $wasDamaged ? 'Damaged box en route to Middo warehouse' : 'En route to Middo warehouse',
                 'performed_by' => $riderId,
             ]);
 
@@ -381,10 +398,13 @@ class MiddoBoxKitchenActions
                 }
             }
 
+            $wasDamaged = $box->asset_status === 'damaged';
+
             $box->update([
                 'kitchen_id' => null,
                 'held_by_user_id' => null,
-                'asset_status' => 'at_middo_warehouse',
+                // Damaged stays damaged until ops acks; normal returns land in warehouse stock.
+                'asset_status' => $wasDamaged ? 'damaged' : 'at_middo_warehouse',
                 'last_scanned_at' => now(),
             ]);
 
@@ -392,15 +412,17 @@ class MiddoBoxKitchenActions
                 'middo_box_id' => $box->id,
                 'custody_status' => 'warehouse',
                 'log_action' => 'handed_to_ops_warehouse',
-                'notes' => 'Rider handed empty box to Middo ops',
+                'notes' => $wasDamaged
+                    ? 'Rider handed damaged box to Middo ops'
+                    : 'Rider handed empty box to Middo ops',
                 'performed_by' => $riderId,
             ]);
 
-            // Ops returns queue keys off returned_to_warehouse as latest action.
+            // Ops returns queue keys off returned_*_to_warehouse as latest action.
             MiddoBoxLog::create([
                 'middo_box_id' => $box->id,
                 'custody_status' => 'warehouse',
-                'log_action' => 'returned_to_warehouse',
+                'log_action' => $wasDamaged ? 'returned_damaged_to_warehouse' : 'returned_to_warehouse',
                 'performed_by' => $riderId,
             ]);
 
@@ -445,7 +467,21 @@ class MiddoBoxKitchenActions
         return self::stageForWarehousePickup($box, $kitchenId, $riderId);
     }
 
+    /**
+     * Damaged return entry point.
+     * Via-rider on → same claim/dispatch/accept/hand lifecycle (asset stays damaged).
+     * Via-rider off → teleport damaged to warehouse for ops review.
+     */
     public static function sendDamagedToWarehouse(MiddoBox $box, int $kitchenId, ?string $notes = null): MiddoBox
+    {
+        if (MiddoSettings::kitchenToOpsViaRider()) {
+            return self::markReadyToShip($box, $kitchenId, damagedReturn: true, notes: $notes);
+        }
+
+        return self::teleportDamagedToWarehouse($box, $kitchenId, $notes);
+    }
+
+    public static function teleportDamagedToWarehouse(MiddoBox $box, int $kitchenId, ?string $notes = null): MiddoBox
     {
         return DB::transaction(function () use ($box, $kitchenId, $notes) {
             $box = MiddoBox::query()->whereKey($box->id)->lockForUpdate()->firstOrFail();
@@ -460,6 +496,10 @@ class MiddoBoxKitchenActions
 
             if ($box->orderMiddoBoxes()->exists()) {
                 throw new \RuntimeException('This box is reserved for a dispatched order.');
+            }
+
+            if ($box->hasOpenWarehouseHandoff()) {
+                throw new \RuntimeException('This box is already on a warehouse return run.');
             }
 
             $box->update([

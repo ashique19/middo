@@ -255,7 +255,8 @@
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
                                 Damaged
                             </span>
-                        @elseif($runRequested)
+                        @endif
+                        @if($runRequested)
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
                                 Ready to ship
                             </span>
@@ -267,11 +268,11 @@
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-violet-50 text-violet-800 border border-violet-200">
                                 Dispatched
                             </span>
-                        @elseif($reserved)
+                        @elseif(! $damaged && $reserved)
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                 Reserved
                             </span>
-                        @else
+                        @elseif(! $damaged)
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                 At kitchen
                             </span>
@@ -292,15 +293,15 @@
                         </p>
                     @endif
 
-                    @if($damaged || (! $reserved && ! $onWarehouseRun) || $runClaimed)
+                    @if(($damaged && ! $onWarehouseRun) || (! $damaged && ! $reserved && ! $onWarehouseRun) || $runClaimed)
                         <div class="flex flex-col gap-2 pt-1 border-t border-gray-100">
-                            @if($damaged)
+                            @if($damaged && ! $onWarehouseRun)
                                 <button
                                     type="button"
                                     wire:click="sendDamagedToWarehouse({{ $box->id }})"
                                     wire:loading.attr="disabled"
                                     wire:target="sendDamagedToWarehouse({{ $box->id }})"
-                                    wire:confirm="Send this DAMAGED box to Middo? It will not restock as normal inventory."
+                                    wire:confirm="{{ $viaRiderEnabled ? 'Mark this DAMAGED box ready to ship? Riders will be notified to claim the return run.' : 'Send this DAMAGED box to Middo? It will not restock as normal inventory.' }}"
                                     class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl border border-rose-300 bg-rose-50 text-xs font-bold text-rose-800 hover:bg-rose-100 transition disabled:opacity-60">
                                     <span wire:loading.remove wire:target="sendDamagedToWarehouse({{ $box->id }})">Send damaged to Middo</span>
                                     <span wire:loading wire:target="sendDamagedToWarehouse({{ $box->id }})">Sending...</span>
@@ -316,7 +317,7 @@
                                     <span wire:loading.remove wire:target="dispatchWarehouseRun({{ $box->id }})">Dispatch to {{ $stagedRiderName ?? 'rider' }}</span>
                                     <span wire:loading wire:target="dispatchWarehouseRun({{ $box->id }})">Dispatching...</span>
                                 </button>
-                            @else
+                            @elseif(! $damaged)
                                 <button
                                     type="button"
                                     wire:click="sendToWarehouse({{ $box->id }})"
@@ -372,51 +373,48 @@
                                 <td class="p-4 font-mono font-bold text-middo-dark">{{ $box->qr_code_id }}</td>
                                 <td class="p-4 text-gray-700">{{ str($box->box_model_type)->headline() }}</td>
                                 <td class="p-4">
-                                    @if($damaged)
-                                        <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
-                                            Damaged
-                                        </span>
-                                    @elseif($runRequested)
-                                        <div class="space-y-1">
+                                    <div class="space-y-1">
+                                        @if($damaged)
+                                            <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                                                Damaged
+                                            </span>
+                                        @endif
+                                        @if($runRequested)
                                             <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
                                                 Ready to ship
                                             </span>
                                             <p class="text-xs font-semibold text-sky-800">Awaiting rider claim</p>
-                                        </div>
-                                    @elseif($runClaimed)
-                                        <div class="space-y-1">
+                                        @elseif($runClaimed)
                                             <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
                                                 Rider claimed
                                             </span>
                                             <p class="text-xs font-semibold text-amber-900">{{ $stagedRiderName ?? 'Rider' }} — dispatch when ready</p>
-                                        </div>
-                                    @elseif($runDispatched)
-                                        <div class="space-y-1">
+                                        @elseif($runDispatched)
                                             <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-violet-50 text-violet-800 border border-violet-200">
                                                 Dispatched
                                             </span>
                                             <p class="text-xs font-semibold text-violet-800">Waiting for {{ $stagedRiderName ?? 'rider' }} accept</p>
-                                        </div>
-                                    @elseif($reserved)
-                                        <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                            Reserved for order
-                                        </span>
-                                    @else
-                                        <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                            At kitchen
-                                        </span>
-                                    @endif
+                                        @elseif(! $damaged && $reserved)
+                                            <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                                Reserved for order
+                                            </span>
+                                        @elseif(! $damaged)
+                                            <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                At kitchen
+                                            </span>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="p-4 text-center text-gray-600">{{ $box->total_uses_count }}</td>
                                 <td class="p-4 text-right">
                                     <div class="inline-flex flex-wrap justify-end gap-2">
-                                        @if($damaged)
+                                        @if($damaged && ! $runRequested && ! $runClaimed && ! $runDispatched)
                                             <button
                                                 type="button"
                                                 wire:click="sendDamagedToWarehouse({{ $box->id }})"
                                                 wire:loading.attr="disabled"
                                                 wire:target="sendDamagedToWarehouse({{ $box->id }})"
-                                                wire:confirm="Send this DAMAGED box to Middo? It will not restock as normal inventory."
+                                                wire:confirm="{{ $viaRiderEnabled ? 'Mark this DAMAGED box ready to ship? Riders will be notified to claim the return run.' : 'Send this DAMAGED box to Middo? It will not restock as normal inventory.' }}"
                                                 class="inline-flex items-center px-3 py-1.5 rounded-xl border border-rose-300 bg-rose-50 text-xs font-bold text-rose-800 hover:bg-rose-100 transition disabled:opacity-60">
                                                 <span wire:loading.remove wire:target="sendDamagedToWarehouse({{ $box->id }})">Send damaged to Middo</span>
                                                 <span wire:loading wire:target="sendDamagedToWarehouse({{ $box->id }})">Sending...</span>
