@@ -237,6 +237,9 @@
                 <span class="text-gray-400 font-medium">· only against a kitchen’s pending request</span>
             @else
                 Select warehouse boxes to send against a kitchen box request
+                @if($latestUnassignedCount > 0)
+                    <span class="text-gray-400 font-medium">· header checkbox picks latest {{ min(10, $latestUnassignedCount) }} unassigned</span>
+                @endif
             @endif
         </p>
 
@@ -257,7 +260,17 @@
             <table class="w-full text-left border-collapse min-w-[960px]">
                 <thead>
                     <tr class="bg-gray-50 border-b border-gray-100 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                        <th class="p-4 w-12"></th>
+                        <th class="p-4 w-12">
+                            <input
+                                type="checkbox"
+                                wire:click="toggleSelectLatestUnassigned"
+                                @checked($latestUnassignedSelected)
+                                @disabled($latestUnassignedCount === 0)
+                                title="Select latest {{ min(10, max(0, $latestUnassignedCount)) }} unassigned boxes"
+                                aria-label="Select latest {{ min(10, max(0, $latestUnassignedCount)) }} unassigned boxes"
+                                class="h-4 w-4 rounded border-gray-300 text-middo-orange focus:ring-middo-orange cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                        </th>
                         <th class="p-4">ID</th>
                         <th class="p-4">QR Code</th>
                         <th class="p-4">Model</th>

@@ -133,6 +133,63 @@ class MiddoBoxes extends Component
         $this->errorMessage = null;
     }
 
+    /**
+     * Header checkbox: select (or clear) the latest N free warehouse boxes.
+     */
+    public function toggleSelectLatestUnassigned(int $limit = 10): void
+    {
+        $this->errorMessage = null;
+
+        $ids = $this->latestUnassignedBoxIds($limit);
+
+        if ($ids === []) {
+            $this->selectedBoxIds = [];
+            $this->errorMessage = 'No unassigned warehouse boxes available.';
+
+            return;
+        }
+
+        if ($this->selectionMatchesIds($ids)) {
+            $this->selectedBoxIds = [];
+
+            return;
+        }
+
+        $this->selectedBoxIds = $ids;
+    }
+
+    /**
+     * @return list<int>
+     */
+    protected function latestUnassignedBoxIds(int $limit = 10): array
+    {
+        return MiddoBox::query()
+            ->availableForKitchenStaging()
+            ->orderByDesc('id')
+            ->limit(max(1, $limit))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<int>  $ids
+     */
+    protected function selectionMatchesIds(array $ids): bool
+    {
+        if ($ids === [] || count($this->selectedBoxIds) !== count($ids)) {
+            return false;
+        }
+
+        $selected = $this->selectedBoxIds;
+        sort($selected);
+        $expected = $ids;
+        sort($expected);
+
+        return $selected === $expected;
+    }
+
     public function retire(int $boxId): void
     {
         $box = MiddoBox::query()->find($boxId);
@@ -322,11 +379,16 @@ class MiddoBoxes extends Component
             ->latest('id')
             ->get();
 
+        $latestUnassignedIds = $this->latestUnassignedBoxIds(10);
+        $latestUnassignedSelected = $this->selectionMatchesIds($latestUnassignedIds);
+
         return view('livewire.operation.middo-boxes', [
             'boxes' => $boxes,
             'damagedCount' => $summary['damaged'],
             'custody' => $summary,
             'pendingBoxRequests' => $openBoxRequests,
+            'latestUnassignedSelected' => $latestUnassignedSelected,
+            'latestUnassignedCount' => count($latestUnassignedIds),
         ])->layout('layouts.private.app', ['title' => 'Middo Boxes']);
     }
 }
