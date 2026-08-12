@@ -25,7 +25,7 @@
     </div>
 
     {{-- KPI strip --}}
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <p class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Today · {{ $data['today_label'] }}</p>
             <p class="mt-1 text-3xl font-black text-middo-dark">{{ number_format($data['today']['qty']) }}</p>
@@ -49,6 +49,35 @@
                 · ৳{{ number_format($data['packages']['prepaid_revenue']) }} prepaid
             </p>
         </div>
+        @php
+            $boxReqCount = (int) ($data['box_requests']['open'] ?? 0);
+            $boxReqRoute = $data['box_requests']['route'] ?? null;
+            $boxReqClasses = $boxReqCount > 0
+                ? 'border-amber-200 bg-amber-50 hover:border-amber-300'
+                : 'border-gray-100 bg-white hover:border-middo-orange';
+        @endphp
+        @if($boxReqRoute && \Illuminate\Support\Facades\Route::has($boxReqRoute))
+            <a href="{{ route($boxReqRoute) }}"
+               class="rounded-2xl border p-4 shadow-sm transition {{ $boxReqClasses }}">
+                <p class="text-[11px] font-bold uppercase tracking-wider {{ $boxReqCount > 0 ? 'text-amber-700' : 'text-gray-400' }}">Kitchen boxes</p>
+                <p class="mt-1 text-2xl sm:text-3xl font-black {{ $boxReqCount > 0 ? 'text-amber-950' : 'text-middo-dark' }}">
+                    Box Req ({{ number_format($boxReqCount) }})
+                </p>
+                <p class="text-xs {{ $boxReqCount > 0 ? 'text-amber-800/80' : 'text-gray-500' }} mt-1">
+                    @if($boxReqCount > 0)
+                        {{ number_format($data['box_requests']['remaining_qty'] ?? 0) }} boxes still needed · Middo boxes →
+                    @else
+                        No open kitchen box requests
+                    @endif
+                </p>
+            </a>
+        @else
+            <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Kitchen boxes</p>
+                <p class="mt-1 text-2xl sm:text-3xl font-black text-middo-dark">Box Req ({{ number_format($boxReqCount) }})</p>
+                <p class="text-xs text-gray-500 mt-1">Open kitchen box requests</p>
+            </div>
+        @endif
     </div>
 
     @if(!empty($data['attention']))
