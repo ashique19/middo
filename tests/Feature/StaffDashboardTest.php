@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Livewire\Shared\StaffDashboard;
+use App\Models\KitchenBoxRequest;
+use App\Models\MealPackage;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\PackageSubscription;
@@ -129,7 +131,7 @@ class StaffDashboardTest extends TestCase
         $corporate = $this->user('corporate', ['balance' => 10000]);
         $admin = $this->user('admin', ['mobile' => '01310999222']);
 
-        $package = \App\Models\MealPackage::create([
+        $package = MealPackage::create([
             'name' => 'Classic',
             'summary' => 'Test',
             'price_per_day' => 100,
@@ -137,7 +139,7 @@ class StaffDashboardTest extends TestCase
             'duration_days' => 20,
             'start_date' => now('Asia/Dhaka')->startOfMonth()->toDateString(),
             'end_date' => now('Asia/Dhaka')->startOfMonth()->addYear()->toDateString(),
-            'status' => \App\Models\MealPackage::STATUS_PUBLISHED,
+            'status' => MealPackage::STATUS_PUBLISHED,
             'display_order' => 1,
             'created_by' => $admin->id,
         ]);
@@ -171,5 +173,40 @@ class StaffDashboardTest extends TestCase
             'Packages awaiting schedule',
             collect($metrics['attention'])->pluck('label')->all()
         );
+    }
+
+    public function test_open_box_requests_surface_on_operation_dashboard(): void
+    {
+        $ops = $this->user('operation', ['mobile' => '01310999333']);
+        $kitchen = $this->user('kitchen', ['mobile' => '01310999334']);
+
+        KitchenBoxRequest::create([
+            'kitchen_id' => $kitchen->id,
+            'quantity' => 4,
+            'allocated_qty' => 1,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'requested_by' => $kitchen->id,
+        ]);
+
+        KitchenBoxRequest::create([
+            'kitchen_id' => $kitchen->id,
+            'quantity' => 2,
+            'allocated_qty' => 0,
+            'status' => KitchenBoxRequest::STATUS_CANCELLED,
+            'requested_by' => $kitchen->id,
+        ]);
+
+        $metrics = OpsDashboardMetrics::forRole('operation');
+        $this->assertSame(1, $metrics['box_requests']['open']);
+        $this->assertSame(3, $metrics['box_requests']['remaining_qty']);
+        $this->assertContains(
+            'Open kitchen box requests',
+            collect($metrics['attention'])->pluck('label')->all()
+        );
+
+        Livewire::actingAs($ops)
+            ->test(StaffDashboard::class)
+            ->assertSee('Box Req (1)', false)
+            ->assertSee('boxes still needed', false);
     }
 }

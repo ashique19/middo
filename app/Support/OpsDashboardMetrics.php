@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\CashHandover;
+use App\Models\KitchenBoxRequest;
 use App\Models\MealItem;
 use App\Models\MealPackage;
 use App\Models\MenuItem;
@@ -15,6 +16,7 @@ use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 
 class OpsDashboardMetrics
@@ -96,6 +98,16 @@ class OpsDashboardMetrics
                 $q->whereNotIn('status', ['resolved', 'closed']);
             }
             $openComplaints = $q->count();
+        }
+
+        $openBoxRequests = 0;
+        $openBoxRequestRemainingQty = 0;
+        if (Schema::hasTable('kitchen_box_requests')) {
+            $openRequests = KitchenBoxRequest::query()->open()->get(['quantity', 'allocated_qty']);
+            $openBoxRequests = $openRequests->count();
+            $openBoxRequestRemainingQty = (int) $openRequests->sum(
+                fn (KitchenBoxRequest $request) => $request->remainingQuantity()
+            );
         }
 
         $kitchenRoleId = Role::query()->where('name', 'kitchen')->value('id');
@@ -226,6 +238,15 @@ class OpsDashboardMetrics
                 'route' => $role === 'admin' ? 'admin.complaints.index' : 'operation.complaints.index',
                 'hint' => 'Customer issues logged on orders',
             ] : null,
+            $openBoxRequests > 0 && Route::has('operation.middo-boxes.index') ? [
+                'label' => 'Open kitchen box requests',
+                'value' => $openBoxRequests,
+                'tone' => 'amber',
+                'route' => 'operation.middo-boxes.index',
+                'hint' => $openBoxRequestRemainingQty > 0
+                    ? $openBoxRequestRemainingQty.' boxes still needed — stage warehouse stock'
+                    : 'Kitchen box requests awaiting ops',
+            ] : null,
         ]));
 
         $quickLinks = self::quickLinks($role);
@@ -297,6 +318,13 @@ class OpsDashboardMetrics
             'users_by_role' => $usersByRole,
             'quick_links' => $quickLinks,
             'pending_kitchens' => $pendingKitchens,
+            'box_requests' => [
+                'open' => $openBoxRequests,
+                'remaining_qty' => $openBoxRequestRemainingQty,
+                'route' => Route::has('operation.middo-boxes.index')
+                    ? 'operation.middo-boxes.index'
+                    : null,
+            ],
         ];
     }
 
@@ -380,7 +408,7 @@ class OpsDashboardMetrics
             $links[] = ['label' => 'Navs & roles', 'route' => 'admin.navrole.index', 'hint' => 'System nav'];
         }
 
-        if (\Illuminate\Support\Facades\Route::has($role.'.accounts.index')) {
+        if (Route::has($role.'.accounts.index')) {
             array_splice($links, 7, 0, [[
                 'label' => 'Accounts',
                 'route' => $role.'.accounts.index',
@@ -389,7 +417,7 @@ class OpsDashboardMetrics
         }
 
         return array_values(array_filter($links, function (array $link) {
-            return \Illuminate\Support\Facades\Route::has($link['route']);
+            return Route::has($link['route']);
         }));
     }
 }
