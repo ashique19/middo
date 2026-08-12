@@ -18,7 +18,7 @@
                 {{ $pageTitle }}
             </h1>
 
-            <div class="flex items-center gap-4 w-full sm:w-auto">
+            <div class="flex items-center gap-3 w-full sm:w-auto flex-wrap sm:flex-nowrap justify-end">
                 <div class="relative w-full sm:w-64">
                     <input wire:model.live.debounce.300ms="search"
                         type="text"
@@ -28,6 +28,17 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                 </div>
+                <button
+                    type="button"
+                    wire:click="exportExcel"
+                    wire:loading.attr="disabled"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition disabled:opacity-60 whitespace-nowrap">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12l4.5 4.5L16.5 12M12 3v13.5" />
+                    </svg>
+                    <span wire:loading.remove wire:target="exportExcel">Export Excel</span>
+                    <span wire:loading wire:target="exportExcel">Exporting…</span>
+                </button>
                 <livewire:admin.user-create-modal :locked-role="$roleType" />
             </div>
         </div>

@@ -2,10 +2,14 @@
 
 namespace App\Livewire\Admin;
 
+use App\Models\Role;
+use App\Models\User;
+use App\Support\UsersExcelExport;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Hash;
 use Livewire\Component;
 use Livewire\WithPagination;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UserTable extends Component
 {
@@ -20,7 +24,7 @@ class UserTable extends Component
 
     public function mount($role = null)
     {
-        if ($role && !\App\Models\Role::where('name', $role)->exists()) {
+        if ($role && ! Role::where('name', $role)->exists()) {
             abort(404); // Or redirect back with an error
         }
         $this->roleType = $role;
@@ -35,15 +39,16 @@ class UserTable extends Component
     public function deleteUser($id)
     {
         $user = User::findOrFail($id);
-        
+
         // Optional: Add a check to prevent deleting the logged-in user
         if ($user->id === auth()->id()) {
             session()->flash('error', 'You cannot delete yourself.');
+
             return;
         }
 
         $user->delete();
-        
+
         // Dispatch an event to notify the UI
         $this->dispatch('user-updated');
     }
@@ -55,7 +60,7 @@ class UserTable extends Component
         $statuses = ['inactive', 'active', 'pending'];
         $currentIndex = array_search($user->status, $statuses);
         $nextIndex = ($currentIndex + 1) % count($statuses);
-        
+
         $user->update(['status' => $statuses[$nextIndex]]);
         $this->dispatch('user-updated');
     }
@@ -64,33 +69,47 @@ class UserTable extends Component
     {
         $user = User::findOrFail($id);
         $user->update(['password' => Hash::make('12345678')]);
-        
+
         session()->flash('message', "Password reset to '12345678' for {$user->first_name}");
     }
 
-    public function render()
+    public function exportExcel(): StreamedResponse
     {
-        $users = User::query()
-            // Filter by the role passed in the URL
+        $users = $this->filteredUsersQuery()
             ->with(['role', 'area', 'areas'])
+            ->latest()
+            ->get();
+
+        $slug = $this->roleType ?: 'all';
+        $filename = 'users-'.$slug.'-'.now('Asia/Dhaka')->format('Y-m-d').'.csv';
+
+        return UsersExcelExport::download($users, $this->roleType, $filename);
+    }
+
+    protected function filteredUsersQuery(): Builder
+    {
+        return User::query()
             ->when($this->roleType, function ($query) {
                 $query->whereHas('role', function ($q) {
                     $q->where('name', $this->roleType);
                 });
             })
-            // Keep your existing search logic
             ->when($this->search, function ($query) {
                 $query->where(function ($subQuery) {
-                    $subQuery->where('first_name', 'like', '%' . $this->search . '%')
-                            ->orWhere('last_name', 'like', '%' . $this->search . '%')
-                            ->orWhere('mobile', 'like', '%' . $this->search . '%')
-                            ->orWhere('email', 'like', '%' . $this->search . '%'); // Add this if needed
+                    $subQuery->where('first_name', 'like', '%'.$this->search.'%')
+                        ->orWhere('last_name', 'like', '%'.$this->search.'%')
+                        ->orWhere('mobile', 'like', '%'.$this->search.'%')
+                        ->orWhere('email', 'like', '%'.$this->search.'%');
                 });
-            })
+            });
+    }
+
+    public function render()
+    {
+        $users = $this->filteredUsersQuery()
+            ->with(['role', 'area', 'areas'])
             ->latest()
             ->paginate(10);
-
-        
 
         return view('admin.users.index', compact('users'));
     }
