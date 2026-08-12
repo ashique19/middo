@@ -125,6 +125,7 @@ class IncomingBoxes extends Component
                     'source_label' => $sourceLabel,
                     'status_label' => $statusLabel,
                     'held_by' => $box->heldByUser?->name ?? '—',
+                    'held_by_mobile' => $box->heldByUser?->mobile,
                     'can_receive' => $canReceive,
                 ];
             })

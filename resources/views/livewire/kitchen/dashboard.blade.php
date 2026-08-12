@@ -19,6 +19,14 @@
         </div>
     @endif
 
+    @foreach($opsIncomingNotices as $notice)
+        <a href="{{ route('kitchen.middo-boxes.incoming') }}"
+           class="block rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm font-bold text-amber-950 hover:border-amber-300 hover:bg-amber-100/80 transition">
+            {{ $notice['label'] }}
+            <span class="ml-1 font-semibold text-amber-800 underline decoration-2 underline-offset-2">Open incoming →</span>
+        </a>
+    @endforeach
+
     <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
         @foreach($tiles as $tile)
             <a href="{{ route($tile['route']) }}"

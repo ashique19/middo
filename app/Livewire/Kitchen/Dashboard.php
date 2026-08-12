@@ -16,6 +16,9 @@ class Dashboard extends Component
 
     public bool $insufficientBoxStock = false;
 
+    /** @var list<array{count: int, name: string, mobile: ?string, label: string}> */
+    public array $opsIncomingNotices = [];
+
     public function mount(): void
     {
         $kitchen = Auth::user();
@@ -28,6 +31,8 @@ class Dashboard extends Component
         if ($kitchen) {
             $this->insufficientBoxStock = KitchenBoxStock::hasInsufficientStockVsAllowed($kitchen);
         }
+
+        $this->opsIncomingNotices = KitchenBoxStock::opsIncomingNotices((int) $kitchenId);
 
         $this->tiles = [
             [

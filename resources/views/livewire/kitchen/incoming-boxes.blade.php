@@ -31,7 +31,12 @@
                         <p class="text-sm text-gray-600">
                             {{ $box['model'] }} · {{ $box['source_label'] }}
                         </p>
-                        <p class="text-xs text-gray-500">Held by {{ $box['held_by'] }}</p>
+                        <p class="text-xs text-gray-500">
+                            Held by {{ $box['held_by'] }}
+                            @if(! empty($box['held_by_mobile']))
+                                <span class="font-mono">{{ $box['held_by_mobile'] }}</span>
+                            @endif
+                        </p>
                     </div>
                     <span @class([
                         'shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold border',
@@ -93,7 +98,12 @@
                                     {{ $box['status_label'] }}
                                 </span>
                             </td>
-                            <td class="p-4 text-gray-600">{{ $box['held_by'] }}</td>
+                            <td class="p-4 text-gray-600">
+                                <div>{{ $box['held_by'] }}</div>
+                                @if(! empty($box['held_by_mobile']))
+                                    <div class="text-[11px] font-semibold text-gray-500 font-mono">{{ $box['held_by_mobile'] }}</div>
+                                @endif
+                            </td>
                             <td class="p-4 text-right">
                                 @if($box['can_receive'])
                                     <button
