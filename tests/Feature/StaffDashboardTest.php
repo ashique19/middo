@@ -206,8 +206,10 @@ class StaffDashboardTest extends TestCase
 
         Livewire::actingAs($ops)
             ->test(StaffDashboard::class)
-            ->assertSee('Box Req (1)', false)
-            ->assertSee('boxes still needed', false)
+            ->assertSeeHtml('aria-label="1 open box request"')
+            ->assertSeeHtml('href="'.route('operation.middo-boxes.index').'"')
+            ->assertDontSee('Box Req (1)', false)
+            ->assertDontSee('boxes still needed', false)
             ->assertDontSee('Open kitchen box requests', false);
     }
 }

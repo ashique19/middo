@@ -18,14 +18,38 @@
                 {{ $data['today_label'] }} · live ops snapshot for Middo
             </p>
         </div>
-        <a href="{{ route($data['role'].'.orders.active') }}"
-           class="inline-flex items-center justify-center rounded-xl bg-middo-orange px-4 py-2.5 text-sm font-bold text-white hover:bg-[#733614] transition">
-            Open active orders
-        </a>
+        <div class="flex items-center gap-2 self-end">
+            @php
+                $boxReqCount = (int) ($data['box_requests']['open'] ?? 0);
+                $boxReqRoute = $data['box_requests']['route'] ?? null;
+            @endphp
+            @if($boxReqRoute && \Illuminate\Support\Facades\Route::has($boxReqRoute))
+                <a href="{{ route($boxReqRoute) }}"
+                   title="{{ $boxReqCount === 1 ? '1 open box request' : $boxReqCount.' open box requests' }}"
+                   aria-label="{{ $boxReqCount === 1 ? '1 open box request' : $boxReqCount.' open box requests' }}"
+                   class="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border transition
+                          {{ $boxReqCount > 0
+                              ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                              : 'border-gray-200 bg-white text-gray-500 hover:border-middo-orange hover:text-middo-dark' }}">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-4.5-9 4.5m18 0l-9 4.5m9-4.5v9l-9 4.5m0-13.5L3 7.5m9 4.5v9M3 7.5v9l9 4.5" />
+                    </svg>
+                    <span @class([
+                        'absolute -top-1.5 -right-1.5 min-w-[1.25rem] h-5 px-1 rounded-full text-[11px] font-black leading-5 text-center',
+                        'bg-middo-orange text-white' => $boxReqCount > 0,
+                        'bg-gray-200 text-gray-600' => $boxReqCount === 0,
+                    ])>{{ $boxReqCount }}</span>
+                </a>
+            @endif
+            <a href="{{ route($data['role'].'.orders.active') }}"
+               class="inline-flex items-center justify-center rounded-xl bg-middo-orange px-4 py-2.5 text-sm font-bold text-white hover:bg-[#733614] transition">
+                Open active orders
+            </a>
+        </div>
     </div>
 
     {{-- KPI strip --}}
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <p class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Today · {{ $data['today_label'] }}</p>
             <p class="mt-1 text-3xl font-black text-middo-dark">{{ number_format($data['today']['qty']) }}</p>
@@ -49,35 +73,6 @@
                 · ৳{{ number_format($data['packages']['prepaid_revenue']) }} prepaid
             </p>
         </div>
-        @php
-            $boxReqCount = (int) ($data['box_requests']['open'] ?? 0);
-            $boxReqRoute = $data['box_requests']['route'] ?? null;
-            $boxReqClasses = $boxReqCount > 0
-                ? 'border-amber-200 bg-amber-50 hover:border-amber-300'
-                : 'border-gray-100 bg-white hover:border-middo-orange';
-        @endphp
-        @if($boxReqRoute && \Illuminate\Support\Facades\Route::has($boxReqRoute))
-            <a href="{{ route($boxReqRoute) }}"
-               class="rounded-2xl border p-4 shadow-sm transition {{ $boxReqClasses }}">
-                <p class="text-[11px] font-bold uppercase tracking-wider {{ $boxReqCount > 0 ? 'text-amber-700' : 'text-gray-400' }}">Kitchen boxes</p>
-                <p class="mt-1 text-2xl sm:text-3xl font-black {{ $boxReqCount > 0 ? 'text-amber-950' : 'text-middo-dark' }}">
-                    Box Req ({{ number_format($boxReqCount) }})
-                </p>
-                <p class="text-xs {{ $boxReqCount > 0 ? 'text-amber-800/80' : 'text-gray-500' }} mt-1">
-                    @if($boxReqCount > 0)
-                        {{ number_format($data['box_requests']['remaining_qty'] ?? 0) }} boxes still needed · Middo boxes →
-                    @else
-                        No open kitchen box requests
-                    @endif
-                </p>
-            </a>
-        @else
-            <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                <p class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Kitchen boxes</p>
-                <p class="mt-1 text-2xl sm:text-3xl font-black text-middo-dark">Box Req ({{ number_format($boxReqCount) }})</p>
-                <p class="text-xs text-gray-500 mt-1">Open kitchen box requests</p>
-            </div>
-        @endif
     </div>
 
     @if(!empty($data['attention']))
