@@ -103,11 +103,11 @@ class MiddoBoxKitchenActions
     }
 
     /**
-     * Kitchen marks empty box ready to ship → area riders notified to claim the run.
+     * Kitchen marks empty box ready to ship → active riders notified to claim the run.
      */
     public static function markReadyToShip(MiddoBox $box, int $kitchenId): MiddoBox
     {
-        return DB::transaction(function () use ($box, $kitchenId) {
+        $fresh = DB::transaction(function () use ($box, $kitchenId) {
             if (! Schema::hasTable('kitchen_warehouse_handoffs')) {
                 throw new \RuntimeException(
                     'Kitchen→ops rider handoff is not installed yet. Run migrations (kitchen_warehouse_handoffs).'
@@ -131,8 +131,6 @@ class MiddoBoxKitchenActions
             if ($box->hasOpenWarehouseHandoff()) {
                 throw new \RuntimeException('This box is already on a warehouse return run.');
             }
-
-            $kitchen = User::query()->findOrFail($kitchenId);
 
             KitchenWarehouseHandoff::query()
                 ->where('middo_box_id', $box->id)
@@ -166,11 +164,15 @@ class MiddoBoxKitchenActions
                 'performed_by' => $kitchenId,
             ]);
 
-            $fresh = $box->fresh(['warehouseHandoff']);
-            StaffAlerts::notifyAreaRidersKitchenToOpsRunRequested($kitchen, [$fresh]);
-
-            return $fresh;
+            return $box->fresh(['warehouseHandoff']);
         });
+
+        $kitchen = User::query()->find($kitchenId);
+        if ($kitchen) {
+            StaffAlerts::notifyAreaRidersKitchenToOpsRunRequested($kitchen, [$fresh]);
+        }
+
+        return $fresh;
     }
 
     /**

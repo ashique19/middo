@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Kitchen;
 
+use App\Livewire\Delivery\Dashboard;
 use App\Livewire\Delivery\PendingBoxRuns;
 use App\Livewire\Kitchen\BoxesAtKitchen;
 use App\Livewire\Operation\MiddoBoxes;
@@ -272,6 +273,12 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             ->where('title', 'Kitchen→ops run requested')
             ->exists());
         $this->assertSame(1, RiderPendingBoxes::countForRider($rider->id));
+
+        Livewire::actingAs($rider)
+            ->test(Dashboard::class)
+            ->assertSet('claimableKitchenToOpsCount', 1)
+            ->assertSee('kitchen→ops', false)
+            ->assertSee('waiting to claim', false);
 
         Livewire::actingAs($rider)
             ->test(PendingBoxRuns::class)

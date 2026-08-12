@@ -20,6 +20,26 @@ class RiderPendingBoxes
     }
 
     /**
+     * Open kitchen→ops runs waiting for any rider to claim.
+     */
+    public static function claimableKitchenToOpsCount(): int
+    {
+        if (! Schema::hasTable('kitchen_warehouse_handoffs')) {
+            return 0;
+        }
+
+        return KitchenWarehouseHandoff::query()
+            ->where('status', KitchenWarehouseHandoff::STATUS_RUN_REQUESTED)
+            ->whereNull('rider_id')
+            ->whereHas(
+                'box',
+                fn ($q) => $q->whereColumn('middo_boxes.kitchen_id', 'middo_boxes.held_by_user_id')
+                    ->where('asset_status', '!=', 'damaged')
+            )
+            ->count();
+    }
+
+    /**
      * @return Collection<int, int>
      */
     public static function boxIdsForRider(int $riderId): Collection

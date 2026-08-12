@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class MiddoBox extends Model
@@ -59,7 +61,8 @@ class MiddoBox extends Model
 
     public function warehouseHandoff(): HasOne
     {
-        return $this->hasOne(KitchenWarehouseHandoff::class);
+        // Prefer the newest handoff row (a box can accumulate history over many returns).
+        return $this->hasOne(KitchenWarehouseHandoff::class)->latestOfMany();
     }
 
     public function hasOpenWarehouseHandoff(): bool
@@ -256,7 +259,7 @@ class MiddoBox extends Model
         return ($maxNumber ?? 0) + 1;
     }
 
-    public static function generateBatch(int $count): \Illuminate\Support\Collection
+    public static function generateBatch(int $count): Collection
     {
         return DB::transaction(function () use ($count) {
             $prefix = 'MB-';
@@ -284,7 +287,7 @@ class MiddoBox extends Model
         });
     }
 
-    public function damagedReportedAt(): ?\Carbon\Carbon
+    public function damagedReportedAt(): ?Carbon
     {
         $log = $this->logs()
             ->whereIn('log_action', ['marked_damaged_at_kitchen', 'returned_damaged_to_warehouse'])
@@ -294,7 +297,7 @@ class MiddoBox extends Model
         return $log?->created_at;
     }
 
-    public function retiredAt(): ?\Carbon\Carbon
+    public function retiredAt(): ?Carbon
     {
         if ($this->asset_status !== 'retired') {
             return null;

@@ -21,6 +21,8 @@ class Dashboard extends Component
 
     public ?string $errorMessage = null;
 
+    public int $claimableKitchenToOpsCount = 0;
+
     public function mount(): void
     {
         $rider = Auth::user();
@@ -56,6 +58,7 @@ class Dashboard extends Component
     {
         $rider = Auth::user();
         $riderId = (int) $rider->id;
+        $this->claimableKitchenToOpsCount = RiderPendingBoxes::claimableKitchenToOpsCount();
 
         $this->tiles = [
             [

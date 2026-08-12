@@ -280,7 +280,7 @@
 
                     @if($runRequested)
                         <p class="text-sm font-semibold text-sky-800">
-                            Waiting for an area rider to claim this warehouse run
+                            Waiting for a rider to claim this warehouse run
                         </p>
                     @elseif($runClaimed)
                         <p class="text-sm font-semibold text-amber-900">

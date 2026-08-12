@@ -16,6 +16,14 @@
         <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $errorMessage }}</div>
     @endif
 
+    @if($claimableKitchenToOpsCount > 0)
+        <a href="{{ route('delivery.middo-boxes.pending-run') }}"
+           class="block rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm font-bold text-amber-950 hover:border-amber-300 hover:bg-amber-100/80 transition">
+            {{ $claimableKitchenToOpsCount }} kitchen→ops {{ str('box')->plural($claimableKitchenToOpsCount) }} waiting to claim
+            <span class="ml-1 font-semibold text-amber-800 underline decoration-2 underline-offset-2">Open pending box runs →</span>
+        </a>
+    @endif
+
     <section class="bg-white border border-gray-200 rounded-2xl px-4 sm:px-5 py-4 shadow-sm space-y-3">
         <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3">
             <div>
