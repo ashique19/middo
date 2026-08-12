@@ -73,6 +73,7 @@ class RiderPendingBoxes
                     KitchenWarehouseHandoff::STATUS_RUN_CLAIMED,
                     KitchenWarehouseHandoff::STATUS_DISPATCHED,
                     KitchenWarehouseHandoff::STATUS_IN_TRANSIT,
+                    KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS,
                 ])
                 ->pluck('middo_box_id')
                 ->map(fn ($id) => (int) $id);
@@ -172,6 +173,7 @@ class RiderPendingBoxes
                 KitchenWarehouseHandoff::STATUS_RUN_CLAIMED,
                 KitchenWarehouseHandoff::STATUS_DISPATCHED,
                 KitchenWarehouseHandoff::STATUS_IN_TRANSIT,
+                KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS,
             ])
             ->orderBy('id')
             ->get()

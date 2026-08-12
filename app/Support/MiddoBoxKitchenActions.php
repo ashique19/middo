@@ -369,7 +369,7 @@ class MiddoBoxKitchenActions
     }
 
     /**
-     * Rider marks box handed over to ops (ops receive queue).
+     * Rider marks box handed to Middo ops — custody stays with the rider until ops confirms receive.
      */
     public static function handToOpsByRider(MiddoBox $box, int $riderId): MiddoBox
     {
@@ -400,29 +400,21 @@ class MiddoBoxKitchenActions
 
             $wasDamaged = $box->asset_status === 'damaged';
 
+            // Keep rider custody — ops Confirm receive completes the transfer.
             $box->update([
                 'kitchen_id' => null,
-                'held_by_user_id' => null,
-                // Damaged stays damaged until ops acks; normal returns land in warehouse stock.
-                'asset_status' => $wasDamaged ? 'damaged' : 'at_middo_warehouse',
+                'held_by_user_id' => $riderId,
+                'asset_status' => $wasDamaged ? 'damaged' : 'active',
                 'last_scanned_at' => now(),
             ]);
 
             MiddoBoxLog::create([
                 'middo_box_id' => $box->id,
-                'custody_status' => 'warehouse',
+                'custody_status' => 'in_transit',
                 'log_action' => 'handed_to_ops_warehouse',
                 'notes' => $wasDamaged
-                    ? 'Rider handed damaged box to Middo ops'
-                    : 'Rider handed empty box to Middo ops',
-                'performed_by' => $riderId,
-            ]);
-
-            // Ops returns queue keys off returned_*_to_warehouse as latest action.
-            MiddoBoxLog::create([
-                'middo_box_id' => $box->id,
-                'custody_status' => 'warehouse',
-                'log_action' => $wasDamaged ? 'returned_damaged_to_warehouse' : 'returned_to_warehouse',
+                    ? 'Rider handed damaged box to Middo ops — awaiting ops confirm receive'
+                    : 'Rider handed empty box to Middo ops — awaiting ops confirm receive',
                 'performed_by' => $riderId,
             ]);
 
@@ -436,7 +428,16 @@ class MiddoBoxKitchenActions
                     ->update(['status' => KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS]);
             }
 
-            return $box->fresh();
+            $fresh = $box->fresh(['warehouseHandoff.kitchen', 'warehouseHandoff.rider']);
+            $rider = User::query()->find($riderId);
+            $kitchen = $handoff?->kitchen
+                ?? User::query()->find($handoff?->kitchen_id)
+                ?? ($fresh->warehouseHandoff?->kitchen);
+            if ($rider && $kitchen) {
+                StaffAlerts::notifyOpsKitchenToOpsReadyToReceive($rider, $kitchen, [$fresh]);
+            }
+
+            return $fresh;
         });
     }
 

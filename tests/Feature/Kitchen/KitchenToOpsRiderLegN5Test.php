@@ -205,18 +205,33 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             ->assertSet('errorMessage', null);
 
         $box->refresh();
-        $this->assertSame('at_middo_warehouse', $box->asset_status);
-        $this->assertNull($box->held_by_user_id);
+        $this->assertSame($rider->id, $box->held_by_user_id);
+        $this->assertSame('active', $box->asset_status);
         $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
             'middo_box_id' => $box->id,
             'status' => KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS,
         ]);
+        $this->assertDatabaseHas('middo_box_logs', [
+            'middo_box_id' => $box->id,
+            'log_action' => 'handed_to_ops_warehouse',
+        ]);
+        $this->assertSame(1, RiderPendingBoxes::countForRider($rider->id));
+
+        Livewire::actingAs($rider)
+            ->test(PendingBoxRuns::class)
+            ->assertSee('awaiting ops confirm receive', false)
+            ->assertDontSee('Hand to Middo ops');
 
         Livewire::actingAs($ops)
             ->test(MiddoBoxes::class)
             ->set('custodyFilter', 'returns')
-            ->call('ackReturn', $box->id);
+            ->assertSee('Confirm receive', false)
+            ->call('ackReturn', $box->id)
+            ->assertSee('Confirmed receive', false);
 
+        $box->refresh();
+        $this->assertSame('at_middo_warehouse', $box->asset_status);
+        $this->assertNull($box->held_by_user_id);
         $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
             'middo_box_id' => $box->id,
             'status' => KitchenWarehouseHandoff::STATUS_RECEIVED,
@@ -226,6 +241,7 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             'log_action' => 'ops_acked_warehouse_return',
             'performed_by' => $ops->id,
         ]);
+        $this->assertSame(0, RiderPendingBoxes::countForRider($rider->id));
 
         Livewire::actingAs($rider)
             ->test(StaffAlertsPage::class)
@@ -380,24 +396,31 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             ->assertSet('errorMessage', null);
 
         $box->refresh();
+        $this->assertSame($rider->id, $box->held_by_user_id);
         $this->assertSame('damaged', $box->asset_status);
-        $this->assertNull($box->held_by_user_id);
         $this->assertDatabaseHas('middo_box_logs', [
             'middo_box_id' => $box->id,
-            'log_action' => 'returned_damaged_to_warehouse',
+            'log_action' => 'handed_to_ops_warehouse',
         ]);
         $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
             'middo_box_id' => $box->id,
             'status' => KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS,
         ]);
+        $this->assertSame(1, RiderPendingBoxes::countForRider($rider->id));
 
         Livewire::actingAs($ops)
             ->test(MiddoBoxes::class)
             ->set('custodyFilter', 'returns')
-            ->call('ackReturn', $box->id);
+            ->call('ackReturn', $box->id)
+            ->assertSee('Confirmed receive', false);
 
         $box->refresh();
         $this->assertSame('at_middo_warehouse', $box->asset_status);
+        $this->assertNull($box->held_by_user_id);
+        $this->assertDatabaseHas('middo_box_logs', [
+            'middo_box_id' => $box->id,
+            'log_action' => 'returned_damaged_to_warehouse',
+        ]);
         $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
             'middo_box_id' => $box->id,
             'status' => KitchenWarehouseHandoff::STATUS_RECEIVED,

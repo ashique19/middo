@@ -569,6 +569,54 @@ class StaffAlerts
     }
 
     /**
+     * Rider handed kitchen→ops box at Middo — ops must Confirm receive to take custody.
+     *
+     * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
+     */
+    public static function notifyOpsKitchenToOpsReadyToReceive(User $rider, User $kitchen, Collection|array $boxes): int
+    {
+        $boxes = collect($boxes)->filter()->values();
+        if ($boxes->isEmpty()) {
+            return 0;
+        }
+
+        $boxIds = $boxes->map(fn (MiddoBox $b) => (int) $b->id)->sort()->values()->all();
+        $labels = $boxes->map(fn (MiddoBox $b) => $b->qr_code_id ?: '#'.$b->id)->all();
+        $count = $boxes->count();
+        $boxList = implode(', ', array_slice($labels, 0, 5)).($count > 5 ? '…' : '');
+        $dedupeBase = 'kitchen_ops_receive:'.$rider->id.':'.$kitchen->id.':'.implode('-', $boxIds);
+        $created = 0;
+
+        foreach (self::opsAndAdminUserIds() as $userId) {
+            $alert = self::createOnce(
+                $userId,
+                StaffAlert::TYPE_KITCHEN_TO_OPS_BOX,
+                $count === 1 ? 'Confirm receive (kitchen→ops)' : "Confirm receive ({$count} boxes)",
+                sprintf(
+                    '%s handed %s from %s — confirm receive on Middo Boxes to take custody.',
+                    $rider->name,
+                    $boxList,
+                    $kitchen->name
+                ),
+                null,
+                [
+                    'box_ids' => $boxIds,
+                    'rider_id' => $rider->id,
+                    'kitchen_id' => $kitchen->id,
+                    'run_type' => DeliveryRunType::KITCHEN_TO_OPS,
+                    'phase' => 'handed_awaiting_receive',
+                ],
+                $dedupeBase.':ops:'.$userId
+            );
+            if ($alert) {
+                $created++;
+            }
+        }
+
+        return $created;
+    }
+
+    /**
      * Corporate marked an empty Middo box ready for pickup — notify riders serving that area.
      *
      * @return int number of alerts created

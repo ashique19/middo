@@ -279,7 +279,7 @@
     @if($custodyFilter === 'returns')
         <div class="rounded-xl border border-rose-200 bg-rose-50/70 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <p class="text-sm font-semibold text-rose-900">
-                Showing inbound kitchen returns awaiting ops ack ({{ $custody['returns'] ?? 0 }}).
+                Showing inbound returns awaiting Confirm receive ({{ $custody['returns'] ?? 0 }}). Rider-handed boxes transfer custody when you confirm.
             </p>
             <button type="button" wire:click="toggleCustodyFilter('returns')" class="text-xs font-bold text-rose-800 hover:underline">
                 Clear returns filter
@@ -448,9 +448,9 @@
                                         <button
                                             type="button"
                                             wire:click="ackReturn({{ $box->id }})"
-                                            wire:confirm="Acknowledge inbound return for {{ $box->qr_code_id }} into warehouse?"
+                                            wire:confirm="Confirm receive for {{ $box->qr_code_id }}? Custody transfers to Middo warehouse."
                                             class="inline-flex items-center px-3 py-1.5 rounded-lg border border-rose-300 bg-rose-50 text-xs font-bold text-rose-800 hover:bg-rose-100 transition">
-                                            Ack return
+                                            Confirm receive
                                         </button>
                                     @endif
 

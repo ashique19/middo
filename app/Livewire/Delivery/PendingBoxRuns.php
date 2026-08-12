@@ -221,8 +221,10 @@ class PendingBoxRuns extends Component
                     && (int) $kitchenReturn->rider_id === $riderId;
                 $isInTransitKitchenReturn = $kitchenReturn?->status === KitchenWarehouseHandoff::STATUS_IN_TRANSIT
                     && (int) $box->held_by_user_id === $riderId;
-                $enRouteToWarehouse = $isInTransitKitchenReturn
-                    || in_array($latestAction, ['dispatched_to_warehouse', 'rider_accepted_warehouse_return'], true)
+                $isHandedAwaitingOpsReceive = $kitchenReturn?->status === KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS
+                    && (int) $box->held_by_user_id === $riderId;
+                $enRouteToWarehouse = ($isInTransitKitchenReturn || $isHandedAwaitingOpsReceive)
+                    || in_array($latestAction, ['dispatched_to_warehouse', 'rider_accepted_warehouse_return', 'handed_to_ops_warehouse'], true)
                         && (int) $box->held_by_user_id === $riderId
                         && ! $linkedOrder;
 
@@ -252,6 +254,8 @@ class PendingBoxRuns extends Component
                     $runLabel = 'Claimed — waiting kitchen dispatch';
                 } elseif ($isDispatchedKitchenReturn) {
                     $runLabel = 'Dispatched — accept box at kitchen';
+                } elseif ($isHandedAwaitingOpsReceive || $latestAction === 'handed_to_ops_warehouse') {
+                    $runLabel = 'Handed — awaiting ops confirm receive';
                 } elseif ($enRouteToWarehouse || $isInTransitKitchenReturn) {
                     $runLabel = 'En route — hand to Middo ops';
                 } elseif ($latestAction === 'handed_to_kitchen_stock' || $latestAction === 'returned_to_kitchen') {
@@ -268,7 +272,8 @@ class PendingBoxRuns extends Component
                     || $isClaimableKitchenReturn
                     || $isClaimedWaitingDispatch
                     || $isDispatchedKitchenReturn
-                    || $isInTransitKitchenReturn;
+                    || $isInTransitKitchenReturn
+                    || $isHandedAwaitingOpsReceive;
 
                 $opsKitchenRequestId = $stagedLink?->kitchen_box_request_id
                     ?? $requestLinksByBoxId->get($box->id)?->kitchen_box_request_id;
@@ -312,7 +317,15 @@ class PendingBoxRuns extends Component
                     'can_accept_kitchen_return' => $canAcceptKitchenReturn,
                     'can_hand_warehouse_stock' => (bool) $canHandWarehouseStock,
                     'can_hand_to_kitchen' => (bool) $canHandToKitchen,
-                    'can_deliver_to_warehouse' => (bool) ($enRouteToWarehouse || $isInTransitKitchenReturn),
+                    'can_deliver_to_warehouse' => (bool) (
+                        ($enRouteToWarehouse || $isInTransitKitchenReturn)
+                        && ! $isHandedAwaitingOpsReceive
+                        && $latestAction !== 'handed_to_ops_warehouse'
+                    ),
+                    'awaiting_ops_receive' => (bool) (
+                        $isHandedAwaitingOpsReceive
+                        || $latestAction === 'handed_to_ops_warehouse'
+                    ),
                     'hand_confirm_label' => ($canHandWarehouseStock || $canHandToKitchen)
                         ? $this->handOverConfirmLabel(
                             1,

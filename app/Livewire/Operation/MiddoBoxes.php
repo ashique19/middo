@@ -281,17 +281,24 @@ class MiddoBoxes extends Component
 
     public function ackReturn(int $boxId): void
     {
-        $box = MiddoBox::query()->find($boxId);
-        if (! $box) {
-            return;
-        }
+        $this->statusMessage = null;
+        $this->errorMessage = null;
 
-        OpsBoxCustody::ackReturn($box, Auth::id());
-        $this->statusMessage = "Acknowledged return for {$box->qr_code_id}.";
-        $this->selectedBoxIds = array_values(array_filter(
-            $this->selectedBoxIds,
-            fn (int $id) => $id !== $boxId
-        ));
+        try {
+            $box = MiddoBox::query()->find($boxId);
+            if (! $box) {
+                return;
+            }
+
+            OpsBoxCustody::ackReturn($box, Auth::id());
+            $this->statusMessage = "Confirmed receive for {$box->qr_code_id} — custody at Middo warehouse.";
+            $this->selectedBoxIds = array_values(array_filter(
+                $this->selectedBoxIds,
+                fn (int $id) => $id !== $boxId
+            ));
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not confirm receive.';
+        }
     }
 
     public function openReassignRider(int $requestId): void

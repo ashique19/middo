@@ -90,7 +90,9 @@ class OpsBoxCustody
     }
 
     /**
-     * Boxes whose latest log is a kitchen→warehouse return (ops inbound review queue).
+     * Boxes awaiting ops confirm receive:
+     * - Via-rider: latest log handed_to_ops_warehouse (rider still holds custody)
+     * - Direct teleport / legacy: latest log returned_*_to_warehouse
      */
     public static function returnsQuery(): Builder
     {
@@ -100,42 +102,79 @@ class OpsBoxCustody
 
         $returnBoxIds = MiddoBoxLog::query()
             ->whereIn('id', $latestLogIds)
-            ->whereIn('log_action', ['returned_to_warehouse', 'returned_damaged_to_warehouse'])
+            ->whereIn('log_action', [
+                'handed_to_ops_warehouse',
+                'returned_to_warehouse',
+                'returned_damaged_to_warehouse',
+            ])
             ->pluck('middo_box_id');
 
         return MiddoBox::query()->whereIn('id', $returnBoxIds);
     }
 
     /**
-     * Ack a returned box into warehouse inventory (clear damage when needed).
+     * Ops confirms receive — custody transfers to Middo warehouse inventory.
      */
     public static function ackReturn(MiddoBox $box, ?int $actorId = null): MiddoBox
     {
-        $box->update([
-            'asset_status' => 'at_middo_warehouse',
-            'kitchen_id' => null,
-            'held_by_user_id' => null,
-            'last_scanned_at' => now(),
-        ]);
+        return DB::transaction(function () use ($box, $actorId) {
+            $box = MiddoBox::query()->whereKey($box->id)->lockForUpdate()->firstOrFail();
 
-        MiddoBoxLog::create([
-            'middo_box_id' => $box->id,
-            'custody_status' => 'warehouse',
-            'log_action' => 'ops_acked_warehouse_return',
-            'notes' => 'Ops acknowledged inbound return',
-            'performed_by' => $actorId,
-        ]);
-
-        if (Schema::hasTable('kitchen_warehouse_handoffs')) {
-            KitchenWarehouseHandoff::query()
+            $latestAction = MiddoBoxLog::query()
                 ->where('middo_box_id', $box->id)
-                ->whereIn('status', [
-                    KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS,
-                    KitchenWarehouseHandoff::STATUS_IN_TRANSIT,
-                ])
-                ->update(['status' => KitchenWarehouseHandoff::STATUS_RECEIVED]);
-        }
+                ->orderByDesc('id')
+                ->value('log_action');
 
-        return $box->fresh();
+            $awaitingHanded = $latestAction === 'handed_to_ops_warehouse';
+            $awaitingReturned = in_array($latestAction, [
+                'returned_to_warehouse',
+                'returned_damaged_to_warehouse',
+            ], true);
+
+            if (! $awaitingHanded && ! $awaitingReturned) {
+                throw new \RuntimeException('This box is not awaiting ops confirm receive.');
+            }
+
+            $wasDamaged = $box->asset_status === 'damaged'
+                || $latestAction === 'returned_damaged_to_warehouse';
+
+            // Custody transfer into Middo warehouse (confirm receive).
+            $box->update([
+                'asset_status' => 'at_middo_warehouse',
+                'kitchen_id' => null,
+                'held_by_user_id' => null,
+                'last_scanned_at' => now(),
+            ]);
+
+            if ($awaitingHanded) {
+                MiddoBoxLog::create([
+                    'middo_box_id' => $box->id,
+                    'custody_status' => 'warehouse',
+                    'log_action' => $wasDamaged ? 'returned_damaged_to_warehouse' : 'returned_to_warehouse',
+                    'notes' => 'Ops confirmed receive — custody transferred to Middo warehouse',
+                    'performed_by' => $actorId,
+                ]);
+            }
+
+            MiddoBoxLog::create([
+                'middo_box_id' => $box->id,
+                'custody_status' => 'warehouse',
+                'log_action' => 'ops_acked_warehouse_return',
+                'notes' => 'Ops confirmed receive — custody at Middo warehouse',
+                'performed_by' => $actorId,
+            ]);
+
+            if (Schema::hasTable('kitchen_warehouse_handoffs')) {
+                KitchenWarehouseHandoff::query()
+                    ->where('middo_box_id', $box->id)
+                    ->whereIn('status', [
+                        KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS,
+                        KitchenWarehouseHandoff::STATUS_IN_TRANSIT,
+                    ])
+                    ->update(['status' => KitchenWarehouseHandoff::STATUS_RECEIVED]);
+            }
+
+            return $box->fresh();
+        });
     }
 }

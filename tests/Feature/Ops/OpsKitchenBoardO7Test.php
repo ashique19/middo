@@ -141,7 +141,7 @@ class OpsKitchenBoardO7Test extends TestCase
             ->set('custodyFilter', 'returns')
             ->assertSee('MB-O7-RET')
             ->call('ackReturn', $box->id)
-            ->assertSee('Acknowledged return');
+            ->assertSee('Confirmed receive');
 
         $this->assertDatabaseHas('middo_box_logs', [
             'middo_box_id' => $box->id,
