@@ -199,7 +199,7 @@ class StaffDashboardTest extends TestCase
         $metrics = OpsDashboardMetrics::forRole('operation');
         $this->assertSame(1, $metrics['box_requests']['open']);
         $this->assertSame(3, $metrics['box_requests']['remaining_qty']);
-        $this->assertContains(
+        $this->assertNotContains(
             'Open kitchen box requests',
             collect($metrics['attention'])->pluck('label')->all()
         );
@@ -207,6 +207,7 @@ class StaffDashboardTest extends TestCase
         Livewire::actingAs($ops)
             ->test(StaffDashboard::class)
             ->assertSee('Box Req (1)', false)
-            ->assertSee('boxes still needed', false);
+            ->assertSee('boxes still needed', false)
+            ->assertDontSee('Open kitchen box requests', false);
     }
 }

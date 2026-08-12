@@ -238,15 +238,6 @@ class OpsDashboardMetrics
                 'route' => $role === 'admin' ? 'admin.complaints.index' : 'operation.complaints.index',
                 'hint' => 'Customer issues logged on orders',
             ] : null,
-            $openBoxRequests > 0 && Route::has('operation.middo-boxes.index') ? [
-                'label' => 'Open kitchen box requests',
-                'value' => $openBoxRequests,
-                'tone' => 'amber',
-                'route' => 'operation.middo-boxes.index',
-                'hint' => $openBoxRequestRemainingQty > 0
-                    ? $openBoxRequestRemainingQty.' boxes still needed — stage warehouse stock'
-                    : 'Kitchen box requests awaiting ops',
-            ] : null,
         ]));
 
         $quickLinks = self::quickLinks($role);
