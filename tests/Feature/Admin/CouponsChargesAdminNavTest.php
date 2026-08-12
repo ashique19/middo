@@ -12,7 +12,7 @@ class CouponsChargesAdminNavTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_nav_seeder_puts_coupons_and_charges_under_admin_menu(): void
+    public function test_nav_seeder_puts_coupons_and_charges_under_admin_catalog(): void
     {
         foreach (['admin', 'corporate', 'kitchen', 'delivery', 'operation', 'accounts', 'ground_marketing'] as $name) {
             Role::firstOrCreate(['name' => $name]);
@@ -23,12 +23,12 @@ class CouponsChargesAdminNavTest extends TestCase
         $adminId = Role::query()->where('name', 'admin')->value('id');
         $this->assertNotNull($adminId);
 
-        $menu = Nav::query()
+        $catalog = Nav::query()
             ->where('role_id', $adminId)
-            ->where('title', 'Menu')
+            ->where('title', 'Catalog')
             ->whereNull('parent_id')
             ->first();
-        $this->assertNotNull($menu);
+        $this->assertNotNull($catalog);
 
         $coupons = Nav::query()
             ->where('role_id', $adminId)
@@ -41,8 +41,8 @@ class CouponsChargesAdminNavTest extends TestCase
 
         $this->assertNotNull($coupons);
         $this->assertNotNull($charges);
-        $this->assertSame((int) $menu->id, (int) $coupons->parent_id);
-        $this->assertSame((int) $menu->id, (int) $charges->parent_id);
+        $this->assertSame((int) $catalog->id, (int) $coupons->parent_id);
+        $this->assertSame((int) $catalog->id, (int) $charges->parent_id);
         $this->assertSame('Coupons', $coupons->title);
         $this->assertSame('Charges', $charges->title);
     }
@@ -70,25 +70,25 @@ class CouponsChargesAdminNavTest extends TestCase
         $migration = require database_path('migrations/2026_08_10_061500_ensure_admin_coupons_charges_navs.php');
         $migration->up();
 
-        $menuId = Nav::query()
+        $catalogId = Nav::query()
             ->where('role_id', $adminId)
-            ->where('title', 'Menu')
+            ->where('title', 'Catalog')
             ->whereNull('parent_id')
             ->value('id');
 
-        $this->assertNotNull($menuId);
+        $this->assertNotNull($catalogId);
         $this->assertTrue(
             Nav::query()
                 ->where('role_id', $adminId)
                 ->where('route_name', 'admin.coupons.index')
-                ->where('parent_id', $menuId)
+                ->where('parent_id', $catalogId)
                 ->exists()
         );
         $this->assertTrue(
             Nav::query()
                 ->where('role_id', $adminId)
                 ->where('route_name', 'admin.charges.index')
-                ->where('parent_id', $menuId)
+                ->where('parent_id', $catalogId)
                 ->exists()
         );
     }

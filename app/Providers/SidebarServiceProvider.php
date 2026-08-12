@@ -21,9 +21,9 @@ class SidebarServiceProvider extends ServiceProvider
                     if ($roleId) {
                         // Query using direct role_id foreign key
                         $navs = Nav::where('role_id', $roleId)
-                            ->whereNull('parent_id') // Get parents
+                            ->whereNull('parent_id') // Get section parents (and any legacy flat links)
                             ->with(['children' => function ($query) use ($roleId) {
-                                $query->where('role_id', $roleId); // Ensure children share same role
+                                $query->where('role_id', $roleId)->orderBy('order');
                             }])
                             ->orderBy('order')
                             ->get();
