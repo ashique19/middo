@@ -4,6 +4,7 @@ namespace Tests\Feature\Ops;
 
 use App\Livewire\Operation\AssignMiddoBoxesModal;
 use App\Livewire\Operation\MiddoBoxes;
+use App\Livewire\Operation\MiddoBoxLogsModal;
 use App\Models\KitchenBoxRequest;
 use App\Models\KitchenBoxRequestBox;
 use App\Models\MiddoBox;
@@ -123,6 +124,32 @@ class OpsStageBoxSelectFlowTest extends TestCase
         $row = $tree->firstWhere('action', 'staged_for_kitchen_pickup');
         $this->assertNotNull($row);
         $this->assertStringContainsString($this->rider->name, (string) $row['notes']);
+        $this->assertStringContainsString($this->rider->mobile, (string) $row['notes']);
+        $this->assertStringContainsString($this->kitchen->mobile, (string) $row['notes']);
+    }
+
+    public function test_box_logs_modal_shows_full_notes_without_truncating(): void
+    {
+        $box = MiddoBox::create([
+            'qr_code_id' => 'MB-LOG-FULL',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+        $longNote = 'Ready for rider pickup by '.$this->rider->name.' ('.$this->rider->mobile.') → '.$this->kitchen->name.' ('.$this->kitchen->mobile.') (run #99)';
+        MiddoBoxLog::create([
+            'middo_box_id' => $box->id,
+            'custody_status' => 'warehouse',
+            'log_action' => 'staged_for_kitchen_pickup',
+            'notes' => $longNote,
+            'performed_by' => $this->ops->id,
+        ]);
+
+        Livewire::actingAs($this->ops)
+            ->test(MiddoBoxLogsModal::class)
+            ->call('openModal', $box->id)
+            ->assertSee($longNote, false)
+            ->assertDontSeeHtml('max-w-xs truncate');
     }
 
     public function test_staged_warehouse_box_is_not_selectable_again(): void
@@ -157,7 +184,7 @@ class OpsStageBoxSelectFlowTest extends TestCase
         $this->assertDatabaseHas('middo_box_logs', [
             'middo_box_id' => $box->id,
             'log_action' => 'staged_for_kitchen_pickup',
-            'notes' => 'Ready for rider pickup by '.$this->rider->name.' → '.$this->kitchen->name.' (run #'.$request->id.')',
+            'notes' => 'Ready for rider pickup by '.$this->rider->name.' ('.$this->rider->mobile.') → '.$this->kitchen->name.' ('.$this->kitchen->mobile.') (run #'.$request->id.')',
         ]);
 
         $this->assertSame('at_middo_warehouse', $box->fresh()->asset_status);

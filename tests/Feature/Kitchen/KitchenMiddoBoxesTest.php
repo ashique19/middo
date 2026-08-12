@@ -162,6 +162,7 @@ class KitchenMiddoBoxesTest extends TestCase
             'middo_box_id' => $box->id,
             'log_action' => 'received_at_kitchen',
             'custody_status' => 'assigned_at_kitchen',
+            'notes' => 'Received at '.$this->kitchen->name.' ('.$this->kitchen->mobile.')',
         ]);
 
         $this->actingAs($this->kitchen)

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -93,16 +94,70 @@ class MiddoBoxLifecycle
     {
         $notes = $log->notes;
 
-        // Older staged logs omitted the rider; surface it from the request link when present.
+        // Older staged logs omitted rider/kitchen phones; enrich from the request link.
         if ($log->log_action === 'staged_for_kitchen_pickup') {
-            $riderName = $box->requestBox?->rider?->name;
-            if ($riderName && ($notes === null || ! str_contains($notes, $riderName))) {
-                $notes = $notes
-                    ? rtrim($notes).' · Rider: '.$riderName
-                    : 'Ready for rider pickup by '.$riderName;
+            $box->loadMissing(['requestBox.rider', 'requestBox.request.kitchen']);
+            $rider = $box->requestBox?->rider;
+            $kitchen = $box->requestBox?->request?->kitchen;
+            $riderLabel = self::partyLabel($rider);
+            $kitchenLabel = self::partyLabel($kitchen);
+
+            if ($notes === null || trim((string) $notes) === '') {
+                if ($riderLabel !== '') {
+                    $notes = 'Ready for rider pickup by '.$riderLabel
+                        .($kitchenLabel !== '' ? ' → '.$kitchenLabel : '');
+                }
+            } else {
+                if ($rider && $rider->name && str_contains($notes, $rider->name)
+                    && $rider->mobile && ! str_contains($notes, (string) $rider->mobile)) {
+                    $notes = str_replace($rider->name, $riderLabel, $notes);
+                } elseif ($riderLabel !== '' && ! str_contains($notes, $riderLabel)
+                    && ! str_contains($notes, (string) ($rider?->name ?? ''))) {
+                    $notes = rtrim($notes).' · Rider: '.$riderLabel;
+                }
+
+                if ($kitchen && $kitchen->name && str_contains($notes, $kitchen->name)
+                    && $kitchen->mobile && ! str_contains($notes, (string) $kitchen->mobile)) {
+                    $notes = str_replace($kitchen->name, $kitchenLabel, $notes);
+                }
+            }
+        }
+
+        if ($log->log_action === 'received_at_kitchen' && ($notes === null || trim((string) $notes) === '')) {
+            $kitchen = $log->performedBy;
+            if (! $kitchen) {
+                $box->loadMissing('requestBox.request.kitchen');
+                $kitchen = $box->requestBox?->request?->kitchen;
+            }
+            $label = self::partyLabel($kitchen);
+            if ($label !== '') {
+                $notes = 'Received at '.$label;
             }
         }
 
         return $notes;
+    }
+
+    /**
+     * Display name with mobile when available: "Name (017…)".
+     */
+    public static function partyLabel(?User $user): string
+    {
+        if (! $user) {
+            return '';
+        }
+
+        $name = trim((string) $user->name);
+        $mobile = trim((string) ($user->mobile ?? ''));
+
+        if ($name === '' && $mobile === '') {
+            return '';
+        }
+
+        if ($name === '') {
+            return $mobile;
+        }
+
+        return $mobile !== '' ? $name.' ('.$mobile.')' : $name;
     }
 }
