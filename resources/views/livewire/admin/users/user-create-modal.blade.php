@@ -1,7 +1,11 @@
 <div>
-    <button wire:click="$set('showModal', true)" 
+    <button wire:click="$set('showModal', true)"
             class="bg-blue-600 hover:bg-blue-700 text-sm px-4 py-2 rounded-xl text-white font-bold transition active:scale-95 shadow-lg shadow-blue-200">
-        Add New User
+        {{ match ($lockedRole) {
+            'delivery' => 'Add Rider',
+            'kitchen' => 'Add Kitchen',
+            default => 'Add New User',
+        } }}
     </button>
 
     @if($showModal)
