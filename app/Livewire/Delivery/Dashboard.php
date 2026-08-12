@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Support\DeliveryAreaScope;
 use App\Support\RiderPendingBoxes;
 use App\Support\RiderShift;
+use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -57,6 +58,11 @@ class Dashboard extends Component
         $riderId = (int) $rider->id;
 
         $this->tiles = [
+            [
+                'label' => 'Alerts',
+                'count' => StaffAlerts::unreadCount((int) $riderId),
+                'route' => 'delivery.alerts',
+            ],
             [
                 'label' => 'Kitchen dispatches',
                 'count' => Order::query()

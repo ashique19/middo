@@ -230,6 +230,7 @@ class StaffAlerts
      * Parcel call: kitchen dispatched a lunch order — notify riders serving that area.
      *
      * @deprecated Prefer notifyRidersLunchReady + notifyRiderLunchPacked
+     *
      * @return int number of alerts created
      */
     public static function notifyRidersLunchDispatch(Order $order): int
@@ -376,7 +377,8 @@ class StaffAlerts
     }
 
     /**
-     * Kitchen marked empty boxes ready to ship — notify area riders to claim the run.
+     * Kitchen marked empty boxes ready to ship — notify active riders to claim the run.
+     * Box logistics (not customer deliveries): notify every active delivery rider.
      *
      * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
      */
@@ -387,12 +389,17 @@ class StaffAlerts
             return 0;
         }
 
-        $areaId = $kitchen->area_id !== null ? (int) $kitchen->area_id : null;
-        $riders = DeliveryAreaScope::ridersForArea($areaId);
-        if ($riders === []) {
+        $riders = User::query()
+            ->whereHas('role', fn ($q) => $q->where('name', 'delivery'))
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->get();
+
+        if ($riders->isEmpty()) {
             return 0;
         }
 
+        $areaId = $kitchen->area_id !== null ? (int) $kitchen->area_id : null;
         $boxIds = $boxes->map(fn (MiddoBox $b) => (int) $b->id)->sort()->values()->all();
         $labels = $boxes->map(fn (MiddoBox $b) => $b->qr_code_id ?: '#'.$b->id)->all();
         $count = $boxes->count();
@@ -405,7 +412,7 @@ class StaffAlerts
                 StaffAlert::TYPE_KITCHEN_TO_OPS_BOX,
                 $count === 1 ? 'Kitchen→ops run requested' : "Kitchen→ops runs requested ({$count})",
                 sprintf(
-                    '%s ready to ship from %s — claim the run, then wait for kitchen dispatch.',
+                    '%s ready to ship from %s — claim the run on Middo boxes pending run, then wait for kitchen dispatch.',
                     $boxList,
                     $kitchen->name
                 ),

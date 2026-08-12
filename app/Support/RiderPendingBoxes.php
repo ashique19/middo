@@ -5,14 +5,12 @@ namespace App\Support;
 use App\Models\KitchenBoxRequestBox;
 use App\Models\KitchenWarehouseHandoff;
 use App\Models\MiddoBox;
-use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
 /**
  * Boxes a rider should act on: warehouse stock staged for their pickup,
- * kitchen→ops run requests in their area / assigned to them,
- * plus anything already in their custody.
+ * kitchen→ops run requests (claimable or assigned), plus custody.
  */
 class RiderPendingBoxes
 {
@@ -48,9 +46,6 @@ class RiderPendingBoxes
 
         $kitchenToOpsIds = collect();
         if (Schema::hasTable('kitchen_warehouse_handoffs')) {
-            $rider = User::query()->with(['areas', 'area'])->find($riderId);
-            $areaIds = $rider?->serviceAreaIds() ?? [];
-
             $assignedIds = KitchenWarehouseHandoff::query()
                 ->where('rider_id', $riderId)
                 ->whereIn('status', [
@@ -61,17 +56,10 @@ class RiderPendingBoxes
                 ->pluck('middo_box_id')
                 ->map(fn ($id) => (int) $id);
 
+            // Box logistics (not customer deliveries): any active rider can see open claims.
             $claimableIds = KitchenWarehouseHandoff::query()
                 ->where('status', KitchenWarehouseHandoff::STATUS_RUN_REQUESTED)
                 ->whereNull('rider_id')
-                ->whereHas('kitchen', function ($q) use ($areaIds) {
-                    if ($areaIds === []) {
-                        $q->whereRaw('1 = 0');
-
-                        return;
-                    }
-                    $q->whereIn('area_id', $areaIds);
-                })
                 ->whereHas(
                     'box',
                     fn ($q) => $q->whereColumn('middo_boxes.kitchen_id', 'middo_boxes.held_by_user_id')

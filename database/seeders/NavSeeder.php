@@ -467,9 +467,10 @@ class NavSeeder extends Seeder
         Nav::create(['title' => 'Cash handovers', 'route_name' => 'kitchen.cash-handovers', 'order' => 13, 'role_id' => $kitchenId]);
 
         Nav::create(['title' => 'Dashboard', 'route_name' => 'delivery.dashboard', 'order' => 1, 'role_id' => $deliveryId]);
-        Nav::create(['title' => 'Kitchen dispatches', 'route_name' => 'delivery.kitchen-dispatches', 'order' => 2, 'role_id' => $deliveryId]);
-        Nav::create(['title' => 'Middo boxes pending run', 'route_name' => 'delivery.middo-boxes.pending-run', 'order' => 3, 'role_id' => $deliveryId]);
-        Nav::create(['title' => 'Delivered orders', 'route_name' => 'delivery.orders.delivered', 'order' => 4, 'role_id' => $deliveryId]);
+        Nav::create(['title' => 'Alerts', 'route_name' => 'delivery.alerts', 'order' => 2, 'role_id' => $deliveryId]);
+        Nav::create(['title' => 'Kitchen dispatches', 'route_name' => 'delivery.kitchen-dispatches', 'order' => 3, 'role_id' => $deliveryId]);
+        Nav::create(['title' => 'Middo boxes pending run', 'route_name' => 'delivery.middo-boxes.pending-run', 'order' => 4, 'role_id' => $deliveryId]);
+        Nav::create(['title' => 'Delivered orders', 'route_name' => 'delivery.orders.delivered', 'order' => 5, 'role_id' => $deliveryId]);
 
         // ── Ground marketing ──────────────────────────────────────────────────
         Nav::create(['title' => 'Dashboard', 'route_name' => 'marketing.dashboard', 'order' => 1, 'role_id' => $marketingId]);

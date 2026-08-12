@@ -232,4 +232,57 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             ->assertSee('Kitchen→ops run requested', false)
             ->assertSee('Open pending box runs', false);
     }
+
+    public function test_rider_outside_kitchen_area_still_gets_notified_and_can_claim(): void
+    {
+        MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
+
+        $kitchen = $this->makeKitchen();
+        $otherArea = Area::create(['name' => 'Mirpur Test', 'city_id' => $this->city->id]);
+        $rider = User::create([
+            'first_name' => 'Rider',
+            'last_name' => 'Elsewhere',
+            'mobile' => '01790000099',
+            'password' => 'password',
+            'role_id' => $this->deliveryRole->id,
+            'status' => 'active',
+            'city_id' => $this->city->id,
+            'area_id' => $otherArea->id,
+            'rider_shift_status' => 'on',
+        ]);
+        $rider->areas()->sync([$otherArea->id]);
+
+        $box = MiddoBox::create([
+            'qr_code_id' => 'MB-N5-ANY',
+            'box_model_type' => 'standard_insulated',
+            'kitchen_id' => $kitchen->id,
+            'held_by_user_id' => $kitchen->id,
+            'asset_status' => 'active',
+            'total_uses_count' => 0,
+        ]);
+
+        Livewire::actingAs($kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->call('sendToWarehouse', $box->id)
+            ->assertSet('errorMessage', null);
+
+        $this->assertTrue(StaffAlert::query()
+            ->where('user_id', $rider->id)
+            ->where('type', StaffAlert::TYPE_KITCHEN_TO_OPS_BOX)
+            ->where('title', 'Kitchen→ops run requested')
+            ->exists());
+        $this->assertSame(1, RiderPendingBoxes::countForRider($rider->id));
+
+        Livewire::actingAs($rider)
+            ->test(PendingBoxRuns::class)
+            ->assertSee('Claim run', false)
+            ->call('claimKitchenReturn', $box->id)
+            ->assertSet('errorMessage', null);
+
+        $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
+            'middo_box_id' => $box->id,
+            'rider_id' => $rider->id,
+            'status' => KitchenWarehouseHandoff::STATUS_RUN_CLAIMED,
+        ]);
+    }
 }

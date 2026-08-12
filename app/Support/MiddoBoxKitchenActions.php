@@ -202,10 +202,6 @@ class MiddoBoxKitchenActions
             }
 
             $kitchen = $handoff->kitchen ?? User::query()->find($handoff->kitchen_id);
-            $kitchenAreaId = $kitchen?->area_id !== null ? (int) $kitchen->area_id : null;
-            if ($kitchenAreaId !== null && ! $rider->servesArea($kitchenAreaId)) {
-                throw new \RuntimeException('This run is outside your service areas.');
-            }
 
             if (method_exists($rider, 'canAcceptNewRuns') && ! $rider->canAcceptNewRuns()) {
                 throw new \RuntimeException('You are not on shift. Set On shift on the dashboard before accepting runs.');

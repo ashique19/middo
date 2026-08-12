@@ -12,6 +12,7 @@ use App\Support\MiddoBoxKitchenActions;
 use App\Support\MiddoSettings;
 use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -110,7 +111,7 @@ class BoxesAtKitchen extends Component
 
             $this->statusMessage = "Requested {$request->quantity} Middo ".str('box')->plural($request->quantity).'. Ops can see this on Middo Boxes.';
             $this->closeRequestModal();
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not submit box request.';
@@ -219,7 +220,7 @@ class BoxesAtKitchen extends Component
             $box = MiddoBox::query()->findOrFail($boxId);
             $sent = MiddoBoxKitchenActions::sendToWarehouse($box, (int) Auth::id());
             if (MiddoSettings::kitchenToOpsViaRider()) {
-                $this->statusMessage = "{$sent->qr_code_id} marked ready to ship. Area riders were notified to claim the run.";
+                $this->statusMessage = "{$sent->qr_code_id} marked ready to ship. Active riders were notified — they claim it on Middo boxes pending run (or Alerts).";
             } else {
                 $this->statusMessage = "{$sent->qr_code_id} sent to Middo warehouse.";
             }
