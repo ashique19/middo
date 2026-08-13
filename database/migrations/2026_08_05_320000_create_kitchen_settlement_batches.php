@@ -33,13 +33,17 @@ return new class extends Migration
 
         Schema::create('kitchen_settlement_batch_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('kitchen_settlement_batch_id')->constrained('kitchen_settlement_batches')->cascadeOnDelete();
+            $table->unsignedBigInteger('kitchen_settlement_batch_id');
+            $table->foreign('kitchen_settlement_batch_id', 'ksbi_batch_id_fk')
+                ->references('id')
+                ->on('kitchen_settlement_batches')
+                ->cascadeOnDelete();
             $table->foreignId('partner_payable_id')->constrained('partner_payables')->cascadeOnDelete();
             $table->unsignedInteger('amount');
             $table->timestamps();
 
             $table->unique('partner_payable_id');
-            $table->index('kitchen_settlement_batch_id');
+            $table->index('kitchen_settlement_batch_id', 'ksbi_batch_id_idx');
         });
     }
 

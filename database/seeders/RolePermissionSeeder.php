@@ -15,13 +15,13 @@ class RolePermissionSeeder extends Seeder
         $acceptOrder = Permission::query()->firstOrCreate(['name' => 'accept-order']);
         $viewAnalytics = Permission::query()->firstOrCreate(['name' => 'view-analytics']);
 
-        $admin = Role::query()->firstOrCreate(['name' => 'admin'], ['id' => 1]);
-        Role::query()->firstOrCreate(['name' => 'corporate'], ['id' => 2]);
-        $kitchen = Role::query()->firstOrCreate(['name' => 'kitchen'], ['id' => 3]);
-        $delivery = Role::query()->firstOrCreate(['name' => 'delivery'], ['id' => 4]);
-        $operations = Role::query()->firstOrCreate(['name' => 'operation'], ['id' => 5]);
-        $accounts = Role::query()->firstOrCreate(['name' => 'accounts'], ['id' => 6]);
-        Role::query()->firstOrCreate(['name' => 'ground_marketing'], ['id' => 7]);
+        $admin = Role::query()->firstOrCreate(['name' => 'admin']);
+        Role::query()->firstOrCreate(['name' => 'corporate']);
+        $kitchen = Role::query()->firstOrCreate(['name' => 'kitchen']);
+        $delivery = Role::query()->firstOrCreate(['name' => 'delivery']);
+        $operations = Role::query()->firstOrCreate(['name' => 'operation']);
+        $accounts = Role::query()->firstOrCreate(['name' => 'accounts']);
+        Role::query()->firstOrCreate(['name' => 'ground_marketing']);
 
         KitchenPermissions::syncKitchenRole($kitchen);
 

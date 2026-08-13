@@ -91,32 +91,32 @@ class UserSeeder extends Seeder
             ]);
         }
 
-        // Pending kitchen signups → Admin > Kitchens > Onboarding
-        $pendingKitchens = [
-            ['first_name' => 'Uttara', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen1@middo.com', 'mobile' => '01310123501', 'area_id' => $mirpurId, 'address' => 'Sector 7, Uttara'],
-            ['first_name' => 'Mirpur', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen2@middo.com', 'mobile' => '01310123502', 'area_id' => $mirpurId, 'address' => 'Mirpur 10 Roundabout'],
-            ['first_name' => 'Motijheel', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen3@middo.com', 'mobile' => '01310123503', 'area_id' => $gulshanId, 'address' => 'Dilkhusha, Motijheel'],
-            ['first_name' => 'Bashundhara', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen4@middo.com', 'mobile' => '01310123504', 'area_id' => $baridharaId, 'address' => 'Block B, Bashundhara R/A'],
-            ['first_name' => 'Wari', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen5@middo.com', 'mobile' => '01310123505', 'area_id' => $mirpurId, 'address' => 'Rankin Street, Wari'],
-            ['first_name' => 'Tejgaon', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen6@middo.com', 'mobile' => '01310123506', 'area_id' => $bananiId, 'address' => 'Industrial Area, Tejgaon'],
-            ['first_name' => 'Farmgate', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen7@middo.com', 'mobile' => '01310123507', 'area_id' => $bananiId, 'address' => 'Green Road, Farmgate'],
-        ];
-
-        foreach ($pendingKitchens as $kitchen) {
-            User::create([
-                'first_name' => $kitchen['first_name'],
-                'last_name' => $kitchen['last_name'],
-                'email' => $kitchen['email'],
-                'mobile' => $kitchen['mobile'],
-                'password' => $password,
-                'role_id' => $kitchenRoleId,
-                'status' => 'pending',
-                'is_mobile_verified' => false,
-                'address' => $kitchen['address'],
-                'city_id' => $dhakaId,
-                'area_id' => $kitchen['area_id'],
-            ]);
-        }
+        // Temporarily disabled dummy pending kitchen signups (Admin > Kitchens > Onboarding).
+        // $pendingKitchens = [
+        //     ['first_name' => 'Uttara', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen1@middo.com', 'mobile' => '01310123501', 'area_id' => $mirpurId, 'address' => 'Sector 7, Uttara'],
+        //     ['first_name' => 'Mirpur', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen2@middo.com', 'mobile' => '01310123502', 'area_id' => $mirpurId, 'address' => 'Mirpur 10 Roundabout'],
+        //     ['first_name' => 'Motijheel', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen3@middo.com', 'mobile' => '01310123503', 'area_id' => $gulshanId, 'address' => 'Dilkhusha, Motijheel'],
+        //     ['first_name' => 'Bashundhara', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen4@middo.com', 'mobile' => '01310123504', 'area_id' => $baridharaId, 'address' => 'Block B, Bashundhara R/A'],
+        //     ['first_name' => 'Wari', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen5@middo.com', 'mobile' => '01310123505', 'area_id' => $mirpurId, 'address' => 'Rankin Street, Wari'],
+        //     ['first_name' => 'Tejgaon', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen6@middo.com', 'mobile' => '01310123506', 'area_id' => $bananiId, 'address' => 'Industrial Area, Tejgaon'],
+        //     ['first_name' => 'Farmgate', 'last_name' => 'Kitchen', 'email' => 'pending.kitchen7@middo.com', 'mobile' => '01310123507', 'area_id' => $bananiId, 'address' => 'Green Road, Farmgate'],
+        // ];
+        //
+        // foreach ($pendingKitchens as $kitchen) {
+        //     User::create([
+        //         'first_name' => $kitchen['first_name'],
+        //         'last_name' => $kitchen['last_name'],
+        //         'email' => $kitchen['email'],
+        //         'mobile' => $kitchen['mobile'],
+        //         'password' => $password,
+        //         'role_id' => $kitchenRoleId,
+        //         'status' => 'pending',
+        //         'is_mobile_verified' => false,
+        //         'address' => $kitchen['address'],
+        //         'city_id' => $dhakaId,
+        //         'area_id' => $kitchen['area_id'],
+        //     ]);
+        // }
 
         $deliveryRoleId = Role::where('name', 'delivery')->value('id');
 

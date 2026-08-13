@@ -72,11 +72,15 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('package_subscriptions', function (Blueprint $table) {
-            $table->dropColumn('charges_amount');
+            if (Schema::hasColumn('package_subscriptions', 'charges_amount')) {
+                $table->dropColumn('charges_amount');
+            }
         });
 
         Schema::table('orders', function (Blueprint $table) {
-            $table->dropColumn('charges_amount');
+            if (Schema::hasColumn('orders', 'charges_amount')) {
+                $table->dropColumn('charges_amount');
+            }
         });
 
         Schema::dropIfExists('package_subscription_charges');

@@ -51,7 +51,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   const SizedBox(height: 12),
                   FilledButton(
                     onPressed: () => context.push('/packages'),
-                    child: const Text('Browse packages'),
+                    child: const Text('Monthly package'),
                   ),
                 ],
               ),

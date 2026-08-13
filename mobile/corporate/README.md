@@ -29,6 +29,21 @@ flutter build apk --release \
 
 Output: `build/app/outputs/flutter-apk/app-release.apk`
 
+### Release signing (Play Store / production)
+
+Without `android/key.properties`, release builds fall back to the **debug** keystore (fine for sideload tests only).
+
+One-time setup on a machine with JDK `keytool`:
+
+```bash
+cd mobile/corporate/android
+keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias middo-corporate
+cp key.properties.example key.properties
+# Edit key.properties with your store/key passwords
+```
+
+Keep `upload-keystore.jks` and `key.properties` out of git (already gitignored). Losing the keystore blocks Play Store updates for the same app listing.
+
 ## Run (local Laravel API)
 
 From the monorepo root:

@@ -94,7 +94,7 @@ class _MenuScreenState extends State<MenuScreen> {
                 child: TextButton.icon(
                   onPressed: () => context.push('/packages'),
                   icon: const Icon(Icons.inventory_2_outlined, size: 18),
-                  label: const Text('Browse 30-day packages'),
+                  label: const Text('Monthly package'),
                   style: TextButton.styleFrom(
                     foregroundColor: MiddoColors.orange,
                     textStyle: const TextStyle(fontWeight: FontWeight.w800),

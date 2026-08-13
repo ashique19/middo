@@ -15,7 +15,6 @@ class PackagesScreen extends StatefulWidget {
 
 class _PackagesScreenState extends State<PackagesScreen> {
   Future<List<MealPackage>>? _future;
-  String _filter = 'all';
 
   @override
   void didChangeDependencies() {
@@ -28,7 +27,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
     return Scaffold(
       backgroundColor: MiddoColors.cream,
       appBar: AppBar(
-        title: const Text('Meal Packages'),
+        title: const Text('Monthly package'),
         backgroundColor: MiddoColors.cream,
         foregroundColor: MiddoColors.ink,
         elevation: 0,
@@ -37,54 +36,23 @@ class _PackagesScreenState extends State<PackagesScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const MiddoPageLoader(message: 'Loading packages…');
+            return const MiddoPageLoader(message: 'Loading package…');
           }
           if (snapshot.hasError) {
             return Center(child: Text(snapshot.error.toString()));
           }
 
-          final packages = (snapshot.data ?? []).where((p) {
-            if (_filter == 'all') return true;
-            return p.dietTag == _filter;
-          }).toList();
+          final packages = snapshot.data ?? [];
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
             children: [
               Text(
-                'Pick a rate plan, choose menus for every working day of the month, set off-days, and prepay. Operations schedules exact dates.',
+                'Subscribe to the monthly office lunch package, choose menus for working days, set off-days, and prepay. Operations schedules exact dates.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: MiddoColors.muted,
                       fontWeight: FontWeight.w600,
                     ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final entry in {
-                    'all': 'All',
-                    'classic': 'Classic',
-                    'veg': 'Veg',
-                    'vegetarian': 'Vegetarian',
-                    'protein': 'Protein',
-                    'light': 'Light',
-                  }.entries)
-                    ChoiceChip(
-                      label: Text(entry.value),
-                      selected: _filter == entry.key,
-                      onSelected: (_) => setState(() => _filter = entry.key),
-                      selectedColor: MiddoColors.forest,
-                      labelStyle: TextStyle(
-                        color: _filter == entry.key
-                            ? Colors.white
-                            : MiddoColors.ink,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
               ),
               const SizedBox(height: 16),
               if (packages.isEmpty)
@@ -96,7 +64,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
                     border: Border.all(color: MiddoColors.creamBorder),
                   ),
                   child: const Text(
-                    'No published packages right now.',
+                    'No monthly package is published right now.',
                     textAlign: TextAlign.center,
                   ),
                 )
@@ -168,7 +136,7 @@ class _PackageCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '${package.dietTag} · ${package.durationDays} days · ${package.daysCount} menus',
+                '${package.durationDays} days · ${package.daysCount} menus',
                 style: TextStyle(
                   color: MiddoColors.muted,
                   fontWeight: FontWeight.w600,
@@ -188,7 +156,7 @@ class _PackageCard extends StatelessWidget {
                     backgroundColor: MiddoColors.orange,
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text('Choose plan'),
+                  child: const Text('Subscribe'),
                 ),
               ),
             ],
