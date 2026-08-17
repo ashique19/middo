@@ -175,7 +175,7 @@ class KitchenLifecycleK1Test extends TestCase
         Livewire::actingAs($this->kitchen)
             ->test(DispatchOrderModal::class)
             ->call('openModal', $order->id)
-            ->assertSet('errorMessage', 'Wait for a rider to accept this order before dispatching.');
+            ->assertSet('errorMessage', 'Wait for ops to assign a rider before dispatching.');
     }
 
     public function test_release_returns_group_to_pool_and_frees_capacity(): void

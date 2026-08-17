@@ -232,8 +232,17 @@ class DeliveryFeaturesTestSeeder extends Seeder
                 'payment_status' => 'pending',
                 'dispatched_at' => now(),
                 'area_id' => $rider->area_id,
+                'delivery_rider_id' => $rider->id,
+                'original_delivery_rider_id' => $rider->id,
             ]
         );
+
+        if (! $order->delivery_rider_id) {
+            $order->update([
+                'delivery_rider_id' => $rider->id,
+                'original_delivery_rider_id' => $order->original_delivery_rider_id ?: $rider->id,
+            ]);
+        }
 
         $group = OrderGroup::query()->firstOrCreate(
             ['name' => 'GRP-DFEAT-PACKED'],
@@ -246,7 +255,7 @@ class DeliveryFeaturesTestSeeder extends Seeder
         );
         $group->orders()->syncWithoutDetaching([$order->id]);
 
-        StaffAlerts::notifyRidersLunchDispatch($order->fresh(['menuItem', 'orderGroup']));
+        StaffAlerts::notifyRiderLunchAssigned($order->fresh(['menuItem', 'orderGroup', 'deliveryRider']));
     }
 
     protected function seedCustomRuns(User $rider, ?User $rider2, ?User $creator): void
@@ -266,12 +275,15 @@ class DeliveryFeaturesTestSeeder extends Seeder
             ],
             [
                 'area_id' => $areaId,
-                'rider_user_id' => null,
+                'rider_user_id' => $rider->id,
                 'commission_amount' => 40,
-                'notes' => 'Demo open-pool custom run (start from rider Custom runs)',
+                'notes' => 'Demo assigned custom run (start from rider Custom runs)',
                 'created_by' => $createdBy,
             ]
         );
+        if (! $openPool->rider_user_id) {
+            $openPool->update(['rider_user_id' => $rider->id]);
+        }
         StaffAlerts::notifyRidersCustomRun($openPool->fresh(['rider', 'area']));
 
         CustomRun::query()->firstOrCreate(
@@ -324,9 +336,9 @@ class DeliveryFeaturesTestSeeder extends Seeder
                 ],
                 [
                     'area_id' => $rider2->area_id,
-                    'rider_user_id' => null,
+                    'rider_user_id' => $rider2->id,
                     'commission_amount' => 30,
-                    'notes' => 'Demo pool for second rider area',
+                    'notes' => 'Demo assigned run for second rider',
                     'created_by' => $createdBy,
                 ]
             );

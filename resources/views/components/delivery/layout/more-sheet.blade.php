@@ -5,7 +5,7 @@
         ['title' => 'Alerts', 'route' => 'delivery.alerts', 'hint' => 'Parcel calls in your areas'],
         ['title' => 'Delivered orders', 'route' => 'delivery.orders.delivered', 'hint' => 'Collect payment & receive boxes'],
         ['title' => 'Cash handovers', 'route' => 'delivery.cash-handovers', 'hint' => 'Hand over Due when you hold cash'],
-        ['title' => 'Kitchen dispatches', 'route' => 'delivery.kitchen-dispatches', 'hint' => 'Lunch runs to accept'],
+        ['title' => 'Kitchen dispatches', 'route' => 'delivery.kitchen-dispatches', 'hint' => 'Assigned lunch runs'],
         ['title' => 'Pending box runs', 'route' => 'delivery.middo-boxes.pending-run', 'hint' => 'Warehouse pickups & box returns'],
     ];
 @endphp

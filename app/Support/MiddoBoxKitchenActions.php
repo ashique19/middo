@@ -51,7 +51,7 @@ class MiddoBoxKitchenActions
 
     /**
      * Empty-box return entry point.
-     * Via-rider on → mark ready to ship (area riders notified).
+     * Via-rider on → mark ready to ship (ops assigns a rider).
      * Via-rider off → teleport to warehouse inventory.
      */
     public static function sendToWarehouse(MiddoBox $box, int $kitchenId): MiddoBox
@@ -103,7 +103,7 @@ class MiddoBoxKitchenActions
     }
 
     /**
-     * Kitchen marks empty box ready to ship → active riders notified to claim the run.
+     * Kitchen marks empty box ready to ship → ops is notified to assign a rider.
      *
      * @param  bool  $damagedReturn  When true, box must already be marked damaged (kitchen→ops damaged path).
      */

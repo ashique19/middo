@@ -189,7 +189,7 @@ class DeliveryDashboardTest extends TestCase
         $this->actingAs($this->rider)
             ->get(route('delivery.kitchen-dispatches'))
             ->assertOk()
-            ->assertDontSee('#'.$order->id)
+            ->assertSee('No kitchen runs waiting', false)
             ->assertDontSee('Accept run');
 
         LunchRunFlow::fromReadyToOnTheWay($this->kitchen, $this->rider, $order, $boxes);

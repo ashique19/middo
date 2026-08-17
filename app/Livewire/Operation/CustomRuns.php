@@ -12,6 +12,7 @@ use App\Support\RiderCommission;
 use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -96,6 +97,8 @@ class CustomRuns extends Component
             $this->commissionAmount = MiddoSettings::deliveryCommissionDefault(DeliveryRunType::CUSTOM);
             $this->statusMessage = "Custom run #{$run->id} created ({$run->label()}).";
             $this->resetPage();
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not create custom run.';
         }

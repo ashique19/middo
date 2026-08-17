@@ -11,6 +11,7 @@ use App\Support\DispatchDeadline;
 use App\Support\OrderGroupKitchenAssignment;
 use App\Support\OrdersExcelExport;
 use App\Support\OrderTransition;
+use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
@@ -87,11 +88,11 @@ class ActiveOrders extends Component
                 ]);
             });
 
-            \App\Support\StaffAlerts::notifyRidersLunchReady(
+            StaffAlerts::notifyRidersLunchReady(
                 Order::query()->with(['menuItem', 'orderGroup.area', 'area'])->findOrFail($orderId)
             );
 
-            $this->statusMessage = "Order #{$orderId} marked ready — riders notified to accept.";
+            $this->statusMessage = "Order #{$orderId} marked ready — ops will assign a rider.";
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not mark order ready.';
         }
@@ -139,11 +140,11 @@ class ActiveOrders extends Component
             foreach ($readyIds as $readyId) {
                 $readyOrder = Order::query()->with(['menuItem', 'orderGroup.area', 'area'])->find($readyId);
                 if ($readyOrder) {
-                    \App\Support\StaffAlerts::notifyRidersLunchReady($readyOrder);
+                    StaffAlerts::notifyRidersLunchReady($readyOrder);
                 }
             }
 
-            $this->statusMessage = 'Marked '.count($readyIds).' order(s) ready — riders notified per order.';
+            $this->statusMessage = 'Marked '.count($readyIds).' order(s) ready — ops will assign riders.';
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not mark group ready.';
         }

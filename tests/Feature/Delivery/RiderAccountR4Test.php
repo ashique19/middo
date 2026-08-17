@@ -342,6 +342,8 @@ class RiderAccountR4Test extends TestCase
         OrderTransition::apply($order->fresh(), OrderTransition::PROCESSING);
         OrderTransition::apply($order->fresh(), OrderTransition::READY);
 
+        LunchRunFlow::riderAccept($this->rider, $order->fresh());
+
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
             ->assertSee('Commission ৳40', false);
