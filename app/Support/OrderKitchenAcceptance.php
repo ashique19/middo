@@ -27,6 +27,13 @@ class OrderKitchenAcceptance
                 ]);
             }
 
+            if ($orders->isNotEmpty()) {
+                $sample = $orders->first()->fresh(['menuItem', 'orderGroup', 'area']);
+                if ($sample) {
+                    StaffAlerts::notifyOpsLunchNeedsRider($sample);
+                }
+            }
+
             return $orders->count();
         });
     }

@@ -109,7 +109,7 @@
     @elseif($tab === 'awaiting')
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
             <div class="px-5 py-3 border-b border-gray-50 flex flex-wrap justify-between gap-2 items-center">
-                <p class="text-xs text-gray-500 font-semibold">Ready or packed lunch with no rider. Ops assigns — riders do not claim.</p>
+                <p class="text-xs text-gray-500 font-semibold">Kitchen-accepted, ready, or packed lunch with no rider. Ops can assign after kitchen accepts — riders do not claim.</p>
                 <a href="{{ route($rolePrefix.'.coverage.index') }}" class="text-xs font-bold text-middo-orange hover:underline">Coverage board →</a>
             </div>
             <div class="overflow-x-auto">

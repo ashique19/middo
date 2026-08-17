@@ -9,11 +9,10 @@ use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Support\DispatchDeadline;
 use App\Support\OrderGroupKitchenAssignment;
+use App\Support\OrderKitchenActions;
 use App\Support\OrdersExcelExport;
 use App\Support\OrderTransition;
-use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -65,34 +64,19 @@ class ActiveOrders extends Component
     {
         $this->statusMessage = null;
         $this->errorMessage = null;
-        $kitchenId = (int) Auth::id();
+        $kitchen = Auth::user();
 
         try {
-            DB::transaction(function () use ($orderId, $kitchenId) {
-                $order = Order::query()->whereKey($orderId)->lockForUpdate()->first();
-                if (! $order) {
-                    throw new \RuntimeException('Order not found.');
-                }
+            $order = Order::query()->find($orderId);
+            if (! $order) {
+                throw new \RuntimeException('Order not found.');
+            }
 
-                $groupKitchenId = DB::table('order_group_orders')
-                    ->join('order_groups', 'order_groups.id', '=', 'order_group_orders.order_group_id')
-                    ->where('order_group_orders.order_id', $order->id)
-                    ->value('order_groups.kitchen_id');
-
-                if ((int) $groupKitchenId !== $kitchenId) {
-                    throw new \RuntimeException('Order not found for your kitchen.');
-                }
-
-                OrderTransition::apply($order, OrderTransition::READY, [
-                    'updated_by' => $kitchenId,
-                ]);
-            });
-
-            StaffAlerts::notifyRidersLunchReady(
-                Order::query()->with(['menuItem', 'orderGroup.area', 'area'])->findOrFail($orderId)
-            );
-
-            $this->statusMessage = "Order #{$orderId} marked ready — ops will assign a rider.";
+            $fresh = OrderKitchenActions::markReady($order, $kitchen);
+            $riderName = $fresh->deliveryRider?->name;
+            $this->statusMessage = $fresh->order_status === OrderTransition::RIDER_ASSIGNED && $riderName
+                ? "Order #{$fresh->id} marked ready — assigned to {$riderName}."
+                : "Order #{$fresh->id} marked ready — ops will assign a rider.";
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not mark order ready.';
         }
@@ -102,49 +86,44 @@ class ActiveOrders extends Component
     {
         $this->statusMessage = null;
         $this->errorMessage = null;
-        $kitchenId = (int) Auth::id();
+        $kitchen = Auth::user();
+        $kitchenId = (int) $kitchen->id;
 
         try {
-            $readyIds = DB::transaction(function () use ($orderGroupId, $kitchenId) {
-                $group = OrderGroup::query()
-                    ->with('orders')
-                    ->whereKey($orderGroupId)
-                    ->lockForUpdate()
-                    ->first();
+            $group = OrderGroup::query()
+                ->with('orders')
+                ->whereKey($orderGroupId)
+                ->first();
 
-                if (! $group || (int) $group->kitchen_id !== $kitchenId) {
-                    throw new \RuntimeException('Order group not found for your kitchen.');
+            if (! $group || (int) $group->kitchen_id !== $kitchenId) {
+                throw new \RuntimeException('Order group not found for your kitchen.');
+            }
+
+            $marked = 0;
+            $preAssigned = 0;
+            foreach ($group->orders as $order) {
+                if ($order->order_status !== OrderTransition::PROCESSING || $order->dispatched_at !== null) {
+                    continue;
                 }
-
-                $ids = [];
-                foreach ($group->orders as $order) {
-                    if ($order->order_status !== OrderTransition::PROCESSING || $order->dispatched_at !== null) {
-                        continue;
-                    }
-                    $locked = Order::query()->whereKey($order->id)->lockForUpdate()->first();
-                    if ($locked && OrderTransition::can($locked, OrderTransition::READY)) {
-                        OrderTransition::apply($locked, OrderTransition::READY, [
-                            'updated_by' => $kitchenId,
-                        ]);
-                        $ids[] = (int) $locked->id;
-                    }
-                }
-
-                if ($ids === []) {
-                    throw new \RuntimeException('No processing orders left to mark ready in this group.');
-                }
-
-                return $ids;
-            });
-
-            foreach ($readyIds as $readyId) {
-                $readyOrder = Order::query()->with(['menuItem', 'orderGroup.area', 'area'])->find($readyId);
-                if ($readyOrder) {
-                    StaffAlerts::notifyRidersLunchReady($readyOrder);
+                $fresh = OrderKitchenActions::markReady($order, $kitchen);
+                $marked++;
+                if ($fresh->order_status === OrderTransition::RIDER_ASSIGNED) {
+                    $preAssigned++;
                 }
             }
 
-            $this->statusMessage = 'Marked '.count($readyIds).' order(s) ready — ops will assign riders.';
+            if ($marked === 0) {
+                throw new \RuntimeException('No processing orders left to mark ready in this group.');
+            }
+
+            $waitingOps = $marked - $preAssigned;
+            if ($waitingOps === 0) {
+                $this->statusMessage = "Marked {$marked} order(s) ready — riders already assigned.";
+            } elseif ($preAssigned > 0) {
+                $this->statusMessage = "Marked {$marked} order(s) ready — {$waitingOps} still need ops to assign a rider.";
+            } else {
+                $this->statusMessage = "Marked {$marked} order(s) ready — ops will assign riders.";
+            }
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not mark group ready.';
         }

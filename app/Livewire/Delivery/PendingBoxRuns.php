@@ -56,7 +56,7 @@ class PendingBoxRuns extends Component
         try {
             $qr = DB::transaction(function () use ($boxId, $riderId) {
                 $box = MiddoBox::query()->with('heldByUser.role')->whereKey($boxId)->lockForUpdate()->first();
-                if (! $box || (int) $box->pickup_rider_id !== $riderId || ! $box->ready_for_pickup) {
+                if (! $box || (int) $box->pickup_rider_id !== $riderId) {
                     throw new \RuntimeException('This empty-box collect is not assigned to you.');
                 }
                 if ($box->heldByUser?->role?->name !== 'corporate') {
@@ -268,7 +268,7 @@ class PendingBoxRuns extends Component
                 $latestAction = $latestActions->get($box->id)?->log_action;
 
                 $isEmptyBoxCollect = (int) ($box->pickup_rider_id ?? 0) === $riderId
-                    && (bool) $box->ready_for_pickup
+                    && $box->heldByUser?->role?->name === 'corporate'
                     && (int) $box->held_by_user_id !== $riderId;
 
                 $isStagedPickup = $stagedByBoxId->has($box->id);

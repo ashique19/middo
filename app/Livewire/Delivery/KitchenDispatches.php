@@ -199,11 +199,12 @@ class KitchenDispatches extends Component
                 'middoBoxes',
             ])
             ->orderByRaw("CASE order_status
-                WHEN 'ready' THEN 1
-                WHEN 'rider_assigned' THEN 2
-                WHEN 'packed' THEN 3
-                WHEN 'on_the_way_to_delivery' THEN 4
-                ELSE 5 END")
+                WHEN 'processing' THEN 1
+                WHEN 'ready' THEN 2
+                WHEN 'rider_assigned' THEN 3
+                WHEN 'packed' THEN 4
+                WHEN 'on_the_way_to_delivery' THEN 5
+                ELSE 6 END")
             ->orderBy('id')
             ->paginate(20);
 
@@ -237,7 +238,7 @@ class KitchenDispatches extends Component
                     'box_codes' => $order->middoBoxes->pluck('qr_code_id')->all(),
                     'status_label' => str($order->order_status)->replace('_', ' ')->title()->toString(),
                     'awaiting_accept' => $order->isAwaitingRiderAccept(),
-                    'awaiting_kitchen_pack' => $mine && $order->isRiderAssignedAwaitingDispatch(),
+                    'awaiting_kitchen_pack' => $mine && $order->isAssignedAwaitingKitchenPrep(),
                     'can_pick_up' => $mine && $order->isAwaitingRiderPickup(),
                     'can_mark_delivered' => $mine && $order->isOnTheWayToDelivery(),
                     'accepted_by_other' => $order->delivery_rider_id !== null && ! $mine,

@@ -13,7 +13,7 @@ class OrderKitchenActions
 {
     public static function markReady(Order $order, User $actor): Order
     {
-        return DB::transaction(function () use ($order, $actor) {
+        $fresh = DB::transaction(function () use ($order, $actor) {
             $locked = Order::query()
                 ->with('orderGroup')
                 ->whereKey($order->id)
@@ -35,22 +35,29 @@ class OrderKitchenActions
                 throw new \RuntimeException('Order has no kitchen assigned.');
             }
 
-            OrderTransition::apply($locked, OrderTransition::READY, [
+            $from = (string) $locked->order_status;
+            $alreadyAssigned = (int) ($locked->delivery_rider_id ?? 0) > 0;
+            $to = $alreadyAssigned ? OrderTransition::RIDER_ASSIGNED : OrderTransition::READY;
+
+            OrderTransition::apply($locked, $to, [
                 'updated_by' => $actor->id,
             ]);
 
             if (OrderLens::isStaff($role)) {
                 OrderLogWrite::opsIntervene($locked, $actor, 'mark_ready', [
-                    'from' => OrderTransition::PROCESSING,
-                    'to' => OrderTransition::READY,
+                    'from' => $from,
+                    'to' => $to,
                     'lens' => OrderLens::KITCHEN,
                 ]);
             }
 
-            $fresh = $locked->fresh(['menuItem', 'orderGroup', 'area']);
-            StaffAlerts::notifyRidersLunchReady($fresh);
-
-            return $fresh;
+            return $locked->fresh(['menuItem', 'orderGroup', 'area', 'deliveryRider']);
         });
+
+        if ($fresh->order_status === OrderTransition::READY) {
+            StaffAlerts::notifyOpsLunchNeedsRider($fresh);
+        }
+
+        return $fresh;
     }
 }

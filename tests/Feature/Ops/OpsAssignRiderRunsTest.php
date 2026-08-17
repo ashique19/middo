@@ -6,7 +6,9 @@ use App\Livewire\Corporate\MiddoBoxesCustodyModal;
 use App\Livewire\Delivery\CustomRuns as DeliveryCustomRuns;
 use App\Livewire\Delivery\KitchenDispatches;
 use App\Livewire\Delivery\PendingBoxRuns;
+use App\Livewire\Kitchen\ActiveOrders;
 use App\Livewire\Kitchen\BoxesAtKitchen;
+use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Livewire\Operation\AssignMiddoBoxesModal;
 use App\Livewire\Operation\CustomRuns as OpsCustomRuns;
 use App\Livewire\Operation\MiddoBoxes;
@@ -24,6 +26,7 @@ use App\Models\Role;
 use App\Models\StaffAlert;
 use App\Models\User;
 use App\Support\MiddoSettings;
+use App\Support\OrderKitchenAcceptance;
 use App\Support\OrderTransition;
 use App\Support\RiderPendingBoxes;
 use App\Support\StaffAlerts;
@@ -233,6 +236,119 @@ class OpsAssignRiderRunsTest extends TestCase
             ->assertDontSee('Accept run');
     }
 
+    public function test_ops_can_pre_assign_lunch_rider_after_kitchen_accepts(): void
+    {
+        $order = Order::create([
+            'user_id' => $this->corporate->id,
+            'menu_item_id' => $this->menu->id,
+            'quantity' => 1,
+            'delivery_date' => now('Asia/Dhaka')->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 200,
+            'address' => 'HQ',
+            'area_id' => $this->gulshan->id,
+            'order_status' => 'pending',
+            'payment_status' => 'pending',
+        ]);
+        $group = OrderGroup::create([
+            'name' => 'GRP-PREASSIGN',
+            'menu_id' => $this->menu->id,
+            'delivery_date' => $order->delivery_date,
+            'kitchen_id' => $this->kitchen->id,
+            'area_id' => $this->gulshan->id,
+        ]);
+        $group->orders()->attach($order->id);
+
+        OrderKitchenAcceptance::markGroupOrdersProcessing($group, $this->kitchen->id);
+
+        $this->assertSame(OrderTransition::PROCESSING, $order->fresh()->order_status);
+        $this->assertTrue(StaffAlert::query()
+            ->where('user_id', $this->ops->id)
+            ->where('type', StaffAlert::TYPE_LUNCH_DISPATCH)
+            ->where('meta->order_id', $order->id)
+            ->exists());
+
+        Livewire::actingAs($this->rider)
+            ->test(KitchenDispatches::class)
+            ->assertDontSee('#'.$order->id, false);
+
+        Livewire::actingAs($this->ops)
+            ->test(RidersBoard::class)
+            ->set('tab', 'awaiting')
+            ->assertSee('#'.$order->id, false)
+            ->assertSee('Kitchen-accepted', false)
+            ->call('openLunchAssign', $order->id)
+            ->set('assignLunchRiderId', $this->rider->id)
+            ->call('confirmLunchAssign')
+            ->assertSet('errorMessage', '');
+
+        $fresh = $order->fresh();
+        $this->assertSame($this->rider->id, (int) $fresh->delivery_rider_id);
+        $this->assertSame(OrderTransition::PROCESSING, $fresh->order_status);
+
+        $this->assertTrue(StaffAlert::query()
+            ->where('user_id', $this->rider->id)
+            ->where('type', StaffAlert::TYPE_LUNCH_DISPATCH)
+            ->where('body', 'like', '%still prepping%')
+            ->exists());
+
+        Livewire::actingAs($this->rider)
+            ->test(KitchenDispatches::class)
+            ->assertSee('#'.$order->id, false)
+            ->assertSee('Waiting for kitchen to pack', false);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(DispatchOrderModal::class)
+            ->call('openModal', $order->id)
+            ->assertSet('errorMessage', 'Mark this order ready first.');
+
+        Livewire::actingAs($this->kitchen)
+            ->test(ActiveOrders::class)
+            ->call('markReady', $order->id)
+            ->assertSet('errorMessage', null);
+
+        $this->assertSame(OrderTransition::RIDER_ASSIGNED, $order->fresh()->order_status);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(DispatchOrderModal::class)
+            ->call('openModal', $order->id)
+            ->assertSet('errorMessage', null);
+    }
+
+    public function test_kitchen_release_clears_pre_assigned_lunch_rider(): void
+    {
+        $order = Order::create([
+            'user_id' => $this->corporate->id,
+            'menu_item_id' => $this->menu->id,
+            'quantity' => 1,
+            'delivery_date' => now('Asia/Dhaka')->toDateString(),
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 200,
+            'address' => 'HQ',
+            'area_id' => $this->gulshan->id,
+            'order_status' => OrderTransition::PROCESSING,
+            'payment_status' => 'pending',
+            'delivery_rider_id' => $this->rider->id,
+        ]);
+        $group = OrderGroup::create([
+            'name' => 'GRP-RELEASE-RIDER',
+            'menu_id' => $this->menu->id,
+            'delivery_date' => $order->delivery_date,
+            'kitchen_id' => $this->kitchen->id,
+            'area_id' => $this->gulshan->id,
+        ]);
+        $group->orders()->attach($order->id);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(ActiveOrders::class)
+            ->call('releaseGroup', $group->id)
+            ->assertSet('errorMessage', null);
+
+        $this->assertNull($group->fresh()->kitchen_id);
+        $this->assertSame('pending', $order->fresh()->order_status);
+        $this->assertNull($order->fresh()->delivery_rider_id);
+    }
+
     public function test_empty_box_collect_is_hidden_until_ops_assigns(): void
     {
         $box = MiddoBox::create([
@@ -264,6 +380,43 @@ class OpsAssignRiderRunsTest extends TestCase
         $this->assertSame($this->kitchen->id, (int) $box->fresh()->return_kitchen_id);
         $this->assertSame(1, RiderPendingBoxes::countForRider($this->rider->id));
         $this->assertSame(0, RiderPendingBoxes::countForRider($this->otherRider->id));
+
+        Livewire::actingAs($this->rider)
+            ->test(PendingBoxRuns::class)
+            ->assertSee('Collect empty box', false)
+            ->call('collectEmptyBox', $box->id)
+            ->assertSet('errorMessage', null);
+
+        $this->assertSame($this->rider->id, (int) $box->fresh()->held_by_user_id);
+        $this->assertFalse((bool) $box->fresh()->ready_for_pickup);
+    }
+
+    public function test_ops_can_assign_empty_box_before_corporate_marks_ready(): void
+    {
+        $box = MiddoBox::create([
+            'qr_code_id' => 'MB-EMPTY-EARLY',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'active',
+            'held_by_user_id' => $this->corporate->id,
+            'ready_for_pickup' => false,
+            'total_uses_count' => 1,
+        ]);
+
+        $this->assertSame(0, RiderPendingBoxes::countForRider($this->rider->id));
+
+        Livewire::actingAs($this->ops)
+            ->test(MiddoBoxes::class)
+            ->assertSee('MB-EMPTY-EARLY', false)
+            ->assertSee('Not marked ready', false)
+            ->call('openAssignRider', $box->id, 'empty_box')
+            ->set('assignRiderId', $this->rider->id)
+            ->set('assignKitchenId', $this->kitchen->id)
+            ->call('saveAssignRider')
+            ->assertSet('errorMessage', null);
+
+        $this->assertSame($this->rider->id, (int) $box->fresh()->pickup_rider_id);
+        $this->assertFalse((bool) $box->fresh()->ready_for_pickup);
+        $this->assertSame(1, RiderPendingBoxes::countForRider($this->rider->id));
 
         Livewire::actingAs($this->rider)
             ->test(PendingBoxRuns::class)

@@ -90,8 +90,8 @@ class RiderPendingBoxes
         if (Schema::hasColumn('middo_boxes', 'pickup_rider_id')) {
             $emptyPickupIds = MiddoBox::query()
                 ->where('pickup_rider_id', $riderId)
-                ->where('ready_for_pickup', true)
                 ->where('held_by_user_id', '!=', $riderId)
+                ->whereHas('heldByUser.role', fn ($q) => $q->where('name', 'corporate'))
                 ->pluck('id')
                 ->map(fn ($id) => (int) $id);
         }
@@ -117,7 +117,7 @@ class RiderPendingBoxes
         return MiddoBox::query()
             ->with([
                 'kitchen',
-                'heldByUser',
+                'heldByUser.role',
                 'pickupRider',
                 'warehouseHandoff.kitchen',
                 'warehouseHandoff.rider',

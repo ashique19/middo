@@ -135,8 +135,8 @@ class OpsBoxCustody
     public static function unassignedEmptyPickupQuery(): Builder
     {
         $query = MiddoBox::query()
-            ->where('ready_for_pickup', true)
-            ->whereHas('heldByUser.role', fn ($q) => $q->where('name', 'corporate'));
+            ->whereHas('heldByUser.role', fn ($q) => $q->where('name', 'corporate'))
+            ->whereIn('asset_status', ['active', 'damaged']);
 
         if (Schema::hasColumn('middo_boxes', 'pickup_rider_id')) {
             $query->whereNull('pickup_rider_id');

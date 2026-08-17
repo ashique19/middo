@@ -91,12 +91,18 @@
             @if($unassignedEmptyPickups->isNotEmpty())
                 <div class="bg-white/90 border border-sky-100 rounded-xl overflow-hidden">
                     <p class="px-4 py-2 text-xs font-bold uppercase tracking-wider text-sky-800 bg-sky-50">Corporate → kitchen (empty box)</p>
+                    <p class="px-4 py-2 text-[11px] font-semibold text-sky-800/80 border-b border-sky-50">Assign a collect rider anytime — corporate does not have to mark ready first.</p>
                     <ul class="divide-y divide-sky-50">
                         @foreach($unassignedEmptyPickups as $box)
                             <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
                                 <div>
                                     <span class="font-mono font-bold text-middo-dark">{{ $box->qr_code_id }}</span>
                                     <span class="text-gray-500"> · {{ $box->heldByUser?->name ?? 'Corporate' }}</span>
+                                    @if($box->ready_for_pickup)
+                                        <span class="ml-1 inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wide bg-emerald-50 text-emerald-800 border border-emerald-200">Ready</span>
+                                    @else
+                                        <span class="ml-1 inline-flex px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wide bg-amber-50 text-amber-800 border border-amber-200">Not marked ready</span>
+                                    @endif
                                 </div>
                                 <button type="button" wire:click="openAssignRider({{ $box->id }}, 'empty_box')"
                                         class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">
@@ -116,6 +122,9 @@
                 <h3 class="text-lg font-bold text-middo-dark">
                     {{ $assignKind === 'empty_box' ? 'Assign empty-box collect' : 'Assign kitchen→ops rider' }}
                 </h3>
+                @if($assignKind === 'empty_box')
+                    <p class="text-xs font-semibold text-gray-500">You can assign even if corporate has not marked the box ready for pickup.</p>
+                @endif
                 <div>
                     <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Rider</label>
                     <select wire:model="assignRiderId" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">

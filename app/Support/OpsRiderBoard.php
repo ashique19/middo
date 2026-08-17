@@ -106,7 +106,11 @@ class OpsRiderBoard
         return Order::query()
             ->with(['menuItem', 'orderGroup.kitchen', 'user', 'area'])
             ->where(function ($q) {
-                $q->where(function ($ready) {
+                $q->where(function ($processing) {
+                    $processing->where('order_status', OrderTransition::PROCESSING)
+                        ->whereNull('delivery_rider_id')
+                        ->whereNull('dispatched_at');
+                })->orWhere(function ($ready) {
                     $ready->where('order_status', OrderTransition::READY)
                         ->whereNull('delivery_rider_id');
                 })->orWhere(function ($packed) {

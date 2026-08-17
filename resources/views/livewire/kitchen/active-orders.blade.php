@@ -4,7 +4,7 @@
             <a href="{{ route('kitchen.dashboard') }}" class="hidden md:inline text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
             <h1 class="hidden md:block text-3xl font-bold text-middo-dark">My Active Orders</h1>
             <p class="text-sm font-semibold text-[#635347] md:text-gray-500">
-                Mark each order Ready, wait for ops to assign a rider, then Dispatch that order alone (parcels can go to different areas).
+                Ops can assign a rider after you accept a group. Mark each order Ready when prep is done, then Dispatch that order alone (parcels can go to different areas).
             </p>
             <div class="pt-2">
                 <x-orders.view-mode-toggle :view-mode="$viewMode" :exportable="true" />
@@ -180,6 +180,9 @@
                                         wire:click="markReady({{ $order['id'] }})"
                                         class="inline-flex justify-center items-center px-3 py-3 rounded-2xl border border-sky-300 text-sky-900 text-sm font-bold hover:bg-sky-50 min-h-[48px]">
                                         Mark ready
+                                        @if(!empty($order['rider_name']))
+                                            · {{ $order['rider_name'] }}
+                                        @endif
                                     </button>
                                 @elseif(!empty($order['can_dispatch']))
                                     <button

@@ -106,6 +106,7 @@ class OrderGroupKitchenAssignment
                     ->whereNull('dispatched_at')
                     ->update([
                         'order_status' => 'pending',
+                        'delivery_rider_id' => null,
                         'updated_by' => $kitchen->id,
                     ]);
             }
@@ -164,6 +165,7 @@ class OrderGroupKitchenAssignment
 
             return in_array($order->order_status, [
                 OrderTransition::READY,
+                OrderTransition::RIDER_ASSIGNED,
                 OrderTransition::PACKED,
                 OrderTransition::ON_THE_WAY_TO_DELIVERY,
                 OrderTransition::DELIVERED,

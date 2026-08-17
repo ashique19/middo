@@ -177,6 +177,16 @@ class Order extends Model
             || ($this->order_status === OrderTransition::PACKED && $this->dispatched_at !== null);
     }
 
+    public function isAssignedAwaitingKitchenPrep(): bool
+    {
+        return $this->delivery_rider_id !== null
+            && $this->dispatched_at === null
+            && in_array($this->order_status, [
+                OrderTransition::PROCESSING,
+                OrderTransition::RIDER_ASSIGNED,
+            ], true);
+    }
+
     public function isRiderAssignedAwaitingDispatch(): bool
     {
         return $this->order_status === OrderTransition::RIDER_ASSIGNED
@@ -416,6 +426,7 @@ class Order extends Model
         // Rider lunch board: only ops-assigned lunch runs.
         return $query->whereNotNull('delivery_rider_id')
             ->whereIn('order_status', [
+                OrderTransition::PROCESSING,
                 OrderTransition::RIDER_ASSIGNED,
                 OrderTransition::PACKED,
                 OrderTransition::ON_THE_WAY_TO_DELIVERY,

@@ -33,6 +33,7 @@ class OrderTransition
         ],
         self::PROCESSING => [
             self::READY,
+            self::RIDER_ASSIGNED, // ops pre-assigned a rider before kitchen marked ready
         ],
         self::READY => [
             self::RIDER_ASSIGNED,

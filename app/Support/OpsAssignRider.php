@@ -23,7 +23,13 @@ class OpsAssignRider
         return DB::transaction(function () use ($order, $rider, $actor) {
             $order = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
 
-            if ($order->order_status === OrderTransition::READY && $order->delivery_rider_id === null) {
+            if ($order->order_status === OrderTransition::PROCESSING && $order->delivery_rider_id === null) {
+                $order->update([
+                    'delivery_rider_id' => $rider->id,
+                    'original_delivery_rider_id' => $order->original_delivery_rider_id ?: $rider->id,
+                    'updated_by' => $actor->id,
+                ]);
+            } elseif ($order->order_status === OrderTransition::READY && $order->delivery_rider_id === null) {
                 OrderTransition::apply($order, OrderTransition::RIDER_ASSIGNED, [
                     'delivery_rider_id' => $rider->id,
                     'original_delivery_rider_id' => $order->original_delivery_rider_id ?: $rider->id,
@@ -106,10 +112,6 @@ class OpsAssignRider
 
         return DB::transaction(function () use ($box, $rider, $actor, $kitchenId) {
             $box = MiddoBox::query()->with(['heldByUser.role', 'orderMiddoBoxes.order.orderGroup'])->whereKey($box->id)->lockForUpdate()->firstOrFail();
-
-            if (! $box->ready_for_pickup) {
-                throw new \RuntimeException('This box is not marked ready for corporate pickup.');
-            }
 
             if ($box->heldByUser?->role?->name !== 'corporate') {
                 throw new \RuntimeException('This box is not held by a corporate customer.');

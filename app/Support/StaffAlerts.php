@@ -151,7 +151,8 @@ class StaffAlerts
     }
 
     /**
-     * Kitchen marked lunch ready — ops assigns a rider (riders do not claim).
+     * Kitchen accepted the menu group (or marked ready) — ops can assign a rider
+     * before kitchen marks ready.
      */
     public static function notifyOpsLunchNeedsRider(Order $order): int
     {
@@ -160,7 +161,7 @@ class StaffAlerts
         $areaName = $order->area?->name ?? $order->orderGroup?->area?->name;
         $title = 'Assign lunch rider #'.$order->id;
         $body = sprintf(
-            '%s is ready (qty %d)%s. Assign a rider on Rider ops.',
+            '%s — kitchen accepted (qty %d)%s. Assign a rider on Rider ops (before or after they mark ready).',
             $menu,
             (int) $order->quantity,
             $areaName ? ' · '.$areaName : ''
@@ -210,13 +211,20 @@ class StaffAlerts
 
         $menu = $order->menuItem?->name ?? 'Order';
         $packed = $order->order_status === OrderTransition::PACKED;
+        $prepping = $order->order_status === OrderTransition::PROCESSING;
+        $title = $packed
+            ? 'Assigned — pick up #'.$order->id
+            : 'Assigned lunch #'.$order->id;
+        $body = $packed
+            ? sprintf('%s is packed. Confirm pickup at the kitchen.', $menu)
+            : ($prepping
+                ? sprintf('%s assigned to you. Kitchen is still prepping — wait, then pick up.', $menu)
+                : sprintf('%s assigned to you. Wait for kitchen to pack, then pick up.', $menu));
         $alert = self::createOnce(
             $riderId,
             StaffAlert::TYPE_LUNCH_DISPATCH,
-            $packed ? 'Assigned — pick up #'.$order->id : 'Assigned lunch #'.$order->id,
-            $packed
-                ? sprintf('%s is packed. Confirm pickup at the kitchen.', $menu)
-                : sprintf('%s assigned to you. Wait for kitchen to pack, then pick up.', $menu),
+            $title,
+            $body,
             $order->orderGroup?->id ? (int) $order->orderGroup->id : null,
             [
                 'order_id' => $order->id,
