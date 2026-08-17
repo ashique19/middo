@@ -3,7 +3,7 @@
         <a href="{{ route('delivery.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
         <h1 class="text-2xl sm:text-3xl font-bold text-middo-dark">Kitchen dispatches</h1>
         <p class="text-sm font-semibold text-gray-500">
-            Accept a ready order → wait for kitchen pack → pick up → deliver. Each order is its own run.
+            Ops assigns your lunch runs. Wait for kitchen pack → pick up → deliver.
         </p>
     </div>
 
@@ -70,18 +70,7 @@
                 </div>
 
                 <div class="w-full sm:w-auto sm:shrink-0">
-                    @if($order['awaiting_accept'])
-                        <button
-                            type="button"
-                            wire:click="acceptOrder({{ $order['id'] }})"
-                            wire:loading.attr="disabled"
-                            wire:target="acceptOrder({{ $order['id'] }})"
-                            wire:confirm="Accept this order run? Kitchen will pack for you, then you confirm pickup."
-                            class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2.5 sm:py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition disabled:opacity-60">
-                            <span wire:loading.remove wire:target="acceptOrder({{ $order['id'] }})">Accept run</span>
-                            <span wire:loading wire:target="acceptOrder({{ $order['id'] }})">Accepting...</span>
-                        </button>
-                    @elseif(!empty($order['awaiting_kitchen_pack']))
+                    @if(!empty($order['awaiting_kitchen_pack']))
                         <span class="inline-flex px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
                             Waiting for kitchen to pack
                         </span>

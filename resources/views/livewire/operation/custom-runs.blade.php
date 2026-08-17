@@ -1,7 +1,7 @@
 <div class="max-w-6xl mx-auto py-8 px-4 sm:px-6 space-y-6">
     <div>
         <h1 class="text-3xl font-bold text-middo-dark">Custom runs</h1>
-        <p class="text-sm text-gray-500 mt-1">Create ad-hoc point → point jobs for riders. Commission credits when the rider starts the run.</p>
+        <p class="text-sm text-gray-500 mt-1">Create ad-hoc point → point jobs. Ops must assign a rider — riders do not see an open pool.</p>
     </div>
 
     @if($statusMessage)
@@ -34,9 +34,9 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Rider (optional)</label>
+                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Rider</label>
                 <select wire:model.live="riderUserId" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                    <option value="">Open pool</option>
+                    <option value="">Select rider</option>
                     @foreach($riders as $rider)
                         <option value="{{ $rider->id }}">{{ $rider->name }} · {{ $rider->mobile }}</option>
                     @endforeach
@@ -78,7 +78,7 @@
                             <td class="p-3 font-mono">#{{ $run->id }}</td>
                             <td class="p-3 font-semibold">{{ $run->label() }}</td>
                             <td class="p-3 text-gray-600">{{ $run->area?->name ?? '—' }}</td>
-                            <td class="p-3 text-gray-600">{{ $run->rider?->name ?? 'Open pool' }}</td>
+                            <td class="p-3 text-gray-600">{{ $run->rider?->name ?? 'Unassigned' }}</td>
                             <td class="p-3 text-right font-bold">৳{{ number_format($run->commission_amount) }}</td>
                             <td class="p-3 capitalize">{{ $run->status }}</td>
                             <td class="p-3 text-right space-x-2 whitespace-nowrap">

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Kitchen;
 
-use App\Livewire\Delivery\KitchenDispatches;
 use App\Livewire\Kitchen\ActiveOrders;
 use App\Livewire\Kitchen\BoxesAtKitchen;
 use App\Livewire\Kitchen\DispatchOrderModal;
@@ -23,6 +22,7 @@ use App\Support\MiddoSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use Tests\Support\LunchRunFlow;
 use Tests\TestCase;
 
 class KitchenMiddoBoxesTest extends TestCase
@@ -306,10 +306,7 @@ class KitchenMiddoBoxesTest extends TestCase
             ->test(ActiveOrders::class)
             ->call('markReady', $order->id);
 
-        Livewire::actingAs($this->rider)
-            ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
-            ->assertSet('errorMessage', null);
+        LunchRunFlow::riderAccept($this->rider, $order->fresh());
 
         $modal = Livewire::actingAs($this->kitchen)
             ->test(DispatchOrderModal::class)
@@ -364,10 +361,7 @@ class KitchenMiddoBoxesTest extends TestCase
             ->test(ActiveOrders::class)
             ->call('markReady', $order->id);
 
-        Livewire::actingAs($this->rider)
-            ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
-            ->assertSet('errorMessage', null);
+        LunchRunFlow::riderAccept($this->rider, $order->fresh());
 
         Livewire::actingAs($this->kitchen)
             ->test(DispatchOrderModal::class)

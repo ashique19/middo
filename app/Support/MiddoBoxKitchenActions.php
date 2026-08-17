@@ -154,8 +154,8 @@ class MiddoBoxKitchenActions
             ]);
 
             $baseNote = $damagedReturn
-                ? 'Damaged box ready to ship to Middo warehouse — awaiting rider claim'
-                : 'Ready to ship to Middo warehouse — awaiting rider claim';
+                ? 'Damaged box ready to ship to Middo warehouse — awaiting ops rider assignment'
+                : 'Ready to ship to Middo warehouse — awaiting ops rider assignment';
             $extra = self::normalizeNotes($notes);
             $logNotes = $extra ? $baseNote.' — '.$extra : $baseNote;
 
@@ -188,7 +188,7 @@ class MiddoBoxKitchenActions
     }
 
     /**
-     * Rider claims an open kitchen→ops run request for their area.
+     * @deprecated Ops assigns kitchen→ops riders via OpsAssignRider::kitchenToOps.
      */
     public static function claimWarehouseRun(int $boxId, int $riderId): MiddoBox
     {

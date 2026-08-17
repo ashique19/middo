@@ -167,7 +167,7 @@ class NextWaveN1ShiftsReassignTest extends TestCase
         Livewire::actingAs($this->riderA)
             ->test(KitchenDispatches::class)
             ->call('acceptOrder', $order->id)
-            ->assertSet('errorMessage', 'You are not on shift. Set On shift on the dashboard before accepting runs.');
+            ->assertSet('errorMessage', fn ($m) => is_string($m) && str_contains($m, 'Ops assigns'));
 
         $this->assertNull($order->fresh()->delivery_rider_id);
     }

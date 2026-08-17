@@ -12,7 +12,6 @@ use App\Models\Order;
 use App\Models\OrderGroup;
 use App\Models\Role;
 use App\Models\User;
-use App\Support\DeliveryRunType;
 use App\Support\OpsDashboardMetrics;
 use App\Support\OpsRiderBoard;
 use App\Support\RiderAccountLedger;
@@ -120,6 +119,7 @@ class OpsRidersBoardO4Test extends TestCase
             'to_label' => 'Kitchen',
             'commission_amount' => 30,
             'status' => CustomRun::STATUS_PENDING,
+            'rider_user_id' => $this->rider->id,
             'created_by' => $this->ops->id,
         ]);
 
@@ -179,8 +179,8 @@ class OpsRidersBoardO4Test extends TestCase
             ->call('openReassign', $run->id)
             ->set('reassignRiderId', null)
             ->call('confirmReassign')
-            ->assertSet('errorMessage', '');
+            ->assertSet('errorMessage', fn ($m) => is_string($m) && str_contains($m, 'Select a rider'));
 
-        $this->assertNull($run->fresh()->rider_user_id);
+        $this->assertSame($other->id, (int) $run->fresh()->rider_user_id);
     }
 }

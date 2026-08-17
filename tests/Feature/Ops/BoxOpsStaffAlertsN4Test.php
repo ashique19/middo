@@ -131,7 +131,7 @@ class BoxOpsStaffAlertsN4Test extends TestCase
             ->assertSee('Ops→kitchen box run', false);
     }
 
-    public function test_empty_box_ready_alerts_riders_in_corporate_area(): void
+    public function test_empty_box_ready_alerts_ops_not_riders(): void
     {
         $corporate = User::create([
             'first_name' => 'Corp',
@@ -145,6 +145,14 @@ class BoxOpsStaffAlertsN4Test extends TestCase
         ]);
         $gulshanRider = $this->makeRider('01780000006', $this->gulshan);
         $mirpurRider = $this->makeRider('01780000007', $this->mirpur);
+        $operator = User::create([
+            'first_name' => 'Ops',
+            'last_name' => 'Empty',
+            'mobile' => '01780000008',
+            'password' => 'password',
+            'role_id' => $this->operationRole->id,
+            'status' => 'active',
+        ]);
 
         $box = MiddoBox::create([
             'qr_code_id' => 'MB-EMPTY-N4-1',
@@ -160,7 +168,7 @@ class BoxOpsStaffAlertsN4Test extends TestCase
             ->call('markReadyForPickup', $box->id);
 
         $this->assertTrue($box->fresh()->ready_for_pickup);
-        $this->assertTrue(StaffAlert::query()
+        $this->assertFalse(StaffAlert::query()
             ->where('user_id', $gulshanRider->id)
             ->where('type', StaffAlert::TYPE_EMPTY_BOX_PICKUP)
             ->where('meta->box_id', $box->id)
@@ -169,6 +177,11 @@ class BoxOpsStaffAlertsN4Test extends TestCase
             ->where('user_id', $mirpurRider->id)
             ->where('type', StaffAlert::TYPE_EMPTY_BOX_PICKUP)
             ->exists());
+        $this->assertTrue(StaffAlert::query()
+            ->where('user_id', $operator->id)
+            ->where('type', StaffAlert::TYPE_EMPTY_BOX_PICKUP)
+            ->where('meta->box_id', $box->id)
+            ->exists());
 
         // Idempotent: already-ready does not create a second alert.
         Livewire::actingAs($corporate)
@@ -176,14 +189,14 @@ class BoxOpsStaffAlertsN4Test extends TestCase
             ->call('markReadyForPickup', $box->id);
 
         $this->assertSame(1, StaffAlert::query()
-            ->where('user_id', $gulshanRider->id)
+            ->where('user_id', $operator->id)
             ->where('type', StaffAlert::TYPE_EMPTY_BOX_PICKUP)
             ->where('meta->box_id', $box->id)
             ->count());
 
-        Livewire::actingAs($gulshanRider)
+        Livewire::actingAs($operator)
             ->test(StaffAlertsPage::class)
             ->assertOk()
-            ->assertSee('Empty box pickup', false);
+            ->assertSee('Assign empty-box rider', false);
     }
 }

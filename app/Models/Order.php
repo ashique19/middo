@@ -413,24 +413,13 @@ class Order extends Model
 
     public function scopeKitchenDispatched($query)
     {
-        // Rider lunch board: claimable ready runs, claimed/packed/on-the-way lunch runs.
-        return $query->where(function ($q) {
-            $q->where(function ($claim) {
-                $claim->where('order_status', OrderTransition::READY)
-                    ->whereNull('delivery_rider_id');
-            })->orWhere(function ($assigned) {
-                $assigned->whereIn('order_status', [
-                    OrderTransition::RIDER_ASSIGNED,
-                    OrderTransition::PACKED,
-                    OrderTransition::ON_THE_WAY_TO_DELIVERY,
-                ])->whereNotNull('delivery_rider_id');
-            })->orWhere(function ($orphanPacked) {
-                // Ops released rider after pickup — packed orphan open to re-claim.
-                $orphanPacked->where('order_status', OrderTransition::PACKED)
-                    ->whereNotNull('dispatched_at')
-                    ->whereNull('delivery_rider_id');
-            });
-        });
+        // Rider lunch board: only ops-assigned lunch runs.
+        return $query->whereNotNull('delivery_rider_id')
+            ->whereIn('order_status', [
+                OrderTransition::RIDER_ASSIGNED,
+                OrderTransition::PACKED,
+                OrderTransition::ON_THE_WAY_TO_DELIVERY,
+            ]);
     }
 
     public function scopeDeliveredForRider($query, int $riderId)

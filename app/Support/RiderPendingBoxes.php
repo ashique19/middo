@@ -9,8 +9,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Boxes a rider should act on: warehouse stock staged for their pickup,
- * kitchen→ops run requests (claimable or assigned), plus custody.
+ * Boxes a rider should act on: ops-assigned warehouse stock, kitchen→ops,
+ * corporate empty-box collect, plus custody.
  */
 class RiderPendingBoxes
 {
@@ -20,9 +20,9 @@ class RiderPendingBoxes
     }
 
     /**
-     * Open kitchen→ops runs waiting for any rider to claim.
+     * Unassigned kitchen→ops runs waiting for ops to pick a rider (not rider-visible).
      */
-    public static function claimableKitchenToOpsCount(): int
+    public static function unassignedKitchenToOpsCount(): int
     {
         if (! Schema::hasTable('kitchen_warehouse_handoffs')) {
             return 0;
@@ -33,11 +33,18 @@ class RiderPendingBoxes
             ->whereNull('rider_id')
             ->whereHas(
                 'box',
-                // Include damaged returns — kitchen→ops via rider keeps asset_status=damaged.
                 fn ($q) => $q->whereColumn('middo_boxes.kitchen_id', 'middo_boxes.held_by_user_id')
                     ->whereIn('asset_status', ['active', 'damaged'])
             )
             ->count();
+    }
+
+    /**
+     * @deprecated Riders no longer claim kitchen→ops; ops assigns.
+     */
+    public static function claimableKitchenToOpsCount(): int
+    {
+        return 0;
     }
 
     /**
@@ -67,7 +74,7 @@ class RiderPendingBoxes
 
         $kitchenToOpsIds = collect();
         if (Schema::hasTable('kitchen_warehouse_handoffs')) {
-            $assignedIds = KitchenWarehouseHandoff::query()
+            $kitchenToOpsIds = KitchenWarehouseHandoff::query()
                 ->where('rider_id', $riderId)
                 ->whereIn('status', [
                     KitchenWarehouseHandoff::STATUS_RUN_CLAIMED,
@@ -77,25 +84,22 @@ class RiderPendingBoxes
                 ])
                 ->pluck('middo_box_id')
                 ->map(fn ($id) => (int) $id);
+        }
 
-            // Box logistics (not customer deliveries): any active rider can see open claims.
-            $claimableIds = KitchenWarehouseHandoff::query()
-                ->where('status', KitchenWarehouseHandoff::STATUS_RUN_REQUESTED)
-                ->whereNull('rider_id')
-                ->whereHas(
-                    'box',
-                    fn ($q) => $q->whereColumn('middo_boxes.kitchen_id', 'middo_boxes.held_by_user_id')
-                        ->whereIn('asset_status', ['active', 'damaged'])
-                )
-                ->pluck('middo_box_id')
+        $emptyPickupIds = collect();
+        if (Schema::hasColumn('middo_boxes', 'pickup_rider_id')) {
+            $emptyPickupIds = MiddoBox::query()
+                ->where('pickup_rider_id', $riderId)
+                ->where('ready_for_pickup', true)
+                ->where('held_by_user_id', '!=', $riderId)
+                ->pluck('id')
                 ->map(fn ($id) => (int) $id);
-
-            $kitchenToOpsIds = $assignedIds->concat($claimableIds);
         }
 
         return $heldIds
             ->concat($stagedOpsToKitchenIds)
             ->concat($kitchenToOpsIds)
+            ->concat($emptyPickupIds)
             ->unique()
             ->values();
     }
@@ -113,6 +117,8 @@ class RiderPendingBoxes
         return MiddoBox::query()
             ->with([
                 'kitchen',
+                'heldByUser',
+                'pickupRider',
                 'warehouseHandoff.kitchen',
                 'warehouseHandoff.rider',
                 'orderMiddoBoxes.order.menuItem',
@@ -150,7 +156,7 @@ class RiderPendingBoxes
     }
 
     /**
-     * Kitchen→ops handoffs visible to this rider (claimable + assigned), keyed by middo_box_id.
+     * Kitchen→ops handoffs assigned to this rider, keyed by middo_box_id.
      *
      * @return Collection<int, KitchenWarehouseHandoff>
      */
@@ -167,9 +173,9 @@ class RiderPendingBoxes
 
         return KitchenWarehouseHandoff::query()
             ->with(['kitchen', 'rider', 'box'])
+            ->where('rider_id', $riderId)
             ->whereIn('middo_box_id', $ids)
             ->whereIn('status', [
-                KitchenWarehouseHandoff::STATUS_RUN_REQUESTED,
                 KitchenWarehouseHandoff::STATUS_RUN_CLAIMED,
                 KitchenWarehouseHandoff::STATUS_DISPATCHED,
                 KitchenWarehouseHandoff::STATUS_IN_TRANSIT,
@@ -188,7 +194,6 @@ class RiderPendingBoxes
     public static function stagedWarehouseReturnLinksForRider(int $riderId): Collection
     {
         return self::kitchenToOpsLinksForRider($riderId)
-            ->filter(fn (KitchenWarehouseHandoff $h) => $h->status === KitchenWarehouseHandoff::STATUS_DISPATCHED
-                || $h->status === KitchenWarehouseHandoff::STATUS_RUN_REQUESTED);
+            ->filter(fn (KitchenWarehouseHandoff $h) => $h->status === KitchenWarehouseHandoff::STATUS_DISPATCHED);
     }
 }

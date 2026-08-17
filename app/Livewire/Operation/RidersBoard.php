@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Support\DeliveryRunType;
 use App\Support\MiddoOperatingCosts;
+use App\Support\OpsAssignRider;
 use App\Support\OpsRiderBoard;
 use App\Support\OpsRiderMidRunReassign;
 use Illuminate\Support\Facades\Auth;
@@ -31,6 +32,10 @@ class RidersBoard extends Component
 
     public string $reassignOrderReason = '';
 
+    public ?int $assignLunchOrderId = null;
+
+    public ?int $assignLunchRiderId = null;
+
     public function mount(): void
     {
         abort_unless(in_array(Auth::user()?->role?->name, ['admin', 'operation'], true), 403);
@@ -45,6 +50,7 @@ class RidersBoard extends Component
     {
         $this->errorMessage = '';
         $this->cancelOrderReassign();
+        $this->cancelLunchAssign();
         $this->reassignRunId = $runId;
         $this->reassignRiderId = CustomRun::query()->whereKey($runId)->value('rider_user_id');
     }
@@ -59,6 +65,7 @@ class RidersBoard extends Component
     {
         $this->errorMessage = '';
         $this->cancelReassign();
+        $this->cancelLunchAssign();
         $this->reassignOrderId = $orderId;
         $this->reassignOrderRiderId = Order::query()->whereKey($orderId)->value('delivery_rider_id');
         $this->reassignOrderReason = '';
@@ -69,6 +76,41 @@ class RidersBoard extends Component
         $this->reassignOrderId = null;
         $this->reassignOrderRiderId = null;
         $this->reassignOrderReason = '';
+    }
+
+    public function openLunchAssign(int $orderId): void
+    {
+        $this->errorMessage = '';
+        $this->cancelReassign();
+        $this->cancelOrderReassign();
+        $this->assignLunchOrderId = $orderId;
+        $this->assignLunchRiderId = null;
+    }
+
+    public function cancelLunchAssign(): void
+    {
+        $this->assignLunchOrderId = null;
+        $this->assignLunchRiderId = null;
+    }
+
+    public function confirmLunchAssign(): void
+    {
+        $this->statusMessage = '';
+        $this->errorMessage = '';
+
+        try {
+            if (! $this->assignLunchOrderId || ! $this->assignLunchRiderId) {
+                throw new \RuntimeException('Select a rider.');
+            }
+
+            $order = Order::query()->findOrFail($this->assignLunchOrderId);
+            $rider = User::query()->with('role')->findOrFail((int) $this->assignLunchRiderId);
+            OpsAssignRider::lunch($order, $rider, Auth::user());
+            $this->statusMessage = "Order #{$order->id} assigned to {$rider->name}.";
+            $this->cancelLunchAssign();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not assign rider.';
+        }
     }
 
     public function confirmOrderReassign(): void
@@ -114,20 +156,20 @@ class RidersBoard extends Component
             }
 
             $riderId = $this->reassignRiderId ? (int) $this->reassignRiderId : null;
-            if ($riderId) {
-                $rider = User::query()->with('role')->findOrFail($riderId);
-                if ($rider->role?->name !== 'delivery') {
-                    throw new \RuntimeException('Assignee must be a delivery rider.');
-                }
-                if ($run->area_id && ! $rider->servesArea((int) $run->area_id)) {
-                    throw new \RuntimeException('Selected rider does not serve that area.');
-                }
+            if (! $riderId) {
+                throw new \RuntimeException('Select a rider. Custom runs cannot be an open pool.');
+            }
+
+            $rider = User::query()->with('role')->findOrFail($riderId);
+            if ($rider->role?->name !== 'delivery') {
+                throw new \RuntimeException('Assignee must be a delivery rider.');
+            }
+            if ($run->area_id && ! $rider->servesArea((int) $run->area_id)) {
+                throw new \RuntimeException('Selected rider does not serve that area.');
             }
 
             $run->update(['rider_user_id' => $riderId]);
-            $this->statusMessage = $riderId
-                ? "Custom run #{$run->id} assigned to {$rider->name}."
-                : "Custom run #{$run->id} returned to open pool.";
+            $this->statusMessage = "Custom run #{$run->id} assigned to {$rider->name}.";
             $this->cancelReassign();
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not reassign run.';

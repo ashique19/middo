@@ -17,7 +17,9 @@ class MiddoBox extends Model
         'qr_code_id',
         'box_model_type',
         'held_by_user_id',
+        'pickup_rider_id',
         'kitchen_id',
+        'return_kitchen_id',
         'asset_status',
         'ready_for_pickup',
         'ready_for_pickup_at',
@@ -37,6 +39,16 @@ class MiddoBox extends Model
     public function heldByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'held_by_user_id');
+    }
+
+    public function pickupRider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pickup_rider_id');
+    }
+
+    public function returnKitchen(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'return_kitchen_id');
     }
 
     public function kitchen(): BelongsTo

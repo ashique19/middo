@@ -5,7 +5,6 @@ namespace Tests\Feature\Delivery;
 use App\Livewire\Delivery\DeliveredOrders;
 use App\Livewire\Delivery\KitchenDispatches;
 use App\Livewire\Delivery\PaymentModal;
-use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\Order;
@@ -16,6 +15,7 @@ use App\Support\OrderTransition;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
+use Tests\Support\LunchRunFlow;
 use Tests\TestCase;
 
 class DeliveryDashboardTest extends TestCase
@@ -117,7 +117,7 @@ class DeliveryDashboardTest extends TestCase
             $boxes[] = $this->makeBoxAtKitchen('MB-D'.str_pad((string) $i, 5, '0', STR_PAD_LEFT).'-'.uniqid());
         }
 
-        return \Tests\Support\LunchRunFlow::fromReadyToOnTheWay(
+        return LunchRunFlow::fromReadyToOnTheWay(
             $this->kitchen,
             $this->rider,
             $order->fresh(),
@@ -189,10 +189,10 @@ class DeliveryDashboardTest extends TestCase
         $this->actingAs($this->rider)
             ->get(route('delivery.kitchen-dispatches'))
             ->assertOk()
-            ->assertSee('#'.$order->id)
-            ->assertSee('Accept run');
+            ->assertDontSee('#'.$order->id)
+            ->assertDontSee('Accept run');
 
-        \Tests\Support\LunchRunFlow::fromReadyToOnTheWay($this->kitchen, $this->rider, $order, $boxes);
+        LunchRunFlow::fromReadyToOnTheWay($this->kitchen, $this->rider, $order, $boxes);
 
         $order->refresh()->load('middoBoxes');
         $this->assertSame($this->rider->id, $order->delivery_rider_id);
@@ -226,13 +226,14 @@ class DeliveryDashboardTest extends TestCase
         }
     }
 
-    public function test_another_rider_cannot_accept_already_claimed_dispatch(): void
+    public function test_another_rider_cannot_claim_unassigned_lunch(): void
     {
         $order = $this->createReadyForClaimOrder(2);
 
         Livewire::actingAs($this->rider)
             ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id);
+            ->call('acceptOrder', $order->id)
+            ->assertSet('errorMessage', fn ($m) => is_string($m) && str_contains($m, 'Ops assigns'));
 
         $otherRider = User::create([
             'first_name' => 'Rider',
@@ -246,7 +247,9 @@ class DeliveryDashboardTest extends TestCase
         Livewire::actingAs($otherRider)
             ->test(KitchenDispatches::class)
             ->call('acceptOrder', $order->id)
-            ->assertSet('errorMessage', 'This run is no longer available to accept.');
+            ->assertSet('errorMessage', fn ($m) => is_string($m) && str_contains($m, 'Ops assigns'));
+
+        $this->assertNull($order->fresh()->delivery_rider_id);
     }
 
     public function test_rider_cash_payment_and_receive_boxes(): void

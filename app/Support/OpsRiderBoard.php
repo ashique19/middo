@@ -7,6 +7,7 @@ use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -98,7 +99,7 @@ class OpsRiderBoard
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public static function awaitingAccept(?\Carbon\Carbon $now = null): Collection
+    public static function awaitingAccept(?Carbon $now = null): Collection
     {
         $now = ($now ?? now('Asia/Dhaka'))->copy()->timezone('Asia/Dhaka');
 
@@ -230,7 +231,7 @@ class OpsRiderBoard
                 'status' => $run->status,
                 'area' => $run->area?->name ?? '—',
                 'rider_id' => $run->rider_user_id,
-                'rider' => $run->rider?->name ?? 'Open pool',
+                'rider' => $run->rider?->name ?? 'Unassigned',
                 'commission' => (int) $run->commission_amount,
                 'is_pending' => $run->isPending(),
                 'is_started' => $run->isStarted(),

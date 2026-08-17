@@ -151,43 +151,35 @@ class StaffAlerts
     }
 
     /**
-     * Parcel call: kitchen marked lunch order ready — notify riders serving that area to accept.
+     * Kitchen marked lunch ready — ops assigns a rider (riders do not claim).
      */
-    public static function notifyRidersLunchReady(Order $order): int
+    public static function notifyOpsLunchNeedsRider(Order $order): int
     {
         $order->loadMissing(['menuItem', 'orderGroup', 'area']);
-        $areaId = DeliveryAreaScope::orderAreaId($order);
-        $riders = DeliveryAreaScope::ridersForArea($areaId);
-        if ($riders === []) {
-            return 0;
-        }
-
         $menu = $order->menuItem?->name ?? 'Order';
         $areaName = $order->area?->name ?? $order->orderGroup?->area?->name;
-        $title = 'Ready for claim #'.$order->id;
+        $title = 'Assign lunch rider #'.$order->id;
         $body = sprintf(
-            '%s is ready at kitchen (qty %d)%s. Accept the run, then pick up after kitchen packs.',
+            '%s is ready (qty %d)%s. Assign a rider on Rider ops.',
             $menu,
             (int) $order->quantity,
             $areaName ? ' · '.$areaName : ''
         );
-        $groupId = $order->orderGroup?->id;
         $created = 0;
 
-        foreach ($riders as $rider) {
+        foreach (self::opsAndAdminUserIds() as $userId) {
             $alert = self::createOnce(
-                (int) $rider->id,
+                $userId,
                 StaffAlert::TYPE_LUNCH_DISPATCH,
                 $title,
                 $body,
-                $groupId ? (int) $groupId : null,
+                $order->orderGroup?->id ? (int) $order->orderGroup->id : null,
                 [
                     'order_id' => $order->id,
-                    'area_id' => $areaId,
+                    'phase' => 'needs_ops_assign',
                     'run_type' => DeliveryRunType::KITCHEN_TO_CORPORATE,
-                    'phase' => 'ready_for_claim',
                 ],
-                'lunch_ready:'.$order->id.':'.$rider->id
+                'lunch_ops_assign:'.$order->id.':'.$userId
             );
             if ($alert) {
                 $created++;
@@ -195,6 +187,46 @@ class StaffAlerts
         }
 
         return $created;
+    }
+
+    /**
+     * @deprecated Ops assigns lunch riders; kept as an alias for older call sites.
+     */
+    public static function notifyRidersLunchReady(Order $order): int
+    {
+        return self::notifyOpsLunchNeedsRider($order);
+    }
+
+    /**
+     * Ops assigned a lunch run — rider waits for kitchen pack (or picks up if already packed).
+     */
+    public static function notifyRiderLunchAssigned(Order $order): int
+    {
+        $order->loadMissing(['menuItem', 'deliveryRider', 'orderGroup']);
+        $riderId = (int) ($order->delivery_rider_id ?? 0);
+        if ($riderId < 1) {
+            return 0;
+        }
+
+        $menu = $order->menuItem?->name ?? 'Order';
+        $packed = $order->order_status === OrderTransition::PACKED;
+        $alert = self::createOnce(
+            $riderId,
+            StaffAlert::TYPE_LUNCH_DISPATCH,
+            $packed ? 'Assigned — pick up #'.$order->id : 'Assigned lunch #'.$order->id,
+            $packed
+                ? sprintf('%s is packed. Confirm pickup at the kitchen.', $menu)
+                : sprintf('%s assigned to you. Wait for kitchen to pack, then pick up.', $menu),
+            $order->orderGroup?->id ? (int) $order->orderGroup->id : null,
+            [
+                'order_id' => $order->id,
+                'phase' => $packed ? 'assigned_packed' : 'assigned_awaiting_pack',
+                'run_type' => DeliveryRunType::KITCHEN_TO_CORPORATE,
+            ],
+            'lunch_assigned:'.$order->id.':'.$riderId
+        );
+
+        return $alert ? 1 : 0;
     }
 
     /**
@@ -250,8 +282,6 @@ class StaffAlerts
 
         if ($run->rider_user_id && $run->rider) {
             $riders = [$run->rider];
-        } elseif ($run->area_id) {
-            $riders = DeliveryAreaScope::ridersForArea((int) $run->area_id);
         } else {
             return 0;
         }
@@ -377,54 +407,37 @@ class StaffAlerts
     }
 
     /**
-     * Kitchen marked empty boxes ready to ship — notify active riders to claim the run.
-     * Box logistics (not customer deliveries): notify every active delivery rider.
+     * Kitchen marked empty boxes ready to ship — ops assigns a rider.
      *
      * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
      */
-    public static function notifyAreaRidersKitchenToOpsRunRequested(User $kitchen, Collection|array $boxes): int
+    public static function notifyOpsKitchenToOpsNeedsRider(User $kitchen, Collection|array $boxes): int
     {
         $boxes = collect($boxes)->filter()->values();
         if ($boxes->isEmpty()) {
             return 0;
         }
 
-        $riders = User::query()
-            ->whereHas('role', fn ($q) => $q->where('name', 'delivery'))
-            ->where('status', 'active')
-            ->orderBy('id')
-            ->get();
-
-        if ($riders->isEmpty()) {
-            return 0;
-        }
-
-        $areaId = $kitchen->area_id !== null ? (int) $kitchen->area_id : null;
         $boxIds = $boxes->map(fn (MiddoBox $b) => (int) $b->id)->sort()->values()->all();
         $labels = $boxes->map(fn (MiddoBox $b) => $b->qr_code_id ?: '#'.$b->id)->all();
         $count = $boxes->count();
         $boxList = implode(', ', array_slice($labels, 0, 5)).($count > 5 ? '…' : '');
         $created = 0;
 
-        foreach ($riders as $rider) {
+        foreach (self::opsAndAdminUserIds() as $userId) {
             $alert = self::createOnce(
-                (int) $rider->id,
+                $userId,
                 StaffAlert::TYPE_KITCHEN_TO_OPS_BOX,
-                $count === 1 ? 'Kitchen→ops run requested' : "Kitchen→ops runs requested ({$count})",
-                sprintf(
-                    '%s ready to ship from %s — claim the run on Middo boxes pending run, then wait for kitchen dispatch.',
-                    $boxList,
-                    $kitchen->name
-                ),
+                $count === 1 ? 'Assign kitchen→ops rider' : "Assign kitchen→ops riders ({$count})",
+                sprintf('%s ready to ship from %s — assign a rider on Middo Boxes.', $boxList, $kitchen->name),
                 null,
                 [
                     'box_ids' => $boxIds,
                     'kitchen_id' => $kitchen->id,
-                    'area_id' => $areaId,
                     'run_type' => DeliveryRunType::KITCHEN_TO_OPS,
-                    'phase' => 'run_requested',
+                    'phase' => 'needs_ops_assign',
                 ],
-                'kitchen_ops_request:'.implode('-', $boxIds).':'.$rider->id
+                'kitchen_ops_ops_assign:'.implode('-', $boxIds).':'.$userId
             );
             if ($alert) {
                 $created++;
@@ -432,6 +445,49 @@ class StaffAlerts
         }
 
         return $created;
+    }
+
+    /**
+     * @deprecated Ops assigns kitchen→ops riders.
+     *
+     * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
+     */
+    public static function notifyAreaRidersKitchenToOpsRunRequested(User $kitchen, Collection|array $boxes): int
+    {
+        return self::notifyOpsKitchenToOpsNeedsRider($kitchen, $boxes);
+    }
+
+    /**
+     * @param  Collection<int, MiddoBox>|list<MiddoBox>  $boxes
+     */
+    public static function notifyRiderKitchenToOpsAssigned(User $rider, ?User $kitchen, Collection|array $boxes): int
+    {
+        $boxes = collect($boxes)->filter()->values();
+        if ($boxes->isEmpty()) {
+            return 0;
+        }
+
+        $labels = $boxes->map(fn (MiddoBox $b) => $b->qr_code_id ?: '#'.$b->id)->all();
+        $count = $boxes->count();
+        $boxList = implode(', ', array_slice($labels, 0, 5)).($count > 5 ? '…' : '');
+        $kitchenName = $kitchen?->name ?? 'kitchen';
+
+        $alert = self::createOnce(
+            (int) $rider->id,
+            StaffAlert::TYPE_KITCHEN_TO_OPS_BOX,
+            $count === 1 ? 'Assigned kitchen→ops run' : "Assigned kitchen→ops runs ({$count})",
+            sprintf('%s from %s — wait for kitchen dispatch, then accept the box.', $boxList, $kitchenName),
+            null,
+            [
+                'box_ids' => $boxes->map(fn (MiddoBox $b) => (int) $b->id)->all(),
+                'kitchen_id' => $kitchen?->id,
+                'run_type' => DeliveryRunType::KITCHEN_TO_OPS,
+                'phase' => 'ops_assigned',
+            ],
+            'kitchen_ops_assigned:'.implode('-', $boxes->map(fn (MiddoBox $b) => (int) $b->id)->sort()->values()->all()).':'.$rider->id
+        );
+
+        return $alert ? 1 : 0;
     }
 
     /**
@@ -452,8 +508,8 @@ class StaffAlerts
         $alert = self::createOnce(
             (int) $kitchen->id,
             StaffAlert::TYPE_KITCHEN_TO_OPS_BOX,
-            $count === 1 ? 'Rider claimed warehouse run' : "Rider claimed warehouse runs ({$count})",
-            sprintf('%s claimed %s — dispatch when ready.', $rider->name, $boxList),
+            $count === 1 ? 'Rider assigned warehouse run' : "Rider assigned warehouse runs ({$count})",
+            sprintf('%s assigned to %s — dispatch when ready.', $rider->name, $boxList),
             null,
             [
                 'box_ids' => $boxIds,
@@ -617,40 +673,30 @@ class StaffAlerts
     }
 
     /**
-     * Corporate marked an empty Middo box ready for pickup — notify riders serving that area.
-     *
-     * @return int number of alerts created
+     * Corporate marked an empty Middo box ready — ops assigns a collect rider.
      */
-    public static function notifyRidersEmptyBoxPickup(MiddoBox $box): int
+    public static function notifyOpsEmptyBoxNeedsRider(MiddoBox $box): int
     {
         $box->loadMissing('heldByUser');
         $holder = $box->heldByUser;
-        $areaId = $holder?->area_id !== null ? (int) $holder->area_id : null;
-        $riders = DeliveryAreaScope::ridersForArea($areaId);
-        if ($riders === []) {
-            return 0;
-        }
-
         $qr = $box->qr_code_id ?: '#'.$box->id;
         $place = $holder?->name ?? 'corporate';
-        $title = 'Empty box pickup '.$qr;
-        $body = sprintf('%s is ready for pickup at %s.', $qr, $place);
         $created = 0;
 
-        foreach ($riders as $rider) {
+        foreach (self::opsAndAdminUserIds() as $userId) {
             $alert = self::createOnce(
-                (int) $rider->id,
+                $userId,
                 StaffAlert::TYPE_EMPTY_BOX_PICKUP,
-                $title,
-                $body,
+                'Assign empty-box rider '.$qr,
+                sprintf('%s is ready for pickup at %s. Assign a rider on Middo Boxes.', $qr, $place),
                 null,
                 [
                     'box_id' => $box->id,
-                    'area_id' => $areaId,
                     'corporate_user_id' => $holder?->id,
                     'run_type' => DeliveryRunType::CORPORATE_TO_KITCHEN,
+                    'phase' => 'needs_ops_assign',
                 ],
-                'empty_box_pickup:'.$box->id.':'.$rider->id
+                'empty_box_ops_assign:'.$box->id.':'.$userId
             );
             if ($alert) {
                 $created++;
@@ -658,6 +704,38 @@ class StaffAlerts
         }
 
         return $created;
+    }
+
+    /**
+     * @deprecated Ops assigns empty-box collect riders.
+     */
+    public static function notifyRidersEmptyBoxPickup(MiddoBox $box): int
+    {
+        return self::notifyOpsEmptyBoxNeedsRider($box);
+    }
+
+    public static function notifyRiderEmptyBoxAssigned(MiddoBox $box, User $rider): int
+    {
+        $box->loadMissing('heldByUser');
+        $qr = $box->qr_code_id ?: '#'.$box->id;
+        $place = $box->heldByUser?->name ?? 'corporate';
+
+        $alert = self::createOnce(
+            (int) $rider->id,
+            StaffAlert::TYPE_EMPTY_BOX_PICKUP,
+            'Assigned empty box pickup '.$qr,
+            sprintf('Collect %s at %s, then hand to kitchen.', $qr, $place),
+            null,
+            [
+                'box_id' => $box->id,
+                'corporate_user_id' => $box->heldByUser?->id,
+                'run_type' => DeliveryRunType::CORPORATE_TO_KITCHEN,
+                'phase' => 'ops_assigned',
+            ],
+            'empty_box_assigned:'.$box->id.':'.$rider->id
+        );
+
+        return $alert ? 1 : 0;
     }
 
     public static function unreadCount(int $userId): int

@@ -81,25 +81,10 @@ class CustomRun extends Model
     }
 
     /**
-     * Visible to a rider: own assigned/started runs, or unclaimed pending in their areas / unscoped.
+     * Visible to a rider: only runs ops assigned to them.
      */
     public function scopeVisibleToRider(Builder $query, User $rider): Builder
     {
-        $riderId = (int) $rider->id;
-        $areaIds = $rider->serviceAreaIds();
-
-        return $query->where(function (Builder $q) use ($riderId, $areaIds) {
-            $q->where('rider_user_id', $riderId)
-                ->orWhere(function (Builder $pending) use ($areaIds) {
-                    $pending->where('status', self::STATUS_PENDING)
-                        ->whereNull('rider_user_id')
-                        ->where(function (Builder $areaQ) use ($areaIds) {
-                            $areaQ->whereNull('area_id');
-                            if ($areaIds !== []) {
-                                $areaQ->orWhereIn('area_id', $areaIds);
-                            }
-                        });
-                });
-        });
+        return $query->where('rider_user_id', (int) $rider->id);
     }
 }

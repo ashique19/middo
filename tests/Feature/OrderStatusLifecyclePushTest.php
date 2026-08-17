@@ -19,6 +19,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
+use Tests\Support\LunchRunFlow;
 use Tests\TestCase;
 
 class OrderStatusLifecyclePushTest extends TestCase
@@ -144,10 +145,8 @@ class OrderStatusLifecyclePushTest extends TestCase
         $this->assertSame('ready', $order->fresh()->order_status);
         Queue::assertPushed(SendOrderStatusPush::class, fn ($job) => $job->status === 'ready');
 
-        // 3) Rider accepts claim → rider_assigned
-        Livewire::actingAs($rider)
-            ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id);
+        // 3) Ops assigns rider → rider_assigned
+        LunchRunFlow::riderAccept($rider, $order->fresh());
         $this->assertSame('rider_assigned', $order->fresh()->order_status);
         Queue::assertPushed(SendOrderStatusPush::class, fn ($job) => $job->status === 'rider_assigned');
 
@@ -271,9 +270,7 @@ class OrderStatusLifecyclePushTest extends TestCase
             'updated_by' => $kitchen->id,
         ]);
 
-        Livewire::actingAs($rider)
-            ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id);
+        LunchRunFlow::riderAccept($rider, $order->fresh());
 
         Livewire::actingAs($kitchen)
             ->test(DispatchOrderModal::class)

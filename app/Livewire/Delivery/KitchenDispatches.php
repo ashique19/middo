@@ -24,60 +24,12 @@ class KitchenDispatches extends Component
     public ?string $errorMessage = null;
 
     /**
-     * Rider claims a ready (or orphan packed) order — no box custody yet.
+     * @deprecated Riders no longer first-claim lunch runs. Ops assigns via Rider ops.
      */
     public function acceptOrder(int $orderId): void
     {
         $this->statusMessage = null;
-        $this->errorMessage = null;
-
-        $riderId = (int) Auth::id();
-
-        try {
-            $label = DB::transaction(function () use ($orderId, $riderId) {
-                $order = Order::query()
-                    ->whereKey($orderId)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (! $order || ! $order->isAwaitingRiderAccept()) {
-                    throw new \RuntimeException('This run is no longer available to accept.');
-                }
-
-                $rider = User::query()->find($riderId);
-                if (! $rider || ! DeliveryAreaScope::riderMayAccept($order, $rider)) {
-                    throw new \RuntimeException('This run is outside your service areas.');
-                }
-
-                if (! $rider->canAcceptNewRuns()) {
-                    throw new \RuntimeException('You are not on shift. Set On shift on the dashboard before accepting runs.');
-                }
-
-                if ($order->order_status === OrderTransition::READY) {
-                    OrderTransition::apply($order, OrderTransition::RIDER_ASSIGNED, [
-                        'delivery_rider_id' => $riderId,
-                        'original_delivery_rider_id' => $riderId,
-                        'updated_by' => $riderId,
-                    ]);
-
-                    return '#'.$order->id;
-                }
-
-                // Orphan packed (ops released) — reclaim without moving boxes yet.
-                $order->update([
-                    'delivery_rider_id' => $riderId,
-                    'original_delivery_rider_id' => $order->original_delivery_rider_id ?: $riderId,
-                    'updated_by' => $riderId,
-                ]);
-
-                return '#'.$order->id;
-            });
-
-            $this->statusMessage = "Accepted order {$label}. Wait for kitchen to pack, then confirm pickup.";
-            $this->resetPage();
-        } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage() ?: 'Could not accept this order.';
-        }
+        $this->errorMessage = 'Ops assigns lunch runs. This order will appear here after assignment.';
     }
 
     /**

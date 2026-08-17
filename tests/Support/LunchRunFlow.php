@@ -6,24 +6,23 @@ use App\Livewire\Delivery\KitchenDispatches;
 use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Models\MiddoBox;
 use App\Models\Order;
+use App\Models\Role;
 use App\Models\User;
+use App\Support\OpsAssignRider;
 use App\Support\OrderTransition;
 use Livewire\Livewire;
 
 /**
- * Shared lunch-run steps for the claim-before-dispatch lifecycle.
+ * Shared lunch-run steps for the ops-assign-before-dispatch lifecycle.
  */
 class LunchRunFlow
 {
     /**
-     * ready → rider_assigned (claim). Order must already be ready.
+     * ready → rider_assigned (ops assigns). Order must already be ready.
      */
-    public static function riderAccept(User $rider, Order $order): void
+    public static function riderAccept(User $rider, Order $order, ?User $ops = null): void
     {
-        Livewire::actingAs($rider)
-            ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
-            ->assertSet('errorMessage', null);
+        OpsAssignRider::lunch($order->fresh(), $rider, $ops ?? self::opsActor());
     }
 
     /**
@@ -57,7 +56,7 @@ class LunchRunFlow
     }
 
     /**
-     * Full path from ready: claim → pack → pickup.
+     * Full path from ready: ops assign → pack → pickup.
      *
      * @param  list<MiddoBox>|MiddoBox  $boxes
      */
@@ -84,5 +83,25 @@ class LunchRunFlow
         }
 
         return $order->fresh();
+    }
+
+    public static function opsActor(): User
+    {
+        $roleId = Role::query()->whereIn('name', ['operation', 'admin'])->value('id')
+            ?: Role::create(['name' => 'operation'])->id;
+
+        $existing = User::query()->where('role_id', $roleId)->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        return User::create([
+            'first_name' => 'Ops',
+            'last_name' => 'Assign',
+            'mobile' => '0190000'.str_pad((string) random_int(1000, 9999), 4, '0', STR_PAD_LEFT),
+            'password' => 'password',
+            'role_id' => $roleId,
+            'status' => 'active',
+        ]);
     }
 }

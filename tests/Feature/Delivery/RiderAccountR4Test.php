@@ -6,8 +6,9 @@ use App\Livewire\Delivery\Account;
 use App\Livewire\Delivery\KitchenDispatches;
 use App\Livewire\Kitchen\DispatchOrderModal;
 use App\Livewire\Shared\RiderMoneyApprovals;
-use App\Models\MiddoBankAccount;
 use App\Models\MenuItem;
+use App\Models\MiddoBankAccount;
+use App\Models\MiddoBankLedgerEntry;
 use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Models\OrderGroup;
@@ -15,6 +16,7 @@ use App\Models\PartnerPayable;
 use App\Models\RiderWithdrawalRequest;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\MiddoBankLedger;
 use App\Support\MiddoCashLedger;
 use App\Support\OrderTransition;
 use App\Support\PayoutChannel;
@@ -22,6 +24,7 @@ use App\Support\RiderAccountLedger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
+use Tests\Support\LunchRunFlow;
 use Tests\TestCase;
 
 class RiderAccountR4Test extends TestCase
@@ -116,10 +119,7 @@ class RiderAccountR4Test extends TestCase
         OrderTransition::apply($order->fresh(), OrderTransition::PROCESSING);
         OrderTransition::apply($order->fresh(), OrderTransition::READY);
 
-        Livewire::actingAs($this->rider)
-            ->test(KitchenDispatches::class)
-            ->call('acceptOrder', $order->id)
-            ->assertSet('errorMessage', null);
+        LunchRunFlow::riderAccept($this->rider, $order->fresh());
 
         $this->assertSame(OrderTransition::RIDER_ASSIGNED, $order->fresh()->order_status);
         $this->assertSame($this->rider->id, (int) $order->fresh()->delivery_rider_id);
@@ -182,10 +182,10 @@ class RiderAccountR4Test extends TestCase
             'is_default' => true,
             'is_active' => true,
         ]);
-        \App\Support\MiddoBankLedger::credit(
+        MiddoBankLedger::credit(
             (int) $bank->id,
             1000,
-            \App\Models\MiddoBankLedgerEntry::TYPE_ADJUSTMENT,
+            MiddoBankLedgerEntry::TYPE_ADJUSTMENT,
             null,
             null,
             'Seed bank',
@@ -220,7 +220,7 @@ class RiderAccountR4Test extends TestCase
 
         $this->assertSame(0, RiderAccountLedger::balance($this->rider->id));
         $this->assertSame(1000, MiddoCashLedger::balance());
-        $this->assertSame(960, \App\Support\MiddoBankLedger::balance((int) $bank->id));
+        $this->assertSame(960, MiddoBankLedger::balance((int) $bank->id));
         $this->assertSame(
             PartnerPayable::STATUS_SETTLED,
             PartnerPayable::query()

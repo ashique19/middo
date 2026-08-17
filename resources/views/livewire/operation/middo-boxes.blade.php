@@ -60,6 +60,91 @@
         </div>
     @endif
 
+    @if($unassignedKitchenToOps->isNotEmpty() || $unassignedEmptyPickups->isNotEmpty())
+        <div class="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 sm:p-5 space-y-4 shadow-sm">
+            <div>
+                <h2 class="text-lg font-bold text-sky-950">Assign rider</h2>
+                <p class="text-sm font-semibold text-sky-800/80">Riders no longer claim these runs. Pick a rider for each kitchen→ops return and corporate empty-box collect.</p>
+            </div>
+            @if($unassignedKitchenToOps->isNotEmpty())
+                <div class="bg-white/90 border border-sky-100 rounded-xl overflow-hidden">
+                    <p class="px-4 py-2 text-xs font-bold uppercase tracking-wider text-sky-800 bg-sky-50">Kitchen → ops (box)</p>
+                    <ul class="divide-y divide-sky-50">
+                        @foreach($unassignedKitchenToOps as $box)
+                            <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                                <div>
+                                    <span class="font-mono font-bold text-middo-dark">{{ $box->qr_code_id }}</span>
+                                    <span class="text-gray-500"> · {{ $box->warehouseHandoff?->kitchen?->name ?? 'Kitchen' }}</span>
+                                    @if($box->asset_status === 'damaged')
+                                        <span class="ml-1 text-xs font-bold text-rose-700">Damaged</span>
+                                    @endif
+                                </div>
+                                <button type="button" wire:click="openAssignRider({{ $box->id }}, 'kitchen_to_ops')"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">
+                                    Assign rider
+                                </button>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+            @if($unassignedEmptyPickups->isNotEmpty())
+                <div class="bg-white/90 border border-sky-100 rounded-xl overflow-hidden">
+                    <p class="px-4 py-2 text-xs font-bold uppercase tracking-wider text-sky-800 bg-sky-50">Corporate → kitchen (empty box)</p>
+                    <ul class="divide-y divide-sky-50">
+                        @foreach($unassignedEmptyPickups as $box)
+                            <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                                <div>
+                                    <span class="font-mono font-bold text-middo-dark">{{ $box->qr_code_id }}</span>
+                                    <span class="text-gray-500"> · {{ $box->heldByUser?->name ?? 'Corporate' }}</span>
+                                </div>
+                                <button type="button" wire:click="openAssignRider({{ $box->id }}, 'empty_box')"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">
+                                    Assign rider
+                                </button>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+        </div>
+    @endif
+
+    @if($assignBoxId)
+        <div class="fixed inset-0 bg-gray-900/50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+                <h3 class="text-lg font-bold text-middo-dark">
+                    {{ $assignKind === 'empty_box' ? 'Assign empty-box collect' : 'Assign kitchen→ops rider' }}
+                </h3>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Rider</label>
+                    <select wire:model="assignRiderId" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        <option value="">Select rider</option>
+                        @foreach($assignRiders as $rider)
+                            <option value="{{ $rider['id'] }}">{{ $rider['name'] }} · {{ $rider['areas_label'] }}</option>
+                        @endforeach
+                    </select>
+                    @error('assignRiderId') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                @if($assignKind === 'empty_box')
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Return kitchen</label>
+                        <select wire:model="assignKitchenId" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                            <option value="">Infer from last lunch / required if unknown</option>
+                            @foreach($assignKitchens as $kitchen)
+                                <option value="{{ $kitchen['id'] }}">{{ $kitchen['name'] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+                <div class="flex justify-end gap-2">
+                    <button type="button" wire:click="cancelAssignRider" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold">Cancel</button>
+                    <button type="button" wire:click="saveAssignRider" class="px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold">Assign</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
     @if($pendingBoxRequests->isNotEmpty())
         <div class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 sm:p-5 space-y-3 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-2">

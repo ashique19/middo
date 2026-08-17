@@ -62,19 +62,21 @@ class CustomRuns extends Component
                 'fromLabel' => 'required|string|max:120',
                 'toLabel' => 'required|string|max:120',
                 'areaId' => 'nullable|exists:areas,id',
-                'riderUserId' => 'nullable|exists:users,id',
+                'riderUserId' => 'required|exists:users,id',
                 'commissionAmount' => 'required|integer|min:0|max:100000',
                 'notes' => 'nullable|string|max:500',
             ]);
 
-            if ($this->riderUserId) {
-                $rider = User::query()->with('role')->findOrFail((int) $this->riderUserId);
-                if ($rider->role?->name !== 'delivery') {
-                    throw new \RuntimeException('Assignee must be a delivery rider.');
-                }
-                if ($this->areaId && ! $rider->servesArea((int) $this->areaId)) {
-                    throw new \RuntimeException('Selected rider does not serve that area.');
-                }
+            if (! $this->riderUserId) {
+                throw new \RuntimeException('Select a rider. Custom runs are not an open pool.');
+            }
+
+            $rider = User::query()->with('role')->findOrFail((int) $this->riderUserId);
+            if ($rider->role?->name !== 'delivery') {
+                throw new \RuntimeException('Assignee must be a delivery rider.');
+            }
+            if ($this->areaId && ! $rider->servesArea((int) $this->areaId)) {
+                throw new \RuntimeException('Selected rider does not serve that area.');
             }
 
             $run = CustomRun::create([
@@ -148,20 +150,20 @@ class CustomRuns extends Component
                 throw new \RuntimeException('Only pending runs can be reassigned. Cancel a started run first.');
             }
 
-            if ($riderUserId) {
-                $rider = User::query()->with('role')->findOrFail($riderUserId);
-                if ($rider->role?->name !== 'delivery') {
-                    throw new \RuntimeException('Assignee must be a delivery rider.');
-                }
-                if ($run->area_id && ! $rider->servesArea((int) $run->area_id)) {
-                    throw new \RuntimeException('Selected rider does not serve that area.');
-                }
+            if (! $riderUserId) {
+                throw new \RuntimeException('Select a rider. Custom runs cannot be an open pool.');
+            }
+
+            $rider = User::query()->with('role')->findOrFail($riderUserId);
+            if ($rider->role?->name !== 'delivery') {
+                throw new \RuntimeException('Assignee must be a delivery rider.');
+            }
+            if ($run->area_id && ! $rider->servesArea((int) $run->area_id)) {
+                throw new \RuntimeException('Selected rider does not serve that area.');
             }
 
             $run->update(['rider_user_id' => $riderUserId]);
-            $this->statusMessage = $riderUserId
-                ? "Custom run #{$id} reassigned."
-                : "Custom run #{$id} returned to open pool.";
+            $this->statusMessage = "Custom run #{$id} reassigned.";
         } catch (\Throwable $e) {
             $this->errorMessage = $e->getMessage() ?: 'Could not reassign run.';
         }

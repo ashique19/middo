@@ -103,7 +103,7 @@ class KitchenToOpsRiderLegN5Test extends TestCase
         $this->assertDatabaseMissing('kitchen_warehouse_handoffs', ['middo_box_id' => $box->id]);
     }
 
-    public function test_ready_to_ship_claim_dispatch_accept_hand_ops_receive(): void
+    public function test_ready_to_ship_ops_assign_dispatch_accept_hand_ops_receive(): void
     {
         MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
         MiddoSettings::set('delivery.commission.'.DeliveryRunType::KITCHEN_TO_OPS, '33');
@@ -144,17 +144,29 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             'status' => KitchenWarehouseHandoff::STATUS_RUN_REQUESTED,
         ]);
         $this->assertTrue(StaffAlert::query()
+            ->where('user_id', $ops->id)
+            ->where('type', StaffAlert::TYPE_KITCHEN_TO_OPS_BOX)
+            ->where('title', 'Assign kitchen→ops rider')
+            ->exists());
+        $this->assertFalse(StaffAlert::query()
             ->where('user_id', $rider->id)
             ->where('type', StaffAlert::TYPE_KITCHEN_TO_OPS_BOX)
-            ->where('title', 'Kitchen→ops run requested')
             ->exists());
-        $this->assertSame(1, RiderPendingBoxes::countForRider($rider->id));
+        $this->assertSame(0, RiderPendingBoxes::countForRider($rider->id));
+        $this->assertSame(0, RiderPendingBoxes::claimableKitchenToOpsCount());
 
         Livewire::actingAs($rider)
             ->test(PendingBoxRuns::class)
-            ->assertSee('Claim kitchen→ops run', false)
-            ->assertSee('Claim run', false)
+            ->assertDontSee('Claim run')
             ->call('claimKitchenReturn', $box->id)
+            ->assertSet('errorMessage', fn ($m) => is_string($m) && str_contains($m, 'Ops assigns'));
+
+        Livewire::actingAs($ops)
+            ->test(MiddoBoxes::class)
+            ->assertSee('Assign rider', false)
+            ->call('openAssignRider', $box->id, 'kitchen_to_ops')
+            ->set('assignRiderId', $rider->id)
+            ->call('saveAssignRider')
             ->assertSet('errorMessage', null);
 
         $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
@@ -166,10 +178,14 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             ->where('user_id', $kitchen->id)
             ->where('type', StaffAlert::TYPE_KITCHEN_TO_OPS_BOX)
             ->exists());
+        $this->assertTrue(StaffAlert::query()
+            ->where('user_id', $rider->id)
+            ->where('type', StaffAlert::TYPE_KITCHEN_TO_OPS_BOX)
+            ->exists());
 
         Livewire::actingAs($kitchen)
             ->test(BoxesAtKitchen::class)
-            ->assertSee('Rider claimed', false)
+            ->assertSee('Rider assigned', false)
             ->assertSee('Dispatch to', false)
             ->call('dispatchWarehouseRun', $box->id)
             ->assertSet('errorMessage', null);
@@ -246,15 +262,23 @@ class KitchenToOpsRiderLegN5Test extends TestCase
         Livewire::actingAs($rider)
             ->test(StaffAlertsPage::class)
             ->assertOk()
-            ->assertSee('Kitchen→ops run requested', false)
+            ->assertSee('Assigned kitchen→ops run', false)
             ->assertSee('Open pending box runs', false);
     }
 
-    public function test_rider_outside_kitchen_area_still_gets_notified_and_can_claim(): void
+    public function test_ops_can_assign_rider_outside_kitchen_area(): void
     {
         MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
 
         $kitchen = $this->makeKitchen();
+        $ops = User::create([
+            'first_name' => 'Ops',
+            'last_name' => 'Any',
+            'mobile' => '01790000088',
+            'password' => 'password',
+            'role_id' => $this->operationRole->id,
+            'status' => 'active',
+        ]);
         $otherArea = Area::create(['name' => 'Mirpur Test', 'city_id' => $this->city->id]);
         $rider = User::create([
             'first_name' => 'Rider',
@@ -283,23 +307,22 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             ->call('sendToWarehouse', $box->id)
             ->assertSet('errorMessage', null);
 
-        $this->assertTrue(StaffAlert::query()
+        $this->assertFalse(StaffAlert::query()
             ->where('user_id', $rider->id)
             ->where('type', StaffAlert::TYPE_KITCHEN_TO_OPS_BOX)
-            ->where('title', 'Kitchen→ops run requested')
             ->exists());
-        $this->assertSame(1, RiderPendingBoxes::countForRider($rider->id));
+        $this->assertSame(0, RiderPendingBoxes::countForRider($rider->id));
 
         Livewire::actingAs($rider)
             ->test(Dashboard::class)
-            ->assertSet('claimableKitchenToOpsCount', 1)
-            ->assertSee('kitchen→ops', false)
-            ->assertSee('waiting to claim', false);
+            ->assertSet('claimableKitchenToOpsCount', 0)
+            ->assertDontSee('waiting to claim');
 
-        Livewire::actingAs($rider)
-            ->test(PendingBoxRuns::class)
-            ->assertSee('Claim run', false)
-            ->call('claimKitchenReturn', $box->id)
+        Livewire::actingAs($ops)
+            ->test(MiddoBoxes::class)
+            ->call('openAssignRider', $box->id, 'kitchen_to_ops')
+            ->set('assignRiderId', $rider->id)
+            ->call('saveAssignRider')
             ->assertSet('errorMessage', null);
 
         $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
@@ -307,9 +330,10 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             'rider_id' => $rider->id,
             'status' => KitchenWarehouseHandoff::STATUS_RUN_CLAIMED,
         ]);
+        $this->assertSame(1, RiderPendingBoxes::countForRider($rider->id));
     }
 
-    public function test_damaged_box_uses_via_rider_claim_dispatch_accept_hand(): void
+    public function test_damaged_box_uses_via_rider_ops_assign_dispatch_accept_hand(): void
     {
         MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
         MiddoSettings::set('delivery.commission.'.DeliveryRunType::KITCHEN_TO_OPS, '21');
@@ -360,17 +384,18 @@ class KitchenToOpsRiderLegN5Test extends TestCase
             'status' => KitchenWarehouseHandoff::STATUS_RUN_REQUESTED,
             'rider_id' => null,
         ]);
-        $this->assertTrue(StaffAlert::query()
+        $this->assertFalse(StaffAlert::query()
             ->where('user_id', $rider->id)
             ->where('type', StaffAlert::TYPE_KITCHEN_TO_OPS_BOX)
-            ->where('title', 'Kitchen→ops run requested')
             ->exists());
-        $this->assertSame(1, RiderPendingBoxes::claimableKitchenToOpsCount());
-        $this->assertSame(1, RiderPendingBoxes::countForRider($rider->id));
+        $this->assertSame(0, RiderPendingBoxes::claimableKitchenToOpsCount());
+        $this->assertSame(0, RiderPendingBoxes::countForRider($rider->id));
 
-        Livewire::actingAs($rider)
-            ->test(PendingBoxRuns::class)
-            ->call('claimKitchenReturn', $box->id)
+        Livewire::actingAs($ops)
+            ->test(MiddoBoxes::class)
+            ->call('openAssignRider', $box->id, 'kitchen_to_ops')
+            ->set('assignRiderId', $rider->id)
+            ->call('saveAssignRider')
             ->assertSet('errorMessage', null);
 
         Livewire::actingAs($kitchen)

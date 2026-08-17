@@ -6,8 +6,12 @@ use App\Models\KitchenBoxRequestBox;
 use App\Models\KitchenWarehouseHandoff;
 use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
+use App\Models\User;
+use App\Support\DeliveryRunType;
 use App\Support\KitchenBoxRequestFlow;
 use App\Support\MiddoBoxKitchenActions;
+use App\Support\MiddoOperatingCosts;
+use App\Support\RiderCommission;
 use App\Support\RiderPendingBoxes;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
@@ -40,14 +44,64 @@ class PendingBoxRuns extends Component
     public function claimKitchenReturn(int $boxId): void
     {
         $this->statusMessage = null;
+        $this->errorMessage = 'Ops assigns kitchen→ops runs. This box will appear here after assignment.';
+    }
+
+    public function collectEmptyBox(int $boxId): void
+    {
+        $this->statusMessage = null;
         $this->errorMessage = null;
+        $riderId = (int) Auth::id();
 
         try {
-            $box = MiddoBoxKitchenActions::claimWarehouseRun($boxId, (int) Auth::id());
-            $this->statusMessage = "{$box->qr_code_id} run claimed — wait for kitchen to dispatch.";
+            $qr = DB::transaction(function () use ($boxId, $riderId) {
+                $box = MiddoBox::query()->with('heldByUser.role')->whereKey($boxId)->lockForUpdate()->first();
+                if (! $box || (int) $box->pickup_rider_id !== $riderId || ! $box->ready_for_pickup) {
+                    throw new \RuntimeException('This empty-box collect is not assigned to you.');
+                }
+                if ($box->heldByUser?->role?->name !== 'corporate') {
+                    throw new \RuntimeException('This box is not with the corporate customer.');
+                }
+
+                $holderName = $box->heldByUser?->name ?? 'corporate';
+                $box->update([
+                    'held_by_user_id' => $riderId,
+                    'pickup_rider_id' => $riderId,
+                    'ready_for_pickup' => false,
+                    'kitchen_id' => null,
+                    'asset_status' => 'active',
+                    'last_scanned_at' => now(),
+                ]);
+
+                MiddoBoxLog::create([
+                    'middo_box_id' => $box->id,
+                    'custody_status' => 'collected_by_rider',
+                    'log_action' => 'picked_from_corporate_by_delivery',
+                    'notes' => 'Collected empty box from '.$holderName,
+                    'performed_by' => $riderId,
+                ]);
+
+                $rider = User::query()->find($riderId);
+                if ($rider) {
+                    $perBox = RiderCommission::forSettingsRun($rider, DeliveryRunType::CORPORATE_TO_KITCHEN);
+                    MiddoOperatingCosts::bookRiderCommission(
+                        $rider,
+                        DeliveryRunType::CORPORATE_TO_KITCHEN,
+                        $perBox,
+                        MiddoBox::class,
+                        (int) $box->id,
+                        'Corporate→kitchen box #'.($box->qr_code_id ?? $box->id),
+                        $riderId
+                    );
+                }
+
+                return $box->qr_code_id;
+            });
+
+            $this->statusMessage = "{$qr} collected. Hand to kitchen when you arrive.";
             $this->resetPage();
         } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage() ?: 'Could not claim this run.';
+            $this->errorMessage = $e->getMessage() ?: 'Could not collect this box.';
         }
     }
 
@@ -117,15 +171,15 @@ class PendingBoxRuns extends Component
                     throw new \RuntimeException('This box is not in your custody.');
                 }
 
-                if ($box->kitchen_id !== null && (int) $box->held_by_user_id !== (int) $box->kitchen_id) {
-                    throw new \RuntimeException('This box is already marked as handed to a kitchen.');
-                }
-
                 $order = $box->orderMiddoBoxes->first()?->order;
-                $kitchenId = $order?->orderGroup?->kitchen_id;
+                $kitchenId = $order?->orderGroup?->kitchen_id ?: $box->return_kitchen_id;
 
                 if (! $kitchenId) {
-                    throw new \RuntimeException('Destination kitchen is unknown for this box. Ensure the order group has a kitchen.');
+                    throw new \RuntimeException('Destination kitchen is unknown for this box.');
+                }
+
+                if ($box->kitchen_id !== null && (int) $box->held_by_user_id !== (int) $box->kitchen_id) {
+                    throw new \RuntimeException('This box is already marked as handed to a kitchen.');
                 }
 
                 $box->update([
@@ -213,8 +267,11 @@ class PendingBoxRuns extends Component
                     ?? $linkedOrder?->orderGroup?->kitchen;
                 $latestAction = $latestActions->get($box->id)?->log_action;
 
+                $isEmptyBoxCollect = (int) ($box->pickup_rider_id ?? 0) === $riderId
+                    && (bool) $box->ready_for_pickup
+                    && (int) $box->held_by_user_id !== $riderId;
+
                 $isStagedPickup = $stagedByBoxId->has($box->id);
-                $isClaimableKitchenReturn = $kitchenReturn?->status === KitchenWarehouseHandoff::STATUS_RUN_REQUESTED;
                 $isClaimedWaitingDispatch = $kitchenReturn?->status === KitchenWarehouseHandoff::STATUS_RUN_CLAIMED
                     && (int) $kitchenReturn->rider_id === $riderId;
                 $isDispatchedKitchenReturn = $kitchenReturn?->status === KitchenWarehouseHandoff::STATUS_DISPATCHED
@@ -234,24 +291,25 @@ class PendingBoxRuns extends Component
                     && ! $linkedOrder;
 
                 $canAcceptPickup = $isStagedPickup;
-                $canClaimKitchenReturn = (bool) $isClaimableKitchenReturn;
+                $canCollectEmptyBox = $isEmptyBoxCollect;
                 $canAcceptKitchenReturn = (bool) $isDispatchedKitchenReturn;
                 $canHandWarehouseStock = $isAcceptedWarehouseStock;
                 $canHandToKitchen = ! $enRouteToWarehouse
                     && ! $isStagedPickup
                     && ! $kitchenReturn
                     && ! $isAcceptedWarehouseStock
+                    && ! $isEmptyBoxCollect
                     && $box->kitchen_id === null
-                    && $linkedOrder !== null
-                    && $linkedOrder->orderGroup?->kitchen_id;
+                    && (int) $box->held_by_user_id === $riderId
+                    && ($linkedOrder !== null || (int) ($box->return_kitchen_id ?? 0) > 0);
 
                 $runLabel = 'With you';
                 if ($isStagedPickup) {
                     $runLabel = 'Ready for pickup at warehouse';
-                } elseif ($isClaimableKitchenReturn) {
-                    $runLabel = 'Claim kitchen→ops run';
+                } elseif ($isEmptyBoxCollect) {
+                    $runLabel = 'Collect empty box at corporate';
                 } elseif ($isClaimedWaitingDispatch) {
-                    $runLabel = 'Claimed — waiting kitchen dispatch';
+                    $runLabel = 'Assigned — waiting kitchen dispatch';
                 } elseif ($isDispatchedKitchenReturn) {
                     $runLabel = 'Dispatched — accept box at kitchen';
                 } elseif ($isHandedAwaitingOpsReceive || $latestAction === 'handed_to_ops_warehouse') {
@@ -269,7 +327,6 @@ class PendingBoxRuns extends Component
                 }
 
                 $showWarehouseDestination = $enRouteToWarehouse
-                    || $isClaimableKitchenReturn
                     || $isClaimedWaitingDispatch
                     || $isDispatchedKitchenReturn
                     || $isInTransitKitchenReturn
@@ -282,13 +339,15 @@ class PendingBoxRuns extends Component
                     ? 'ops-kitchen-'.$opsKitchenRequestId
                     : ($kitchenReturn
                         ? 'kitchen-ops-'.($kitchenReturn->kitchen_id ?? 'x').'-'.$kitchenReturn->status
-                        : 'solo-'.$box->id);
+                        : ($isEmptyBoxCollect
+                            ? 'empty-box-'.($box->held_by_user_id ?? 'x')
+                            : 'solo-'.$box->id));
 
                 $runGroupTitle = $opsKitchenRequestId
                     ? 'Ops→kitchen run #'.$opsKitchenRequestId
                     : ($kitchenReturn
                         ? 'Kitchen→ops return'
-                        : 'Single box');
+                        : ($isEmptyBoxCollect ? 'Corporate→kitchen empty box' : 'Single box'));
 
                 return [
                     'id' => $box->id,
@@ -298,22 +357,29 @@ class PendingBoxRuns extends Component
                     'run_group_key' => $runGroupKey,
                     'run_group_title' => $runGroupTitle,
                     'request_id' => $opsKitchenRequestId ? (int) $opsKitchenRequestId : null,
-                    'kitchen_name' => $showWarehouseDestination
-                        ? (($destinationKitchen?->name ? $destinationKitchen->name.' → ' : '').'Middo warehouse')
-                        : $destinationKitchen?->name,
-                    'kitchen_mobile' => $showWarehouseDestination && ! $destinationKitchen
-                        ? null
-                        : $destinationKitchen?->mobile,
-                    'kitchen_address' => $showWarehouseDestination && ! $destinationKitchen
-                        ? null
-                        : $destinationKitchen?->address,
+                    'kitchen_name' => $isEmptyBoxCollect
+                        ? ($box->heldByUser?->name ?? 'Corporate')
+                        : ($showWarehouseDestination
+                            ? (($destinationKitchen?->name ? $destinationKitchen->name.' → ' : '').'Middo warehouse')
+                            : $destinationKitchen?->name),
+                    'kitchen_mobile' => $isEmptyBoxCollect
+                        ? $box->heldByUser?->mobile
+                        : ($showWarehouseDestination && ! $destinationKitchen
+                            ? null
+                            : $destinationKitchen?->mobile),
+                    'kitchen_address' => $isEmptyBoxCollect
+                        ? $box->heldByUser?->address
+                        : ($showWarehouseDestination && ! $destinationKitchen
+                            ? null
+                            : $destinationKitchen?->address),
                     'order_id' => $linkedOrder?->id,
                     'menu_name' => $linkedOrder?->menuItem?->name,
                     'customer_name' => $linkedOrder
                         ? $linkedOrder->partyPayload()['customer_name']
                         : null,
                     'can_accept_pickup' => (bool) $canAcceptPickup,
-                    'can_claim_kitchen_return' => $canClaimKitchenReturn,
+                    'can_claim_kitchen_return' => false,
+                    'can_collect_empty_box' => (bool) $canCollectEmptyBox,
                     'can_accept_kitchen_return' => $canAcceptKitchenReturn,
                     'can_hand_warehouse_stock' => (bool) $canHandWarehouseStock,
                     'can_hand_to_kitchen' => (bool) $canHandToKitchen,

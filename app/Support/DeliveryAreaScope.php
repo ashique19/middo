@@ -8,48 +8,18 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Area-scoped visibility for delivery riders (R1).
+ * Area-scoped helpers for delivery riders (R1).
  *
- * Riders with service areas only see / accept work in those areas.
- * Orders with no area (order + group) stay in an open pool any rider can claim
- * so unscoped legacy work does not get stuck.
+ * Lunch and custom runs are ops-assigned; riders never first-claim an open pool.
  */
 class DeliveryAreaScope
 {
     /**
-     * Kitchen-dispatched list: rider's own accepted runs + unclaimed runs they may take.
+     * Kitchen-dispatched list: only runs ops assigned to this rider.
      */
     public static function applyKitchenDispatchedVisibleToRider(Builder $query, User $rider): Builder
     {
-        $riderId = (int) $rider->id;
-        $areaIds = $rider->serviceAreaIds();
-
-        return $query->where(function (Builder $q) use ($riderId, $areaIds) {
-            $q->where('delivery_rider_id', $riderId)
-                ->orWhere(function (Builder $pending) use ($areaIds) {
-                    $pending->whereNull('delivery_rider_id')
-                        ->where(function (Builder $areaQ) use ($areaIds) {
-                            // Unscoped: neither order nor group has an area.
-                            $areaQ->where(function (Builder $unscoped) {
-                                $unscoped->whereNull('orders.area_id')
-                                    ->where(function (Builder $groupArea) {
-                                        $groupArea->whereDoesntHave('orderGroup')
-                                            ->orWhereHas('orderGroup', fn (Builder $g) => $g->whereNull('area_id'));
-                                    });
-                            });
-
-                            if ($areaIds === []) {
-                                return;
-                            }
-
-                            $areaQ->orWhereIn('orders.area_id', $areaIds)
-                                ->orWhere(function (Builder $fallback) use ($areaIds) {
-                                    $fallback->whereNull('orders.area_id')
-                                        ->whereHas('orderGroup', fn (Builder $g) => $g->whereIn('area_id', $areaIds));
-                                });
-                        });
-                });
-        });
+        return $query->where('delivery_rider_id', (int) $rider->id);
     }
 
     public static function orderAreaId(Order $order): ?int
@@ -67,14 +37,7 @@ class DeliveryAreaScope
 
     public static function riderMayAccept(Order $order, User $rider): bool
     {
-        $areaId = self::orderAreaId($order);
-
-        // Unscoped work stays first-claim for any active rider.
-        if ($areaId === null) {
-            return true;
-        }
-
-        return $rider->servesArea($areaId);
+        return $order->isAssignedToRider((int) $rider->id);
     }
 
     /**

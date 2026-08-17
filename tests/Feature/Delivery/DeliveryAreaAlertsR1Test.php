@@ -15,8 +15,10 @@ use App\Models\StaffAlert;
 use App\Models\User;
 use App\Support\OrderTransition;
 use App\Support\RiderAccountLedger;
+use App\Support\StaffAlerts;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Support\LunchRunFlow;
 use Tests\TestCase;
 
 class DeliveryAreaAlertsR1Test extends TestCase
@@ -29,11 +31,15 @@ class DeliveryAreaAlertsR1Test extends TestCase
 
     protected Role $corporateRole;
 
+    protected Role $operationRole;
+
     protected City $city;
 
     protected Area $gulshan;
 
     protected Area $mirpur;
+
+    protected User $ops;
 
     protected function setUp(): void
     {
@@ -42,9 +48,18 @@ class DeliveryAreaAlertsR1Test extends TestCase
         $this->deliveryRole = Role::create(['name' => 'delivery']);
         $this->kitchenRole = Role::create(['name' => 'kitchen']);
         $this->corporateRole = Role::create(['name' => 'corporate']);
+        $this->operationRole = Role::create(['name' => 'operation']);
         $this->city = City::create(['name' => 'Dhaka']);
         $this->gulshan = Area::create(['name' => 'Gulshan', 'city_id' => $this->city->id]);
         $this->mirpur = Area::create(['name' => 'Mirpur', 'city_id' => $this->city->id]);
+        $this->ops = User::create([
+            'first_name' => 'Ops',
+            'last_name' => 'R1',
+            'mobile' => '01770000000',
+            'password' => 'password',
+            'role_id' => $this->operationRole->id,
+            'status' => 'active',
+        ]);
     }
 
     protected function makeRider(string $mobile, Area $area): User
@@ -88,7 +103,7 @@ class DeliveryAreaAlertsR1Test extends TestCase
         ]);
         $group->orders()->attach($order->id);
 
-        \App\Support\StaffAlerts::notifyRidersLunchReady(
+        StaffAlerts::notifyRidersLunchReady(
             $order->fresh(['menuItem', 'orderGroup.area', 'area'])
         );
 
@@ -121,9 +136,19 @@ class DeliveryAreaAlertsR1Test extends TestCase
 
         $order = $this->makeReadyOrder($this->gulshan, $kitchen, $corporate, $menu);
 
+        $this->assertFalse(StaffAlert::query()
+            ->where('user_id', $gulshanRider->id)
+            ->where('type', StaffAlert::TYPE_LUNCH_DISPATCH)
+            ->where('meta->order_id', $order->id)
+            ->exists());
+        $this->assertFalse(StaffAlert::query()
+            ->where('user_id', $mirpurRider->id)
+            ->where('type', StaffAlert::TYPE_LUNCH_DISPATCH)
+            ->exists());
+
         Livewire::actingAs($gulshanRider)
             ->test(KitchenDispatches::class)
-            ->assertSee('#'.$order->id, false);
+            ->assertDontSee('#'.$order->id, false);
 
         Livewire::actingAs($mirpurRider)
             ->test(KitchenDispatches::class)
@@ -132,10 +157,10 @@ class DeliveryAreaAlertsR1Test extends TestCase
         Livewire::actingAs($mirpurRider)
             ->test(KitchenDispatches::class)
             ->call('acceptOrder', $order->id)
-            ->assertSet('errorMessage', fn ($m) => is_string($m) && str_contains($m, 'service areas'));
+            ->assertSet('errorMessage', fn ($m) => is_string($m) && str_contains($m, 'Ops assigns'));
     }
 
-    public function test_dispatch_alerts_riders_in_area(): void
+    public function test_ready_lunch_alerts_ops_not_riders(): void
     {
         $kitchen = User::create([
             'first_name' => 'Kitchen',
@@ -161,19 +186,23 @@ class DeliveryAreaAlertsR1Test extends TestCase
         $order = $this->makeReadyOrder($this->gulshan, $kitchen, $corporate, $menu);
 
         $this->assertTrue(StaffAlert::query()
-            ->where('user_id', $gulshanRider->id)
+            ->where('user_id', $this->ops->id)
             ->where('type', StaffAlert::TYPE_LUNCH_DISPATCH)
             ->where('meta->order_id', $order->id)
+            ->exists());
+        $this->assertFalse(StaffAlert::query()
+            ->where('user_id', $gulshanRider->id)
+            ->where('type', StaffAlert::TYPE_LUNCH_DISPATCH)
             ->exists());
         $this->assertFalse(StaffAlert::query()
             ->where('user_id', $mirpurRider->id)
             ->where('type', StaffAlert::TYPE_LUNCH_DISPATCH)
             ->exists());
 
-        Livewire::actingAs($gulshanRider)
+        Livewire::actingAs($this->ops)
             ->test(StaffAlertsPage::class)
             ->assertOk()
-            ->assertSee('Ready for claim', false);
+            ->assertSee('Assign lunch rider', false);
     }
 
     public function test_accept_credits_rider_wallet_once(): void
@@ -208,7 +237,7 @@ class DeliveryAreaAlertsR1Test extends TestCase
             'total_uses_count' => 0,
         ]);
 
-        \Tests\Support\LunchRunFlow::fromReadyToOnTheWay($kitchen, $rider, $order, $box);
+        LunchRunFlow::fromReadyToOnTheWay($kitchen, $rider, $order, $box);
 
         $this->assertSame(45, RiderAccountLedger::balance($rider->id));
 

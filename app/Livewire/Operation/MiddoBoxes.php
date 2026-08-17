@@ -8,7 +8,9 @@ use App\Models\MiddoBox;
 use App\Models\MiddoBoxLog;
 use App\Models\User;
 use App\Support\KitchenBoxRequestFlow;
+use App\Support\OpsAssignRider;
 use App\Support\OpsBoxCustody;
+use App\Support\StaffRiders;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -46,6 +48,20 @@ class MiddoBoxes extends Component
 
     /** @var list<array{id:int,name:string}> */
     public array $reassignRiders = [];
+
+    public ?int $assignBoxId = null;
+
+    public string $assignKind = '';
+
+    public ?int $assignRiderId = null;
+
+    public ?int $assignKitchenId = null;
+
+    /** @var list<array{id:int,name:string,areas_label:string,search:string}> */
+    public array $assignRiders = [];
+
+    /** @var list<array{id:int,name:string}> */
+    public array $assignKitchens = [];
 
     public function updatingSearch(): void
     {
@@ -365,6 +381,67 @@ class MiddoBoxes extends Component
         $this->cancelReassignRider();
     }
 
+    public function openAssignRider(int $boxId, string $kind): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+        $this->assignBoxId = $boxId;
+        $this->assignKind = $kind;
+        $this->assignRiderId = null;
+        $this->assignKitchenId = null;
+        $this->assignRiders = StaffRiders::pickerOptions();
+        $this->assignKitchens = $kind === 'empty_box'
+            ? User::query()
+                ->whereHas('role', fn ($q) => $q->where('name', 'kitchen'))
+                ->where('status', 'active')
+                ->orderBy('first_name')
+                ->get(['id', 'first_name', 'last_name'])
+                ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name])
+                ->all()
+            : [];
+    }
+
+    public function cancelAssignRider(): void
+    {
+        $this->assignBoxId = null;
+        $this->assignKind = '';
+        $this->assignRiderId = null;
+        $this->assignKitchenId = null;
+        $this->assignRiders = [];
+        $this->assignKitchens = [];
+    }
+
+    public function saveAssignRider(): void
+    {
+        $this->statusMessage = null;
+        $this->errorMessage = null;
+
+        try {
+            $this->validate([
+                'assignRiderId' => 'required|exists:users,id',
+                'assignKitchenId' => $this->assignKind === 'empty_box' ? 'nullable|exists:users,id' : 'nullable',
+            ]);
+
+            $box = MiddoBox::query()->findOrFail((int) $this->assignBoxId);
+            $rider = User::query()->findOrFail((int) $this->assignRiderId);
+            $actor = Auth::user();
+
+            if ($this->assignKind === 'kitchen_to_ops') {
+                OpsAssignRider::kitchenToOps((int) $box->id, $rider, $actor);
+                $this->statusMessage = "Assigned {$rider->name} to kitchen→ops {$box->qr_code_id}.";
+            } elseif ($this->assignKind === 'empty_box') {
+                OpsAssignRider::emptyBoxPickup($box, $rider, $actor, $this->assignKitchenId ? (int) $this->assignKitchenId : null);
+                $this->statusMessage = "Assigned {$rider->name} to collect empty box {$box->qr_code_id}.";
+            } else {
+                throw new \RuntimeException('Unknown assignment type.');
+            }
+
+            $this->cancelAssignRider();
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not assign rider.';
+        }
+    }
+
     public function openCloseRequest(int $requestId): void
     {
         $this->statusMessage = null;
@@ -504,6 +581,14 @@ class MiddoBoxes extends Component
             'custody' => $summary,
             'pendingBoxRequests' => $openBoxRequests,
             'warehouseFreeCount' => $warehouseFreeCount,
+            'unassignedKitchenToOps' => OpsBoxCustody::unassignedKitchenToOpsQuery()
+                ->with(['warehouseHandoff.kitchen'])
+                ->orderBy('qr_code_id')
+                ->get(),
+            'unassignedEmptyPickups' => OpsBoxCustody::unassignedEmptyPickupQuery()
+                ->with(['heldByUser'])
+                ->orderBy('qr_code_id')
+                ->get(),
         ])->layout('layouts.private.app', ['title' => 'Middo Boxes']);
     }
 }

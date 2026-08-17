@@ -106,15 +106,15 @@
                                 <p class="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-center">
                                     Handed — waiting for ops Confirm receive
                                 </p>
-                            @elseif($box['can_claim_kitchen_return'] ?? false)
+                            @elseif($box['can_collect_empty_box'] ?? false)
                                 <button
                                     type="button"
-                                    wire:click="claimKitchenReturn({{ $box['id'] }})"
+                                    wire:click="collectEmptyBox({{ $box['id'] }})"
                                     wire:loading.attr="disabled"
-                                    wire:target="claimKitchenReturn({{ $box['id'] }})"
-                                    wire:confirm="Claim this kitchen→ops warehouse run?"
+                                    wire:target="collectEmptyBox({{ $box['id'] }})"
+                                    wire:confirm="Collect this empty box from corporate?"
                                     class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
-                                    Claim run
+                                    Collect empty box
                                 </button>
                             @elseif($box['can_accept_pickup'] ?? false)
                                 <button
@@ -258,11 +258,11 @@
                                             <span class="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-xs font-bold text-amber-900">
                                                 Awaiting ops receive
                                             </span>
-                                        @elseif($box['can_claim_kitchen_return'] ?? false)
-                                            <button type="button" wire:click="claimKitchenReturn({{ $box['id'] }})" wire:loading.attr="disabled"
-                                                    wire:confirm="Claim this kitchen→ops warehouse run?"
+                                        @elseif($box['can_collect_empty_box'] ?? false)
+                                            <button type="button" wire:click="collectEmptyBox({{ $box['id'] }})" wire:loading.attr="disabled"
+                                                    wire:confirm="Collect this empty box from corporate?"
                                                     class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-xs font-bold transition disabled:opacity-60">
-                                                Claim run
+                                                Collect empty box
                                             </button>
                                         @elseif($box['can_accept_pickup'] ?? false)
                                             <button type="button" wire:click="acceptWarehouseStock({{ $box['id'] }})" wire:loading.attr="disabled"

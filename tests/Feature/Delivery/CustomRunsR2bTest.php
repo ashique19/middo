@@ -86,6 +86,7 @@ class CustomRunsR2bTest extends TestCase
             ->set('fromLabel', 'Warehouse')
             ->set('toLabel', 'Gulshan Kitchen')
             ->set('areaId', $this->gulshan->id)
+            ->set('riderUserId', $this->rider->id)
             ->set('commissionAmount', 55)
             ->call('createRun')
             ->assertSet('errorMessage', '');
@@ -147,7 +148,7 @@ class CustomRunsR2bTest extends TestCase
         Livewire::actingAs($this->otherRider)
             ->test(DeliveryCustomRuns::class)
             ->call('startRun', $run->id)
-            ->assertSet('errorMessage', fn ($m) => is_string($m) && str_contains($m, 'another rider'));
+            ->assertSet('errorMessage', fn ($m) => is_string($m) && str_contains($m, 'not assigned'));
 
         Livewire::actingAs($this->rider)
             ->test(DeliveryCustomRuns::class)
@@ -166,6 +167,7 @@ class CustomRunsR2bTest extends TestCase
             ->test(OpsCustomRuns::class)
             ->set('fromLabel', 'X')
             ->set('toLabel', 'Y')
+            ->set('riderUserId', $this->rider->id)
             ->set('commissionAmount', 10)
             ->call('createRun');
 

@@ -109,7 +109,7 @@
     @elseif($tab === 'awaiting')
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
             <div class="px-5 py-3 border-b border-gray-50 flex flex-wrap justify-between gap-2 items-center">
-                <p class="text-xs text-gray-500 font-semibold">Packed + kitchen-dispatched, no rider yet. Sorted by SLA pressure (overdue first).</p>
+                <p class="text-xs text-gray-500 font-semibold">Ready or packed lunch with no rider. Ops assigns — riders do not claim.</p>
                 <a href="{{ route($rolePrefix.'.coverage.index') }}" class="text-xs font-bold text-middo-orange hover:underline">Coverage board →</a>
             </div>
             <div class="overflow-x-auto">
@@ -122,6 +122,7 @@
                             <th class="p-3 text-left">Area</th>
                             <th class="p-3 text-left">Corporate</th>
                             <th class="p-3 text-left">Age / SLA</th>
+                            <th class="p-3 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y">
@@ -148,16 +149,40 @@
                                         'bg-amber-50 text-amber-800 border-amber-200' => in_array($row['sla']['state'] ?? '', ['closing_soon', 'aging'], true),
                                         'bg-emerald-50 text-emerald-800 border-emerald-200' => ($row['sla']['state'] ?? '') === 'ok',
                                     ])>{{ $row['sla']['label'] ?? '—' }}</span>
-                                    <div class="text-[10px] text-gray-400 mt-1 font-mono">{{ $row['sla']['minutes_waiting'] ?? 0 }}m since dispatch</div>
+                                    <div class="text-[10px] text-gray-400 mt-1 font-mono">{{ $row['sla']['minutes_waiting'] ?? 0 }}m waiting</div>
+                                </td>
+                                <td class="p-3 text-right">
+                                    <button type="button" wire:click="openLunchAssign({{ $row['id'] }})"
+                                            class="px-3 py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold">
+                                        Assign rider
+                                    </button>
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="p-10 text-center text-gray-400 italic">No packed orders awaiting rider accept.</td></tr>
+                            <tr><td colspan="7" class="p-10 text-center text-gray-400 italic">No lunch runs waiting for a rider assignment.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
         </div>
+
+        @if($assignLunchOrderId)
+            <div class="fixed inset-0 bg-gray-900/50 flex items-center justify-center p-4 z-50">
+                <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+                    <h3 class="text-lg font-bold text-middo-dark">Assign lunch rider for #{{ $assignLunchOrderId }}</h3>
+                    <select wire:model="assignLunchRiderId" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        <option value="">Select rider</option>
+                        @foreach($riderOptions as $rider)
+                            <option value="{{ $rider->id }}">{{ $rider->name }} · {{ $rider->mobile }}</option>
+                        @endforeach
+                    </select>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" wire:click="cancelLunchAssign" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold">Cancel</button>
+                        <button type="button" wire:click="confirmLunchAssign" class="px-4 py-2 rounded-xl bg-middo-orange text-white text-sm font-bold">Assign</button>
+                    </div>
+                </div>
+            </div>
+        @endif
     @elseif($tab === 'on_the_way')
         <div class="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
@@ -315,7 +340,7 @@
                 <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
                     <h3 class="text-lg font-bold text-middo-dark">Reassign custom run #{{ $reassignRunId }}</h3>
                     <select wire:model="reassignRiderId" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
-                        <option value="">Open pool</option>
+                        <option value="">Select rider</option>
                         @foreach($riderOptions as $rider)
                             <option value="{{ $rider->id }}">{{ $rider->name }} · {{ $rider->mobile }}</option>
                         @endforeach

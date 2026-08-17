@@ -38,14 +38,8 @@ class CustomRuns extends Component
                     throw new \RuntimeException('You are not on shift. Set On shift on the dashboard before starting runs.');
                 }
 
-                if ($run->rider_user_id !== null && (int) $run->rider_user_id !== $riderId) {
-                    throw new \RuntimeException('This run is assigned to another rider.');
-                }
-
-                if ($run->rider_user_id === null) {
-                    if ($run->area_id !== null && ! $rider->servesArea((int) $run->area_id)) {
-                        throw new \RuntimeException('This run is outside your service areas.');
-                    }
+                if ($run->rider_user_id === null || (int) $run->rider_user_id !== $riderId) {
+                    throw new \RuntimeException('This custom run is not assigned to you.');
                 }
 
                 $run->update([

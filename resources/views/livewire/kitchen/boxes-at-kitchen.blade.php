@@ -262,7 +262,7 @@
                             </span>
                         @elseif($runClaimed)
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
-                                Rider claimed
+                                Rider assigned
                             </span>
                         @elseif($runDispatched)
                             <span class="shrink-0 inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-violet-50 text-violet-800 border border-violet-200">
@@ -281,11 +281,11 @@
 
                     @if($runRequested)
                         <p class="text-sm font-semibold text-sky-800">
-                            Waiting for a rider to claim this warehouse run
+                            Waiting for ops to assign a rider
                         </p>
                     @elseif($runClaimed)
                         <p class="text-sm font-semibold text-amber-900">
-                            {{ $stagedRiderName ?? 'Rider' }} claimed — dispatch when ready
+                            {{ $stagedRiderName ?? 'Rider' }} assigned — dispatch when ready
                         </p>
                     @elseif($runDispatched)
                         <p class="text-sm font-semibold text-violet-800">
@@ -301,7 +301,7 @@
                                     wire:click="sendDamagedToWarehouse({{ $box->id }})"
                                     wire:loading.attr="disabled"
                                     wire:target="sendDamagedToWarehouse({{ $box->id }})"
-                                    wire:confirm="{{ $viaRiderEnabled ? 'Mark this DAMAGED box ready to ship? Riders will be notified to claim the return run.' : 'Send this DAMAGED box to Middo? It will not restock as normal inventory.' }}"
+                                    wire:confirm="{{ $viaRiderEnabled ? 'Mark this DAMAGED box ready to ship? Ops will assign a rider for the return run.' : 'Send this DAMAGED box to Middo? It will not restock as normal inventory.' }}"
                                     class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl border border-rose-300 bg-rose-50 text-xs font-bold text-rose-800 hover:bg-rose-100 transition disabled:opacity-60">
                                     <span wire:loading.remove wire:target="sendDamagedToWarehouse({{ $box->id }})">Send damaged to Middo</span>
                                     <span wire:loading wire:target="sendDamagedToWarehouse({{ $box->id }})">Sending...</span>
@@ -312,7 +312,7 @@
                                     wire:click="dispatchWarehouseRun({{ $box->id }})"
                                     wire:loading.attr="disabled"
                                     wire:target="dispatchWarehouseRun({{ $box->id }})"
-                                    wire:confirm="Dispatch this box to {{ $stagedRiderName ?? 'the claiming rider' }}?"
+                                    wire:confirm="Dispatch this box to {{ $stagedRiderName ?? 'the assigned rider' }}?"
                                     class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl bg-middo-orange text-white text-xs font-bold hover:bg-[#733614] transition disabled:opacity-60">
                                     <span wire:loading.remove wire:target="dispatchWarehouseRun({{ $box->id }})">Dispatch to {{ $stagedRiderName ?? 'rider' }}</span>
                                     <span wire:loading wire:target="dispatchWarehouseRun({{ $box->id }})">Dispatching...</span>
@@ -323,7 +323,7 @@
                                     wire:click="sendToWarehouse({{ $box->id }})"
                                     wire:loading.attr="disabled"
                                     wire:target="sendToWarehouse({{ $box->id }})"
-                                    wire:confirm="{{ $viaRiderEnabled ? 'Mark this empty box ready to ship to Middo warehouse? Area riders will be notified.' : 'Send this empty box back to Middo warehouse?' }}"
+                                    wire:confirm="{{ $viaRiderEnabled ? 'Mark this empty box ready to ship to Middo warehouse? Ops will assign a rider.' : 'Send this empty box back to Middo warehouse?' }}"
                                     class="w-full inline-flex justify-center items-center px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-middo-dark hover:border-middo-orange hover:text-middo-orange transition disabled:opacity-60">
                                     <span wire:loading.remove wire:target="sendToWarehouse({{ $box->id }})">Send to Middo warehouse</span>
                                     <span wire:loading wire:target="sendToWarehouse({{ $box->id }})">Sending...</span>
@@ -383,10 +383,10 @@
                                             <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-sky-50 text-sky-800 border border-sky-200">
                                                 Ready to ship
                                             </span>
-                                            <p class="text-xs font-semibold text-sky-800">Awaiting rider claim</p>
+                                            <p class="text-xs font-semibold text-sky-800">Awaiting ops rider assign</p>
                                         @elseif($runClaimed)
                                             <span class="inline-flex px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">
-                                                Rider claimed
+                                                Rider assigned
                                             </span>
                                             <p class="text-xs font-semibold text-amber-900">{{ $stagedRiderName ?? 'Rider' }} — dispatch when ready</p>
                                         @elseif($runDispatched)
@@ -414,7 +414,7 @@
                                                 wire:click="sendDamagedToWarehouse({{ $box->id }})"
                                                 wire:loading.attr="disabled"
                                                 wire:target="sendDamagedToWarehouse({{ $box->id }})"
-                                                wire:confirm="{{ $viaRiderEnabled ? 'Mark this DAMAGED box ready to ship? Riders will be notified to claim the return run.' : 'Send this DAMAGED box to Middo? It will not restock as normal inventory.' }}"
+                                                wire:confirm="{{ $viaRiderEnabled ? 'Mark this DAMAGED box ready to ship? Ops will assign a rider for the return run.' : 'Send this DAMAGED box to Middo? It will not restock as normal inventory.' }}"
                                                 class="inline-flex items-center px-3 py-1.5 rounded-xl border border-rose-300 bg-rose-50 text-xs font-bold text-rose-800 hover:bg-rose-100 transition disabled:opacity-60">
                                                 <span wire:loading.remove wire:target="sendDamagedToWarehouse({{ $box->id }})">Send damaged to Middo</span>
                                                 <span wire:loading wire:target="sendDamagedToWarehouse({{ $box->id }})">Sending...</span>
@@ -425,14 +425,14 @@
                                                 wire:click="dispatchWarehouseRun({{ $box->id }})"
                                                 wire:loading.attr="disabled"
                                                 wire:target="dispatchWarehouseRun({{ $box->id }})"
-                                                wire:confirm="Dispatch this box to {{ $stagedRiderName ?? 'the claiming rider' }}?"
+                                                wire:confirm="Dispatch this box to {{ $stagedRiderName ?? 'the assigned rider' }}?"
                                                 class="inline-flex items-center px-3 py-1.5 rounded-xl bg-middo-orange text-white text-xs font-bold hover:bg-[#733614] transition disabled:opacity-60">
                                                 <span wire:loading.remove wire:target="dispatchWarehouseRun({{ $box->id }})">Dispatch to {{ $stagedRiderName ?? 'rider' }}</span>
                                                 <span wire:loading wire:target="dispatchWarehouseRun({{ $box->id }})">Dispatching...</span>
                                             </button>
                                         @elseif($runRequested || $runDispatched)
                                             <span class="inline-flex items-center px-3 py-1.5 rounded-xl border border-sky-200 bg-sky-50 text-xs font-bold text-sky-800">
-                                                {{ $runRequested ? 'Awaiting rider claim' : 'Awaiting rider accept' }}
+                                                {{ $runRequested ? 'Awaiting ops assign' : 'Awaiting rider accept' }}
                                             </span>
                                         @elseif(! $reserved)
                                             <button
@@ -446,7 +446,7 @@
                                                 wire:click="sendToWarehouse({{ $box->id }})"
                                                 wire:loading.attr="disabled"
                                                 wire:target="sendToWarehouse({{ $box->id }})"
-                                                wire:confirm="{{ $viaRiderEnabled ? 'Mark this empty box ready to ship to Middo warehouse? Area riders will be notified.' : 'Send this empty box back to Middo warehouse?' }}"
+                                                wire:confirm="{{ $viaRiderEnabled ? 'Mark this empty box ready to ship to Middo warehouse? Ops will assign a rider.' : 'Send this empty box back to Middo warehouse?' }}"
                                                 class="inline-flex items-center px-3 py-1.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-middo-dark hover:border-middo-orange hover:text-middo-orange transition disabled:opacity-60">
                                                 <span wire:loading.remove wire:target="sendToWarehouse({{ $box->id }})">Send to Middo warehouse</span>
                                                 <span wire:loading wire:target="sendToWarehouse({{ $box->id }})">Sending...</span>

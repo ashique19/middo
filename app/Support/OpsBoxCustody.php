@@ -21,7 +21,9 @@ class OpsBoxCustody
      *   with_rider:int,
      *   damaged:int,
      *   returns:int,
-     *   staged_pickup:int
+     *   staged_pickup:int,
+     *   needs_kitchen_to_ops_rider:int,
+     *   needs_empty_box_rider:int
      * }
      */
     public static function summary(): array
@@ -35,6 +37,8 @@ class OpsBoxCustody
                 'damaged' => 0,
                 'returns' => 0,
                 'staged_pickup' => 0,
+                'needs_kitchen_to_ops_rider' => 0,
+                'needs_empty_box_rider' => 0,
             ];
         }
 
@@ -58,6 +62,8 @@ class OpsBoxCustody
             'damaged' => MiddoBox::query()->where('asset_status', 'damaged')->count(),
             'returns' => self::returnsQuery()->count(),
             'staged_pickup' => MiddoBox::query()->stagedForKitchenPickup()->count(),
+            'needs_kitchen_to_ops_rider' => self::unassignedKitchenToOpsQuery()->count(),
+            'needs_empty_box_rider' => self::unassignedEmptyPickupQuery()->count(),
         ];
     }
 
@@ -110,6 +116,33 @@ class OpsBoxCustody
             ->pluck('middo_box_id');
 
         return MiddoBox::query()->whereIn('id', $returnBoxIds);
+    }
+
+    public static function unassignedKitchenToOpsQuery(): Builder
+    {
+        if (! Schema::hasTable('kitchen_warehouse_handoffs')) {
+            return MiddoBox::query()->whereRaw('0 = 1');
+        }
+
+        $ids = KitchenWarehouseHandoff::query()
+            ->where('status', KitchenWarehouseHandoff::STATUS_RUN_REQUESTED)
+            ->whereNull('rider_id')
+            ->pluck('middo_box_id');
+
+        return MiddoBox::query()->whereIn('id', $ids);
+    }
+
+    public static function unassignedEmptyPickupQuery(): Builder
+    {
+        $query = MiddoBox::query()
+            ->where('ready_for_pickup', true)
+            ->whereHas('heldByUser.role', fn ($q) => $q->where('name', 'corporate'));
+
+        if (Schema::hasColumn('middo_boxes', 'pickup_rider_id')) {
+            $query->whereNull('pickup_rider_id');
+        }
+
+        return $query;
     }
 
     /**

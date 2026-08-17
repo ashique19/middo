@@ -58,7 +58,7 @@ class Dashboard extends Component
     {
         $rider = Auth::user();
         $riderId = (int) $rider->id;
-        $this->claimableKitchenToOpsCount = RiderPendingBoxes::claimableKitchenToOpsCount();
+        $this->claimableKitchenToOpsCount = 0;
 
         $this->tiles = [
             [

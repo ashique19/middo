@@ -59,7 +59,7 @@ class DispatchOrderModal extends Component
         if (! $order->isRiderAssignedAwaitingDispatch()) {
             $this->errorMessage = match (true) {
                 $order->order_status === OrderTransition::PROCESSING => 'Mark this order ready first.',
-                $order->order_status === OrderTransition::READY => 'Wait for a rider to accept this order before dispatching.',
+                $order->order_status === OrderTransition::READY => 'Wait for ops to assign a rider before dispatching.',
                 $order->dispatched_at !== null => 'This order has already been dispatched.',
                 default => 'This order can no longer be dispatched.',
             };
@@ -204,7 +204,7 @@ class DispatchOrderModal extends Component
                     ]);
                 }
 
-                // Keep delivery_rider_id — kitchen is confirming the claimed rider.
+                // Keep delivery_rider_id — kitchen is packing for the ops-assigned rider.
                 OrderTransition::apply($order, OrderTransition::PACKED, [
                     'dispatched_at' => now(),
                     'updated_by' => $kitchenId,

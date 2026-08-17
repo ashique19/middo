@@ -220,7 +220,7 @@ class BoxesAtKitchen extends Component
             $box = MiddoBox::query()->findOrFail($boxId);
             $sent = MiddoBoxKitchenActions::sendToWarehouse($box, (int) Auth::id());
             if (MiddoSettings::kitchenToOpsViaRider()) {
-                $this->statusMessage = "{$sent->qr_code_id} marked ready to ship. Active riders were notified — they claim it on Middo boxes pending run (or Alerts).";
+                $this->statusMessage = "{$sent->qr_code_id} marked ready to ship. Ops will assign a rider.";
             } else {
                 $this->statusMessage = "{$sent->qr_code_id} sent to Middo warehouse.";
             }
@@ -247,38 +247,9 @@ class BoxesAtKitchen extends Component
 
     public function sendViaRider(): void
     {
-        // Legacy fast-path kept for tests: claim+dispatch a named rider after ready-to-ship.
         $this->statusMessage = null;
-        $this->errorMessage = null;
-
-        if (! MiddoSettings::kitchenToOpsViaRider()) {
-            $this->errorMessage = 'Kitchen→ops via rider is not enabled in Settings.';
-
-            return;
-        }
-
-        if (! $this->viaRiderBoxId) {
-            return;
-        }
-
-        try {
-            $this->validate([
-                'selectedRiderId' => 'required|exists:users,id',
-            ]);
-
-            $box = MiddoBox::query()->findOrFail($this->viaRiderBoxId);
-            $tagged = MiddoBoxKitchenActions::stageForWarehousePickup(
-                $box,
-                (int) Auth::id(),
-                (int) $this->selectedRiderId
-            );
-            $riderName = $tagged->warehouseHandoff?->rider?->name ?? 'rider';
-            $this->statusMessage = "{$tagged->qr_code_id} dispatched to {$riderName}.";
-            $this->cancelViaRider();
-            $this->resetPage();
-        } catch (\Throwable $e) {
-            $this->errorMessage = $e->getMessage() ?: 'Could not assign rider.';
-        }
+        $this->errorMessage = 'Ops assigns kitchen→ops riders. Mark the box ready to ship, then ops will pick a rider.';
+        $this->cancelViaRider();
     }
 
     public function sendDamagedToWarehouse(int $boxId): void
@@ -290,7 +261,7 @@ class BoxesAtKitchen extends Component
             $box = MiddoBox::query()->findOrFail($boxId);
             $sent = MiddoBoxKitchenActions::sendDamagedToWarehouse($box, (int) Auth::id());
             if (MiddoSettings::kitchenToOpsViaRider()) {
-                $this->statusMessage = "{$sent->qr_code_id} (damaged) marked ready to ship. Active riders were notified — they claim it on Middo boxes pending run (or Alerts).";
+                $this->statusMessage = "{$sent->qr_code_id} (damaged) marked ready to ship. Ops will assign a rider.";
             } else {
                 $this->statusMessage = "{$sent->qr_code_id} sent to Middo as damaged. Ops will review — not restocked as normal inventory.";
             }
