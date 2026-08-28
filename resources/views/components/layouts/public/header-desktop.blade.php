@@ -160,35 +160,12 @@
         @endif
         
         @auth
-            @php
-                $todayActiveOrder = null;
-                if (auth()->user()->role?->name === 'corporate') {
-                    $todayActiveOrder = \App\Models\Order::query()
-                        ->where('user_id', auth()->id())
-                        ->whereDate('delivery_date', now('Asia/Dhaka')->toDateString())
-                        ->whereIn('order_status', \App\Models\Order::ACTIVE_STATUSES)
-                        ->orderByDesc('id')
-                        ->first();
-                }
-            @endphp
-            @if($todayActiveOrder)
-                <button type="button"
-                        @click="$dispatch('open-track-order-modal', { orderId: {{ $todayActiveOrder->id }} })"
-                        class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
-                    Track Today's Lunch
-                </button>
-            @elseif(auth()->user()->role?->name === 'corporate')
-                <a href="{{ route('corporates.orders.scheduled') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
-                    Track Today's Lunch
-                </a>
-            @else
-                <a href="{{ route('dashboard.redirect') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
-                    Go to Dashboard
-                </a>
-            @endif
+            <a href="{{ route('dashboard.redirect') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
+                Dashboard
+            </a>
         @else
-            <a href="{{ route('login') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
-                Track Today's Lunch
+            <a href="{{ route('register') }}" class="bg-middo-orange text-white px-5 py-2.5 rounded-full font-extrabold text-xs uppercase tracking-wider hover:bg-[#733614] transition shadow-md active:scale-[0.98]">
+                Sign up
             </a>
         @endauth
     </div>
