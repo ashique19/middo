@@ -7,6 +7,7 @@ use App\Models\OrderGroupEvent;
 use App\Models\User;
 use App\Support\KitchenAcceptWindow;
 use App\Support\KitchenCapacity;
+use App\Support\OrderAudit;
 use App\Support\OrderKitchenAcceptance;
 use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
@@ -82,10 +83,11 @@ class AssignKitchenModal extends Component
             ]);
         }
 
-        $group = OrderGroup::with('orders')->findOrFail($this->orderGroupId);
+        $group = OrderGroup::with(['kitchen', 'orders'])->findOrFail($this->orderGroupId);
 
         $previousKitchenId = $group->kitchen_id;
         $nextKitchenId = $this->selectedKitchenId ?: null;
+        $fromKitchen = $group->kitchen?->name ?? 'Unassigned';
         $kitchenChanging = (int) ($previousKitchenId ?? 0) !== (int) ($nextKitchenId ?? 0);
 
         if ($kitchenChanging) {
@@ -122,6 +124,23 @@ class AssignKitchenModal extends Component
             'kitchen_id' => $nextKitchenId,
             'updated_by' => Auth::id(),
         ]);
+
+        $group->refresh()->load('kitchen');
+        $toKitchen = $group->kitchen?->name ?? 'Unassigned';
+
+        if ((int) ($previousKitchenId ?? 0) !== (int) ($group->kitchen_id ?? 0)) {
+            foreach ($group->orders as $order) {
+                OrderAudit::record($order, 'forwarded_to_kitchen', [
+                    'group_id' => $group->id,
+                    'group_name' => $group->name,
+                    'from_kitchen_id' => $previousKitchenId,
+                    'to_kitchen_id' => $group->kitchen_id,
+                    'from_kitchen' => $fromKitchen,
+                    'to_kitchen' => $toKitchen,
+                    'source' => $order->package_subscription_id ? 'package' : 'menu',
+                ], Auth::id());
+            }
+        }
 
         // First-time kitchen assignment advances pending orders to processing (push + UI).
         if ($nextKitchenId && ! $previousKitchenId) {

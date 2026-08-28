@@ -3,6 +3,7 @@
 namespace App\Livewire\Corporate;
 
 use App\Models\Order;
+use App\Support\OrderAudit;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -59,47 +60,12 @@ class TrackOrderModal extends Component
 
     public function logLabel(string $event): string
     {
-        return match ($event) {
-            'created' => 'Order Placed',
-            'order_status_changed' => 'Status Updated',
-            'payment_status_changed' => 'Payment Updated',
-            'quantity_changed' => 'Quantity Updated',
-            'deleted' => 'Order Deleted',
-            default => 'Order Updated',
-        };
+        return OrderAudit::label($event);
     }
 
     public function logDescription(array $log): string
     {
-        $metadata = $log['metadata'] ?? [];
-        $event = $log['event'];
-
-        return match ($event) {
-            'created' => sprintf(
-                'Order placed for %d meal%s.',
-                $metadata['snapshot']['quantity'] ?? 1,
-                ($metadata['snapshot']['quantity'] ?? 1) === 1 ? '' : 's'
-            ),
-            'order_status_changed' => sprintf(
-                'Status changed from %s to %s.',
-                ucfirst(str_replace('_', ' ', $metadata['changes']['order_status']['from'] ?? 'unknown')),
-                ucfirst(str_replace('_', ' ', $metadata['changes']['order_status']['to'] ?? 'unknown')),
-            ),
-            'payment_status_changed' => sprintf(
-                'Payment changed from %s to %s.',
-                ucfirst(str_replace('_', ' ', $metadata['changes']['payment_status']['from'] ?? 'unknown')),
-                ucfirst(str_replace('_', ' ', $metadata['changes']['payment_status']['to'] ?? 'unknown')),
-            ).(isset($metadata['changes']['amount_paid']['to'])
-                ? sprintf(' Amount paid is now ৳%s.', number_format((int) $metadata['changes']['amount_paid']['to']))
-                : ''),
-            'quantity_changed' => sprintf(
-                'Quantity changed from %d to %d.',
-                $metadata['changes']['quantity']['from'] ?? 0,
-                $metadata['changes']['quantity']['to'] ?? 0,
-            ),
-            'deleted' => 'Order was removed from your schedule.',
-            default => 'Order details were updated.',
-        };
+        return OrderAudit::description($log);
     }
 
     public function render()

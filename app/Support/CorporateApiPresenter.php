@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Models\Area;
+use App\Models\City;
 use App\Models\MealPackage;
 use App\Models\MenuItem;
 use App\Models\Order;
@@ -20,10 +22,10 @@ class CorporateApiPresenter
         // User table also has legacy string `area`/`city` columns that shadow
         // the same-named BelongsTo relations, so resolve via foreign keys.
         $areaName = $user->area_id
-            ? \App\Models\Area::query()->whereKey($user->area_id)->value('name')
+            ? Area::query()->whereKey($user->area_id)->value('name')
             : ($user->getAttributes()['area'] ?? null);
         $cityName = $user->city_id
-            ? \App\Models\City::query()->whereKey($user->city_id)->value('name')
+            ? City::query()->whereKey($user->city_id)->value('name')
             : ($user->getAttributes()['city'] ?? null);
 
         return [
@@ -232,7 +234,7 @@ class CorporateApiPresenter
      */
     public static function citiesWithAreas(): array
     {
-        return \App\Models\City::query()
+        return City::query()
             ->with(['areas' => fn ($q) => $q->orderBy('name')])
             ->orderBy('name')
             ->get()
@@ -253,60 +255,12 @@ class CorporateApiPresenter
 
     public static function logLabel(string $event): string
     {
-        return match ($event) {
-            'created' => 'Order Placed',
-            'order_status_changed' => 'Status Updated',
-            'payment_status_changed' => 'Payment Updated',
-            'quantity_changed' => 'Quantity Updated',
-            'deleted' => 'Order Deleted',
-            'ops_force_status' => 'Ops Force Action',
-            'ops_intervene' => 'Ops Intervention',
-            default => 'Order Updated',
-        };
+        return OrderAudit::label($event);
     }
 
     public static function logDescription(array $log): string
     {
-        $metadata = $log['metadata'] ?? [];
-        $event = $log['event'] ?? '';
-
-        return match ($event) {
-            'created' => sprintf(
-                'Order placed for %d meal%s.',
-                $metadata['snapshot']['quantity'] ?? 1,
-                ($metadata['snapshot']['quantity'] ?? 1) === 1 ? '' : 's'
-            ),
-            'order_status_changed' => sprintf(
-                'Status changed from %s to %s.',
-                ucfirst(str_replace('_', ' ', $metadata['changes']['order_status']['from'] ?? 'unknown')),
-                ucfirst(str_replace('_', ' ', $metadata['changes']['order_status']['to'] ?? 'unknown')),
-            ),
-            'payment_status_changed' => sprintf(
-                'Payment changed from %s to %s.',
-                ucfirst(str_replace('_', ' ', $metadata['changes']['payment_status']['from'] ?? 'unknown')),
-                ucfirst(str_replace('_', ' ', $metadata['changes']['payment_status']['to'] ?? 'unknown')),
-            ).(isset($metadata['changes']['amount_paid']['to'])
-                ? sprintf(' Amount paid is now ৳%s.', number_format((int) $metadata['changes']['amount_paid']['to']))
-                : ''),
-            'quantity_changed' => sprintf(
-                'Quantity changed from %d to %d.',
-                $metadata['changes']['quantity']['from'] ?? 0,
-                $metadata['changes']['quantity']['to'] ?? 0,
-            ),
-            'deleted' => 'Order was removed from your schedule.',
-            'ops_force_status' => sprintf(
-                'Ops force: %s → %s%s',
-                ucfirst(str_replace('_', ' ', $metadata['from'] ?? 'unknown')),
-                ucfirst(str_replace('_', ' ', $metadata['to'] ?? 'unknown')),
-                ! empty($metadata['reason']) ? ' — '.$metadata['reason'] : '',
-            ),
-            'ops_intervene' => sprintf(
-                'Ops intervened (%s)%s',
-                str_replace('_', ' ', $metadata['action'] ?? 'action'),
-                ! empty($metadata['lens']) ? ' via '.$metadata['lens'].' lens' : '',
-            ),
-            default => 'Order details were updated.',
-        };
+        return OrderAudit::description($log);
     }
 
     public static function categoryLabel(?string $category): string
