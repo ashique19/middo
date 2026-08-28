@@ -99,7 +99,8 @@ class WebMobileParityTest extends TestCase
             ->assertDontSee('Bulk Orders')
             ->assertDontSee('Track Live Couriers')
             ->assertSee('Place an Order')
-            ->assertSee('Add Money');
+            ->assertSee('Quick Support')
+            ->assertSee('Delivery Zone');
     }
 
     public function test_faq_no_longer_promises_wallet_withdraw_or_one_hour_cancel_window(): void
