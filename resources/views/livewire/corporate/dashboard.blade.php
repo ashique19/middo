@@ -13,11 +13,23 @@
                 <p class="text-sm font-semibold text-[#635347] mt-0.5">Welcome back! Manage your office lunches seamlessly.</p>
             </div>
 
+            @php
+                $hasActivePackages = ($metrics['active_packages'] ?? 0) > 0;
+                $showFooterBoxes = ($metrics['boxes_in_custody'] ?? 0) === 0;
+            @endphp
+
             {{-- TOP KPI GRID ROW — paired rows on small screens, 4 across on xl --}}
             <div class="space-y-4 xl:space-y-0 xl:grid xl:grid-cols-4 xl:gap-4">
-                <div class="grid grid-cols-2 gap-4 xl:contents">
+                <div @class([
+                    'grid gap-4 xl:contents',
+                    'grid-cols-2' => $hasActivePackages,
+                    'grid-cols-1' => ! $hasActivePackages,
+                ])>
                     {{-- Active Orders Card --}}
-                    <div class="bg-[#1E4630] text-white p-4 rounded-2xl shadow-sm flex items-center gap-4 border border-[#143021]">
+                    <div @class([
+                        'bg-[#1E4630] text-white p-4 rounded-2xl shadow-sm flex items-center gap-4 border border-[#143021]',
+                        'xl:col-span-2' => ! $hasActivePackages,
+                    ])>
                         <div class="p-1 text-emerald-300">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -31,7 +43,7 @@
                     </div>
 
                     {{-- Active Packages Card --}}
-                    @if(($metrics['active_packages'] ?? 0) > 0)
+                    @if($hasActivePackages)
                     <a href="{{ route('corporates.packages.index') }}"
                        class="bg-[#EFE9DC] border border-[#DDD3BE] text-[#2B1A11] p-4 rounded-2xl shadow-sm flex items-center gap-4 hover:border-middo-orange/50 transition">
                         <div class="p-1 text-[#635347]">
@@ -197,9 +209,10 @@
             @endif
         </div>
 
-        {{-- FOOTER UTILITY ROW --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 pt-2">
-            <a href="{{ route('contact') }}" class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors group flex flex-col h-full">
+        {{-- FOOTER UTILITY ROW — paired rows; lone tile stretches full width --}}
+        <div class="space-y-4 xl:space-y-0 xl:grid xl:grid-cols-6 xl:gap-4 pt-2">
+            <div class="grid grid-cols-2 gap-4 xl:contents">
+                <a href="{{ route('contact') }}" class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors group flex flex-col h-full">
                 <svg class="w-5 h-5 text-[#635347] transition-colors group-hover:text-[#8A441B]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8Z" />
                 </svg>
@@ -214,27 +227,45 @@
                 <h4 class="text-xs font-black text-[#2B1A11] mt-1.5 group-hover:text-[#8A441B]">FAQ</h4>
                 <p class="text-[9px] text-gray-400 font-medium leading-tight mt-0.5">Learn more about Middo.</p>
             </a>
+            </div>
 
-            <a href="{{ route('menu') }}" class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors group flex flex-col justify-between h-full">
+            <div @class([
+                'grid gap-4 xl:contents',
+                'grid-cols-2' => $hasActivePackages,
+                'grid-cols-1' => ! $hasActivePackages,
+            ])>
+            <a href="{{ route('menu') }}" @class([
+                'bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors group flex flex-col justify-between h-full',
+                'xl:col-span-2' => ! $hasActivePackages,
+            ])>
                 <span class="text-xs font-bold text-[#2B1A11] group-hover:text-[#8A441B]">🍱 Place an Order</span>
                 <span class="text-gray-400 text-[10px] mt-2">➔</span>
             </a>
 
-            @if(($metrics['active_packages'] ?? 0) > 0)
+            @if($hasActivePackages)
             <a href="{{ route('corporates.packages.index') }}" class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors group flex flex-col justify-between h-full">
                 <span class="text-xs font-bold text-[#2B1A11] group-hover:text-[#8A441B]">🗓️ Active Packages</span>
                 <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-black font-mono w-fit mt-2">{{ $metrics['active_packages'] }}</span>
             </a>
             @endif
+            </div>
 
-            @if(($metrics['boxes_in_custody'] ?? 0) === 0)
+            <div @class([
+                'grid gap-4 xl:contents',
+                'grid-cols-2' => $showFooterBoxes,
+                'grid-cols-1' => ! $showFooterBoxes,
+            ])>
+            @if($showFooterBoxes)
             <button type="button" @click="$dispatch('open-middo-boxes-custody-modal')" class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors group flex flex-col justify-between h-full text-left">
                 <span class="text-xs font-bold text-[#2B1A11] group-hover:text-[#8A441B]">📦 Middo Boxes with You</span>
                 <span class="bg-amber-100 text-[#8A441B] px-2 py-0.5 rounded-full text-[10px] font-black font-mono w-fit mt-2">0 with you</span>
             </button>
             @endif
 
-            <div class="bg-white border border-[#EBE3D3] rounded-2xl p-2 shadow-sm flex flex-col h-full">
+            <div @class([
+                'bg-white border border-[#EBE3D3] rounded-2xl p-2 shadow-sm flex flex-col h-full',
+                'xl:col-span-2' => ! $showFooterBoxes,
+            ])>
                 <div class="text-[10px] font-black uppercase text-gray-400 px-1 tracking-wider">Delivery Zone</div>
                 <div class="w-full flex-1 min-h-[5rem] bg-[#E3DEC3] rounded-xl overflow-hidden relative flex items-center justify-center text-xs font-bold text-[#635347] mt-1.5">
                     <div class="absolute inset-0 bg-cover bg-center opacity-60" style="background-image: url('{{ asset('img/public/how-it-works-corporates.jpg') }}');"></div>
@@ -243,6 +274,7 @@
                     </a>
                 </div>
                 <p class="text-[9px] text-gray-400 px-1 pt-1.5 leading-tight">Deliveries are made to your registered office address.</p>
+            </div>
             </div>
         </div>
 
