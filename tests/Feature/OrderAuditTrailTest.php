@@ -227,7 +227,7 @@ class OrderAuditTrailTest extends TestCase
         );
 
         $order = $scheduled['orders']->first();
-        app(PackageSubscriptionService::class)->skipDay($user, $order);
+        app(PackageSubscriptionService::class)->skipDayAsStaff($ops, $order, 'Test skip for audit trail');
 
         $this->assertDatabaseHas('order_logs', [
             'order_id' => $order->id,
