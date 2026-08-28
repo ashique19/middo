@@ -6,36 +6,6 @@
         {{-- LEFT COLUMN CONTAINER MATRIX (Spans 9 Columns) --}}
         <div class="lg:col-span-9 space-y-6">
 
-            {{-- MENU / PACKAGES QUICK-ACCESS --}}
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <a href="{{ route('menu') }}"
-                   class="group block bg-[#1E4630] text-white rounded-2xl shadow-sm border border-[#143021] p-5 transition-all hover:bg-[#173a27] hover:shadow-md">
-                    <div class="flex items-center justify-between gap-4">
-                        <div>
-                            <h2 class="text-lg font-black tracking-tight leading-none">Browse Menu</h2>
-                            <p class="text-[11px] font-semibold text-emerald-200/70 mt-1">Today's thalis · à-la-carte</p>
-                        </div>
-                        <span class="shrink-0 bg-middo-orange text-white font-black text-xs uppercase tracking-wider px-3 py-2 rounded-xl">Menu ➔</span>
-                    </div>
-                </a>
-                <a href="{{ route('corporates.packages.index') }}"
-                   class="group block bg-white text-[#2B1A11] rounded-2xl shadow-sm border border-[#DDD3BE] p-5 transition-all hover:border-middo-orange/40 hover:shadow-md">
-                    <div class="flex items-center justify-between gap-4">
-                        <div>
-                            <h2 class="text-lg font-black tracking-tight leading-none">Meal Packages</h2>
-                            <p class="text-[11px] font-semibold text-[#635347] mt-1">
-                                @if(($metrics['active_packages'] ?? 0) > 0)
-                                    {{ $metrics['active_packages'] }} active · manage prepaid plans
-                                @else
-                                    30-day prepaid plans · omit Fri/Sat
-                                @endif
-                            </p>
-                        </div>
-                        <span class="shrink-0 bg-middo-orange text-white font-black text-xs uppercase tracking-wider px-3 py-2 rounded-xl">Plans ➔</span>
-                    </div>
-                </a>
-            </div>
-
             <x-corporate.pending-package-otp-banner :intent="$pendingIntent ?? null" />
 
             {{-- Dashboard Greeting Segment --}}
