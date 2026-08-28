@@ -117,7 +117,7 @@ class CorporateDashboardActivePackagesTest extends TestCase
         Livewire::actingAs($user)
             ->test(Dashboard::class)
             ->assertSet('metrics.active_packages', 0)
-            ->assertSee('No active packages yet')
-            ->assertSee('Browse meal packages');
+            ->assertDontSee('No active packages yet')
+            ->assertDontSee('Prepaid monthly plans currently running for your office.');
     }
 }

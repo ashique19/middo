@@ -13,8 +13,8 @@
                 <p class="text-sm font-semibold text-[#635347] mt-0.5">Welcome back! Manage your office lunches seamlessly.</p>
             </div>
 
-            {{-- TOP KPI GRID ROW --}}
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            {{-- TOP KPI GRID ROW — 2×2 on small screens, 4 across on xl --}}
+            <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
                 {{-- Active Orders Card --}}
                 <div class="bg-[#1E4630] text-white p-4 rounded-2xl shadow-sm flex items-center gap-4 border border-[#143021]">
                     <div class="p-1 text-emerald-300">
@@ -30,6 +30,7 @@
                 </div>
 
                 {{-- Active Packages Card --}}
+                @if(($metrics['active_packages'] ?? 0) > 0)
                 <a href="{{ route('corporates.packages.index') }}"
                    class="bg-[#EFE9DC] border border-[#DDD3BE] text-[#2B1A11] p-4 rounded-2xl shadow-sm flex items-center gap-4 hover:border-middo-orange/50 transition">
                     <div class="p-1 text-[#635347]">
@@ -39,9 +40,10 @@
                     </div>
                     <div>
                         <div class="text-[11px] font-bold uppercase tracking-wider text-[#635347]">Active Packages:</div>
-                        <div class="text-2xl font-black leading-none mt-1">{{ $metrics['active_packages'] ?? 0 }}</div>
+                        <div class="text-2xl font-black leading-none mt-1">{{ $metrics['active_packages'] }}</div>
                     </div>
                 </a>
+                @endif
 
                 {{-- Next Meal Card --}}
                 <div class="bg-[#EFE9DC] border border-[#DDD3BE] text-[#2B1A11] p-4 rounded-2xl shadow-sm flex items-center gap-4">
@@ -69,7 +71,28 @@
                 </div>
             </div>
 
+            {{-- MIDDO BOXES IN CUSTODY — prominent when user holds boxes --}}
+            @if(($metrics['boxes_in_custody'] ?? 0) > 0)
+                <button type="button"
+                        @click="$dispatch('open-middo-boxes-custody-modal')"
+                        class="w-full bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4 hover:border-middo-orange/50 transition text-left">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="text-2xl shrink-0">📦</span>
+                        <div class="min-w-0">
+                            <div class="text-sm font-black text-[#2B1A11]">Middo Boxes with You</div>
+                            <p class="text-xs font-semibold text-[#635347] mt-0.5 truncate">
+                                {{ $metrics['boxes_in_custody'] }} {{ str('box')->plural($metrics['boxes_in_custody']) }} at your office — tap to view details
+                            </p>
+                        </div>
+                    </div>
+                    <span class="shrink-0 bg-amber-100 text-[#8A441B] px-3 py-1 rounded-full text-xs font-black font-mono">
+                        {{ $metrics['boxes_in_custody'] }} with you
+                    </span>
+                </button>
+            @endif
+
             {{-- ACTIVE PACKAGES SEGMENT --}}
+            @if(count($activePackages))
             <div class="space-y-4">
                 <div class="border-b border-[#EBE3D3] pb-3 flex justify-between items-center gap-3">
                     <div>
@@ -77,13 +100,13 @@
                         <p class="text-xs font-semibold text-[#635347] mt-0.5">Prepaid monthly plans currently running for your office.</p>
                     </div>
                     <a href="{{ route('corporates.packages.index') }}" class="shrink-0 text-xs font-black text-[#8A441B] hover:text-[#733614] bg-[#EFE9DC] hover:bg-[#E5DCB9] px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm group">
-                        <span>{{ count($activePackages) ? 'All packages' : 'Browse plans' }}</span>
+                        <span>All packages</span>
                         <span class="transform group-hover:translate-x-0.5 transition-transform text-[10px]">➔</span>
                     </a>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    @forelse($activePackages as $pkg)
+                    @foreach($activePackages as $pkg)
                         <a href="{{ $pkg['show_url'] }}"
                            wire:key="dash-active-pkg-{{ $pkg['id'] }}"
                            class="block bg-white border border-[#DDD3BE] rounded-2xl p-4 shadow-sm hover:border-middo-orange/40 hover:shadow-md transition">
@@ -115,17 +138,10 @@
                                 <span class="text-middo-orange">৳{{ number_format($pkg['total_amount']) }}</span>
                             </div>
                         </a>
-                    @empty
-                        <div class="col-span-full bg-white border border-[#EBE3D3] rounded-2xl p-8 text-center shadow-sm">
-                            <p class="text-sm font-bold text-gray-500">No active packages yet.</p>
-                            <p class="text-xs text-gray-400 mt-1">
-                                Prepaid monthly plans show up here once purchased.
-                                <a href="{{ route('corporates.packages.index') }}" class="text-middo-orange font-bold hover:underline">Browse meal packages</a>.
-                            </p>
-                        </div>
-                    @endforelse
+                    @endforeach
                 </div>
             </div>
+            @endif
 
             {{-- UPCOMING LUNCH SCHEDULES TIMELINE SEGMENT --}}
             <div class="space-y-4">
@@ -151,19 +167,10 @@
                         </div>
                     @endforelse
                 </div>
-
-                {{-- BIG SEE ALL BUTTON AT THE END OF THE SECTION --}}
-                @if(count($upcomingEvents) > 0)
-                    <div class="pt-2">
-                        <a href="{{ route('corporates.orders.scheduled') }}" class="w-full bg-[#EFE9DC] hover:bg-[#E5DCB9] text-[#8A441B] font-black text-xs uppercase tracking-wider py-4 rounded-2xl shadow-sm border border-[#DDD3BE] transition-all flex items-center justify-center gap-2 group">
-                            <span>See All Scheduled Lunches</span>
-                            <span class="transform group-hover:translate-x-1 transition-transform">➔</span>
-                        </a>
-                    </div>
-                @endif
             </div>
 
-            {{-- RECENT OFFICE LUNCHES HISTORY SEGMENT --}}
+            {{-- RECENT OFFICE LUNCHES HISTORY SEGMENT — only when there is history --}}
+            @if(count($recentLunches))
             <div class="space-y-4">
                 <div class="border-b border-[#EBE3D3] pb-3 flex justify-between items-center">
                     <div class="flex items-center gap-3">
@@ -178,26 +185,12 @@
 
                 {{-- Continuous Matrix Grid --}}
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    @forelse($recentLunches as $lunch)
+                    @foreach($recentLunches as $lunch)
                         <x-operation.dashboard.meal-card :order="$lunch" :is-history="true" />
-                    @empty
-                        <div class="col-span-full bg-white border border-[#EBE3D3] rounded-2xl p-10 text-center shadow-sm">
-                            <p class="text-sm font-bold text-gray-500">No past orders yet.</p>
-                            <p class="text-xs text-gray-400 mt-1">Once you've received your first lunch, it'll appear here. <a href="{{ route('corporates.orders.scheduled') }}" class="text-middo-orange font-bold hover:underline">View scheduled orders</a>.</p>
-                        </div>
-                    @endforelse
+                    @endforeach
                 </div>
-
-                {{-- BIG SEE ALL BUTTON AT THE END OF THE HISTORY SECTION --}}
-                @if(count($recentLunches) > 0)
-                    <div class="pt-2">
-                        <a href="{{ route('corporates.orders.history') }}" class="w-full bg-[#EFE9DC] hover:bg-[#E5DCB9] text-[#8A441B] font-black text-xs uppercase tracking-wider py-4 rounded-2xl shadow-sm border border-[#DDD3BE] transition-all flex items-center justify-center gap-2 group">
-                            <span>See All Lunch History</span>
-                            <span class="transform group-hover:translate-x-1 transition-transform">➔</span>
-                        </a>
-                    </div>
-                @endif
             </div>
+            @endif
         </div>
 
         {{-- FOOTER UTILITY ROW --}}
@@ -228,10 +221,12 @@
                 <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-black font-mono w-fit mt-2">{{ $metrics['active_packages'] ?? 0 }}</span>
             </a>
 
+            @if(($metrics['boxes_in_custody'] ?? 0) === 0)
             <button type="button" @click="$dispatch('open-middo-boxes-custody-modal')" class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors group flex flex-col justify-between h-full text-left">
                 <span class="text-xs font-bold text-[#2B1A11] group-hover:text-[#8A441B]">📦 Middo Boxes with You</span>
-                <span class="bg-amber-100 text-[#8A441B] px-2 py-0.5 rounded-full text-[10px] font-black font-mono w-fit mt-2">{{ $metrics['boxes_in_custody'] }} with you</span>
+                <span class="bg-amber-100 text-[#8A441B] px-2 py-0.5 rounded-full text-[10px] font-black font-mono w-fit mt-2">0 with you</span>
             </button>
+            @endif
 
             <div class="bg-white border border-[#EBE3D3] rounded-2xl p-2 shadow-sm flex flex-col h-full">
                 <div class="text-[10px] font-black uppercase text-gray-400 px-1 tracking-wider">Delivery Zone</div>
