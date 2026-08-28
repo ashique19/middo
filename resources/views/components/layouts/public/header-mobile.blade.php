@@ -238,35 +238,12 @@
         {{-- BOTTOM STICKY ACTION FOOTER --}}
         <div class="p-4 border-t border-amber-900/5 bg-[#FDFBF7]">
             @auth
-                @php
-                    $mobileTodayActiveOrder = null;
-                    if (auth()->user()->role?->name === 'corporate') {
-                        $mobileTodayActiveOrder = \App\Models\Order::query()
-                            ->where('user_id', auth()->id())
-                            ->whereDate('delivery_date', now('Asia/Dhaka')->toDateString())
-                            ->whereIn('order_status', \App\Models\Order::ACTIVE_STATUSES)
-                            ->orderByDesc('id')
-                            ->first();
-                    }
-                @endphp
-                @if($mobileTodayActiveOrder)
-                    <button type="button"
-                            @click="$dispatch('open-track-order-modal', { orderId: {{ $mobileTodayActiveOrder->id }} }); mobileMenuOpen = false"
-                            class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center">
-                        Track Today's Lunch
-                    </button>
-                @elseif(auth()->user()->role?->name === 'corporate')
-                    <a href="{{ route('corporates.orders.scheduled') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
-                        Track Today's Lunch
-                    </a>
-                @else
-                    <a href="{{ route('dashboard.redirect') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
-                        Go to Dashboard
-                    </a>
-                @endif
+                <a href="{{ route('dashboard.redirect') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
+                    Dashboard
+                </a>
             @else
-                <a href="{{ route('login') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
-                    Track Today's Lunch
+                <a href="{{ route('register') }}" class="block w-full bg-middo-orange text-white py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg hover:bg-[#733614] active:scale-[0.99] transition text-center" @click="mobileMenuOpen = false">
+                    Sign up
                 </a>
             @endauth
         </div>
