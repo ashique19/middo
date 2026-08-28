@@ -13,60 +13,64 @@
                 <p class="text-sm font-semibold text-[#635347] mt-0.5">Welcome back! Manage your office lunches seamlessly.</p>
             </div>
 
-            {{-- TOP KPI GRID ROW — 2×2 on small screens, 4 across on xl --}}
-            <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
-                {{-- Active Orders Card --}}
-                <div class="bg-[#1E4630] text-white p-4 rounded-2xl shadow-sm flex items-center gap-4 border border-[#143021]">
-                    <div class="p-1 text-emerald-300">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            <circle cx="10" cy="10" r="1.5" stroke-width="1.5"/>
-                        </svg>
+            {{-- TOP KPI GRID ROW — paired rows on small screens, 4 across on xl --}}
+            <div class="space-y-4 xl:space-y-0 xl:grid xl:grid-cols-4 xl:gap-4">
+                <div class="grid grid-cols-2 gap-4 xl:contents">
+                    {{-- Active Orders Card --}}
+                    <div class="bg-[#1E4630] text-white p-4 rounded-2xl shadow-sm flex items-center gap-4 border border-[#143021]">
+                        <div class="p-1 text-emerald-300">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                <circle cx="10" cy="10" r="1.5" stroke-width="1.5"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-200/70">Active Orders:</div>
+                            <div class="text-2xl font-black font-sans leading-none mt-1">{{ $metrics['active_orders'] }}</div>
+                        </div>
                     </div>
-                    <div>
-                        <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-200/70">Active Orders:</div>
-                        <div class="text-2xl font-black font-sans leading-none mt-1">{{ $metrics['active_orders'] }}</div>
-                    </div>
+
+                    {{-- Active Packages Card --}}
+                    @if(($metrics['active_packages'] ?? 0) > 0)
+                    <a href="{{ route('corporates.packages.index') }}"
+                       class="bg-[#EFE9DC] border border-[#DDD3BE] text-[#2B1A11] p-4 rounded-2xl shadow-sm flex items-center gap-4 hover:border-middo-orange/50 transition">
+                        <div class="p-1 text-[#635347]">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-[#635347]">Active Packages:</div>
+                            <div class="text-2xl font-black leading-none mt-1">{{ $metrics['active_packages'] }}</div>
+                        </div>
+                    </a>
+                    @endif
                 </div>
 
-                {{-- Active Packages Card --}}
-                @if(($metrics['active_packages'] ?? 0) > 0)
-                <a href="{{ route('corporates.packages.index') }}"
-                   class="bg-[#EFE9DC] border border-[#DDD3BE] text-[#2B1A11] p-4 rounded-2xl shadow-sm flex items-center gap-4 hover:border-middo-orange/50 transition">
-                    <div class="p-1 text-[#635347]">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
-                        </svg>
+                <div class="grid grid-cols-2 gap-4 xl:contents">
+                    {{-- Next Meal Card --}}
+                    <div class="bg-[#EFE9DC] border border-[#DDD3BE] text-[#2B1A11] p-4 rounded-2xl shadow-sm flex items-center gap-4">
+                        <div class="p-1 text-[#635347]">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h1.5v3M13.5 14h1.5v2" />
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-[#635347]">Next Meal:</div>
+                            <div class="text-lg font-black leading-tight mt-0.5">{{ $metrics['next_meal_time'] }}</div>
+                        </div>
                     </div>
-                    <div>
-                        <div class="text-[11px] font-bold uppercase tracking-wider text-[#635347]">Active Packages:</div>
-                        <div class="text-2xl font-black leading-none mt-1">{{ $metrics['active_packages'] }}</div>
-                    </div>
-                </a>
-                @endif
 
-                {{-- Next Meal Card --}}
-                <div class="bg-[#EFE9DC] border border-[#DDD3BE] text-[#2B1A11] p-4 rounded-2xl shadow-sm flex items-center gap-4">
-                    <div class="p-1 text-[#635347]">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h1.5v3M13.5 14h1.5v2" />
-                        </svg>
-                    </div>
-                    <div>
-                        <div class="text-[11px] font-bold uppercase tracking-wider text-[#635347]">Next Meal:</div>
-                        <div class="text-lg font-black leading-tight mt-0.5">{{ $metrics['next_meal_time'] }}</div>
-                    </div>
-                </div>
-
-                {{-- Monthly Spend Card --}}
-                <div class="bg-[#1E4630] text-white p-4 rounded-2xl shadow-sm flex items-center gap-4 border border-[#143021]">
-                    <div class="p-1 text-emerald-300 shrink-0 text-[41px] font-bold">
-                        ৳
-                    </div>
-                    <div>
-                        <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-200/70">Monthly Spend:</div>
-                        <div class="text-2xl font-black font-sans tracking-tight mt-1">{{ number_format($metrics['monthly_spend'], 0) }}</div>
+                    {{-- Monthly Spend Card --}}
+                    <div class="bg-[#1E4630] text-white p-4 rounded-2xl shadow-sm flex items-center gap-4 border border-[#143021]">
+                        <div class="p-1 text-emerald-300 shrink-0 text-[41px] font-bold">
+                            ৳
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-200/70">Monthly Spend:</div>
+                            <div class="text-2xl font-black font-sans tracking-tight mt-1">{{ number_format($metrics['monthly_spend'], 0) }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -216,10 +220,12 @@
                 <span class="text-gray-400 text-[10px] mt-2">➔</span>
             </a>
 
+            @if(($metrics['active_packages'] ?? 0) > 0)
             <a href="{{ route('corporates.packages.index') }}" class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors group flex flex-col justify-between h-full">
                 <span class="text-xs font-bold text-[#2B1A11] group-hover:text-[#8A441B]">🗓️ Active Packages</span>
-                <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-black font-mono w-fit mt-2">{{ $metrics['active_packages'] ?? 0 }}</span>
+                <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-black font-mono w-fit mt-2">{{ $metrics['active_packages'] }}</span>
             </a>
+            @endif
 
             @if(($metrics['boxes_in_custody'] ?? 0) === 0)
             <button type="button" @click="$dispatch('open-middo-boxes-custody-modal')" class="bg-white border border-[#EBE3D3] p-3 rounded-2xl shadow-sm hover:border-[#8A441B] transition-colors group flex flex-col justify-between h-full text-left">
