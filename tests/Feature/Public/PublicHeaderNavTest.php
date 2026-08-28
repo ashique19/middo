@@ -44,6 +44,7 @@ class PublicHeaderNavTest extends TestCase
         $this->actingAs($this->corporate)
             ->get(route('home'))
             ->assertOk()
+            ->assertSee('Corp', false)
             ->assertSee('Dashboard', false)
             ->assertDontSee("Track Today's Lunch", false)
             ->assertDontSee('Sign up', false);
