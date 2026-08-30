@@ -11,6 +11,14 @@ class MimSms
     {
         $formatted = OrderConfirmationOtp::formatMobile($mobile);
 
+        if (config('app.debug')) {
+            Log::info('MimSMS skipped — app debug mode enabled.', [
+                'mobile' => $formatted,
+            ]);
+
+            return false;
+        }
+
         $apiKey = config('services.mimsms.api_key');
         $userName = config('services.mimsms.user_name');
         $senderName = config('services.mimsms.sender_name');
