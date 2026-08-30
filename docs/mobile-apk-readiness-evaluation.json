@@ -116,10 +116,9 @@
           "Completion backlog K0–K6 marked done (docs/kitchen-completion-todo.json)"
         ],
         "gaps": [
-          "Phase B foundation exists (routes/api/kitchen.php + KitchenMobileController + KitchenApiPresenter + KitchenMobileApiTest) — money, dispatch modal, prep shopping list, complaints, incoming boxes still follow-up",
-          "No kitchen FCM / device-token push pipeline yet (registration endpoint exists; StaffAlerts are still DB-only)",
-          "Native Flutter client (mobile/kitchen/) not started",
-          "Livewire still owns some orchestration (e.g. DispatchOrderModal) — extract before /orders/{id}/dispatch API"
+          "JSON API surface complete for kitchen field workflows — FCM push for StaffAlerts and Flutter mobile/kitchen/ client still missing",
+          "Device-token registration exists; no SendStaffAlertPush (or equivalent) job yet",
+          "Dispatch extracted to OrderKitchenDispatch (shared by Livewire + API)"
         ]
       },
       "business_logic": {
@@ -230,7 +229,7 @@
       "web_structure": 4,
       "business_logic": 4,
       "apk_readiness": 3,
-      "blocker_for_apk": "API foundation started; still need money/dispatch endpoints, FCM, Flutter client"
+      "blocker_for_apk": "API ready; still need FCM + Flutter kitchen client"
     },
     {
       "role": "delivery",
