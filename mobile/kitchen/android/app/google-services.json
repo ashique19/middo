@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "272880379950",
+    "project_id": "middo-55888",
+    "storage_bucket": "middo-55888.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:272880379950:android:f3406fc052cf51683597bf",
+        "android_client_info": {
+          "package_name": "com.middo.kitchen"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALo_7gbzk-f3tH_u694jyXwbyqXbMuHCc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
