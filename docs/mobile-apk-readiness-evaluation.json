@@ -1,7 +1,7 @@
 {
   "id": "middo-mobile-apk-readiness-2026-08-08",
   "title": "Mobile APK readiness — corporate / kitchen / delivery",
-  "updated": "2026-08-08",
+  "updated": "2026-08-30",
   "purpose": "Evaluate web structure maturity and business-logic maturity for Android APK preparation across the three field/customer roles.",
   "scoring": {
     "scale": "1–5",
@@ -34,13 +34,13 @@
     "pattern": "Laravel 13 + Livewire 4 monolith; domain in app/Support/*",
     "order_state_machine": "app/Support/OrderTransition.php — pending→processing→ready→rider_assigned→packed→on_the_way_to_delivery→delivered|delivered_and_paid (+ cancel from pending)",
     "auth_web": "session cookie + middleware role:/permission:",
-    "auth_mobile": "Sanctum bearer tokens — corporate only today",
-    "existing_native": "mobile/corporate Flutter app; release APK artifact at mobile/corporate/releases/middo-corporate-release.apk",
+    "auth_mobile": "Sanctum bearer tokens — corporate + kitchen",
+    "existing_native": "mobile/corporate Flutter app; mobile/kitchen Flutter scaffold; corporate release APK at mobile/corporate/releases/middo-corporate-release.apk",
     "existing_pwa": [
       "public/manifest-kitchen.webmanifest → /kitchen/dashboard",
       "public/manifest-delivery.webmanifest → /delivery/dashboard"
     ],
-    "no_api_yet": ["/api/kitchen/*", "/api/delivery/*"]
+    "no_api_yet": ["/api/delivery/*"]
   },
   "roles": {
     "corporate": {
@@ -98,12 +98,12 @@
       ]
     },
     "kitchen": {
-      "apk_verdict": "api_surface_ready_for_client",
-      "apk_path": "Phase B /api/kitchen/* surface complete (auth through money/boxes/dispatch/complaints). Next: FCM for kitchen StaffAlerts + Flutter mobile/kitchen client. PWA remains interim Android path.",
+      "apk_verdict": "scaffold_ready",
+      "apk_path": "Phase B /api/kitchen/* + Phase D SendStaffAlertPush FCM + Phase E mobile/kitchen Flutter scaffold. Deepen Flutter UI (accept/dispatch/boxes/account) then store release. PWA remains interim Android path.",
       "scores": {
         "web_structure": 4,
         "business_logic": 4,
-        "overall_apk_readiness": 3
+        "overall_apk_readiness": 4
       },
       "web_structure": {
         "score": 4,
@@ -113,12 +113,14 @@
           "Thumbs-first shell resources/views/components/kitchen/layout/* (bottom nav, more-sheet, safe-area)",
           "Installable PWA manifest-kitchen.webmanifest (standalone, portrait)",
           "KitchenAppShellTest + e2e/kitchen.spec.ts",
-          "Completion backlog K0–K6 marked done (docs/kitchen-completion-todo.json)"
+          "Completion backlog K0–K6 marked done (docs/kitchen-completion-todo.json)",
+          "Sanctum /api/kitchen/* + KitchenMobileController + KitchenApiPresenter",
+          "Flutter scaffold mobile/kitchen (com.middo.kitchen) with Home/Orders/Groups/Prep/More",
+          "FCM: StaffAlerts::createOnce → SendStaffAlertPush (channel middo_staff_alerts)"
         ],
         "gaps": [
-          "JSON API surface complete for kitchen field workflows — FCM push for StaffAlerts and Flutter mobile/kitchen/ client still missing",
-          "Device-token registration exists; no SendStaffAlertPush (or equivalent) job yet",
-          "Dispatch extracted to OrderKitchenDispatch (shared by Livewire + API)"
+          "Flutter UI is scaffold-level — accept/decline, ready/dispatch, boxes, account screens still TODO",
+          "Register com.middo.kitchen in Firebase and ship production google-services.json"
         ]
       },
       "business_logic": {
@@ -129,31 +131,30 @@
           "Kitchen money: dispatch credits, cash-handover debits, withdrawals, transfer to Middo (KitchenMoneyService, KitchenAccountLedger)",
           "Prep shopping list from recipes (KitchenIngredientRollup)",
           "Complaints inbox (KitchenComplaints)",
-          "Broad Feature/Kitchen test suite covering K1–K6 themes"
+          "Broad Feature/Kitchen test suite covering K1–K6 themes",
+          "StaffAlertPushTest covers FCM job dispatch + dedupe"
         ],
         "gaps": [
-          "Some transitions/actions still orchestrated inside Livewire components — extract action facades before API to avoid HTML-coupled logic",
-          "No kitchen push channel yet for accept-window / new-group alerts (field cooks need OS notifications on APK)",
-          "Permission model exists for kitchen web; API would need the same permission checks, not role-only"
+          "Some transitions/actions still orchestrated inside Livewire components — keep extracting before expanding API surface further"
         ]
       },
       "capability_matrix": {
-        "auth": "web session only",
-        "dashboard_alerts": "web/PWA",
-        "accept_decline_groups": "web/PWA + Support",
-        "mark_ready_dispatch_boxes": "web/PWA + Support",
-        "menus_recipes_prep": "web/PWA",
-        "boxes_stock_requests": "web/PWA + Support",
-        "cash_handovers_account": "web/PWA + Support",
-        "complaints": "web/PWA",
-        "json_api": "missing",
-        "push_notifications": "missing (StaffAlerts only)"
+        "auth": "web session + Sanctum /api/kitchen",
+        "dashboard_alerts": "web/PWA + API + Flutter scaffold",
+        "accept_decline_groups": "web/PWA + API (Flutter UI TODO)",
+        "mark_ready_dispatch_boxes": "web/PWA + API (Flutter UI TODO)",
+        "menus_recipes_prep": "web/PWA + API + Flutter scaffold",
+        "boxes_stock_requests": "web/PWA + API (Flutter UI TODO)",
+        "cash_handovers_account": "web/PWA + API (Flutter UI TODO)",
+        "complaints": "web/PWA + API (Flutter UI TODO)",
+        "json_api": "complete for field workflows",
+        "push_notifications": "SendStaffAlertPush + device tokens"
       },
       "recommended_next_for_apk": [
-        "Phase A: freeze kitchen IA screen list from bottom-nav (dashboard, groups, active orders, boxes, account, more)",
-        "Phase B: introduce /api/kitchen/* Sanctum API mirroring Support entry points (accept/decline/release/ready/dispatch/boxes/cash/account)",
-        "Phase C: Flutter or Cap/TWA client; prefer Flutter only if offline/camera/scan needs exceed PWA",
-        "Until then: treat Kitchen PWA as the Android delivery vehicle (Add to Home Screen / Trusted Web Activity optional)"
+        "Deepen mobile/kitchen Flutter: accept/decline, ready/dispatch, boxes, account, complaints",
+        "Register Firebase Android app com.middo.kitchen and ship real google-services.json",
+        "Release APK / Play listing once core cook workflows match PWA parity",
+        "Until then: Kitchen PWA remains interim Android delivery"
       ]
     },
     "delivery": {
@@ -228,8 +229,8 @@
       "role": "kitchen",
       "web_structure": 4,
       "business_logic": 4,
-      "apk_readiness": 3,
-      "blocker_for_apk": "API ready; still need FCM + Flutter kitchen client"
+      "apk_readiness": 4,
+      "blocker_for_apk": "Flutter scaffold exists; deepen UI + Firebase app registration for store release"
     },
     {
       "role": "delivery",

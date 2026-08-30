@@ -22,6 +22,7 @@ class FcmClient
         string $title,
         string $body,
         array $data = [],
+        string $androidChannelId = 'middo_orders',
     ): array {
         $tokens = array_values(array_unique(array_filter($tokens)));
 
@@ -69,7 +70,7 @@ class FcmClient
                                 'priority' => 'HIGH',
                                 'notification' => [
                                     'sound' => 'default',
-                                    'channel_id' => 'middo_orders',
+                                    'channel_id' => $androidChannelId,
                                 ],
                             ],
                         ],

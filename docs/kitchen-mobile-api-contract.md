@@ -1,10 +1,10 @@
 # Kitchen Mobile API Contract
 
-**Status:** Phase B complete surface (2026-08-30)  
+**Status:** Phase B API + Phase D FCM + Phase E Flutter scaffold (2026-08-30)  
 **Auth:** Sanctum bearer token  
 **Base path:** `/api/kitchen`  
 **Role gate:** `auth:sanctum` + `role:kitchen` (+ `permission:kitchen.*` on resource routes)  
-**Reference client:** clone `mobile/corporate/` → future `mobile/kitchen/`
+**Reference client:** `mobile/kitchen/` (Flutter scaffold)
 
 Screen IA maps to the kitchen PWA bottom nav: **Home · Orders · Groups · Prep · More**.
 
@@ -140,10 +140,21 @@ Kitchen API **must not** expose corporate customer name, street address, or rece
 
 ## Push (Phase D)
 
-Device token registration exists. FCM dispatch for kitchen `StaffAlerts` is **not** wired yet.
+Device token registration: `POST/DELETE /device-tokens`.
+
+When `StaffAlerts::createOnce()` inserts an alert, `SendStaffAlertPush` is queued. Payload data:
+
+| Key | Value |
+|-----|--------|
+| `type` | `staff_alert` |
+| `alert_id` | string id |
+| `alert_type` | e.g. `group_assigned` |
+| `order_group_id` | string or empty |
+
+Android FCM channel: `middo_staff_alerts` (corporate order pushes keep `middo_orders`).
 
 ---
 
 ## Client (Phase E)
 
-Flutter app at `mobile/kitchen/` — not started; clone `mobile/corporate/` pattern.
+Flutter scaffold at `mobile/kitchen/` (`com.middo.kitchen`): login, Home / Orders / Groups / Prep / More shell, FCM token sync. Accept/dispatch/box/account actions are API-ready; deeper UI still TODO.

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Jobs\SendStaffAlertPush;
 use App\Models\CustomRun;
 use App\Models\KitchenBoxRequest;
 use App\Models\MiddoBox;
@@ -831,7 +832,7 @@ class StaffAlerts
         }
 
         try {
-            return StaffAlert::create([
+            $alert = StaffAlert::create([
                 'user_id' => $userId,
                 'type' => $type,
                 'title' => $title,
@@ -843,6 +844,10 @@ class StaffAlerts
         } catch (\Throwable) {
             return null;
         }
+
+        SendStaffAlertPush::dispatch($alert->id);
+
+        return $alert;
     }
 
     protected static function tableReady(): bool
