@@ -43,6 +43,8 @@ Route::prefix('kitchen')->group(function () {
             Route::get('/orders/active', [KitchenMobileController::class, 'activeOrders']);
             Route::get('/orders/{id}', [KitchenMobileController::class, 'showOrder']);
             Route::post('/orders/{id}/ready', [KitchenMobileController::class, 'markOrderReady']);
+            Route::get('/orders/{id}/dispatch-options', [KitchenMobileController::class, 'dispatchOptions']);
+            Route::post('/orders/{id}/dispatch', [KitchenMobileController::class, 'dispatchOrder']);
             Route::post('/order-groups/{id}/ready', [KitchenMobileController::class, 'markGroupReady']);
             Route::post('/order-groups/{id}/release', [KitchenMobileController::class, 'releaseOrderGroup']);
             Route::post('/order-groups/{id}/shortage', [KitchenMobileController::class, 'reportShortage']);
@@ -53,7 +55,34 @@ Route::prefix('kitchen')->group(function () {
             Route::get('/menus/{id}', [KitchenMobileController::class, 'showMenu']);
         });
 
-        Route::middleware('permission:'.KitchenPermissions::BOXES)
-            ->get('/boxes/at-kitchen', [KitchenMobileController::class, 'boxesAtKitchen']);
+        Route::middleware('permission:'.KitchenPermissions::PREP)
+            ->get('/prep/shopping-list', [KitchenMobileController::class, 'shoppingList']);
+
+        Route::middleware('permission:'.KitchenPermissions::BOXES)->group(function () {
+            Route::get('/boxes/at-kitchen', [KitchenMobileController::class, 'boxesAtKitchen']);
+            Route::get('/boxes/incoming', [KitchenMobileController::class, 'incomingBoxes']);
+            Route::post('/boxes/{id}/receive', [KitchenMobileController::class, 'receiveBox']);
+            Route::post('/boxes/{id}/damage', [KitchenMobileController::class, 'markBoxDamaged']);
+            Route::post('/boxes/{id}/send-to-warehouse', [KitchenMobileController::class, 'sendBoxToWarehouse']);
+            Route::post('/boxes/request', [KitchenMobileController::class, 'requestBoxes']);
+            Route::post('/boxes/requests/{id}/cancel', [KitchenMobileController::class, 'cancelBoxRequest']);
+        });
+
+        Route::middleware('permission:'.KitchenPermissions::ACCOUNT)->group(function () {
+            Route::get('/account', [KitchenMobileController::class, 'account']);
+            Route::post('/account/withdraw', [KitchenMobileController::class, 'requestWithdrawal']);
+            Route::post('/account/transfer-to-middo', [KitchenMobileController::class, 'transferToMiddo']);
+        });
+
+        Route::middleware('permission:'.KitchenPermissions::CASH_HANDOVERS)->group(function () {
+            Route::get('/cash-handovers', [KitchenMobileController::class, 'cashHandovers']);
+            Route::post('/cash-handovers/{id}/accept', [KitchenMobileController::class, 'acceptCashHandover']);
+            Route::post('/cash-handovers/{id}/reject', [KitchenMobileController::class, 'rejectCashHandover']);
+        });
+
+        Route::middleware('permission:'.KitchenPermissions::COMPLAINTS)->group(function () {
+            Route::get('/complaints', [KitchenMobileController::class, 'complaints']);
+            Route::get('/complaints/{id}', [KitchenMobileController::class, 'showComplaint']);
+        });
     });
 });

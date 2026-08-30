@@ -3,28 +3,48 @@
 namespace App\Http\Controllers\Api\Kitchen;
 
 use App\Http\Controllers\Controller;
+use App\Livewire\Kitchen\IncomingBoxes as IncomingBoxesUi;
 use App\Models\Area;
+use App\Models\CashHandover;
 use App\Models\DeviceToken;
+use App\Models\KitchenBoxRequest;
+use App\Models\KitchenBoxRequestLog;
+use App\Models\KitchenMiddoTransfer;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
+use App\Models\MiddoBoxLog;
 use App\Models\Order;
+use App\Models\OrderComplaint;
 use App\Models\OrderGroup;
 use App\Models\OrderGroupEvent;
 use App\Models\StaffAlert;
 use App\Models\User;
 use App\Models\UserLog;
+use App\Support\CashHandoverActions;
 use App\Support\KitchenAcceptWindow;
+use App\Support\KitchenAccountLedger;
 use App\Support\KitchenApiPresenter;
+use App\Support\KitchenBoxRequestFlow;
 use App\Support\KitchenBoxStock;
 use App\Support\KitchenCapacity;
 use App\Support\KitchenComplaints;
+use App\Support\KitchenIngredientRollup;
+use App\Support\KitchenMoneyService;
+use App\Support\MiddoBoxKitchenActions;
+use App\Support\MiddoBoxLifecycle;
+use App\Support\MiddoSettings;
 use App\Support\OrderGroupKitchenAssignment;
 use App\Support\OrderKitchenActions;
+use App\Support\OrderKitchenDispatch;
+use App\Support\OrderMoneyFlow;
+use App\Support\PayoutChannel;
 use App\Support\StaffAlerts;
 use App\Support\UserAudit;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -721,6 +741,592 @@ class KitchenMobileController extends Controller
             'count' => $boxes->total(),
             'meta' => KitchenApiPresenter::paginationMeta($boxes),
         ]);
+    }
+
+    public function shoppingList(Request $request): JsonResponse
+    {
+        $date = $request->query('date') ?: now('Asia/Dhaka')->toDateString();
+
+        return response()->json(
+            KitchenIngredientRollup::forKitchen((int) $request->user()->id, (string) $date)
+        );
+    }
+
+    public function dispatchOptions(Request $request, int $id): JsonResponse
+    {
+        $kitchenId = (int) $request->user()->id;
+        $order = Order::query()
+            ->with(['menuItem', 'orderGroup', 'deliveryRider', 'area'])
+            ->whereKey($id)
+            ->whereHas('orderGroup', fn ($q) => $q->where('kitchen_id', $kitchenId))
+            ->first();
+
+        if (! $order) {
+            return response()->json(['message' => 'Order not found.'], 404);
+        }
+
+        $canDispatch = $order->isRiderAssignedAwaitingDispatch();
+
+        return response()->json([
+            'order' => KitchenApiPresenter::order($order),
+            'can_dispatch' => $canDispatch,
+            'required_quantity' => (int) $order->quantity,
+            'available_boxes' => $canDispatch
+                ? OrderKitchenDispatch::availableBoxesForKitchen($kitchenId)
+                : [],
+            'message' => $canDispatch ? null : match (true) {
+                $order->order_status === 'processing' => 'Mark this order ready first.',
+                $order->order_status === 'ready' => 'Wait for ops to assign a rider before dispatching.',
+                $order->dispatched_at !== null => 'This order has already been dispatched.',
+                default => 'This order can no longer be dispatched.',
+            },
+        ]);
+    }
+
+    public function dispatchOrder(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate([
+            'box_ids' => ['required', 'array', 'min:1'],
+            'box_ids.*' => ['integer', 'distinct'],
+        ]);
+
+        try {
+            $order = Order::query()->find($id);
+            if (! $order) {
+                return response()->json(['message' => 'Order not found.'], 404);
+            }
+
+            $fresh = OrderKitchenDispatch::dispatchWithBoxes(
+                $order,
+                (int) $request->user()->id,
+                $data['box_ids']
+            );
+
+            return response()->json([
+                'message' => "Order #{$fresh->id} packed and dispatched.",
+                'order' => KitchenApiPresenter::order($fresh),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Could not pack this order.',
+            ], 422);
+        }
+    }
+
+    public function incomingBoxes(Request $request): JsonResponse
+    {
+        $kitchenId = (int) $request->user()->id;
+
+        $latestLogIds = MiddoBoxLog::query()
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('middo_box_id')
+            ->pluck('id');
+
+        $visibleBoxIds = MiddoBoxLog::query()
+            ->whereIn('id', $latestLogIds)
+            ->whereIn('log_action', IncomingBoxesUi::LIST_ACTIONS)
+            ->pluck('middo_box_id');
+
+        $boxes = MiddoBox::query()
+            ->with(['logs' => fn ($q) => $q->latest('id')->limit(1)])
+            ->incomingToKitchen($kitchenId)
+            ->whereIn('id', $visibleBoxIds)
+            ->orderBy('qr_code_id')
+            ->paginate(20);
+
+        $nodes = collect($boxes->items())->map(function (MiddoBox $box) {
+            $latestAction = $box->logs->first()?->log_action;
+
+            return array_merge(KitchenApiPresenter::box($box), [
+                'latest_action' => $latestAction,
+                'can_receive' => in_array($latestAction, IncomingBoxesUi::RECEIVE_ACTIONS, true),
+            ]);
+        })->values()->all();
+
+        return response()->json([
+            'boxes' => $nodes,
+            'meta' => KitchenApiPresenter::paginationMeta($boxes),
+        ]);
+    }
+
+    public function receiveBox(Request $request, int $id): JsonResponse
+    {
+        $kitchenId = (int) $request->user()->id;
+
+        try {
+            $qr = DB::transaction(function () use ($id, $kitchenId) {
+                $box = MiddoBox::query()->whereKey($id)->lockForUpdate()->first();
+
+                if (! $box || ! $box->isIncomingToKitchen($kitchenId)) {
+                    throw new \RuntimeException('This box is not incoming to your kitchen.');
+                }
+
+                $latestAction = KitchenBoxRequestFlow::latestBoxAction($box->id);
+                if (! in_array($latestAction, IncomingBoxesUi::RECEIVE_ACTIONS, true)) {
+                    throw new \RuntimeException('Wait for the rider to hand this box before confirming receive.');
+                }
+
+                $box->update([
+                    'held_by_user_id' => $kitchenId,
+                    'kitchen_id' => $kitchenId,
+                    'asset_status' => 'active',
+                    'last_scanned_at' => now(),
+                ]);
+
+                MiddoBoxLog::create([
+                    'middo_box_id' => $box->id,
+                    'custody_status' => 'assigned_at_kitchen',
+                    'log_action' => 'received_at_kitchen',
+                    'notes' => 'Received at '.(MiddoBoxLifecycle::partyLabel(User::query()->find($kitchenId)) ?: 'kitchen'),
+                    'performed_by' => $kitchenId,
+                ]);
+
+                KitchenBoxRequestFlow::markReceivedAtKitchen($box, $kitchenId);
+
+                return $box->qr_code_id;
+            });
+
+            return response()->json([
+                'message' => "Received {$qr} into kitchen inventory.",
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Could not receive this box.',
+            ], 422);
+        }
+    }
+
+    public function requestBoxes(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'quantity' => ['required', 'integer', 'min:1', 'max:500'],
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        /** @var User $kitchen */
+        $kitchen = $request->user();
+
+        $boxRequest = KitchenBoxRequest::create([
+            'kitchen_id' => $kitchen->id,
+            'quantity' => (int) $data['quantity'],
+            'allocated_qty' => 0,
+            'status' => KitchenBoxRequest::STATUS_PENDING,
+            'note' => filled($data['note'] ?? null) ? trim((string) $data['note']) : null,
+            'requested_by' => $kitchen->id,
+        ]);
+
+        KitchenBoxRequestFlow::logRequestEvent(
+            $boxRequest,
+            KitchenBoxRequestLog::EVENT_REQUESTED,
+            $kitchen->id,
+            $boxRequest->note,
+            ['quantity' => (int) $boxRequest->quantity]
+        );
+
+        StaffAlerts::notifyOpsKitchenBoxRequest($boxRequest);
+
+        return response()->json([
+            'message' => "Requested {$boxRequest->quantity} Middo ".str('box')->plural($boxRequest->quantity).'.',
+            'request' => [
+                'id' => $boxRequest->id,
+                'quantity' => (int) $boxRequest->quantity,
+                'status' => $boxRequest->status,
+                'note' => $boxRequest->note,
+            ],
+        ], 201);
+    }
+
+    public function cancelBoxRequest(Request $request, int $id): JsonResponse
+    {
+        $boxRequest = KitchenBoxRequest::query()
+            ->whereKey($id)
+            ->where('kitchen_id', $request->user()->id)
+            ->where('status', KitchenBoxRequest::STATUS_PENDING)
+            ->first();
+
+        if (! $boxRequest) {
+            return response()->json(['message' => 'That box request is no longer pending.'], 404);
+        }
+
+        try {
+            KitchenBoxRequestFlow::cancelRequest($boxRequest, (int) $request->user()->id);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['message' => 'Box request cancelled.']);
+    }
+
+    public function markBoxDamaged(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate([
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        try {
+            $box = MiddoBox::query()->findOrFail($id);
+            $damaged = MiddoBoxKitchenActions::markDamaged($box, (int) $request->user()->id, $data['notes'] ?? null);
+
+            return response()->json([
+                'message' => "{$damaged->qr_code_id} marked damaged.",
+                'box' => KitchenApiPresenter::box($damaged),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Could not mark box damaged.',
+            ], 422);
+        }
+    }
+
+    public function sendBoxToWarehouse(Request $request, int $id): JsonResponse
+    {
+        try {
+            $box = MiddoBox::query()->findOrFail($id);
+            $sent = MiddoBoxKitchenActions::sendToWarehouse($box, (int) $request->user()->id);
+            $message = MiddoSettings::kitchenToOpsViaRider()
+                ? "{$sent->qr_code_id} marked ready to ship. Ops will assign a rider."
+                : "{$sent->qr_code_id} sent to Middo warehouse.";
+
+            return response()->json([
+                'message' => $message,
+                'box' => KitchenApiPresenter::box($sent),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Could not send box to warehouse.',
+            ], 422);
+        }
+    }
+
+    public function account(Request $request): JsonResponse
+    {
+        $kitchenId = (int) $request->user()->id;
+        $balance = KitchenAccountLedger::balance($kitchenId);
+
+        return response()->json([
+            'balance' => $balance,
+            'receivable' => max(0, $balance),
+            'payable_to_middo' => $balance < 0 ? abs($balance) : 0,
+            'preferred_payout_channel' => $request->user()->preferredPayoutChannel(),
+            'has_complete_payout_method' => $request->user()->hasCompletePayoutMethod(
+                $request->user()->preferredPayoutChannel()
+            ),
+        ]);
+    }
+
+    public function requestWithdrawal(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'notes' => ['nullable', 'string', 'max:500'],
+            'payout_channel' => ['nullable', 'in:'.implode(',', PayoutChannel::partnerChannels())],
+        ]);
+
+        /** @var User $user */
+        $user = $request->user();
+        $kitchenId = (int) $user->id;
+        $channel = $data['payout_channel'] ?? $user->preferredPayoutChannel() ?? PayoutChannel::defaultPartnerChannel();
+
+        try {
+            if (! $user->hasCompletePayoutMethod($channel)) {
+                throw new \RuntimeException(
+                    'Add your '.PayoutChannel::label($channel).' details in profile before requesting this payout.'
+                );
+            }
+
+            $details = $user->payoutDetailsFor($channel);
+            PayoutChannel::assertValid($channel, $details);
+
+            $amount = KitchenAccountLedger::balance($kitchenId);
+            if ($amount < 1) {
+                throw new \RuntimeException('Nothing to withdraw — Middo does not currently owe you.');
+            }
+
+            $withdrawal = KitchenMoneyService::requestWithdrawal(
+                $kitchenId,
+                $amount,
+                $channel,
+                $details,
+                $data['notes'] ?? null,
+                $kitchenId,
+            );
+
+            return response()->json([
+                'message' => 'Withdrawal request submitted. Receivable reduced; waiting for Middo approval.',
+                'withdrawal' => [
+                    'id' => $withdrawal->id,
+                    'amount' => (int) $withdrawal->amount,
+                    'status' => $withdrawal->status,
+                    'payout_channel' => $withdrawal->payout_channel ?? $channel,
+                ],
+                'balance' => KitchenAccountLedger::balance($kitchenId),
+            ], 201);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Could not submit withdrawal.',
+            ], 422);
+        }
+    }
+
+    public function transferToMiddo(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'amount' => ['required', 'integer', 'min:1'],
+            'reference' => ['nullable', 'string', 'max:100'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'proof' => ['required', 'image', 'max:4096'],
+        ]);
+
+        $kitchenId = (int) $request->user()->id;
+
+        $transfer = KitchenMiddoTransfer::create([
+            'kitchen_user_id' => $kitchenId,
+            'amount' => (int) $data['amount'],
+            'status' => KitchenMiddoTransfer::STATUS_PENDING,
+            'reference_code' => $data['reference'] ?? null,
+            'notes' => $data['notes'] ?? null,
+        ]);
+
+        $relativePath = 'img/kitchen-transfers';
+        $directory = public_path($relativePath);
+        File::ensureDirectoryExists($directory);
+
+        $extension = strtolower($request->file('proof')->extension() ?: 'jpg');
+        $filename = "transfer-{$transfer->id}.{$extension}";
+        $request->file('proof')->move($directory, $filename);
+
+        $transfer->update([
+            'proof_path' => $relativePath.'/'.$filename,
+        ]);
+
+        return response()->json([
+            'message' => 'Transfer submitted with proof. Waiting for Middo confirmation.',
+            'transfer' => [
+                'id' => $transfer->id,
+                'amount' => (int) $transfer->amount,
+                'status' => $transfer->status,
+                'proof_path' => $transfer->proof_path,
+            ],
+        ], 201);
+    }
+
+    public function cashHandovers(Request $request): JsonResponse
+    {
+        $kitchenId = (int) $request->user()->id;
+
+        $scopedIds = CashHandover::query()
+            ->with(['items.order.orderGroup'])
+            ->where('status', 'pending')
+            ->where(function ($q) {
+                $q->where('target', CashHandover::TARGET_KITCHEN)
+                    ->orWhereNull('target');
+            })
+            ->get()
+            ->filter(fn (CashHandover $h) => $this->handoverBelongsToKitchen($h, $kitchenId))
+            ->pluck('id')
+            ->all();
+
+        $handovers = CashHandover::query()
+            ->with(['rider', 'items.order'])
+            ->whereIn('id', $scopedIds ?: [0])
+            ->orderBy('id')
+            ->paginate(20);
+
+        return response()->json([
+            'wallet_balance' => KitchenAccountLedger::balance($kitchenId),
+            'handovers' => collect($handovers->items())->map(fn (CashHandover $h) => [
+                'id' => $h->id,
+                'amount' => (int) $h->amount,
+                'status' => $h->status,
+                'rider_name' => $h->rider?->name,
+                'rider_mobile' => $h->rider?->mobile,
+                'item_count' => $h->items->count(),
+                'created_at' => $h->created_at?->toIso8601String(),
+            ])->values()->all(),
+            'meta' => KitchenApiPresenter::paginationMeta($handovers),
+        ]);
+    }
+
+    public function acceptCashHandover(Request $request, int $id): JsonResponse
+    {
+        $kitchenId = (int) $request->user()->id;
+
+        try {
+            DB::transaction(function () use ($id, $kitchenId) {
+                $handover = CashHandover::query()
+                    ->with('items.order.orderGroup')
+                    ->whereKey($id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $handover || ! $handover->isPending()) {
+                    throw new \RuntimeException('This cash handover is no longer pending.');
+                }
+
+                if (! $handover->isKitchenTarget()) {
+                    throw new \RuntimeException('This handover is for Middo/ops, not kitchen.');
+                }
+
+                if (! $this->handoverBelongsToKitchen($handover, $kitchenId)) {
+                    throw new \RuntimeException('This cash handover is not linked to your kitchen’s orders.');
+                }
+
+                $rider = User::query()->whereKey($handover->rider_id)->lockForUpdate()->firstOrFail();
+
+                if ((int) $rider->balance < (int) $handover->amount) {
+                    throw new \RuntimeException('Rider balance is insufficient for this handover.');
+                }
+
+                $rider->decrement('balance', (int) $handover->amount);
+
+                KitchenAccountLedger::debit(
+                    $kitchenId,
+                    (int) $handover->amount,
+                    'cash_received',
+                    CashHandover::class,
+                    $handover->id,
+                    "Cash handover #{$handover->id} from rider #{$rider->id}",
+                    $kitchenId,
+                );
+
+                $handover->update([
+                    'status' => 'accepted',
+                    'accepted_by' => $kitchenId,
+                    'accepted_at' => now(),
+                ]);
+
+                OrderMoneyFlow::recordCashHandover($handover->fresh(['items.order.orderGroup']), $kitchenId);
+            });
+
+            $balance = KitchenAccountLedger::balance($kitchenId);
+
+            return response()->json([
+                'message' => $balance < 0
+                    ? "Cash handover #{$id} accepted. You now owe Middo ৳".number_format(abs($balance)).'.'
+                    : "Cash handover #{$id} accepted. Kitchen wallet balance ৳".number_format($balance).'.',
+                'wallet_balance' => $balance,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Could not accept cash handover.',
+            ], 422);
+        }
+    }
+
+    public function rejectCashHandover(Request $request, int $id): JsonResponse
+    {
+        $kitchenId = (int) $request->user()->id;
+
+        try {
+            $handover = CashHandover::query()
+                ->with('items.order.orderGroup')
+                ->whereKey($id)
+                ->first();
+
+            if (! $handover || ! $handover->isPending()) {
+                throw new \RuntimeException('This cash handover is no longer pending.');
+            }
+
+            if (! $handover->isKitchenTarget()) {
+                throw new \RuntimeException('This handover is for Middo/ops, not kitchen.');
+            }
+
+            if (! $this->handoverBelongsToKitchen($handover, $kitchenId)) {
+                throw new \RuntimeException('This cash handover is not linked to your kitchen’s orders.');
+            }
+
+            CashHandoverActions::reject($handover, $kitchenId, 'Rejected by kitchen');
+
+            return response()->json([
+                'message' => "Cash handover #{$id} rejected. Rider can re-submit those orders.",
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Could not reject cash handover.',
+            ], 422);
+        }
+    }
+
+    public function complaints(Request $request): JsonResponse
+    {
+        $kitchenId = (int) $request->user()->id;
+        $category = $request->query('category');
+
+        $query = KitchenComplaints::scopedRootsQuery($kitchenId)
+            ->with(['order.menuItem:id,name'])
+            ->latest('id');
+
+        if (filled($category)) {
+            $query->where('category', $category);
+        }
+
+        $complaints = $query->paginate(20);
+
+        return response()->json([
+            'complaints' => collect($complaints->items())->map(fn (OrderComplaint $c) => [
+                'id' => $c->id,
+                'category' => $c->category,
+                'category_label' => KitchenComplaints::categoryLabel($c->category),
+                'message' => $c->message,
+                'status' => $c->status,
+                'order_id' => $c->order_id,
+                'menu_name' => $c->order?->menuItem?->name,
+                'created_at' => $c->created_at?->toIso8601String(),
+            ])->values()->all(),
+            'meta' => KitchenApiPresenter::paginationMeta($complaints),
+        ]);
+    }
+
+    public function showComplaint(Request $request, int $id): JsonResponse
+    {
+        $kitchenId = (int) $request->user()->id;
+        $complaint = OrderComplaint::query()->with(['order.menuItem', 'createdBy:id,first_name,last_name'])->find($id);
+
+        if (! $complaint) {
+            return response()->json(['message' => 'Complaint not found.'], 404);
+        }
+
+        $root = $complaint->parent_id
+            ? OrderComplaint::query()->find($complaint->parent_id)
+            : $complaint;
+
+        if (! $root || ! KitchenComplaints::belongsToKitchen($root, $kitchenId)) {
+            return response()->json(['message' => 'Complaint not found.'], 404);
+        }
+
+        $thread = $root->threadMessages()->map(fn (OrderComplaint $m) => [
+            'id' => $m->id,
+            'message' => $m->message,
+            'created_by_name' => $m->createdBy?->name,
+            'created_at' => $m->created_at?->toIso8601String(),
+            'is_root' => $m->parent_id === null,
+        ])->values()->all();
+
+        return response()->json([
+            'complaint' => [
+                'id' => $root->id,
+                'category' => $root->category,
+                'category_label' => KitchenComplaints::categoryLabel($root->category),
+                'status' => $root->status,
+                'order_id' => $root->order_id,
+                'menu_name' => $root->order?->menuItem?->name,
+                'thread' => $thread,
+            ],
+        ]);
+    }
+
+    protected function handoverBelongsToKitchen(CashHandover $handover, int $kitchenId): bool
+    {
+        $handover->loadMissing('items.order.orderGroup');
+
+        if ($handover->items->isEmpty()) {
+            return false;
+        }
+
+        return $handover->items->every(function ($item) use ($kitchenId) {
+            return (int) ($item->order?->orderGroup?->kitchen_id) === $kitchenId;
+        });
     }
 
     protected function assertAreaBelongsToCity(int $cityId, int $areaId): void

@@ -98,8 +98,8 @@
       ]
     },
     "kitchen": {
-      "apk_verdict": "api_foundation_started",
-      "apk_path": "Phase B Sanctum /api/kitchen/* foundation landed (auth, dashboard, alerts, groups, active orders, menus, boxes list). Continue remaining money/dispatch/FCM + Flutter client. PWA remains interim Android path.",
+      "apk_verdict": "api_surface_ready_for_client",
+      "apk_path": "Phase B /api/kitchen/* surface complete (auth through money/boxes/dispatch/complaints). Next: FCM for kitchen StaffAlerts + Flutter mobile/kitchen client. PWA remains interim Android path.",
       "scores": {
         "web_structure": 4,
         "business_logic": 4,

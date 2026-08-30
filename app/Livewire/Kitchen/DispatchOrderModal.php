@@ -2,13 +2,10 @@
 
 namespace App\Livewire\Kitchen;
 
-use App\Models\MiddoBox;
 use App\Models\Order;
-use App\Models\OrderMiddoBox;
+use App\Support\OrderKitchenDispatch;
 use App\Support\OrderTransition;
-use App\Support\StaffAlerts;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -83,15 +80,7 @@ class DispatchOrderModal extends Component
         $this->riderLabel = $riderName;
         $this->orderLabel = '#'.$order->id.' · '.($order->menuItem?->name ?? 'Order').' · Qty '.$order->quantity.' · '.$area;
         $this->selectedBoxIds = [];
-        $this->availableBoxes = MiddoBox::query()
-            ->sendableAtKitchen($kitchenId)
-            ->orderBy('qr_code_id')
-            ->get()
-            ->map(fn (MiddoBox $box) => [
-                'id' => $box->id,
-                'qr_code_id' => $box->qr_code_id,
-            ])
-            ->all();
+        $this->availableBoxes = OrderKitchenDispatch::availableBoxesForKitchen((int) $kitchenId);
         $this->showModal = true;
     }
 
@@ -145,73 +134,12 @@ class DispatchOrderModal extends Component
         $kitchenId = (int) Auth::id();
 
         try {
-            DB::transaction(function () use ($kitchenId) {
-                $order = Order::query()
-                    ->whereKey($this->orderId)
-                    ->lockForUpdate()
-                    ->first();
+            $order = Order::query()->find($this->orderId);
+            if (! $order) {
+                throw new \RuntimeException('Order not found for your kitchen.');
+            }
 
-                if (! $order) {
-                    throw new \RuntimeException('Order not found for your kitchen.');
-                }
-
-                $groupKitchenId = DB::table('order_group_orders')
-                    ->join('order_groups', 'order_groups.id', '=', 'order_group_orders.order_group_id')
-                    ->where('order_group_orders.order_id', $order->id)
-                    ->value('order_groups.kitchen_id');
-
-                if ($groupKitchenId === null || (int) $groupKitchenId !== $kitchenId) {
-                    throw new \RuntimeException('Order not found for your kitchen.');
-                }
-
-                if (! $order->isRiderAssignedAwaitingDispatch()) {
-                    throw new \RuntimeException(
-                        $order->order_status === OrderTransition::READY
-                            ? 'A rider must accept this order before you can dispatch.'
-                            : 'This order is no longer ready to dispatch.'
-                    );
-                }
-
-                if ($order->dispatched_at !== null) {
-                    throw new \RuntimeException('This order has already been dispatched.');
-                }
-
-                $boxes = MiddoBox::query()
-                    ->whereIn('id', $this->selectedBoxIds)
-                    ->lockForUpdate()
-                    ->get();
-
-                if ($boxes->count() !== count($this->selectedBoxIds)) {
-                    throw new \RuntimeException('One or more selected boxes are unavailable.');
-                }
-
-                foreach ($boxes as $box) {
-                    if (! $box->isAtKitchen($kitchenId) || $box->isDamaged()) {
-                        throw new \RuntimeException("{$box->qr_code_id} is not available in your kitchen inventory.");
-                    }
-
-                    if (OrderMiddoBox::query()->where('middo_box_id', $box->id)->exists()) {
-                        throw new \RuntimeException("{$box->qr_code_id} is already reserved for another order.");
-                    }
-
-                    OrderMiddoBox::create([
-                        'order_id' => $order->id,
-                        'middo_box_id' => $box->id,
-                    ]);
-
-                    $box->update([
-                        'last_scanned_at' => now(),
-                    ]);
-                }
-
-                // Keep delivery_rider_id — kitchen is packing for the ops-assigned rider.
-                OrderTransition::apply($order, OrderTransition::PACKED, [
-                    'dispatched_at' => now(),
-                    'updated_by' => $kitchenId,
-                ]);
-
-                StaffAlerts::notifyRiderLunchPacked($order->fresh(['menuItem', 'orderGroup', 'deliveryRider']));
-            });
+            OrderKitchenDispatch::dispatchWithBoxes($order, $kitchenId, $this->selectedBoxIds);
 
             $this->dispatch('order-dispatched');
             $this->closeModal();

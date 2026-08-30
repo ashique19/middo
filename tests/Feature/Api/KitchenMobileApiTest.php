@@ -321,6 +321,95 @@ class KitchenMobileApiTest extends TestCase
             ->assertJsonStructure(['boxes', 'count', 'meta']);
     }
 
+    public function test_kitchen_shopping_list_account_and_complaints_endpoints(): void
+    {
+        $kitchen = $this->makeKitchen();
+        Sanctum::actingAs($kitchen);
+
+        $this->getJson('/api/kitchen/prep/shopping-list')
+            ->assertOk()
+            ->assertJsonStructure(['delivery_date', 'ingredients', 'menus', 'warnings']);
+
+        $this->getJson('/api/kitchen/account')
+            ->assertOk()
+            ->assertJsonStructure(['balance', 'receivable', 'payable_to_middo', 'preferred_payout_channel']);
+
+        $this->getJson('/api/kitchen/cash-handovers')
+            ->assertOk()
+            ->assertJsonStructure(['wallet_balance', 'handovers', 'meta']);
+
+        $this->getJson('/api/kitchen/complaints')
+            ->assertOk()
+            ->assertJsonStructure(['complaints', 'meta']);
+
+        $this->getJson('/api/kitchen/boxes/incoming')
+            ->assertOk()
+            ->assertJsonStructure(['boxes', 'meta']);
+    }
+
+    public function test_kitchen_dispatch_options_and_pack_order(): void
+    {
+        $city = City::create(['name' => 'Dhaka']);
+        $area = Area::create(['name' => 'Gulshan', 'city_id' => $city->id]);
+        $kitchen = $this->makeKitchen(['city_id' => $city->id, 'area_id' => $area->id]);
+        $riderRole = Role::create(['name' => 'delivery']);
+        $rider = User::create([
+            'first_name' => 'Rider',
+            'last_name' => 'One',
+            'mobile' => '01310999888',
+            'password' => '12345678',
+            'role_id' => $riderRole->id,
+            'status' => 'active',
+        ]);
+        $corporate = $this->makeCorporate(['city_id' => $city->id, 'area_id' => $area->id, 'mobile' => '01310999777']);
+        $menu = $this->makeMenu();
+        $today = now('Asia/Dhaka')->toDateString();
+
+        KitchenBoxFactory::seedSendable($kitchen, 2);
+
+        $order = Order::create([
+            'user_id' => $corporate->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => $today,
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 250,
+            'address' => 'Private',
+            'area_id' => $area->id,
+            'order_status' => OrderTransition::RIDER_ASSIGNED,
+            'payment_status' => 'paid',
+            'delivery_rider_id' => $rider->id,
+            'created_by' => $corporate->id,
+            'updated_by' => $corporate->id,
+        ]);
+
+        $group = OrderGroup::create([
+            'name' => 'Dispatch group',
+            'menu_id' => $menu->id,
+            'area_id' => $area->id,
+            'delivery_date' => $today,
+            'kitchen_id' => $kitchen->id,
+        ]);
+        $group->orders()->attach($order->id);
+
+        Sanctum::actingAs($kitchen);
+
+        $options = $this->getJson('/api/kitchen/orders/'.$order->id.'/dispatch-options')
+            ->assertOk()
+            ->assertJsonPath('can_dispatch', true)
+            ->assertJsonPath('required_quantity', 1);
+
+        $boxId = $options->json('available_boxes.0.id');
+        $this->assertNotNull($boxId);
+
+        $this->postJson('/api/kitchen/orders/'.$order->id.'/dispatch', [
+            'box_ids' => [$boxId],
+        ])->assertOk()
+            ->assertJsonPath('order.order_status', OrderTransition::PACKED);
+
+        $this->assertNotNull($order->fresh()->dispatched_at);
+    }
+
     public function test_corporate_token_cannot_access_kitchen_routes(): void
     {
         $corporate = $this->makeCorporate();
