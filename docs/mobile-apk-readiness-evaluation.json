@@ -98,12 +98,12 @@
       ]
     },
     "kitchen": {
-      "apk_verdict": "not_ready_for_native_apk",
-      "apk_path": "Ship/keep PWA now; native APK needs a new /api/kitchen Sanctum surface that wraps existing Support services",
+      "apk_verdict": "api_foundation_started",
+      "apk_path": "Phase B Sanctum /api/kitchen/* foundation landed (auth, dashboard, alerts, groups, active orders, menus, boxes list). Continue remaining money/dispatch/FCM + Flutter client. PWA remains interim Android path.",
       "scores": {
         "web_structure": 4,
         "business_logic": 4,
-        "overall_apk_readiness": 2
+        "overall_apk_readiness": 3
       },
       "web_structure": {
         "score": 4,
@@ -116,11 +116,10 @@
           "Completion backlog K0–K6 marked done (docs/kitchen-completion-todo.json)"
         ],
         "gaps": [
-          "No /api/kitchen JSON API — native APK cannot reuse domain without Livewire HTML",
-          "No Sanctum token auth for kitchen users",
-          "No kitchen FCM / device-token pipeline (StaffAlerts are in-app DB only; K5 is web SLA warnings)",
-          "Native apps explicitly out_of_scope_unless_requested in kitchen completion backlog",
-          "Livewire still owns many direct DB ops (~74 rough hits across kitchen Livewire) — API layer must call Support, not re-implement Livewire methods"
+          "Phase B foundation exists (routes/api/kitchen.php + KitchenMobileController + KitchenApiPresenter + KitchenMobileApiTest) — money, dispatch modal, prep shopping list, complaints, incoming boxes still follow-up",
+          "No kitchen FCM / device-token push pipeline yet (registration endpoint exists; StaffAlerts are still DB-only)",
+          "Native Flutter client (mobile/kitchen/) not started",
+          "Livewire still owns some orchestration (e.g. DispatchOrderModal) — extract before /orders/{id}/dispatch API"
         ]
       },
       "business_logic": {
@@ -230,8 +229,8 @@
       "role": "kitchen",
       "web_structure": 4,
       "business_logic": 4,
-      "apk_readiness": 2,
-      "blocker_for_apk": "no token API + no push; domain is Livewire/PWA"
+      "apk_readiness": 3,
+      "blocker_for_apk": "API foundation started; still need money/dispatch endpoints, FCM, Flutter client"
     },
     {
       "role": "delivery",
@@ -266,12 +265,14 @@
       "routes/web/corporates.php",
       "routes/web/kitchen.php",
       "routes/web/deliveryman.php",
-      "routes/api/corporate.php"
+      "routes/api/corporate.php",
+      "routes/api/kitchen.php"
     ],
     "mobile": [
       "mobile/corporate/",
       "mobile/corporate/README.md",
       "mobile/corporate/releases/middo-corporate-release.apk",
+      "docs/kitchen-mobile-api-contract.md",
       "public/manifest-kitchen.webmanifest",
       "public/manifest-delivery.webmanifest"
     ],

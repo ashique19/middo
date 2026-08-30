@@ -25,8 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
             Route::prefix('accounts')->middleware('web')->group(base_path('routes/web/accounts.php'));
             Route::prefix('marketing')->middleware('web')->group(base_path('routes/web/marketing.php'));
 
-            // Corporate Flutter mobile API stubs
+            // Corporate / kitchen Flutter mobile APIs
             Route::prefix('api')->middleware('api')->group(base_path('routes/api/corporate.php'));
+            Route::prefix('api')->middleware('api')->group(base_path('routes/api/kitchen.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

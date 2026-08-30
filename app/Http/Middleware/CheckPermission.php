@@ -6,12 +6,12 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class CheckPermission 
+class CheckPermission
 {
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param  Closure(Request): (Response)  $next
      */
     public function handle(Request $request, Closure $next, string $permission): Response
     {
@@ -20,7 +20,12 @@ class CheckPermission
             return $next($request);
         }
 
-        // Return 403 Forbidden if the permission check fails
+        if ($request->is('api/*') || $request->expectsJson()) {
+            return response()->json([
+                'message' => 'Unauthorized action.',
+            ], 403);
+        }
+
         abort(403, 'Unauthorized action.');
     }
 }

@@ -20,6 +20,8 @@ class UserAudit
 
     public const SOURCE_CORPORATE_MOBILE = 'corporate_mobile';
 
+    public const SOURCE_KITCHEN_MOBILE = 'kitchen_mobile';
+
     public const SOURCE_KITCHEN = 'kitchen';
 
     public const SOURCE_DELIVERY = 'delivery';
@@ -68,6 +70,10 @@ class UserAudit
 
         if ($request->is('api/corporate', 'api/corporate/*')) {
             return self::SOURCE_CORPORATE_MOBILE;
+        }
+
+        if ($request->is('api/kitchen', 'api/kitchen/*')) {
+            return self::SOURCE_KITCHEN_MOBILE;
         }
 
         if ($request->is('api', 'api/*')) {
