@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
@@ -16,8 +17,10 @@ class KitchenMobileHeader extends StatefulWidget implements PreferredSizeWidget 
   final String title;
   final bool showBack;
 
+  static const _toolbarHeight = 68.0;
+
   @override
-  Size get preferredSize => const Size.fromHeight(72);
+  Size get preferredSize => const Size.fromHeight(_toolbarHeight);
 
   @override
   State<KitchenMobileHeader> createState() => _KitchenMobileHeaderState();
@@ -108,93 +111,103 @@ class _KitchenMobileHeaderState extends State<KitchenMobileHeader> {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: MiddoColors.cream,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+    return AppBar(
+      automaticallyImplyLeading: false,
+      toolbarHeight: KitchenMobileHeader._toolbarHeight,
+      backgroundColor: MiddoColors.cream,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      systemOverlayStyle: SystemUiOverlayStyle.dark,
+      titleSpacing: 0,
+      title: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
         child: Row(
-            children: [
-              if (widget.showBack)
-                _HeaderIconButton(
-                  onTap: () {
-                    if (context.canPop()) {
-                      context.pop();
-                    } else {
-                      context.go('/home');
-                    }
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (widget.showBack)
+              _HeaderIconButton(
+                onTap: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/home');
+                  }
+                },
+                border: true,
+                child: const Icon(Icons.arrow_back, size: 20),
+              )
+            else
+              _CashButton(onTap: () => context.push('/account')),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Middo Kitchen',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.4,
+                      height: 1.2,
+                      color: Color(0xFF8A735C),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: MiddoColors.ink,
+                      height: 1.15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            FutureBuilder<int>(
+              future: _unread,
+              builder: (context, snap) {
+                final unread = snap.data ?? 0;
+                return _HeaderIconButton(
+                  onTap: () async {
+                    await context.push('/alerts');
+                    _refreshUnread();
                   },
                   border: true,
-                  child: const Icon(Icons.arrow_back, size: 20),
-                )
-              else
-                _CashButton(onTap: () => context.push('/account')),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Middo Kitchen',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.4,
-                        color: Color(0xFF8A735C),
-                      ),
+                  badge: unread > 0 ? (unread > 9 ? '9+' : '$unread') : null,
+                  child: const Icon(Icons.notifications_outlined, size: 22),
+                );
+              },
+            ),
+            const SizedBox(width: 8),
+            FutureBuilder<String>(
+              future: _initial,
+              builder: (context, snap) {
+                final initial = snap.data ?? 'K';
+                return _HeaderIconButton(
+                  onTap: _openAccountMenu,
+                  background: MiddoColors.orange.withValues(alpha: 0.12),
+                  foreground: MiddoColors.orange,
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
                     ),
-                    Text(
-                      widget.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: MiddoColors.ink,
-                        height: 1.15,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              FutureBuilder<int>(
-                future: _unread,
-                builder: (context, snap) {
-                  final unread = snap.data ?? 0;
-                  return _HeaderIconButton(
-                    onTap: () async {
-                      await context.push('/alerts');
-                      _refreshUnread();
-                    },
-                    border: true,
-                    badge: unread > 0
-                        ? (unread > 9 ? '9+' : '$unread')
-                        : null,
-                    child: const Icon(Icons.notifications_outlined, size: 22),
-                  );
-                },
-              ),
-              const SizedBox(width: 8),
-              FutureBuilder<String>(
-                future: _initial,
-                builder: (context, snap) {
-                  final initial = snap.data ?? 'K';
-                  return _HeaderIconButton(
-                    onTap: _openAccountMenu,
-                    background: MiddoColors.orange.withValues(alpha: 0.12),
-                    foreground: MiddoColors.orange,
-                    child: Text(
-                      initial,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
+      ),
     );
   }
 }
@@ -214,15 +227,20 @@ class _CashButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          child: Text(
-            'Cash',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.2,
+        child: const SizedBox(
+          height: 44,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: Center(
+              child: Text(
+                'Cash',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.2,
+                ),
+              ),
             ),
           ),
         ),
