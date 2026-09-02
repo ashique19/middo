@@ -31,6 +31,19 @@ Output: `build/app/outputs/flutter-apk/app-release.apk`
 
 Published APK: `mobile/corporate/releases/middo-release.apk`
 
+### Build release AAB (Google Play upload)
+
+```bash
+cd mobile/corporate
+flutter pub get
+flutter build appbundle --release \
+  --dart-define=API_BASE_URL=https://x.middo.com.bd
+```
+
+Published AAB: `mobile/corporate/releases/middo-release.aab`
+
+Play Console listing copy, policy forms, and step-by-step upload guide: [`docs/play-store-middo-corporate.md`](../../docs/play-store-middo-corporate.md)
+
 ### Release signing (Play Store / production)
 
 Without `android/key.properties`, release builds fall back to the **debug** keystore (fine for sideload tests only).
