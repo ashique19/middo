@@ -10,7 +10,7 @@ import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
 import 'payment_webview_screen.dart';
 
-enum _CheckoutStep { dates, receiver, otp }
+enum _CheckoutStep { dates, receiver, otp, done }
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key, required this.menuItemId});
@@ -172,7 +172,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _goBack() {
     switch (_step) {
       case _CheckoutStep.dates:
-        context.pop();
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/menu');
+        }
       case _CheckoutStep.receiver:
         setState(() {
           _step = _CheckoutStep.dates;
@@ -184,7 +188,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _formError = null;
           _otpCtrl.clear();
         });
+      case _CheckoutStep.done:
+        context.go('/home');
     }
+  }
+
+  void _goHome() => context.go('/home');
+
+  void _showOrderConfirmed() {
+    setState(() {
+      _step = _CheckoutStep.done;
+      _submitting = false;
+      _formError = null;
+    });
   }
 
   int get _activeDateCount =>
@@ -347,15 +363,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         await repo.completeGatewayOrder(paymentToken: gateway.paymentToken);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Scheduled $_totalQty meals · ${bdt.format(_totalQty * item.price)}',
-            ),
-            backgroundColor: MiddoColors.forest,
-          ),
-        );
-        context.go('/schedule');
+        _showOrderConfirmed();
         return;
       }
 
@@ -369,15 +377,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         couponCode: _appliedCoupon,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Scheduled $_totalQty meals · ${bdt.format(_totalQty * item.price)}',
-          ),
-          backgroundColor: MiddoColors.forest,
-        ),
-      );
-      context.go('/schedule');
+      _showOrderConfirmed();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _formError = e.message);
@@ -385,7 +385,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       setState(() => _formError = e.toString());
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted && _step != _CheckoutStep.done) {
+        setState(() => _submitting = false);
+      }
     }
   }
 
@@ -409,20 +411,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final title = switch (_step) {
       _CheckoutStep.dates => 'Checkout',
       _CheckoutStep.receiver => 'Receiver details',
-      _CheckoutStep.otp => 'Verify OTP',
+      _CheckoutStep.otp => 'Confirm & pay',
+      _CheckoutStep.done => 'Order confirmed',
+    };
+    final stepLabel = switch (_step) {
+      _CheckoutStep.done => 'DONE',
+      _CheckoutStep.dates ||
+      _CheckoutStep.receiver ||
+      _CheckoutStep.otp =>
+        'NEW ORDER · STEP ${_step.index + 1}/3',
     };
 
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: Icon(
+            _step == _CheckoutStep.done
+                ? Icons.home_rounded
+                : Icons.arrow_back_rounded,
+          ),
+          tooltip: _step == _CheckoutStep.done ? 'Home' : 'Back',
           onPressed: _goBack,
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'NEW ORDER · STEP ${_step.index + 1}/3',
+              stepLabel,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: MiddoColors.orange,
                     fontWeight: FontWeight.w800,
@@ -432,15 +447,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             Text(title),
           ],
         ),
+        actions: [
+          if (_step != _CheckoutStep.done)
+            IconButton(
+              icon: const Icon(Icons.home_outlined),
+              tooltip: 'Home',
+              onPressed: _submitting ? null : _goHome,
+            ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 120),
         children: [
-          _mealHeader(item),
-          const SizedBox(height: 16),
+          if (_step != _CheckoutStep.done) ...[
+            _mealHeader(item),
+            const SizedBox(height: 16),
+          ],
           if (_step == _CheckoutStep.dates) ..._datesSection(item, total),
           if (_step == _CheckoutStep.receiver) ..._receiverSection(),
           if (_step == _CheckoutStep.otp) ..._otpSection(),
+          if (_step == _CheckoutStep.done) ..._doneSection(item),
           if (_formError != null) ...[
             const SizedBox(height: 12),
             Text(
@@ -454,43 +480,145 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ],
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
-          child: FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: MiddoColors.forest,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+      bottomNavigationBar: _step == _CheckoutStep.done
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: MiddoColors.forest,
+                        minimumSize: const Size.fromHeight(52),
+                      ),
+                      onPressed: () => context.go('/schedule'),
+                      child: const Text('View schedule'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      onPressed: _goHome,
+                      child: const Text('Go home'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: MiddoColors.forest,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onPressed: _submitting
+                      ? null
+                      : switch (_step) {
+                          _CheckoutStep.dates =>
+                            _totalQty == 0 ? null : _continueFromDates,
+                          _CheckoutStep.receiver => _sendOtp,
+                          _CheckoutStep.otp => _confirmWithOtp,
+                          _CheckoutStep.done => null,
+                        },
+                  child: Text(
+                    _submitting
+                        ? switch (_step) {
+                            _CheckoutStep.dates => 'Loading…',
+                            _CheckoutStep.receiver => 'Sending OTP…',
+                            _CheckoutStep.otp => _paymentMethod == 'gateway'
+                                ? 'Verifying & opening payment…'
+                                : 'Confirming…',
+                            _CheckoutStep.done => 'Done',
+                          }
+                        : switch (_step) {
+                            _CheckoutStep.dates => 'Continue to receiver',
+                            _CheckoutStep.receiver => 'Send SMS OTP',
+                            _CheckoutStep.otp => _paymentMethod == 'gateway'
+                                ? 'Verify OTP & pay'
+                                : _paymentMethod == 'balance'
+                                    ? 'Confirm balance payment'
+                                    : 'Verify & Schedule',
+                            _CheckoutStep.done => 'Done',
+                          },
+                  ),
+                ),
+              ),
             ),
-            onPressed: _submitting
-                ? null
-                : switch (_step) {
-                    _CheckoutStep.dates =>
-                      _totalQty == 0 ? null : _continueFromDates,
-                    _CheckoutStep.receiver => _sendOtp,
-                    _CheckoutStep.otp => _confirmWithOtp,
-                  },
-            child: Text(
-              _submitting
-                  ? switch (_step) {
-                      _CheckoutStep.dates => 'Loading…',
-                      _CheckoutStep.receiver => 'Sending OTP…',
-                      _CheckoutStep.otp => _paymentMethod == 'gateway'
-                          ? 'Verifying & opening payment…'
-                          : 'Scheduling…',
-                    }
-                  : switch (_step) {
-                      _CheckoutStep.dates => 'Continue to receiver',
-                      _CheckoutStep.receiver => 'Send SMS OTP',
-                      _CheckoutStep.otp => _paymentMethod == 'gateway'
-                          ? 'Verify OTP & pay'
-                          : 'Verify & Schedule',
-                    },
+    );
+  }
+
+  List<Widget> _doneSection(MenuItem item) {
+    final payLabel = switch (_paymentMethod) {
+      'balance' => 'Paid from Middo Balance',
+      'gateway' => 'Paid online',
+      'cash_on_delivery' => 'Cash on delivery',
+      _ => 'Scheduled',
+    };
+    return [
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF8F1),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFB7D9C0)),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.check_circle_rounded,
+              color: MiddoColors.forest,
+              size: 48,
             ),
-          ),
+            const SizedBox(height: 12),
+            Text(
+              '$_totalQty meal${_totalQty == 1 ? '' : 's'} scheduled',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: MiddoColors.ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${item.name} · ${bdt.format(_totalQty * item.price)}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: MiddoColors.inkSoft,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              payLabel,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: MiddoColors.forest,
+              ),
+            ),
+          ],
         ),
       ),
-    );
+      const SizedBox(height: 16),
+      const Text(
+        'You can review upcoming deliveries on Schedule, or return Home.',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: MiddoColors.inkSoft,
+          height: 1.35,
+        ),
+      ),
+    ];
   }
 
   Widget _mealHeader(MenuItem item) {

@@ -113,7 +113,26 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             return const MiddoPageLoader(message: 'Loading schedule…');
           }
           if (snapshot.hasError) {
-            return Center(child: Text(snapshot.error.toString()));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(snapshot.error.toString()),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: _reload,
+                      child: const Text('Retry'),
+                    ),
+                    TextButton(
+                      onPressed: () => context.go('/home'),
+                      child: const Text('Go home'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
 
           final orders = snapshot.data!;
@@ -124,34 +143,113 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
               children: [
-                Text(
-                  'Scheduled',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.8,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Scheduled',
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.8,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            orders.isEmpty
+                                ? 'No upcoming lunches yet.'
+                                : '${orders.length} upcoming order${orders.length == 1 ? '' : 's'}.',
+                            style: const TextStyle(
+                              color: MiddoColors.inkSoft,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Home',
+                      onPressed: () => context.go('/home'),
+                      icon: const Icon(Icons.home_outlined),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${orders.length} upcoming orders on your calendar.',
-                  style: const TextStyle(
-                    color: MiddoColors.inkSoft,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                FilledButton(
-                  onPressed: () => context.go('/menu'),
-                  child: const Text('Place New Order'),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => context.go('/menu'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: MiddoColors.forest,
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        icon: const Icon(Icons.add_rounded, size: 20),
+                        label: const Text('New order'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => context.push('/history'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        icon: const Icon(Icons.history_rounded, size: 20),
+                        label: const Text('History'),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 if (orders.isEmpty)
-                  const Text(
-                    'No upcoming lunch schedules found.',
-                    style: TextStyle(
-                      color: MiddoColors.inkSoft,
-                      fontWeight: FontWeight.w600,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: MiddoColors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: MiddoColors.creamBorder),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.calendar_month_outlined,
+                          size: 36,
+                          color: MiddoColors.muted,
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Nothing on the calendar',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Order from the menu, or check past lunches in History.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: MiddoColors.inkSoft,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextButton(
+                          onPressed: () => context.go('/home'),
+                          child: const Text('Go home'),
+                        ),
+                      ],
                     ),
                   )
                 else
@@ -159,9 +257,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     (order) => MealOrderCard(
                       order: order,
                       onTrack: () => context.push('/track/${order.id}'),
-                      onSecondary:
-                          order.canDelete ? () => _cancelOrder(order) : null,
-                      secondaryLabel: 'Cancel',
+                      onSecondary: order.canDelete
+                          ? () => _cancelOrder(order)
+                          : () => context.push('/support/${order.id}'),
+                      secondaryLabel: order.canDelete ? 'Cancel' : 'Support',
                       onPay: order.canPayOnline &&
                               order.onlinePaymentUrl != null
                           ? () {
@@ -169,7 +268,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                                 context,
                                 paymentUrl: order.onlinePaymentUrl!,
                                 title: 'Make payment',
-                              );
+                              ).then((_) {
+                                if (mounted) _reload();
+                              });
                             }
                           : null,
                     ),

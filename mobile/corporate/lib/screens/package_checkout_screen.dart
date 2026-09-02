@@ -325,6 +325,13 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
         backgroundColor: MiddoColors.cream,
         foregroundColor: MiddoColors.ink,
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Home',
+            onPressed: () => context.go('/home'),
+            icon: const Icon(Icons.home_outlined),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 120),
