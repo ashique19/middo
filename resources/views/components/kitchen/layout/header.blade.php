@@ -6,8 +6,10 @@
 
 <header class="sticky top-0 z-30 kitchen-app-header pt-[env(safe-area-inset-top,0px)]">
     <div class="px-4 py-3 flex items-center gap-3">
-        <a href="{{ route('kitchen.dashboard') }}" class="shrink-0 w-10 h-10 rounded-2xl bg-[#1E4630] text-white grid place-items-center shadow-sm" aria-label="Middo Kitchen home">
-            <span class="text-sm font-black tracking-tight">M</span>
+        <a href="{{ route('kitchen.cash-handovers') }}"
+           class="shrink-0 min-w-10 h-10 px-2.5 rounded-2xl bg-[#1E4630] text-white grid place-items-center shadow-sm"
+           aria-label="Cash management">
+            <span class="text-[11px] font-black tracking-tight">Cash</span>
         </a>
 
         <div class="flex-1 min-w-0">

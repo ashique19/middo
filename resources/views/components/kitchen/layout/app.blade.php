@@ -34,7 +34,7 @@
 
             {{-- Desktop topbar --}}
             <div class="hidden md:block">
-                <x-layouts.private.topbar />
+                <x-kitchen.layout.topbar />
             </div>
 
             <main class="flex-1 flex flex-col kitchen-app-main pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:pb-0">
