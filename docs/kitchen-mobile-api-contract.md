@@ -1,6 +1,6 @@
 # Kitchen Mobile API Contract
 
-**Status:** Phase B API + Phase D FCM + Phase E Flutter scaffold (2026-08-30)  
+**Status:** Phase B API + Phase D FCM + Phase E Flutter client (feature-complete vs this contract, 2026-09-02)  
 **Auth:** Sanctum bearer token  
 **Base path:** `/api/kitchen`  
 **Role gate:** `auth:sanctum` + `role:kitchen` (+ `permission:kitchen.*` on resource routes)  
@@ -157,4 +157,4 @@ Android FCM channel: `middo_staff_alerts` (corporate order pushes keep `middo_or
 
 ## Client (Phase E)
 
-Flutter scaffold at `mobile/kitchen/` (`com.middo.kitchen`): login, Home / Orders / Groups / Prep / More shell, FCM token sync. Accept/dispatch/box/account actions are API-ready; deeper UI still TODO.
+Flutter app at `mobile/kitchen/` (`com.middo.kitchen`): login, Home / Orders / Groups / Prep / More shell, FCM token sync, plus alerts, accept/decline, ready/dispatch, boxes, account/cash handovers, complaints, and profile UIs wired to the endpoints above.

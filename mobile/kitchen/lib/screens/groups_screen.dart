@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
+import '../data/api_client.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/kitchen_ui.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key});
@@ -11,16 +14,64 @@ class GroupsScreen extends StatefulWidget {
 }
 
 class _GroupsScreenState extends State<GroupsScreen> {
-  Future<List<dynamic>>? _groups;
-  bool _loaded = false;
+  Future<Map<String, dynamic>>? _payload;
+  final Set<int> _busyIds = {};
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_loaded) {
-      _loaded = true;
-      _groups = AppScope.of(context).orderGroups();
+    _payload ??= AppScope.of(context).orderGroupsPayload();
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _payload = AppScope.of(context).orderGroupsPayload();
+    });
+    await _payload;
+  }
+
+  Future<void> _run(int id, Future<void> Function() action) async {
+    setState(() => _busyIds.add(id));
+    try {
+      await action();
+      if (!mounted) return;
+      await _reload();
+    } on ApiException catch (e) {
+      if (mounted) showKitchenSnack(context, e.message, error: true);
+    } catch (e) {
+      if (mounted) showKitchenSnack(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busyIds.remove(id));
     }
+  }
+
+  Future<void> _accept(Map g) async {
+    final id = g['id'] as int;
+    await _run(id, () async {
+      final res = await AppScope.of(context).acceptOrderGroup(id);
+      if (!mounted) return;
+      showKitchenSnack(
+        context,
+        res['message']?.toString() ?? 'Accepted.',
+      );
+      context.go('/orders');
+    });
+  }
+
+  Future<void> _decline(Map g) async {
+    final reason = await promptKitchenText(
+      context,
+      title: 'Decline ${g['name'] ?? 'group'}',
+      hint: 'Reason (min 3 chars)',
+      confirmLabel: 'Decline',
+    );
+    if (reason == null) return;
+    final id = g['id'] as int;
+    await _run(id, () async {
+      await AppScope.of(context).declineOrderGroup(id, reason: reason);
+      if (!mounted) return;
+      showKitchenSnack(context, 'Declined ${g['name'] ?? 'group'}.');
+    });
   }
 
   @override
@@ -28,53 +79,56 @@ class _GroupsScreenState extends State<GroupsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Groups')),
       body: RefreshIndicator(
-        onRefresh: () async {
-          setState(() {
-            _groups = AppScope.of(context).orderGroups();
-          });
-          await _groups;
-        },
-        child: FutureBuilder<List<dynamic>>(
-          future: _groups,
+        onRefresh: _reload,
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: _payload,
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) {
               return const Center(child: CircularProgressIndicator());
             }
             if (snap.hasError) {
-              return ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text('Error: ${snap.error}'),
-                  ),
-                ],
-              );
+              return KitchenError(snap.error!, onRetry: _reload);
             }
-            final groups = snap.data ?? const [];
+            final groups = (snap.data?['groups'] as List?) ?? const [];
+            final capacity =
+                (snap.data?['capacity'] as Map?)?.cast<String, dynamic>() ??
+                    const {};
             if (groups.isEmpty) {
               return ListView(
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('No groups in the claim pool.'),
-                  ),
+                children: [
+                  if (capacity.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      child: Text(
+                        'Slots left ${capacity['remaining_slots'] ?? '—'} · Boxes ${capacity['sendable_boxes'] ?? '—'}',
+                        style: const TextStyle(color: MiddoColors.inkSoft),
+                      ),
+                    ),
+                  const KitchenEmpty('No groups in the claim pool.'),
                 ],
               );
             }
             return ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              itemCount: groups.length,
+              itemCount: groups.length + 1,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
-                final g = groups[i] as Map;
+                if (i == 0) {
+                  return Text(
+                    'Slots left ${capacity['remaining_slots'] ?? '—'} · Boxes ${capacity['sendable_boxes'] ?? '—'}',
+                    style: const TextStyle(
+                      color: MiddoColors.inkSoft,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  );
+                }
+                final g = groups[i - 1] as Map;
+                final id = g['id'] as int? ?? 0;
                 final canAccept = g['can_accept'] == true;
-                return Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: MiddoColors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: MiddoColors.creamBorder),
-                  ),
+                final needsBoxes = g['needs_more_boxes'] == true;
+                final busy = _busyIds.contains(id);
+                final window = (g['accept_window'] as Map?)?['label'];
+                return KitchenPanel(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -84,20 +138,52 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${g['menu_name'] ?? ''} · qty ${g['total_quantity'] ?? '—'}',
+                        '${g['menu_name'] ?? ''} · qty ${g['total_quantity'] ?? '—'}'
+                        '${g['date_label'] != null ? ' · ${g['date_label']}' : ''}',
                         style: const TextStyle(color: MiddoColors.inkSoft),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        canAccept ? 'Ready to accept' : 'Not available now',
-                        style: TextStyle(
-                          color: canAccept
-                              ? MiddoColors.forest
-                              : MiddoColors.muted,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
+                      if (window != null) ...[
+                        const SizedBox(height: 6),
+                        KitchenStatusChip(
+                          window.toString(),
+                          positive: canAccept,
                         ),
+                      ],
+                      if (needsBoxes) ...[
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Need more boxes before you can accept.',
+                          style: TextStyle(
+                            color: MiddoColors.orange,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton(
+                              onPressed:
+                                  (!canAccept || busy) ? null : () => _accept(g),
+                              child: Text(busy ? '…' : 'Accept'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: busy ? null : () => _decline(g),
+                              child: const Text('Decline'),
+                            ),
+                          ),
+                        ],
                       ),
+                      if (needsBoxes)
+                        TextButton(
+                          onPressed: () => context.push('/boxes'),
+                          child: const Text('Request / manage boxes'),
+                        ),
                     ],
                   ),
                 );

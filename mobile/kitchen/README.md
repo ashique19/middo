@@ -1,23 +1,26 @@
 # Middo Kitchen (Flutter)
 
-Android/iOS scaffold for Middo’s **kitchen** role — claim groups, cook/dispatch orders, prep shopping list, boxes, and account.
+Android/iOS kitchen partner app — claim groups, cook/dispatch orders, prep shopping list, boxes, account/cash, complaints.
 
 Maps to kitchen PWA IA: **Home · Orders · Groups · Prep · More**.
 
 API contract: [`docs/kitchen-mobile-api-contract.md`](../../docs/kitchen-mobile-api-contract.md)
 
-## Screens (scaffold)
+## Screens
 
-| Tab | Status |
-|-----|--------|
-| Login / splash | Wired to `POST /api/kitchen/login` |
-| Home | Dashboard tiles + alerts preview |
-| Orders | Active orders list |
-| Groups | Claimable / assigned groups |
-| Prep | Today menus + shopping-list stub |
-| More | Profile, logout, placeholders for boxes/account |
-
-FCM: registers device tokens after login; deep-links `staff_alert` → `/alerts` or `/groups`. Android channel id expected: `middo_staff_alerts`.
+| Area | Status |
+|------|--------|
+| Login / splash / logout | Wired + FCM token sync |
+| Home | Dashboard tiles (tappable) + alerts preview + low-box banner |
+| Alerts | List, mark read / mark all read |
+| Orders | Active groups: mark ready, release, shortage; per-order ready + dispatch |
+| Order detail / dispatch | Detail + box multi-select dispatch |
+| Groups | Claim pool: accept / decline + capacity |
+| Prep | Today menus + shopping list |
+| Boxes | In-stock (warehouse / damaged) + incoming receive + request |
+| Account & cash | Receivable/payable, withdraw, pay Middo (proof photo), cash handovers |
+| Complaints | List + thread detail |
+| Profile | Edit details + change password |
 
 ## Production API
 
@@ -55,16 +58,18 @@ flutter build apk --release \
   --dart-define=API_BASE_URL=https://x.middo.com.bd
 ```
 
+Published APK: `mobile/kitchen/releases/middo-kitchen-release.apk`
+
 ### Firebase
 
-Replace `android/app/google-services.json` with a Firebase Android app registered as `com.middo.kitchen` (same Firebase project Middo uses for corporate is fine). Until then, push init no-ops gracefully.
+Replace `android/app/google-services.json` with a Firebase Android app registered as `com.middo.kitchen`. Until then, push init no-ops gracefully.
 
 Requires Flutter 3.32+.
 
 ## Architecture
 
 - **UI:** Flutter + Material 3, Middo brand tokens, Plus Jakarta Sans
-- **Routing:** `go_router` bottom-tab shell
+- **Routing:** `go_router` bottom-tab shell + full-screen stack routes
 - **Auth:** Sanctum bearer (`AuthStore` + `shared_preferences`)
 - **Data:** `ApiKitchenRepository` → `/api/kitchen/*` (`USE_MOCK` fallback)
 - **Push:** `PushNotificationService` → `POST/DELETE /device-tokens`

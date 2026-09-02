@@ -189,7 +189,7 @@ class PushNotificationService {
       if (groupId != null && groupId.isNotEmpty) {
         return '/groups';
       }
-      return '/home';
+      return '/alerts';
     }
     return null;
   }
