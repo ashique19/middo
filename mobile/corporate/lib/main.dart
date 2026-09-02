@@ -51,7 +51,7 @@ class _MiddoCorporateAppState extends State<MiddoCorporateApp> {
     return AppScope(
       repository: widget.repository,
       child: MaterialApp.router(
-        title: 'Middo Corporate',
+        title: 'Middo',
         debugShowCheckedModeBanner: false,
         theme: buildMiddoTheme(),
         routerConfig: _router,

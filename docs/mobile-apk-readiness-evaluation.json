@@ -35,7 +35,7 @@
     "order_state_machine": "app/Support/OrderTransition.php — pending→processing→ready→rider_assigned→packed→on_the_way_to_delivery→delivered|delivered_and_paid (+ cancel from pending)",
     "auth_web": "session cookie + middleware role:/permission:",
     "auth_mobile": "Sanctum bearer tokens — corporate + kitchen",
-    "existing_native": "mobile/corporate Flutter app; mobile/kitchen Flutter scaffold; corporate release APK at mobile/corporate/releases/middo-corporate-release.apk",
+    "existing_native": "mobile/corporate Flutter app; mobile/kitchen Flutter app; corporate release APK at mobile/corporate/releases/middo-release.apk",
     "existing_pwa": [
       "public/manifest-kitchen.webmanifest → /kitchen/dashboard",
       "public/manifest-delivery.webmanifest → /delivery/dashboard"
@@ -271,7 +271,7 @@
     "mobile": [
       "mobile/corporate/",
       "mobile/corporate/README.md",
-      "mobile/corporate/releases/middo-corporate-release.apk",
+      "mobile/corporate/releases/middo-release.apk",
       "docs/kitchen-mobile-api-contract.md",
       "public/manifest-kitchen.webmanifest",
       "public/manifest-delivery.webmanifest"

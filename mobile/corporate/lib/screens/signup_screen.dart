@@ -227,7 +227,7 @@ class _SignupScreenState extends State<SignupScreen> {
             padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
             children: [
               Text(
-                onOtpStep ? 'Enter SMS code' : 'Join Middo Corporate',
+                onOtpStep ? 'Enter SMS code' : 'Join Middo',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.5,

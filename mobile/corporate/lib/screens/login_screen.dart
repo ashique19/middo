@@ -84,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'MIDDO CORPORATE',
+                              'MIDDO',
                               style: Theme.of(context)
                                   .textTheme
                                   .labelSmall

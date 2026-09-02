@@ -1,4 +1,4 @@
-# Middo Corporate (Flutter)
+# Middo (Flutter)
 
 iOS & Android app for Middo’s **corporate** role — office lunch ordering, scheduling, tracking, wallet, and support.
 
@@ -28,6 +28,8 @@ flutter build apk --release \
 ```
 
 Output: `build/app/outputs/flutter-apk/app-release.apk`
+
+Published APK: `mobile/corporate/releases/middo-release.apk`
 
 ### Release signing (Play Store / production)
 
