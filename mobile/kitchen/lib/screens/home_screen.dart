@@ -66,15 +66,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Kitchen'),
-        actions: [
-          IconButton(
-            onPressed: () => context.push('/alerts'),
-            icon: const Icon(Icons.notifications_outlined),
-          ),
-        ],
-      ),
       body: RefreshIndicator(
         onRefresh: _reload,
         child: ListView(

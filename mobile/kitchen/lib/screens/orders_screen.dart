@@ -109,7 +109,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Orders')),
       body: RefreshIndicator(
         onRefresh: _reload,
         child: FutureBuilder<List<dynamic>>(

@@ -29,7 +29,6 @@ class _PrepScreenState extends State<PrepScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Prep')),
       body: RefreshIndicator(
         onRefresh: () async {
           final repo = AppScope.of(context);

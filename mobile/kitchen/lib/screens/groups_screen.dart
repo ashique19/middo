@@ -77,7 +77,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Groups')),
       body: RefreshIndicator(
         onRefresh: _reload,
         child: FutureBuilder<Map<String, dynamic>>(
