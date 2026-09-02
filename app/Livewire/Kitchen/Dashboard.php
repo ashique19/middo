@@ -4,7 +4,6 @@ namespace App\Livewire\Kitchen;
 
 use App\Models\OrderGroup;
 use App\Support\KitchenBoxStock;
-use App\Support\KitchenComplaints;
 use App\Support\StaffAlerts;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -26,6 +25,8 @@ class Dashboard extends Component
         $today = now('Asia/Dhaka')->toDateString();
         $monthStart = Carbon::now('Asia/Dhaka')->startOfMonth()->toDateString();
         $monthEnd = Carbon::now('Asia/Dhaka')->endOfMonth()->toDateString();
+        $lastMonthStart = Carbon::now('Asia/Dhaka')->subMonthNoOverflow()->startOfMonth()->toDateString();
+        $lastMonthEnd = Carbon::now('Asia/Dhaka')->subMonthNoOverflow()->endOfMonth()->toDateString();
         $threeMonthsStart = Carbon::now('Asia/Dhaka')->subMonths(2)->startOfMonth()->toDateString();
 
         if ($kitchen) {
@@ -41,25 +42,9 @@ class Dashboard extends Component
                 'route' => 'kitchen.alerts',
             ],
             [
-                'label' => 'Complaints',
-                'count' => KitchenComplaints::scopedRootsQuery((int) $kitchenId)->count(),
-                'route' => 'kitchen.complaints',
-            ],
-            [
-                'label' => 'My Order this month',
-                'count' => OrderGroup::query()
-                    ->where('kitchen_id', $kitchenId)
-                    ->whereBetween('delivery_date', [$monthStart, $monthEnd])
-                    ->count(),
-                'route' => 'kitchen.orders.this-month',
-            ],
-            [
-                'label' => 'Last 3 months',
-                'count' => OrderGroup::query()
-                    ->where('kitchen_id', $kitchenId)
-                    ->whereBetween('delivery_date', [$threeMonthsStart, $monthEnd])
-                    ->count(),
-                'route' => 'kitchen.orders.last-three-months',
+                'label' => 'My active orders',
+                'count' => $this->activeOrdersQuery($kitchenId, $today)->count(),
+                'route' => 'kitchen.orders.active',
             ],
             [
                 'label' => 'Preparing',
@@ -76,14 +61,38 @@ class Dashboard extends Component
                 'route' => 'kitchen.orders.active',
             ],
             [
-                'label' => 'My active orders',
-                'count' => $this->activeOrdersQuery($kitchenId, $today)->count(),
-                'route' => 'kitchen.orders.active',
-            ],
-            [
                 'label' => 'Middo order groups',
                 'count' => $this->unassignedGroupsQuery($today)->count(),
                 'route' => 'kitchen.order-groups.middo',
+            ],
+            [
+                'label' => 'Boxes in Stock',
+                'count' => KitchenBoxStock::sendableCount((int) $kitchenId),
+                'route' => 'kitchen.middo-boxes.at-kitchen',
+            ],
+            [
+                'label' => 'My Orders this month',
+                'count' => OrderGroup::query()
+                    ->where('kitchen_id', $kitchenId)
+                    ->whereBetween('delivery_date', [$monthStart, $monthEnd])
+                    ->count(),
+                'route' => 'kitchen.orders.this-month',
+            ],
+            [
+                'label' => 'Last month',
+                'count' => OrderGroup::query()
+                    ->where('kitchen_id', $kitchenId)
+                    ->whereBetween('delivery_date', [$lastMonthStart, $lastMonthEnd])
+                    ->count(),
+                'route' => 'kitchen.orders.last-month',
+            ],
+            [
+                'label' => 'Last 3 months',
+                'count' => OrderGroup::query()
+                    ->where('kitchen_id', $kitchenId)
+                    ->whereBetween('delivery_date', [$threeMonthsStart, $monthEnd])
+                    ->count(),
+                'route' => 'kitchen.orders.last-three-months',
             ],
         ];
     }
