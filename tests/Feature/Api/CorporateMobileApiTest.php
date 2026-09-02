@@ -412,20 +412,20 @@ class CorporateMobileApiTest extends TestCase
             ],
         ];
 
-        $gateway = $this->postJson('/api/corporate/orders/gateway-prepay', $payload)
+        $this->postJson('/api/corporate/orders/send-otp', $payload)->assertOk();
+
+        $gateway = $this->postJson('/api/corporate/orders/gateway-prepay', $payload + [
+            'otp' => '1234',
+        ])
             ->assertOk()
             ->assertJsonStructure(['payment_token', 'payment_url', 'amount']);
 
         $token = $gateway->json('payment_token');
-        \App\Support\CorporateGatewayPrepay::markPaid($token);
+        app(\App\Contracts\PaymentGateway::class)->markPaid($token);
 
-        $this->postJson('/api/corporate/orders/send-otp', $payload)->assertOk();
-
-        $this->postJson('/api/corporate/orders', $payload + [
-            'otp' => '1234',
-            'payment_method' => 'gateway',
+        $this->postJson('/api/corporate/orders/gateway-complete', [
             'payment_token' => $token,
-        ])->assertCreated()
+        ])->assertOk()
             ->assertJsonPath('orders.0.payment_status', 'paid');
 
         $this->assertSame(100, $user->fresh()->balance);
@@ -623,6 +623,22 @@ class CorporateMobileApiTest extends TestCase
         $this->postJson("/api/corporate/orders/{$order->id}/support", [
             'message' => 'Should fail after complete.',
         ])->assertStatus(422);
+    }
+
+    public function test_package_gateway_prepay_route_is_registered(): void
+    {
+        $user = $this->makeCorporate(['balance' => 0]);
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/corporate/packages/1/gateway-prepay', []);
+
+        // Route must exist (production error was "route ... could not be found").
+        $this->assertNotEquals(
+            'The route api/corporate/packages/1/gateway-prepay could not be found.',
+            $response->json('message')
+        );
+        // Missing package or validation — either proves the route matched.
+        $this->assertContains($response->status(), [404, 422]);
     }
 
     public function test_device_token_can_be_registered_and_unregistered(): void

@@ -31,6 +31,7 @@ Route::prefix('corporate')->group(function () {
         Route::get('/packages/{package}', [CorporateMobileController::class, 'packageShow']);
         Route::post('/packages/{package}/quote', [CorporateMobileController::class, 'packageQuote']);
         Route::post('/packages/{package}/gateway-prepay', [CorporateMobileController::class, 'createPackageGatewayPrepay']);
+        Route::post('/packages/gateway-complete', [CorporateMobileController::class, 'completePackageGateway']);
         Route::post('/packages/{package}/subscribe', [CorporateMobileController::class, 'subscribePackage']);
         Route::get('/subscriptions', [CorporateMobileController::class, 'myPackages']);
         Route::get('/subscriptions/{subscription}', [CorporateMobileController::class, 'myPackageShow']);
@@ -40,6 +41,7 @@ Route::prefix('corporate')->group(function () {
         Route::get('/orders/history', [CorporateMobileController::class, 'history']);
         Route::post('/orders/send-otp', [CorporateMobileController::class, 'sendOrderOtp']);
         Route::post('/orders/gateway-prepay', [CorporateMobileController::class, 'createGatewayPrepay']);
+        Route::post('/orders/gateway-complete', [CorporateMobileController::class, 'completeGatewayOrder']);
         Route::post('/orders', [CorporateMobileController::class, 'placeOrder']);
         Route::patch('/orders/{order}', [CorporateMobileController::class, 'updateOrder']);
         Route::delete('/orders/{order}', [CorporateMobileController::class, 'cancelOrder']);

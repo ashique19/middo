@@ -31,6 +31,23 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         backgroundColor: MiddoColors.cream,
         foregroundColor: MiddoColors.ink,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Home',
+            onPressed: () => context.go('/home'),
+            icon: const Icon(Icons.home_outlined),
+          ),
+        ],
       ),
       body: FutureBuilder<List<PackageSubscription>>(
         future: _future,

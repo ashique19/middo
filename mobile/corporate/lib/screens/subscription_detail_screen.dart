@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
 import '../models/models.dart';
@@ -99,6 +100,24 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
         backgroundColor: MiddoColors.cream,
         foregroundColor: MiddoColors.ink,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Back',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/subscriptions');
+            }
+          },
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Home',
+            onPressed: () => context.go('/home'),
+            icon: const Icon(Icons.home_outlined),
+          ),
+        ],
       ),
       body: FutureBuilder<PackageSubscription>(
         future: _future,
@@ -107,7 +126,22 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
             return const MiddoPageLoader(message: 'Loading subscription…');
           }
           if (snapshot.hasError) {
-            return Center(child: Text(snapshot.error.toString()));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(snapshot.error.toString()),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: () => context.go('/home'),
+                      child: const Text('Go home'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
           final sub = snapshot.data!;
           return ListView(
@@ -144,6 +178,27 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => context.go('/schedule'),
+                      child: const Text('Schedule'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: MiddoColors.forest,
+                      ),
+                      onPressed: () => context.go('/home'),
+                      child: const Text('Go home'),
+                    ),
+                  ),
+                ],
               ),
               if (sub.selections.isNotEmpty) ...[
                 const SizedBox(height: 14),
@@ -210,6 +265,7 @@ class _SubscriptionDetailScreenState extends State<SubscriptionDetailScreen> {
                       '${order.deliveryDate.toLocal().toString().substring(0, 10)} · ৳${order.totalAmount.toStringAsFixed(0)} · ${order.statusLabel}',
                     ),
                     trailing: trailing,
+                    onTap: () => context.push('/track/${order.id}'),
                   ),
                 );
               }),

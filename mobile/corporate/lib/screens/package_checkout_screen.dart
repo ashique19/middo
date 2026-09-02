@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app_scope.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
+import 'payment_webview_screen.dart';
 
 class PackageCheckoutScreen extends StatefulWidget {
   const PackageCheckoutScreen({super.key, required this.packageId});
@@ -242,7 +242,9 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
         areaId: _areaId!,
       );
       final otp = _otpCtrl.text.trim();
-      String? paymentToken;
+      if (!RegExp(r'^\d{4}$').hasMatch(otp)) {
+        throw Exception('Enter the 4-digit SMS code.');
+      }
 
       if (_paymentMethod == 'gateway') {
         final gateway = await repo.createPackageGatewayPrepay(
@@ -255,11 +257,29 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
           otp: otp,
           couponCode: _appliedCoupon,
         );
-        paymentToken = gateway.paymentToken;
-        final uri = Uri.tryParse(gateway.paymentUrl);
-        if (uri != null) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!mounted) return;
+        final paid = await PaymentWebViewScreen.open(
+          context,
+          paymentUrl: gateway.paymentUrl,
+          title: 'Pay ৳${gateway.amount.toStringAsFixed(0)}',
+        );
+        if (!mounted) return;
+        if (!paid) {
+          setState(() {
+            _error =
+                'Payment was not completed. Request a new OTP, then try again.';
+            _submitting = false;
+            _otpStep = false;
+            _otpCtrl.clear();
+          });
+          return;
         }
+        final sub = await repo.completePackageGateway(
+          paymentToken: gateway.paymentToken,
+        );
+        if (!mounted) return;
+        context.go('/subscriptions/${sub.id}');
+        return;
       }
 
       final sub = await repo.subscribePackage(
@@ -271,7 +291,7 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
         receiver: receiver,
         otp: otp,
         paymentMethod: _paymentMethod,
-        paymentToken: paymentToken,
+        paymentToken: null,
         couponCode: _appliedCoupon,
       );
       if (!mounted) return;
@@ -305,6 +325,13 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
         backgroundColor: MiddoColors.cream,
         foregroundColor: MiddoColors.ink,
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Home',
+            onPressed: () => context.go('/home'),
+            icon: const Icon(Icons.home_outlined),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 120),
@@ -596,24 +623,30 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
             ),
             const SizedBox(height: 14),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: TextField(
                     controller: _couponCtrl,
                     enabled: !_otpStep,
+                    textCapitalization: TextCapitalization.characters,
                     decoration: const InputDecoration(
                       labelText: 'Coupon code',
                       hintText: 'Optional',
+                      isDense: true,
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     ),
-                    textCapitalization: TextCapitalization.characters,
                   ),
                 ),
                 const SizedBox(width: 10),
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                SizedBox(
+                  height: 48,
                   child: OutlinedButton(
                     onPressed: _otpStep ? null : _applyCoupon,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                    ),
                     child: const Text('Apply'),
                   ),
                 ),
@@ -670,7 +703,7 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
             child: Text(
               _otpStep
                   ? (_paymentMethod == 'gateway'
-                      ? 'Pay online & create · ৳${quote?.payableTotal ?? quote?.totalAmount ?? 0}'
+                      ? 'Verify OTP & pay · ৳${quote?.payableTotal ?? quote?.totalAmount ?? 0}'
                       : 'Prepaid & create · ৳${quote?.payableTotal ?? quote?.totalAmount ?? 0}')
                   : 'Confirm & send OTP',
             ),

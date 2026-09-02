@@ -31,7 +31,13 @@ class _TrackScreenState extends State<TrackScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/schedule');
+            }
+          },
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,6 +53,13 @@ class _TrackScreenState extends State<TrackScreen> {
             const Text('Track Order'),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Home',
+            onPressed: () => context.go('/home'),
+            icon: const Icon(Icons.home_outlined),
+          ),
+        ],
       ),
       body: FutureBuilder(
         future: _future,
@@ -107,6 +120,15 @@ class _TrackScreenState extends State<TrackScreen> {
               OutlinedButton(
                 onPressed: () => context.push('/support/${widget.orderId}'),
                 child: const Text('Report an issue'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => context.go('/schedule'),
+                child: const Text('Back to schedule'),
+              ),
+              TextButton(
+                onPressed: () => context.go('/home'),
+                child: const Text('Go home'),
               ),
             ],
           );

@@ -42,6 +42,8 @@ flutter build appbundle --release \
 
 Published AAB: `mobile/corporate/releases/middo-release.aab`
 
+> **Deploy note:** package online pay calls `POST /api/corporate/packages/{id}/gateway-prepay`. If production returns “route could not be found”, pull latest `main` on the server and run `php artisan route:clear` (and `config:clear` / `optimize:clear` if you use caches).
+
 Play Console listing copy, policy forms, and step-by-step upload guide: [`docs/play-store-middo-corporate.md`](../../docs/play-store-middo-corporate.md)
 
 ### Release signing (Play Store / production)

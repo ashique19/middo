@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../app_scope.dart';
@@ -19,7 +22,9 @@ class SupportScreen extends StatefulWidget {
 
 class _SupportScreenState extends State<SupportScreen> {
   final _composer = TextEditingController();
+  final _picker = ImagePicker();
   String _category = 'delivery';
+  String? _attachmentPath;
   Future<
       ({
         CorporateOrder order,
@@ -47,6 +52,23 @@ class _SupportScreenState extends State<SupportScreen> {
     await next;
   }
 
+  Future<void> _pickAttachment() async {
+    try {
+      final file = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+      if (file == null || !mounted) return;
+      setState(() => _attachmentPath = file.path);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not pick image: $e')),
+      );
+    }
+  }
+
   Future<void> _send({required bool hasExisting}) async {
     final text = _composer.text.trim();
     final minLen = hasExisting ? 5 : 10;
@@ -68,8 +90,10 @@ class _SupportScreenState extends State<SupportScreen> {
         orderId: widget.orderId,
         message: text,
         category: hasExisting ? null : _category,
+        attachmentPath: _attachmentPath,
       );
       _composer.clear();
+      setState(() => _attachmentPath = null);
       await _reload();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -86,6 +110,118 @@ class _SupportScreenState extends State<SupportScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  Widget _attachmentChip() {
+    final path = _attachmentPath;
+    if (path == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(
+                File(path),
+                width: 72,
+                height: 72,
+                fit: BoxFit.cover,
+              ),
+            ),
+            Positioned(
+              top: -6,
+              right: -6,
+              child: Material(
+                color: MiddoColors.ink,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => setState(() => _attachmentPath = null),
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 14, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _messageBubble(SupportMessage msg, bool mine) {
+    final url = msg.attachmentUrl;
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.85,
+        ),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: mine ? MiddoColors.creamDeep : MiddoColors.forest,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(mine ? 18 : 6),
+            bottomRight: Radius.circular(mine ? 6 : 18),
+          ),
+          border: mine ? Border.all(color: MiddoColors.creamBorder) : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              mine
+                  ? 'You${msg.category != null ? ' · ${msg.category}' : ''}'
+                  : 'Middo Support',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4,
+                color: mine ? MiddoColors.orange : Colors.white70,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              msg.body,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+                color: mine ? MiddoColors.ink : Colors.white,
+              ),
+            ),
+            if (url != null && url.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  url,
+                  height: 140,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 80,
+                    alignment: Alignment.center,
+                    color: Colors.black12,
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: mine ? MiddoColors.inkSoft : Colors.white70,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -217,13 +353,31 @@ class _SupportScreenState extends State<SupportScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Minimum 10 characters so support can act quickly.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: MiddoColors.inkSoft,
-                        ),
+                      _attachmentChip(),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: _sending ? null : _pickAttachment,
+                            icon: const Icon(Icons.image_outlined, size: 18),
+                            label: Text(
+                              _attachmentPath == null
+                                  ? 'Attach photo'
+                                  : 'Change photo',
+                            ),
+                          ),
+                          const Spacer(),
+                          const Flexible(
+                            child: Text(
+                              'Minimum 10 characters so support can act quickly.',
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: MiddoColors.inkSoft,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ] else ...[
                       const Text(
@@ -236,63 +390,7 @@ class _SupportScreenState extends State<SupportScreen> {
                       const SizedBox(height: 10),
                       ...thread.map((msg) {
                         final mine = !msg.fromSupport;
-                        return Align(
-                          alignment: mine
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          child: Container(
-                            constraints: BoxConstraints(
-                              maxWidth:
-                                  MediaQuery.sizeOf(context).width * 0.85,
-                            ),
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding:
-                                const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                            decoration: BoxDecoration(
-                              color: mine
-                                  ? MiddoColors.creamDeep
-                                  : MiddoColors.forest,
-                              borderRadius: BorderRadius.only(
-                                topLeft: const Radius.circular(18),
-                                topRight: const Radius.circular(18),
-                                bottomLeft: Radius.circular(mine ? 18 : 6),
-                                bottomRight: Radius.circular(mine ? 6 : 18),
-                              ),
-                              border: mine
-                                  ? Border.all(color: MiddoColors.creamBorder)
-                                  : null,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  mine
-                                      ? 'You${msg.category != null ? ' · ${msg.category}' : ''}'
-                                      : 'Middo Support',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.4,
-                                    color: mine
-                                        ? MiddoColors.orange
-                                        : Colors.white70,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  msg.body,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.4,
-                                    color:
-                                        mine ? MiddoColors.ink : Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
+                        return _messageBubble(msg, mine);
                       }),
                     ],
                   ],
@@ -322,34 +420,46 @@ class _SupportScreenState extends State<SupportScreen> {
                   top: false,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _composer,
-                            minLines: 1,
-                            maxLines: 4,
-                            textCapitalization: TextCapitalization.sentences,
-                            decoration: const InputDecoration(
-                              hintText: 'Write a reply…',
-                              isDense: true,
+                        _attachmentChip(),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              onPressed: _sending ? null : _pickAttachment,
+                              icon: const Icon(Icons.image_outlined),
+                              tooltip: 'Attach photo',
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: MiddoColors.orange,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
+                            Expanded(
+                              child: TextField(
+                                controller: _composer,
+                                minLines: 1,
+                                maxLines: 4,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                decoration: const InputDecoration(
+                                  hintText: 'Write a reply…',
+                                  isDense: true,
+                                ),
+                              ),
                             ),
-                          ),
-                          onPressed: _sending
-                              ? null
-                              : () => _send(hasExisting: true),
-                          child: Text(_sending ? '…' : 'Reply'),
+                            const SizedBox(width: 10),
+                            FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: MiddoColors.orange,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                              ),
+                              onPressed: _sending
+                                  ? null
+                                  : () => _send(hasExisting: true),
+                              child: Text(_sending ? '…' : 'Reply'),
+                            ),
+                          ],
                         ),
                       ],
                     ),

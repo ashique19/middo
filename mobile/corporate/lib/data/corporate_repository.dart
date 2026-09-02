@@ -79,13 +79,20 @@ abstract class CorporateRepository {
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
     String deliveryTime = '12:00 PM',
+    String? couponCode,
   });
 
   Future<GatewayPrepayResult> createGatewayPrepay({
     required String menuItemId,
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
+    required String otp,
     String deliveryTime = '12:00 PM',
+    String? couponCode,
+  });
+
+  Future<List<CorporateOrder>> completeGatewayOrder({
+    required String paymentToken,
   });
 
   Future<List<CorporateOrder>> placeOrder({
@@ -96,6 +103,7 @@ abstract class CorporateRepository {
     String deliveryTime = '12:00 PM',
     String? paymentMethod,
     String? paymentToken,
+    String? couponCode,
   });
 
   Future<CorporateOrder> updateOrder({
@@ -114,6 +122,7 @@ abstract class CorporateRepository {
     required String orderId,
     required String message,
     String? category,
+    String? attachmentPath,
   });
 
   Future<WalletTopUpResult> topUp(double amount);
@@ -152,6 +161,10 @@ abstract class CorporateRepository {
     required String otp,
     String deliveryTime = '12:00 PM',
     String? couponCode,
+  });
+
+  Future<PackageSubscription> completePackageGateway({
+    required String paymentToken,
   });
 
   Future<PackageSubscription> subscribePackage({
@@ -438,6 +451,7 @@ class ApiCorporateRepository implements CorporateRepository {
     String? otp,
     String? paymentMethod,
     String? paymentToken,
+    String? couponCode,
   }) {
     return {
       'menu_item_id': int.tryParse(menuItemId) ?? menuItemId,
@@ -451,6 +465,7 @@ class ApiCorporateRepository implements CorporateRepository {
       if (otp != null) 'otp': otp,
       if (paymentMethod != null) 'payment_method': paymentMethod,
       if (paymentToken != null) 'payment_token': paymentToken,
+      if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
     };
   }
 
@@ -460,6 +475,7 @@ class ApiCorporateRepository implements CorporateRepository {
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
     String deliveryTime = '12:00 PM',
+    String? couponCode,
   }) async {
     final json = await _client.post(
       '/orders/send-otp',
@@ -468,6 +484,7 @@ class ApiCorporateRepository implements CorporateRepository {
         quantities: quantities,
         receiver: receiver,
         deliveryTime: deliveryTime,
+        couponCode: couponCode,
       ),
     );
     final methods = json['payment_methods'] is List
@@ -487,6 +504,9 @@ class ApiCorporateRepository implements CorporateRepository {
           : 0,
       mealsSubtotal: (json['meals_subtotal'] as num?)?.toInt() ?? 0,
       cartTotal: (json['cart_total'] as num?)?.toInt() ?? 0,
+      discountAmount: (json['discount_amount'] as num?)?.toInt() ?? 0,
+      couponCode: json['coupon_code']?.toString(),
+      couponMessage: json['coupon_message']?.toString(),
     );
   }
 
@@ -495,7 +515,9 @@ class ApiCorporateRepository implements CorporateRepository {
     required String menuItemId,
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
+    required String otp,
     String deliveryTime = '12:00 PM',
+    String? couponCode,
   }) async {
     final json = await _client.post(
       '/orders/gateway-prepay',
@@ -504,6 +526,8 @@ class ApiCorporateRepository implements CorporateRepository {
         quantities: quantities,
         receiver: receiver,
         deliveryTime: deliveryTime,
+        otp: otp,
+        couponCode: couponCode,
       ),
     );
     final amountRaw = json['amount'];
@@ -523,6 +547,17 @@ class ApiCorporateRepository implements CorporateRepository {
   }
 
   @override
+  Future<List<CorporateOrder>> completeGatewayOrder({
+    required String paymentToken,
+  }) async {
+    final json = await _client.post(
+      '/orders/gateway-complete',
+      body: {'payment_token': paymentToken},
+    );
+    return _orders(json['orders']);
+  }
+
+  @override
   Future<List<CorporateOrder>> placeOrder({
     required String menuItemId,
     required Map<DateTime, int> quantities,
@@ -531,6 +566,7 @@ class ApiCorporateRepository implements CorporateRepository {
     String deliveryTime = '12:00 PM',
     String? paymentMethod,
     String? paymentToken,
+    String? couponCode,
   }) async {
     final json = await _client.post(
       '/orders',
@@ -542,6 +578,7 @@ class ApiCorporateRepository implements CorporateRepository {
         otp: otp,
         paymentMethod: paymentMethod,
         paymentToken: paymentToken,
+        couponCode: couponCode,
       ),
     );
     return _orders(json['orders']);
@@ -603,7 +640,20 @@ class ApiCorporateRepository implements CorporateRepository {
     required String orderId,
     required String message,
     String? category,
+    String? attachmentPath,
   }) async {
+    if (attachmentPath != null && attachmentPath.isNotEmpty) {
+      await _client.postMultipart(
+        '/orders/$orderId/support',
+        fields: {
+          'message': message,
+          if (category != null) 'category': category,
+        },
+        fileField: 'attachment',
+        filePath: attachmentPath,
+      );
+      return;
+    }
     await _client.post('/orders/$orderId/support', body: {
       'message': message,
       if (category != null) 'category': category,
@@ -785,6 +835,21 @@ class ApiCorporateRepository implements CorporateRepository {
       amount: amount,
       prepayment: PrepaymentQuote.fromJson(null),
     );
+  }
+
+  @override
+  Future<PackageSubscription> completePackageGateway({
+    required String paymentToken,
+  }) async {
+    final json = await _client.post(
+      '/packages/gateway-complete',
+      body: {'payment_token': paymentToken},
+    );
+    final sub = json['subscription'];
+    if (sub is! Map) {
+      throw ApiException('Package payment completed but subscription was missing.');
+    }
+    return PackageSubscription.fromJson(Map<String, dynamic>.from(sub));
   }
 
   @override
@@ -1065,6 +1130,7 @@ class MockCorporateRepository implements CorporateRepository {
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
     String deliveryTime = '12:00 PM',
+    String? couponCode,
   }) async {
     final activeDates = quantities.values.where((qty) => qty > 0).length;
     return OrderOtpResult(
@@ -1081,6 +1147,10 @@ class MockCorporateRepository implements CorporateRepository {
       paymentMethods: activeDates == 1
           ? const ['cash_on_delivery', 'balance', 'gateway']
           : const ['cash_on_delivery'],
+      couponCode: couponCode,
+      couponMessage: couponCode != null && couponCode.isNotEmpty
+          ? 'Coupon $couponCode applied (mock)'
+          : null,
     );
   }
 
@@ -1089,7 +1159,9 @@ class MockCorporateRepository implements CorporateRepository {
     required String menuItemId,
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
+    required String otp,
     String deliveryTime = '12:00 PM',
+    String? couponCode,
   }) async {
     return const GatewayPrepayResult(
       paymentToken: 'mock-token',
@@ -1107,6 +1179,12 @@ class MockCorporateRepository implements CorporateRepository {
   }
 
   @override
+  Future<List<CorporateOrder>> completeGatewayOrder({
+    required String paymentToken,
+  }) async =>
+      _mock.upcomingOrders;
+
+  @override
   Future<List<CorporateOrder>> placeOrder({
     required String menuItemId,
     required Map<DateTime, int> quantities,
@@ -1115,6 +1193,7 @@ class MockCorporateRepository implements CorporateRepository {
     String deliveryTime = '12:00 PM',
     String? paymentMethod,
     String? paymentToken,
+    String? couponCode,
   }) async =>
       _mock.upcomingOrders;
 
@@ -1166,6 +1245,7 @@ class MockCorporateRepository implements CorporateRepository {
     required String orderId,
     required String message,
     String? category,
+    String? attachmentPath,
   }) async {}
 
   @override
@@ -1281,6 +1361,29 @@ class MockCorporateRepository implements CorporateRepository {
       paymentUrl: 'https://example.com/pay',
       amount: 1000,
       prepayment: PrepaymentQuote.fromJson(null),
+    );
+  }
+
+  @override
+  Future<PackageSubscription> completePackageGateway({
+    required String paymentToken,
+  }) async {
+    final pkg = (await packages()).first;
+    return PackageSubscription(
+      id: 'sub1',
+      package: pkg,
+      quantity: 1,
+      billableDays: 20,
+      pricePerDay: 79,
+      totalAmount: 1580,
+      amountPaid: 1580,
+      status: 'active',
+      startDate: DateTime.now().toIso8601String().substring(0, 10),
+      endDate: DateTime.now()
+          .add(const Duration(days: 28))
+          .toIso8601String()
+          .substring(0, 10),
+      targetMonth: DateTime.now().toIso8601String().substring(0, 7),
     );
   }
 

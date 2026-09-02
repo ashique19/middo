@@ -20,6 +20,7 @@ use App\Models\WalletTransaction;
 use App\Support\ChargeService;
 use App\Support\CorporateApiPresenter;
 use App\Support\CorporateGatewayPrepay;
+use App\Support\CorporateOrderGatewayCheckout;
 use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
 use App\Support\CorporateWalletTopUp;
@@ -582,6 +583,7 @@ class CorporateMobileController extends Controller
             'dates' => ['required', 'array', 'min:1'],
             'dates.*.date' => ['required', 'date_format:Y-m-d'],
             'dates.*.quantity' => ['required', 'integer', 'min:1'],
+            'coupon_code' => ['nullable', 'string', 'max:40'],
         ], [
             'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
         ]);
@@ -591,23 +593,38 @@ class CorporateMobileController extends Controller
         $this->assertDeliveryDatesOpen($data['dates']);
 
         $menuItem = MenuItem::query()->findOrFail($data['menu_item_id']);
-        $prepayment = $this->prepaymentQuote($request->user(), $data, $menuItem);
+        $charges = $this->orderChargesQuote($data, $menuItem);
+        $mealsSubtotal = 0;
+        foreach ($data['dates'] as $line) {
+            $mealsSubtotal += (int) round($menuItem->price * (int) $line['quantity']);
+        }
+        $chargesTotal = (int) ($charges['total'] ?? 0);
+        $grossTotal = $mealsSubtotal + $chargesTotal;
+
+        $couponQuote = $this->quoteOrderCoupon(
+            $request->user(),
+            $data,
+            $menuItem,
+            $grossTotal,
+            $charges['lines'] ?? []
+        );
+        $discount = (int) ($couponQuote['discount_amount'] ?? 0);
+        $payableTotal = max(0, $grossTotal - $discount);
+
+        // Prepayment quote uses payable (post-discount) cart total.
+        $dataForPrepay = $data;
+        $prepayment = $this->prepaymentQuote($request->user(), $dataForPrepay, $menuItem, $payableTotal);
         $activeDateCount = count($data['dates']);
         $codAllowed = OrderPaymentMethod::allowsCashOnDelivery(
             (bool) $prepayment['required'],
             $activeDateCount
         );
 
-        $cartTotal = 0;
-        foreach ($data['dates'] as $line) {
-            $cartTotal += (int) round($menuItem->price * (int) $line['quantity']);
-        }
-        $cartTotal += (int) ($this->orderChargesQuote($data, $menuItem)['total'] ?? 0);
         $balanceCharge = OrderPaymentMethod::checkoutChargeAmount(
             OrderPaymentMethod::BALANCE,
             (bool) $prepayment['required'],
             (int) $prepayment['amount'],
-            $cartTotal
+            $payableTotal
         );
 
         $result = OrderConfirmationOtp::send($data['mobile']);
@@ -618,8 +635,6 @@ class CorporateMobileController extends Controller
             ]);
         }
 
-        $charges = $this->orderChargesQuote($data, $menuItem);
-
         return response()->json([
             'message' => $result['message'],
             'mobile' => $data['mobile'],
@@ -628,8 +643,12 @@ class CorporateMobileController extends Controller
             'prepayment' => $prepayment,
             'cod_allowed' => $codAllowed,
             'charges' => $charges,
-            'meals_subtotal' => $cartTotal - (int) ($charges['total'] ?? 0),
-            'cart_total' => $cartTotal,
+            'meals_subtotal' => $mealsSubtotal,
+            'cart_total' => $grossTotal,
+            'discount_amount' => $discount,
+            'coupon_code' => $couponQuote['coupon_code'] ?? null,
+            'coupon_message' => $couponQuote['coupon_message'] ?? null,
+            'payable_total' => $payableTotal,
             'balance_available' => OrderPaymentMethod::balanceSelectable(
                 (int) $request->user()->balance,
                 $balanceCharge
@@ -656,25 +675,51 @@ class CorporateMobileController extends Controller
             'dates' => ['required', 'array', 'min:1'],
             'dates.*.date' => ['required', 'date_format:Y-m-d'],
             'dates.*.quantity' => ['required', 'integer', 'min:1'],
+            'coupon_code' => ['nullable', 'string', 'max:40'],
+            'otp' => ['required', 'string', 'size:4'],
+        ], [
+            'otp.size' => 'Enter the 4-digit confirmation code sent by SMS.',
         ]);
+
+        if (! OrderConfirmationOtp::verify($data['mobile'], $data['otp'])) {
+            throw ValidationException::withMessages([
+                'otp' => ['Invalid or expired confirmation code.'],
+            ]);
+        }
 
         $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
         $this->assertDailyLimits($request->user()->id, $data['dates']);
         $this->assertDeliveryDatesOpen($data['dates']);
 
         $menuItem = MenuItem::query()->findOrFail($data['menu_item_id']);
-        $prepayment = $this->prepaymentQuote($request->user(), $data, $menuItem);
+        $charges = $this->orderChargesQuote($data, $menuItem);
+        $mealsSubtotal = 0;
+        $quantities = [];
+        foreach ($data['dates'] as $line) {
+            $mealsSubtotal += (int) round($menuItem->price * (int) $line['quantity']);
+            $quantities[(string) $line['date']] = (int) $line['quantity'];
+        }
+        $grossTotal = $mealsSubtotal + (int) ($charges['total'] ?? 0);
+        $couponQuote = $this->quoteOrderCoupon(
+            $request->user(),
+            $data,
+            $menuItem,
+            $grossTotal,
+            $charges['lines'] ?? []
+        );
+        if (filled($data['coupon_code'] ?? null) && ($couponQuote['coupon'] ?? null) === null && ($couponQuote['coupon_message'] ?? null)) {
+            throw ValidationException::withMessages([
+                'coupon_code' => [$couponQuote['coupon_message']],
+            ]);
+        }
+        $payableTotal = max(0, $grossTotal - (int) ($couponQuote['discount_amount'] ?? 0));
+
+        $prepayment = $this->prepaymentQuote($request->user(), $data, $menuItem, $payableTotal);
         $activeDateCount = count($data['dates']);
         $codAllowed = OrderPaymentMethod::allowsCashOnDelivery(
             (bool) $prepayment['required'],
             $activeDateCount
         );
-
-        $cartTotal = 0;
-        foreach ($data['dates'] as $line) {
-            $cartTotal += (int) round($menuItem->price * (int) $line['quantity']);
-        }
-        $cartTotal += (int) ($this->orderChargesQuote($data, $menuItem)['total'] ?? 0);
 
         $resolvedPaymentMethod = $codAllowed || $prepayment['required']
             ? OrderPaymentMethod::GATEWAY
@@ -683,7 +728,7 @@ class CorporateMobileController extends Controller
             $resolvedPaymentMethod,
             (bool) $prepayment['required'],
             (int) $prepayment['amount'],
-            $cartTotal
+            $payableTotal
         );
 
         if ($chargeAmount <= 0) {
@@ -692,20 +737,62 @@ class CorporateMobileController extends Controller
             ]);
         }
 
-        $session = CorporateGatewayPrepay::create(
-            $request->user()->id,
+        $session = CorporateOrderGatewayCheckout::start(
+            $request->user(),
+            $quantities,
+            (int) $data['menu_item_id'],
+            $data['receiver_name'],
+            $data['mobile'],
+            $data['address'],
+            (int) $data['city_id'],
+            (int) $data['area_id'],
+            $data['delivery_time'] ?? '12:00 PM',
             $chargeAmount,
-            $this->cartFingerprint($data, $chargeAmount)
+            (string) ($couponQuote['coupon_code'] ?? ''),
+            (int) ($couponQuote['discount_amount'] ?? 0)
         );
 
         return response()->json([
-            'message' => 'Complete gateway payment, then place the order with the payment token.',
+            'message' => 'OTP verified. Complete payment to place your order.',
             'payment_token' => $session['token'],
             'payment_url' => $session['payment_url'] ?? app(PaymentGateway::class)->paymentUrl($session['token']),
             'amount' => $session['amount'],
             'driver' => app(PaymentGateway::class)->driver(),
             'prepayment' => $prepayment,
             'cod_allowed' => $codAllowed,
+            'discount_amount' => (int) ($couponQuote['discount_amount'] ?? 0),
+            'coupon_code' => $couponQuote['coupon_code'] ?? null,
+        ]);
+    }
+
+    public function completeGatewayOrder(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'payment_token' => ['required', 'string', 'max:120'],
+        ]);
+
+        $result = CorporateOrderGatewayCheckout::completeIfPaid($data['payment_token']);
+        if (! ($result['ok'] ?? false)) {
+            throw ValidationException::withMessages([
+                'payment_token' => [$result['message'] ?? 'Payment is not completed yet.'],
+            ]);
+        }
+
+        $orderIds = $result['order_ids'] ?? [];
+        $orders = Order::query()
+            ->with(['menuItem', 'deliveryRider'])
+            ->whereIn('id', $orderIds)
+            ->where('user_id', $request->user()->id)
+            ->orderBy('delivery_date')
+            ->get()
+            ->map(fn (Order $order) => CorporateApiPresenter::order($order))
+            ->values();
+
+        return response()->json([
+            'message' => $result['message'] ?? 'Your meal track has been scheduled successfully!',
+            'already_done' => (bool) ($result['already_done'] ?? false),
+            'order_ids' => $orderIds,
+            'orders' => $orders,
         ]);
     }
 
@@ -725,6 +812,7 @@ class CorporateMobileController extends Controller
             'otp' => ['required', 'string', 'size:4'],
             'payment_method' => ['nullable', 'in:balance,gateway,cash_on_delivery'],
             'payment_token' => ['nullable', 'string', 'max:80'],
+            'coupon_code' => ['nullable', 'string', 'max:40'],
         ], [
             'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
             'otp.size' => 'Enter the 4-digit confirmation code sent by SMS.',
@@ -759,11 +847,27 @@ class CorporateMobileController extends Controller
             $lineTotals[] = $food + $fees;
         }
         $cartTotal = (int) array_sum($lineTotals);
+        $couponApplied = $this->applyOrderCouponOrFail(
+            $user,
+            $data,
+            $menuItem,
+            $lineTotals,
+            $perOrderCharges
+        );
+        $discountShares = $couponApplied['discount_shares'];
+        $netLineTotals = [];
+        foreach ($lineTotals as $i => $gross) {
+            $netLineTotals[] = max(0, (int) $gross - (int) ($discountShares[$i] ?? 0));
+        }
+        $payableTotal = (int) array_sum($netLineTotals);
+
+        // Re-evaluate prepayment against payable total (post-discount).
+        $prepayment = $this->prepaymentQuote($user, $data, $menuItem, $payableTotal);
         $balanceCharge = OrderPaymentMethod::checkoutChargeAmount(
             OrderPaymentMethod::BALANCE,
             (bool) $prepayment['required'],
             (int) $prepayment['amount'],
-            $cartTotal
+            $payableTotal
         );
 
         try {
@@ -787,7 +891,7 @@ class CorporateMobileController extends Controller
             $paymentMethod,
             (bool) $prepayment['required'],
             (int) $prepayment['amount'],
-            $cartTotal
+            $payableTotal
         );
 
         if ($chargeAmount > 0 && $paymentMethod === OrderPaymentMethod::BALANCE && (int) $user->balance < $chargeAmount) {
@@ -824,7 +928,7 @@ class CorporateMobileController extends Controller
             }
         }
 
-        $prepaidAllocations = CorporateOrderPrepayment::allocate($chargeAmount, $lineTotals);
+        $prepaidAllocations = CorporateOrderPrepayment::allocate($chargeAmount, $netLineTotals);
 
         $created = [];
         $profileMatches = CorporateOrderPrepayment::profileMatchesReceiver(
@@ -832,6 +936,10 @@ class CorporateMobileController extends Controller
             $data['receiver_name'],
             $data['mobile']
         );
+        $appliedCoupon = $couponApplied['coupon'];
+        $couponScope = $couponApplied['scope'];
+        $discountShares = $couponApplied['discount_shares'];
+        $discountTotal = (int) ($couponApplied['discount_amount'] ?? 0);
 
         DB::transaction(function () use (
             $data,
@@ -845,6 +953,11 @@ class CorporateMobileController extends Controller
             $profileMatches,
             $chargeAmount,
             $perOrderCharges,
+            $appliedCoupon,
+            $couponScope,
+            $discountShares,
+            $discountTotal,
+            $cartTotal,
             &$created
         ) {
             if ($chargeAmount > 0 && $paymentMethod === OrderPaymentMethod::BALANCE) {
@@ -863,6 +976,7 @@ class CorporateMobileController extends Controller
             }
 
             $chargeService = app(ChargeService::class);
+            $firstOrder = null;
 
             foreach ($data['dates'] as $index => $line) {
                 $date = $line['date'];
@@ -871,7 +985,9 @@ class CorporateMobileController extends Controller
                 $feeLines = $perOrderCharges[(string) $date] ?? [];
                 $feesTotal = (int) collect($feeLines)->sum('amount');
                 $lineTotal = $foodTotal + $feesTotal;
+                $lineDiscount = (int) ($discountShares[$index] ?? 0);
                 $amountPaid = (int) ($prepaidAllocations[$index] ?? 0);
+                $netDue = max(0, $lineTotal - $lineDiscount);
 
                 $order = Order::create([
                     'user_id' => $user->id,
@@ -881,6 +997,8 @@ class CorporateMobileController extends Controller
                     'delivery_time' => $deliveryTime,
                     'total_amount' => $lineTotal,
                     'charges_amount' => $feesTotal,
+                    'discount_amount' => $lineDiscount,
+                    'coupon_id' => $appliedCoupon?->id,
                     'amount_paid' => $amountPaid,
                     'prepaid_amount' => $amountPaid,
                     'cash_collected' => 0,
@@ -889,7 +1007,7 @@ class CorporateMobileController extends Controller
                     'receiver_mobile' => $data['mobile'],
                     'area_id' => $data['area_id'],
                     'order_status' => 'pending',
-                    'payment_status' => $amountPaid >= $lineTotal && $lineTotal > 0 ? 'paid' : 'pending',
+                    'payment_status' => $amountPaid >= $netDue && $netDue > 0 ? 'paid' : ($netDue === 0 ? 'paid' : 'pending'),
                     'payment_method' => $paymentMethod,
                     'created_by' => $user->id,
                     'updated_by' => $user->id,
@@ -898,7 +1016,22 @@ class CorporateMobileController extends Controller
 
                 app(MealOrderGrouper::class)->assignOrder($order->fresh(['user']), $user->id);
 
+                $firstOrder ??= $order;
                 $created[] = CorporateApiPresenter::order($order->load('menuItem'));
+            }
+
+            if ($appliedCoupon && $discountTotal > 0 && $firstOrder) {
+                app(\App\Support\CouponService::class)->redeem(
+                    $appliedCoupon,
+                    $user,
+                    \App\Models\CouponRedemption::CONTEXT_ORDER,
+                    $cartTotal,
+                    $discountTotal,
+                    $firstOrder,
+                    null,
+                    ['source' => 'corporate_mobile'],
+                    $couponScope
+                );
             }
 
             $profileUpdate = [
@@ -924,6 +1057,8 @@ class CorporateMobileController extends Controller
             'orders' => $created,
             'prepayment' => $prepayment,
             'balance' => (int) $user->fresh()->balance,
+            'discount_amount' => $discountTotal,
+            'coupon_code' => $appliedCoupon?->code,
         ], 201);
     }
 
@@ -931,7 +1066,7 @@ class CorporateMobileController extends Controller
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function prepaymentQuote(User $user, array $data, MenuItem $menuItem): array
+    private function prepaymentQuote(User $user, array $data, MenuItem $menuItem, ?int $payableOverride = null): array
     {
         $cartTotal = 0;
         $cartMealQty = 0;
@@ -941,6 +1076,9 @@ class CorporateMobileController extends Controller
             $cartTotal += (int) round($menuItem->price * $qty);
         }
         $cartTotal += (int) ($this->orderChargesQuote($data, $menuItem)['total'] ?? 0);
+        if ($payableOverride !== null) {
+            $cartTotal = max(0, $payableOverride);
+        }
 
         return CorporateOrderPrepayment::evaluate(
             $user,
@@ -949,6 +1087,158 @@ class CorporateMobileController extends Controller
             $cartMealQty,
             $cartTotal
         );
+    }
+
+    /**
+     * Soft-quote a menu-order coupon (invalid codes return a message, not 422).
+     *
+     * @param  array<string, mixed>  $data
+     * @param  list<array<string, mixed>>  $chargeLines
+     * @return array{discount_amount:int,coupon_code:?string,coupon_message:?string,coupon:?\App\Models\Coupon}
+     */
+    private function quoteOrderCoupon(User $user, array $data, MenuItem $menuItem, int $grossTotal, array $chargeLines): array
+    {
+        $empty = [
+            'discount_amount' => 0,
+            'coupon_code' => null,
+            'coupon_message' => null,
+            'coupon' => null,
+        ];
+
+        if (! filled($data['coupon_code'] ?? null) || $grossTotal < 1) {
+            return $empty;
+        }
+
+        $scope = [
+            'area_id' => isset($data['area_id']) ? (int) $data['area_id'] : null,
+            'menu_item_ids' => [(int) $menuItem->id],
+            'quantity' => (int) collect($data['dates'])->sum(fn ($line) => (int) $line['quantity']),
+            'company_id' => $user->company_id ? (int) $user->company_id : null,
+            'charge_lines' => $chargeLines,
+        ];
+
+        try {
+            $quoted = app(\App\Support\CouponService::class)->quote(
+                (string) $data['coupon_code'],
+                $user,
+                \App\Models\CouponRedemption::CONTEXT_ORDER,
+                $grossTotal,
+                $scope
+            );
+
+            return [
+                'discount_amount' => (int) ($quoted['discount_amount'] ?? 0),
+                'coupon_code' => $quoted['coupon']->code ?? null,
+                'coupon_message' => 'Coupon '.($quoted['coupon']->code ?? '').' applied (−৳'.number_format((int) ($quoted['discount_amount'] ?? 0)).').',
+                'coupon' => $quoted['coupon'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            $message = $e instanceof ValidationException
+                ? collect($e->validator->errors()->all())->implode(' ')
+                : $e->getMessage();
+
+            return [
+                'discount_amount' => 0,
+                'coupon_code' => null,
+                'coupon_message' => $message,
+                'coupon' => null,
+            ];
+        }
+    }
+
+    /**
+     * Hard-apply coupon for place-order (invalid → 422).
+     *
+     * @param  array<string, mixed>  $data
+     * @param  list<int>  $lineTotals
+     * @param  array<string, list<array<string, mixed>>>  $perOrderCharges
+     * @return array{discount_amount:int,discount_shares:list<int>,coupon:?\App\Models\Coupon,scope:array<string,mixed>}
+     */
+    private function applyOrderCouponOrFail(User $user, array $data, MenuItem $menuItem, array $lineTotals, array $perOrderCharges): array
+    {
+        $cartTotal = (int) array_sum($lineTotals);
+        $flatCharges = collect($perOrderCharges)->flatten(1)->values()->all();
+        $scope = [
+            'area_id' => isset($data['area_id']) ? (int) $data['area_id'] : null,
+            'menu_item_ids' => [(int) $menuItem->id],
+            'quantity' => (int) collect($data['dates'])->sum(fn ($line) => (int) $line['quantity']),
+            'company_id' => $user->company_id ? (int) $user->company_id : null,
+            'charge_lines' => $flatCharges,
+        ];
+
+        if (! filled($data['coupon_code'] ?? null) || $cartTotal < 1) {
+            return [
+                'discount_amount' => 0,
+                'discount_shares' => array_fill(0, count($lineTotals), 0),
+                'coupon' => null,
+                'scope' => $scope,
+            ];
+        }
+
+        $couponService = app(\App\Support\CouponService::class);
+
+        try {
+            $quoted = $couponService->quote(
+                (string) $data['coupon_code'],
+                $user,
+                \App\Models\CouponRedemption::CONTEXT_ORDER,
+                $cartTotal,
+                $scope
+            );
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'coupon_code' => [
+                    $e instanceof ValidationException
+                        ? collect($e->validator->errors()->all())->implode(' ')
+                        : $e->getMessage(),
+                ],
+            ]);
+        }
+
+        $coupon = $quoted['coupon'];
+        $discountAmount = min((int) ($quoted['discount_amount'] ?? 0), $cartTotal);
+
+        if ($coupon->isWaiveCharge()) {
+            $feeTotals = [];
+            foreach ($data['dates'] as $line) {
+                $dateFees = 0;
+                foreach ($perOrderCharges[(string) $line['date']] ?? [] as $feeLine) {
+                    if ($couponService->chargeLineMatchesCoupon($coupon, $feeLine)) {
+                        $dateFees += (int) ($feeLine['amount'] ?? 0);
+                    }
+                }
+                $feeTotals[] = $dateFees;
+            }
+            $shares = $couponService->allocateWaiveAcrossFees($feeTotals, $discountAmount);
+        } else {
+            $shares = $couponService->allocateDiscount($lineTotals, $discountAmount);
+        }
+
+        return [
+            'discount_amount' => $discountAmount,
+            'discount_shares' => $shares,
+            'coupon' => $coupon,
+            'scope' => $scope,
+        ];
+    }
+
+    private function storeComplaintAttachment(\Illuminate\Http\UploadedFile $file, OrderComplaint $complaint): string
+    {
+        $relativePath = 'img/complaints';
+        $directory = public_path($relativePath);
+        \Illuminate\Support\Facades\File::ensureDirectoryExists($directory);
+
+        $extension = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+        $filename = 'complaint-'.$complaint->id.'.'.$extension;
+        $destination = $directory.DIRECTORY_SEPARATOR.$filename;
+
+        if (file_exists($destination)) {
+            \Illuminate\Support\Facades\File::delete($destination);
+        }
+
+        $file->move($directory, $filename);
+
+        return $relativePath.'/'.$filename;
     }
 
     /**
@@ -1137,6 +1427,7 @@ class CorporateMobileController extends Controller
 
             $data = $request->validate([
                 'message' => ['required', 'string', 'min:5', 'max:2000'],
+                'attachment' => ['nullable', 'image', 'max:2048'],
             ]);
 
             $entry = OrderComplaint::create([
@@ -1150,17 +1441,24 @@ class CorporateMobileController extends Controller
                 'updated_by' => $request->user()->id,
             ]);
 
+            if ($request->hasFile('attachment')) {
+                $entry->update([
+                    'attachment' => $this->storeComplaintAttachment($request->file('attachment'), $entry),
+                ]);
+            }
+
             $entry->load('createdBy:id,first_name,last_name');
 
             return response()->json([
                 'message' => 'Reply posted.',
-                'entry' => CorporateApiPresenter::supportMessage($entry),
+                'entry' => CorporateApiPresenter::supportMessage($entry->fresh()),
             ], 201);
         }
 
         $data = $request->validate([
             'category' => ['required', 'in:delivery,food_quality,payment,other'],
             'message' => ['required', 'string', 'min:10', 'max:2000'],
+            'attachment' => ['nullable', 'image', 'max:2048'],
         ]);
 
         $complaint = OrderComplaint::create([
@@ -1174,11 +1472,17 @@ class CorporateMobileController extends Controller
             'updated_by' => $request->user()->id,
         ]);
 
+        if ($request->hasFile('attachment')) {
+            $complaint->update([
+                'attachment' => $this->storeComplaintAttachment($request->file('attachment'), $complaint),
+            ]);
+        }
+
         $complaint->load('createdBy:id,first_name,last_name');
 
         return response()->json([
             'message' => 'Your complaint/support request has been submitted.',
-            'entry' => CorporateApiPresenter::supportMessage($complaint),
+            'entry' => CorporateApiPresenter::supportMessage($complaint->fresh()),
         ], 201);
     }
 
@@ -1586,11 +1890,42 @@ class CorporateMobileController extends Controller
         }
 
         return response()->json([
-            'message' => 'Complete payment in the Middo checkout, then confirm the package.',
+            'message' => 'OTP verified. Complete payment to create your package.',
             'payment_token' => $checkout['token'] ?? null,
             'payment_url' => $checkout['payment_url'] ?? null,
             'amount' => (int) ($checkout['amount'] ?? $payable),
             'payable_total' => $payable,
+        ]);
+    }
+
+    public function completePackageGateway(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'payment_token' => ['required', 'string', 'max:120'],
+        ]);
+
+        $result = PackageGatewayCheckout::completeIfPaid($data['payment_token']);
+        if (! ($result['ok'] ?? false)) {
+            throw ValidationException::withMessages([
+                'payment_token' => [$result['message'] ?? 'Payment is not completed yet.'],
+            ]);
+        }
+
+        $subscriptionId = (int) ($result['subscription_id'] ?? 0);
+        $subscription = $subscriptionId > 0
+            ? PackageSubscription::query()
+                ->with(['package', 'orders.menuItem'])
+                ->where('user_id', $request->user()->id)
+                ->find($subscriptionId)
+            : null;
+
+        return response()->json([
+            'message' => $result['message'] ?? 'Package prepaid successfully.',
+            'already_done' => (bool) ($result['already_done'] ?? false),
+            'subscription_id' => $subscriptionId > 0 ? $subscriptionId : null,
+            'subscription' => $subscription
+                ? CorporateApiPresenter::packageSubscription($subscription)
+                : null,
         ]);
     }
 

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app_scope.dart';
 import '../data/push_notification_service.dart';
@@ -8,6 +7,7 @@ import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
+import 'payment_webview_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -348,14 +348,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           onPay: order.canPayOnline &&
                                   order.onlinePaymentUrl != null
                               ? () {
-                                  final uri =
-                                      Uri.tryParse(order.onlinePaymentUrl!);
-                                  if (uri != null) {
-                                    launchUrl(
-                                      uri,
-                                      mode: LaunchMode.externalApplication,
-                                    );
-                                  }
+                                  PaymentWebViewScreen.open(
+                                    context,
+                                    paymentUrl: order.onlinePaymentUrl!,
+                                    title: 'Make payment',
+                                  );
                                 }
                               : null,
                         ),
