@@ -107,16 +107,18 @@ abstract class CorporateRepository {
 
   Future<({CorporateOrder order, List<TrackEvent> events})> track(String orderId);
 
-  Future<({CorporateOrder order, List<SupportMessage> messages, bool hasExisting})>
+  Future<({CorporateOrder order, List<SupportMessage> messages, bool hasExisting, bool isResolved})>
       supportThread(String orderId);
 
   Future<void> submitSupport({
     required String orderId,
-    required String category,
     required String message,
+    String? category,
   });
 
   Future<WalletTopUpResult> topUp(double amount);
+
+  Future<({int balance, List<WalletLedgerEntry> transactions})> walletTransactions();
 
   Future<BoxesCustodyData> boxes();
 
@@ -134,9 +136,23 @@ abstract class CorporateRepository {
     required List<int> omittedWeekdays,
     required String targetMonth,
     required List<PackageMenuSelection> menuSelections,
+    int? areaId,
+    String? couponCode,
   });
 
   Future<String?> sendPackageOtp({required String mobile});
+
+  Future<GatewayPrepayResult> createPackageGatewayPrepay({
+    required String packageId,
+    required int quantity,
+    required List<int> omittedWeekdays,
+    required String targetMonth,
+    required List<PackageMenuSelection> menuSelections,
+    required ReceiverDetails receiver,
+    required String otp,
+    String deliveryTime = '12:00 PM',
+    String? couponCode,
+  });
 
   Future<PackageSubscription> subscribePackage({
     required String packageId,
@@ -149,6 +165,7 @@ abstract class CorporateRepository {
     String deliveryTime = '12:00 PM',
     String paymentMethod = 'balance',
     String? paymentToken,
+    String? couponCode,
   });
 
   Future<List<PackageSubscription>> myPackages();
@@ -465,6 +482,11 @@ class ApiCorporateRepository implements CorporateRepository {
       ),
       codAllowed: json['cod_allowed'] == true,
       paymentMethods: methods,
+      chargesTotal: json['charges'] is Map
+          ? ((json['charges'] as Map)['total'] as num?)?.toInt() ?? 0
+          : 0,
+      mealsSubtotal: (json['meals_subtotal'] as num?)?.toInt() ?? 0,
+      cartTotal: (json['cart_total'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -559,7 +581,7 @@ class ApiCorporateRepository implements CorporateRepository {
   }
 
   @override
-  Future<({CorporateOrder order, List<SupportMessage> messages, bool hasExisting})>
+  Future<({CorporateOrder order, List<SupportMessage> messages, bool hasExisting, bool isResolved})>
       supportThread(String orderId) async {
     final json = await _client.get('/orders/$orderId/support');
     return (
@@ -572,18 +594,19 @@ class ApiCorporateRepository implements CorporateRepository {
           )
           .toList(),
       hasExisting: json['has_existing_complaint'] == true,
+      isResolved: json['is_resolved'] == true,
     );
   }
 
   @override
   Future<void> submitSupport({
     required String orderId,
-    required String category,
     required String message,
+    String? category,
   }) async {
     await _client.post('/orders/$orderId/support', body: {
-      'category': category,
       'message': message,
+      if (category != null) 'category': category,
     });
   }
 
@@ -603,6 +626,21 @@ class ApiCorporateRepository implements CorporateRepository {
       user: CorporateUser.fromJson(
         Map<String, dynamic>.from(json['user'] as Map),
       ),
+    );
+  }
+
+  @override
+  Future<({int balance, List<WalletLedgerEntry> transactions})>
+      walletTransactions() async {
+    final json = await _client.get('/wallet/transactions');
+    return (
+      balance: (json['balance'] as num?)?.toInt() ?? 0,
+      transactions: (json['transactions'] as List? ?? [])
+          .map(
+            (e) =>
+                WalletLedgerEntry.fromJson(Map<String, dynamic>.from(e as Map)),
+          )
+          .toList(),
     );
   }
 
@@ -663,6 +701,8 @@ class ApiCorporateRepository implements CorporateRepository {
     required List<int> omittedWeekdays,
     required String targetMonth,
     required List<PackageMenuSelection> menuSelections,
+    int? areaId,
+    String? couponCode,
   }) async {
     final json = await _client.post(
       '/packages/$packageId/quote',
@@ -671,10 +711,29 @@ class ApiCorporateRepository implements CorporateRepository {
         'omitted_weekdays': omittedWeekdays,
         'target_month': targetMonth,
         'menu_selections': menuSelections.map((e) => e.toJson()).toList(),
+        if (areaId != null) 'area_id': areaId,
+        if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
       },
     );
-    return PackageQuote.fromJson(
+    final quote = PackageQuote.fromJson(
       Map<String, dynamic>.from(json['quote'] as Map),
+    );
+    return PackageQuote(
+      billableDays: quote.billableDays,
+      pricePerDay: quote.pricePerDay,
+      quantity: quote.quantity,
+      totalAmount: quote.totalAmount,
+      days: quote.days,
+      targetMonth: quote.targetMonth,
+      availableDays: quote.availableDays,
+      selections: quote.selections,
+      mealsSubtotal: quote.mealsSubtotal,
+      chargesAmount: quote.chargesAmount,
+      discountAmount: quote.discountAmount,
+      payableTotal: quote.payableTotal,
+      couponCode: quote.couponCode,
+      couponMessage: quote.couponMessage,
+      balanceSufficient: json['balance_sufficient'] != false,
     );
   }
 
@@ -685,6 +744,47 @@ class ApiCorporateRepository implements CorporateRepository {
       body: {'mobile': mobile},
     );
     return json['debug_otp']?.toString();
+  }
+
+  @override
+  Future<GatewayPrepayResult> createPackageGatewayPrepay({
+    required String packageId,
+    required int quantity,
+    required List<int> omittedWeekdays,
+    required String targetMonth,
+    required List<PackageMenuSelection> menuSelections,
+    required ReceiverDetails receiver,
+    required String otp,
+    String deliveryTime = '12:00 PM',
+    String? couponCode,
+  }) async {
+    final json = await _client.post(
+      '/packages/$packageId/gateway-prepay',
+      body: {
+        'quantity': quantity,
+        'omitted_weekdays': omittedWeekdays,
+        'target_month': targetMonth,
+        'menu_selections': menuSelections.map((e) => e.toJson()).toList(),
+        'receiver_name': receiver.receiverName,
+        'receiver_mobile': receiver.mobile,
+        'address': receiver.address,
+        'city_id': receiver.cityId,
+        'area_id': receiver.areaId,
+        'delivery_time': deliveryTime,
+        'otp': otp,
+        if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
+      },
+    );
+    final amountRaw = json['amount'] ?? json['payable_total'];
+    final amount = amountRaw is num
+        ? amountRaw.toDouble()
+        : double.tryParse('$amountRaw') ?? 0;
+    return GatewayPrepayResult(
+      paymentToken: json['payment_token']?.toString() ?? '',
+      paymentUrl: json['payment_url']?.toString() ?? '',
+      amount: amount,
+      prepayment: PrepaymentQuote.fromJson(null),
+    );
   }
 
   @override
@@ -699,6 +799,7 @@ class ApiCorporateRepository implements CorporateRepository {
     String deliveryTime = '12:00 PM',
     String paymentMethod = 'balance',
     String? paymentToken,
+    String? couponCode,
   }) async {
     final json = await _client.post(
       '/packages/$packageId/subscribe',
@@ -716,6 +817,7 @@ class ApiCorporateRepository implements CorporateRepository {
         'otp': otp,
         'payment_method': paymentMethod,
         if (paymentToken != null) 'payment_token': paymentToken,
+        if (couponCode != null && couponCode.isNotEmpty) 'coupon_code': couponCode,
       },
     );
     return PackageSubscription.fromJson(
@@ -1049,20 +1151,21 @@ class MockCorporateRepository implements CorporateRepository {
   }
 
   @override
-  Future<({CorporateOrder order, List<SupportMessage> messages, bool hasExisting})>
+  Future<({CorporateOrder order, List<SupportMessage> messages, bool hasExisting, bool isResolved})>
       supportThread(String orderId) async {
     return (
       order: _mock.orderById(orderId),
       messages: _mock.supportThreadFor(orderId),
       hasExisting: true,
+      isResolved: false,
     );
   }
 
   @override
   Future<void> submitSupport({
     required String orderId,
-    required String category,
     required String message,
+    String? category,
   }) async {}
 
   @override
@@ -1072,6 +1175,15 @@ class MockCorporateRepository implements CorporateRepository {
       token: 'mock-token',
       amount: amount,
       user: _mock.user,
+    );
+  }
+
+  @override
+  Future<({int balance, List<WalletLedgerEntry> transactions})>
+      walletTransactions() async {
+    return (
+      balance: _mock.user.balance.toInt(),
+      transactions: const <WalletLedgerEntry>[],
     );
   }
 
@@ -1129,22 +1241,48 @@ class MockCorporateRepository implements CorporateRepository {
     required List<int> omittedWeekdays,
     required String targetMonth,
     required List<PackageMenuSelection> menuSelections,
+    int? areaId,
+    String? couponCode,
   }) async {
     final billable = menuSelections.fold<int>(0, (sum, s) => sum + s.dayCount);
+    final total = billable * 79 * quantity;
     return PackageQuote(
       billableDays: billable,
       pricePerDay: 79,
       quantity: quantity,
-      totalAmount: billable * 79 * quantity,
+      totalAmount: total,
       days: const [],
       targetMonth: targetMonth,
       availableDays: 22,
       selections: menuSelections.map((e) => e.toJson()).toList(),
+      mealsSubtotal: total,
+      payableTotal: total,
+      balanceSufficient: true,
     );
   }
 
   @override
   Future<String?> sendPackageOtp({required String mobile}) async => '1234';
+
+  @override
+  Future<GatewayPrepayResult> createPackageGatewayPrepay({
+    required String packageId,
+    required int quantity,
+    required List<int> omittedWeekdays,
+    required String targetMonth,
+    required List<PackageMenuSelection> menuSelections,
+    required ReceiverDetails receiver,
+    required String otp,
+    String deliveryTime = '12:00 PM',
+    String? couponCode,
+  }) async {
+    return GatewayPrepayResult(
+      paymentToken: 'mock-pkg-token',
+      paymentUrl: 'https://example.com/pay',
+      amount: 1000,
+      prepayment: PrepaymentQuote.fromJson(null),
+    );
+  }
 
   @override
   Future<PackageSubscription> subscribePackage({
@@ -1158,6 +1296,7 @@ class MockCorporateRepository implements CorporateRepository {
     String deliveryTime = '12:00 PM',
     String paymentMethod = 'balance',
     String? paymentToken,
+    String? couponCode,
   }) async {
     final pkg = await packageShow(packageId);
     final billable = menuSelections.fold<int>(0, (sum, s) => sum + s.dayCount);

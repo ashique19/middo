@@ -30,6 +30,7 @@ Route::prefix('corporate')->group(function () {
         Route::post('/packages/send-otp', [CorporateMobileController::class, 'sendPackageOtp']);
         Route::get('/packages/{package}', [CorporateMobileController::class, 'packageShow']);
         Route::post('/packages/{package}/quote', [CorporateMobileController::class, 'packageQuote']);
+        Route::post('/packages/{package}/gateway-prepay', [CorporateMobileController::class, 'createPackageGatewayPrepay']);
         Route::post('/packages/{package}/subscribe', [CorporateMobileController::class, 'subscribePackage']);
         Route::get('/subscriptions', [CorporateMobileController::class, 'myPackages']);
         Route::get('/subscriptions/{subscription}', [CorporateMobileController::class, 'myPackageShow']);

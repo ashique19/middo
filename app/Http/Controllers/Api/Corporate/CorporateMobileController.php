@@ -29,6 +29,7 @@ use App\Support\OrderConfirmationOtp;
 use App\Support\OrderCutoff;
 use App\Support\OrderPaymentMethod;
 use App\Support\PackageBilling;
+use App\Support\PackageGatewayCheckout;
 use App\Support\PackageSubscriptionService;
 use App\Support\PasswordResetOtp;
 use App\Support\SignupOtp;
@@ -473,6 +474,9 @@ class CorporateMobileController extends Controller
             ->sum('total_amount');
 
         $upcoming = Order::with('menuItem')
+            ->withCount([
+                'complaints as has_complaint' => fn ($q) => $q->whereNull('parent_id'),
+            ])
             ->where('user_id', $userId)
             ->where('delivery_date', '>=', $today)
             ->where('order_status', '!=', 'cancelled')
@@ -484,6 +488,9 @@ class CorporateMobileController extends Controller
             ->values();
 
         $recent = Order::with('menuItem')
+            ->withCount([
+                'complaints as has_complaint' => fn ($q) => $q->whereNull('parent_id'),
+            ])
             ->where('user_id', $userId)
             ->where('delivery_date', '<', $today)
             ->orderByDesc('delivery_date')
@@ -530,6 +537,9 @@ class CorporateMobileController extends Controller
     public function scheduled(Request $request): JsonResponse
     {
         $orders = Order::with('menuItem')
+            ->withCount([
+                'complaints as has_complaint' => fn ($q) => $q->whereNull('parent_id'),
+            ])
             ->where('user_id', $request->user()->id)
             ->where('delivery_date', '>=', now('Asia/Dhaka')->toDateString())
             ->where('order_status', '!=', 'cancelled')
@@ -545,6 +555,9 @@ class CorporateMobileController extends Controller
     public function history(Request $request): JsonResponse
     {
         $orders = Order::with('menuItem')
+            ->withCount([
+                'complaints as has_complaint' => fn ($q) => $q->whereNull('parent_id'),
+            ])
             ->where('user_id', $request->user()->id)
             ->where('delivery_date', '<', now('Asia/Dhaka')->toDateString())
             ->orderByDesc('delivery_date')
@@ -605,6 +618,8 @@ class CorporateMobileController extends Controller
             ]);
         }
 
+        $charges = $this->orderChargesQuote($data, $menuItem);
+
         return response()->json([
             'message' => $result['message'],
             'mobile' => $data['mobile'],
@@ -612,6 +627,9 @@ class CorporateMobileController extends Controller
             'debug_otp' => $result['debug_otp'] ?? null,
             'prepayment' => $prepayment,
             'cod_allowed' => $codAllowed,
+            'charges' => $charges,
+            'meals_subtotal' => $cartTotal - (int) ($charges['total'] ?? 0),
+            'cart_total' => $cartTotal,
             'balance_available' => OrderPaymentMethod::balanceSelectable(
                 (int) $request->user()->balance,
                 $balanceCharge
@@ -1361,6 +1379,8 @@ class CorporateMobileController extends Controller
             'menu_selections' => ['required', 'array', 'min:1'],
             'menu_selections.*.menu_item_id' => ['required', 'integer', 'exists:menu_items,id'],
             'menu_selections.*.day_count' => ['required', 'integer', 'min:1', 'max:31'],
+            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
+            'coupon_code' => ['nullable', 'string', 'max:40'],
         ]);
 
         try {
@@ -1377,10 +1397,200 @@ class CorporateMobileController extends Controller
             ]);
         }
 
+        $areaId = isset($data['area_id'])
+            ? (int) $data['area_id']
+            : ($request->user()->area_id ? (int) $request->user()->area_id : null);
+
+        $charges = app(ChargeService::class)->quotePackage(
+            $areaId,
+            (int) $data['quantity'],
+            $data['menu_selections']
+        );
+
+        $mealsSubtotal = (int) ($quote['total_amount'] ?? 0);
+        $chargesTotal = (int) ($charges['total'] ?? 0);
+        $discount = 0;
+        $couponCode = null;
+        $couponMessage = null;
+
+        if (filled($data['coupon_code'] ?? null)) {
+            try {
+                $couponScope = [
+                    'area_id' => $areaId,
+                    'meal_package_id' => (int) $model->id,
+                    'menu_item_ids' => collect($data['menu_selections'])
+                        ->pluck('menu_item_id')
+                        ->map(fn ($id) => (int) $id)
+                        ->unique()
+                        ->values()
+                        ->all(),
+                    'charge_lines' => $charges['lines'] ?? [],
+                ];
+                $quoted = app(\App\Support\CouponService::class)->quote(
+                    (string) $data['coupon_code'],
+                    $request->user(),
+                    \App\Models\CouponRedemption::CONTEXT_PACKAGE,
+                    $mealsSubtotal + $chargesTotal,
+                    $couponScope
+                );
+                $discount = (int) ($quoted['discount_amount'] ?? 0);
+                $couponCode = $quoted['coupon']->code ?? null;
+                $couponMessage = 'Coupon '.$couponCode.' applied (−৳'.number_format($discount).').';
+            } catch (\Throwable $e) {
+                $couponMessage = $e instanceof ValidationException
+                    ? collect($e->validator->errors()->all())->implode(' ')
+                    : $e->getMessage();
+            }
+        }
+
+        $payable = max(0, $mealsSubtotal + $chargesTotal - $discount);
+
         return response()->json([
             'package' => CorporateApiPresenter::mealPackage($model),
-            'quote' => $quote,
+            'quote' => array_merge($quote, [
+                'meals_subtotal' => $mealsSubtotal,
+                'charges_amount' => $chargesTotal,
+                'charges' => $charges,
+                'discount_amount' => $discount,
+                'coupon_code' => $couponCode,
+                'coupon_message' => $couponMessage,
+                'payable_total' => $payable,
+            ]),
             'balance' => (int) $request->user()->balance,
+            'balance_sufficient' => (int) $request->user()->balance >= $payable,
+        ]);
+    }
+
+    public function createPackageGatewayPrepay(Request $request, int $package): JsonResponse
+    {
+        $model = MealPackage::query()->published()->findOrFail($package);
+        $data = $request->validate([
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.CorporateOrderLimit::maxAllowed($request->user()->id)],
+            'target_month' => ['required', 'date_format:Y-m'],
+            'omitted_weekdays' => ['nullable', 'array'],
+            'omitted_weekdays.*' => ['integer', 'min:0', 'max:6'],
+            'menu_selections' => ['required', 'array', 'min:1'],
+            'menu_selections.*.menu_item_id' => ['required', 'integer', 'exists:menu_items,id'],
+            'menu_selections.*.day_count' => ['required', 'integer', 'min:1', 'max:31'],
+            'receiver_name' => ['required', 'string', 'min:2', 'max:120'],
+            'receiver_mobile' => ['required', 'string', 'min:11', 'max:20'],
+            'address' => ['required', 'string', 'min:5', 'max:500'],
+            'city_id' => ['required', 'exists:cities,id'],
+            'area_id' => ['required', 'exists:areas,id'],
+            'delivery_time' => ['required', 'in:12:00 PM,11:30 AM'],
+            'otp' => ['required', 'string', 'size:4'],
+            'coupon_code' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        if (! OrderConfirmationOtp::verify($data['receiver_mobile'], $data['otp'])) {
+            throw ValidationException::withMessages([
+                'otp' => ['Invalid or expired confirmation code.'],
+            ]);
+        }
+
+        $omitted = PackageBilling::normalizeOmittedWeekdays($data['omitted_weekdays'] ?? []);
+
+        try {
+            $quote = PackageBilling::quoteFromSelections(
+                $model,
+                (int) $data['quantity'],
+                $data['menu_selections'],
+                $omitted,
+                $data['target_month']
+            );
+            PackageBilling::assertSelectionsFillMonth($quote);
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'menu_selections' => [$e->getMessage()],
+            ]);
+        }
+
+        if (PackageSubscription::userHasPackageForMonth((int) $request->user()->id, $data['target_month'])) {
+            throw ValidationException::withMessages([
+                'target_month' => ['You already ordered a package for this month.'],
+            ]);
+        }
+
+        $charges = app(ChargeService::class)->quotePackage(
+            (int) $data['area_id'],
+            (int) $data['quantity'],
+            $data['menu_selections']
+        );
+        $mealsSubtotal = (int) ($quote['total_amount'] ?? 0);
+        $chargesTotal = (int) ($charges['total'] ?? 0);
+        $discount = 0;
+        $appliedCoupon = $data['coupon_code'] ?? null;
+
+        if (filled($appliedCoupon)) {
+            try {
+                $quoted = app(\App\Support\CouponService::class)->quote(
+                    (string) $appliedCoupon,
+                    $request->user(),
+                    \App\Models\CouponRedemption::CONTEXT_PACKAGE,
+                    $mealsSubtotal + $chargesTotal,
+                    [
+                        'area_id' => (int) $data['area_id'],
+                        'meal_package_id' => (int) $model->id,
+                        'menu_item_ids' => collect($data['menu_selections'])
+                            ->pluck('menu_item_id')
+                            ->map(fn ($id) => (int) $id)
+                            ->unique()
+                            ->values()
+                            ->all(),
+                        'charge_lines' => $charges['lines'] ?? [],
+                    ]
+                );
+                $discount = (int) ($quoted['discount_amount'] ?? 0);
+                $appliedCoupon = $quoted['coupon']->code ?? $appliedCoupon;
+            } catch (\Throwable $e) {
+                throw ValidationException::withMessages([
+                    'coupon_code' => [
+                        $e instanceof ValidationException
+                            ? collect($e->validator->errors()->all())->implode(' ')
+                            : $e->getMessage(),
+                    ],
+                ]);
+            }
+        }
+
+        $payable = max(0, $mealsSubtotal + $chargesTotal - $discount);
+        if ($payable < 1) {
+            throw ValidationException::withMessages([
+                'payment_method' => ['Nothing to charge — use Middo Balance to confirm this free package.'],
+            ]);
+        }
+
+        try {
+            $checkout = PackageGatewayCheckout::start(
+                $request->user(),
+                (int) $model->id,
+                (int) $data['quantity'],
+                $omitted,
+                $data['target_month'],
+                $data['menu_selections'],
+                $payable,
+                [
+                    'customer_name' => $data['receiver_name'],
+                    'mobile' => $data['receiver_mobile'],
+                    'address_line1' => $data['address'],
+                    'city_id' => (int) $data['city_id'],
+                    'area_id' => (int) $data['area_id'],
+                    'delivery_window' => $data['delivery_time'],
+                    'coupon_code' => $appliedCoupon,
+                ]
+            );
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'payment_method' => [$e->getMessage() ?: 'Could not start online payment.'],
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Complete payment in the Middo checkout, then confirm the package.',
+            'payment_token' => $checkout['token'] ?? null,
+            'payment_url' => $checkout['payment_url'] ?? null,
+            'amount' => (int) ($checkout['amount'] ?? $payable),
+            'payable_total' => $payable,
         ]);
     }
 

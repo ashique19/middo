@@ -68,6 +68,8 @@ class CorporateApiPresenter
     {
         $order->loadMissing('menuItem');
 
+        $canPayOnline = CorporateOrderPresentation::canPayOnline($order);
+
         return [
             'id' => (string) $order->id,
             'menu_item' => $order->menuItem
@@ -90,6 +92,16 @@ class CorporateApiPresenter
             'payment_method' => $order->paymentMethodKey(),
             'payment_method_label' => $order->paymentMethodLabel(),
             'paid' => $order->payment_status === 'paid',
+            'has_complaint' => (bool) ($order->has_complaint
+                ?? $order->complaints()->whereNull('parent_id')->exists()),
+            'can_pay_online' => $canPayOnline,
+            'online_payment_url' => $canPayOnline
+                ? \Illuminate\Support\Facades\URL::temporarySignedRoute(
+                    'public.order-payment',
+                    now()->addDays(3),
+                    ['order' => $order->id]
+                )
+                : null,
             'package_subscription_id' => $order->package_subscription_id
                 ? (string) $order->package_subscription_id
                 : null,

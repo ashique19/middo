@@ -180,6 +180,9 @@ class CorporateOrder {
     this.canDelete = false,
     this.canRequestCancel = false,
     this.cancelRequestPending = false,
+    this.hasComplaint = false,
+    this.canPayOnline = false,
+    this.onlinePaymentUrl,
   });
 
   final String id;
@@ -202,6 +205,9 @@ class CorporateOrder {
   final bool canDelete;
   final bool canRequestCancel;
   final bool cancelRequestPending;
+  final bool hasComplaint;
+  final bool canPayOnline;
+  final String? onlinePaymentUrl;
 
   String get statusLabel => switch (status) {
         OrderStatus.pending => 'Pending',
@@ -244,6 +250,9 @@ class CorporateOrder {
       canDelete: json['can_delete'] == true,
       canRequestCancel: json['can_request_cancel'] == true,
       cancelRequestPending: json['cancel_request_pending'] == true,
+      hasComplaint: json['has_complaint'] == true,
+      canPayOnline: json['can_pay_online'] == true,
+      onlinePaymentUrl: json['online_payment_url']?.toString(),
     );
   }
 
@@ -460,12 +469,18 @@ class OrderOtpResult {
     required this.prepayment,
     this.codAllowed = false,
     this.paymentMethods = const ['balance', 'gateway'],
+    this.chargesTotal = 0,
+    this.mealsSubtotal = 0,
+    this.cartTotal = 0,
   });
 
   final String? debugOtp;
   final PrepaymentQuote prepayment;
   final bool codAllowed;
   final List<String> paymentMethods;
+  final int chargesTotal;
+  final int mealsSubtotal;
+  final int cartTotal;
 }
 
 class GatewayPrepayResult {
@@ -613,6 +628,13 @@ class PackageQuote {
     this.targetMonth = '',
     this.availableDays = 0,
     this.selections = const [],
+    this.mealsSubtotal = 0,
+    this.chargesAmount = 0,
+    this.discountAmount = 0,
+    this.payableTotal = 0,
+    this.couponCode,
+    this.couponMessage,
+    this.balanceSufficient = true,
   });
 
   final int billableDays;
@@ -623,8 +645,23 @@ class PackageQuote {
   final String targetMonth;
   final int availableDays;
   final List<Map<String, dynamic>> selections;
+  final int mealsSubtotal;
+  final int chargesAmount;
+  final int discountAmount;
+  final int payableTotal;
+  final String? couponCode;
+  final String? couponMessage;
+  final bool balanceSufficient;
 
   factory PackageQuote.fromJson(Map<String, dynamic> json) {
+    final meals = json.containsKey('meals_subtotal')
+        ? _asInt(json['meals_subtotal'])
+        : _asInt(json['total_amount']);
+    final charges = _asInt(json['charges_amount']);
+    final discount = _asInt(json['discount_amount']);
+    final payable = json.containsKey('payable_total')
+        ? _asInt(json['payable_total'])
+        : (meals + charges - discount).clamp(0, 1 << 30);
     return PackageQuote(
       billableDays: _asInt(json['billable_days']),
       pricePerDay: _asInt(json['price_per_day']),
@@ -638,6 +675,42 @@ class PackageQuote {
       selections: (json['selections'] as List? ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList(),
+      mealsSubtotal: meals,
+      chargesAmount: charges,
+      discountAmount: discount,
+      payableTotal: payable,
+      couponCode: json['coupon_code']?.toString(),
+      couponMessage: json['coupon_message']?.toString(),
+    );
+  }
+}
+
+class WalletLedgerEntry {
+  const WalletLedgerEntry({
+    required this.id,
+    required this.type,
+    required this.amount,
+    required this.balanceAfter,
+    required this.description,
+    required this.at,
+  });
+
+  final int id;
+  final String type;
+  final int amount;
+  final int balanceAfter;
+  final String description;
+  final DateTime at;
+
+  factory WalletLedgerEntry.fromJson(Map<String, dynamic> json) {
+    return WalletLedgerEntry(
+      id: _asInt(json['id']),
+      type: (json['type'] ?? '').toString(),
+      amount: _asInt(json['amount']),
+      balanceAfter: _asInt(json['balance_after']),
+      description: (json['description'] ?? '').toString(),
+      at: DateTime.tryParse(json['at']?.toString() ?? '')?.toLocal() ??
+          DateTime.now(),
     );
   }
 }
