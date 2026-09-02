@@ -294,12 +294,16 @@ class OpsStageBoxSelectFlowTest extends TestCase
             ->call('toggleRequestBoxSelection', $request->id)
             ->assertSet('selectedRequestId', $request->id)
             ->assertSet('selectedBoxIds', $expectedIds)
-            ->assertSet('warningMessage', null);
+            ->assertSet('warningMessage', null)
+            // Remount key forces a fresh checkbox so Livewire morph keeps the checked UI in sync.
+            ->assertSeeHtml('wire:key="ops-box-req-cb-'.$request->id.'-1"')
+            ->assertSeeHtml('checked');
 
         $component
             ->call('toggleRequestBoxSelection', $request->id)
             ->assertSet('selectedRequestId', null)
-            ->assertSet('selectedBoxIds', []);
+            ->assertSet('selectedBoxIds', [])
+            ->assertSeeHtml('wire:key="ops-box-req-cb-'.$request->id.'-0"');
     }
 
     public function test_request_checkbox_warns_when_warehouse_stock_is_insufficient(): void
