@@ -4,16 +4,22 @@
         <h1 class="text-2xl sm:text-3xl font-bold text-middo-dark">Cash handovers</h1>
         <p class="text-sm font-semibold text-gray-500">
             Accept rider cash into your kitchen float. Your wallet is debited (cash received).
-            @if($walletBalance > 0)
-                Middo currently owes you ৳{{ number_format($walletBalance) }}.
-                <a href="{{ route('kitchen.account') }}" class="font-semibold text-middo-orange hover:underline">Request withdrawal →</a>
-            @elseif($walletBalance < 0)
-                You currently owe Middo ৳{{ number_format(abs($walletBalance)) }}.
-                <a href="{{ route('kitchen.account') }}" class="font-semibold text-middo-orange hover:underline">Send money to Middo →</a>
-            @else
-                Wallet settled at ৳0.
-            @endif
         </p>
+    </div>
+
+    <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm max-w-md">
+        @if($walletBalance > 0)
+            <p class="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-1">Receivable from Middo</p>
+            <p class="text-3xl font-black text-middo-dark tabular-nums">৳{{ number_format($walletBalance) }}</p>
+            <a href="{{ route('kitchen.account') }}" class="inline-block mt-2 text-sm font-semibold text-middo-orange hover:underline">Request withdrawal →</a>
+        @elseif($walletBalance < 0)
+            <p class="text-xs font-bold uppercase tracking-wider text-rose-600 mb-1">Payable to Middo</p>
+            <p class="text-3xl font-black text-rose-700 tabular-nums">৳{{ number_format(abs($walletBalance)) }}</p>
+            <a href="{{ route('kitchen.account') }}" class="inline-block mt-2 text-sm font-semibold text-middo-orange hover:underline">Send money to Middo →</a>
+        @else
+            <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Settled with Middo</p>
+            <p class="text-3xl font-black text-middo-dark tabular-nums">৳0</p>
+        @endif
     </div>
 
     @if($statusMessage)

@@ -150,6 +150,12 @@ class KitchenAccountK3Test extends TestCase
             ->assertDontSee('Send money to Middo')
             ->assertDontSee('Cash handovers →');
 
+        $this->actingAs($this->kitchen)
+            ->get(route('kitchen.cash-handovers'))
+            ->assertOk()
+            ->assertSee('Receivable from Middo', false)
+            ->assertDontSee('Payable to Middo', false);
+
         KitchenAccountLedger::debit($this->kitchen->id, 200, 'cash_received', null, null, 'Surplus seed', $this->admin->id);
         $this->assertSame(-150, KitchenAccountLedger::balance($this->kitchen->id));
 
@@ -159,6 +165,12 @@ class KitchenAccountK3Test extends TestCase
             ->assertSee('Send money to Middo')
             ->assertDontSee('Request withdrawal')
             ->assertDontSee('Cash handovers →');
+
+        $this->actingAs($this->kitchen)
+            ->get(route('kitchen.cash-handovers'))
+            ->assertOk()
+            ->assertSee('Payable to Middo', false)
+            ->assertDontSee('Receivable from Middo', false);
     }
 
     public function test_cash_handover_debits_kitchen_wallet_and_allows_negative(): void

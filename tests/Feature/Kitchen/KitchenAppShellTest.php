@@ -29,6 +29,9 @@ class KitchenAppShellTest extends TestCase
             ->get(route('kitchen.dashboard'))
             ->assertOk()
             ->assertSee('Middo Kitchen', false)
+            ->assertSee('Cash', false)
+            ->assertSee(route('kitchen.cash-handovers'), false)
+            ->assertSee('Cash Management', false)
             ->assertSee('kitchen-bottom-nav', false)
             ->assertSee('Home', false)
             ->assertSee('Orders', false)
@@ -36,7 +39,8 @@ class KitchenAppShellTest extends TestCase
             ->assertSee('Prep', false)
             ->assertSee('More', false)
             ->assertSee('manifest-kitchen.webmanifest', false)
-            ->assertSee('apple-mobile-web-app-capable', false);
+            ->assertSee('apple-mobile-web-app-capable', false)
+            ->assertDontSee('Balance:', false);
 
         Livewire::actingAs($kitchen)
             ->test(Dashboard::class)
