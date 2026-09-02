@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../app_scope.dart';
 import '../data/push_notification_service.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/kitchen_ui.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -14,15 +15,11 @@ class MoreScreen extends StatefulWidget {
 
 class _MoreScreenState extends State<MoreScreen> {
   Future<Map<String, dynamic>>? _me;
-  bool _loaded = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_loaded) {
-      _loaded = true;
-      _me = AppScope.of(context).me();
-    }
+    _me ??= AppScope.of(context).me();
   }
 
   Future<void> _logout() async {
@@ -46,13 +43,8 @@ class _MoreScreenState extends State<MoreScreen> {
               final name =
                   '${user['first_name'] ?? ''} ${user['last_name'] ?? ''}'
                       .trim();
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: MiddoColors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: MiddoColors.creamBorder),
-                ),
+              return KitchenPanel(
+                onTap: () => context.push('/profile'),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -68,29 +60,50 @@ class _MoreScreenState extends State<MoreScreen> {
                       user['mobile']?.toString() ?? '',
                       style: const TextStyle(color: MiddoColors.inkSoft),
                     ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'View profile',
+                      style: TextStyle(
+                        color: MiddoColors.forest,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               );
             },
           ),
           const SizedBox(height: 16),
-          const ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.inventory_2_outlined),
-            title: Text('Boxes'),
-            subtitle: Text('API ready — UI next'),
+          _NavTile(
+            icon: Icons.inventory_2_outlined,
+            title: 'Boxes',
+            subtitle: 'Stock, incoming, request',
+            onTap: () => context.push('/boxes'),
           ),
-          const ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.account_balance_wallet_outlined),
-            title: Text('Account'),
-            subtitle: Text('API ready — UI next'),
+          _NavTile(
+            icon: Icons.account_balance_wallet_outlined,
+            title: 'Account & cash',
+            subtitle: 'Balance, withdraw, handovers',
+            onTap: () => context.push('/account'),
           ),
-          const ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.support_agent_outlined),
-            title: Text('Complaints'),
-            subtitle: Text('API ready — UI next'),
+          _NavTile(
+            icon: Icons.support_agent_outlined,
+            title: 'Complaints',
+            subtitle: 'Kitchen-related threads',
+            onTap: () => context.push('/complaints'),
+          ),
+          _NavTile(
+            icon: Icons.notifications_outlined,
+            title: 'Alerts',
+            subtitle: 'Staff notifications',
+            onTap: () => context.push('/alerts'),
+          ),
+          _NavTile(
+            icon: Icons.person_outline,
+            title: 'Profile',
+            subtitle: 'Details & password',
+            onTap: () => context.push('/profile'),
           ),
           const SizedBox(height: 12),
           OutlinedButton(
@@ -99,6 +112,32 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _NavTile extends StatelessWidget {
+  const _NavTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: MiddoColors.forest),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
     );
   }
 }

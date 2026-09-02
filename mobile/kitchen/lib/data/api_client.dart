@@ -23,9 +23,10 @@ class ApiClient {
 
   Future<Map<String, dynamic>> get(
     String path, {
+    Map<String, String>? query,
     bool auth = true,
   }) =>
-      _send('GET', path, auth: auth);
+      _send('GET', path, query: query, auth: auth);
 
   Future<Map<String, dynamic>> post(
     String path, {
@@ -48,13 +49,51 @@ class ApiClient {
   }) =>
       _send('DELETE', path, body: body, auth: auth);
 
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    required Map<String, String> fields,
+    required String fileField,
+    required String filePath,
+    String? filename,
+    bool auth = true,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.apiRoot}$path');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Accept'] = 'application/json';
+    if (auth && AuthStore.instance.isAuthenticated) {
+      request.headers['Authorization'] = 'Bearer ${AuthStore.instance.token}';
+    }
+    request.fields.addAll(fields);
+    request.files.add(await http.MultipartFile.fromPath(
+      fileField,
+      filePath,
+      filename: filename,
+    ));
+
+    late http.StreamedResponse streamed;
+    try {
+      streamed = await _client.send(request);
+    } catch (_) {
+      throw ApiException(
+        'Could not reach Middo API at ${ApiConfig.baseUrl}. Is `php artisan serve` running?',
+      );
+    }
+
+    final response = await http.Response.fromStream(streamed);
+    return _decode(response);
+  }
+
   Future<Map<String, dynamic>> _send(
     String method,
     String path, {
     Map<String, dynamic>? body,
+    Map<String, String>? query,
     bool auth = true,
   }) async {
-    final uri = Uri.parse('${ApiConfig.apiRoot}$path');
+    var uri = Uri.parse('${ApiConfig.apiRoot}$path');
+    if (query != null && query.isNotEmpty) {
+      uri = uri.replace(queryParameters: {...uri.queryParameters, ...query});
+    }
     final headers = <String, String>{
       'Accept': 'application/json',
       'Content-Type': 'application/json',
@@ -94,6 +133,10 @@ class ApiClient {
       );
     }
 
+    return _decode(response);
+  }
+
+  Map<String, dynamic> _decode(http.Response response) {
     final decoded = response.body.isEmpty
         ? <String, dynamic>{}
         : jsonDecode(response.body) as Map<String, dynamic>;
