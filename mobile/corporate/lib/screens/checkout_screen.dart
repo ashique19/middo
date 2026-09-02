@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
+import 'payment_webview_screen.dart';
 
 enum _CheckoutStep { dates, receiver, otp }
 
@@ -44,7 +44,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _paymentMethod = 'cash_on_delivery';
   bool _codAllowed = false;
   List<String> _paymentMethods = const ['cash_on_delivery'];
-  String? _paymentToken;
   CorporateUser? _profile;
   int _chargesTotal = 0;
   int _mealsSubtotal = 0;
@@ -234,7 +233,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       if (!mounted) return;
 
-      var paymentToken = _paymentToken;
       var paymentMethod = _paymentMethod;
       final methods = result.paymentMethods;
       final codAllowed = result.codAllowed;
@@ -245,32 +243,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             : (methods.contains('balance') ? 'balance' : methods.first);
       }
 
-      final needsCharge = result.prepayment.required ||
-          (paymentMethod == 'balance' || paymentMethod == 'gateway');
-
-      if (needsCharge && paymentMethod == 'gateway') {
-        final gateway = await AppScope.of(context).createGatewayPrepay(
-          menuItemId: item.id,
-          quantities: _quantities,
-          receiver: receiver,
-          couponCode: _appliedCoupon,
-        );
-        paymentToken = gateway.paymentToken;
-        final uri = Uri.tryParse(gateway.paymentUrl);
-        if (uri != null) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Complete ৳${gateway.amount.toStringAsFixed(0)} payment in the browser, then verify OTP.',
-            ),
-            backgroundColor: MiddoColors.forest,
-          ),
-        );
-      } else if (needsCharge &&
-          paymentMethod == 'balance' &&
+      if (paymentMethod == 'balance' &&
           result.prepayment.required &&
           !result.prepayment.balanceSufficient) {
         setState(() {
@@ -289,8 +262,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               'Insufficient Middo Balance. Need ${bdt.format(result.prepayment.amount)}, available ${bdt.format(result.prepayment.balance)}. Top up or pay online.';
         });
         return;
-      } else if (paymentMethod == 'cash_on_delivery') {
-        paymentToken = null;
       }
 
       setState(() {
@@ -300,7 +271,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _codAllowed = codAllowed;
         _paymentMethods = methods;
         _paymentMethod = paymentMethod;
-        _paymentToken = paymentToken;
         _chargesTotal = result.chargesTotal;
         _mealsSubtotal = result.mealsSubtotal;
         _cartTotal = result.cartTotal;
@@ -345,14 +315,57 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _formError = null;
     });
     try {
-      await AppScope.of(context).placeOrder(
+      final repo = AppScope.of(context);
+      final needsGateway = _paymentMethod == 'gateway' &&
+          ((_prepayment?.required ?? false) ||
+              _paymentMethods.contains('gateway'));
+
+      if (needsGateway && _paymentMethod == 'gateway') {
+        final gateway = await repo.createGatewayPrepay(
+          menuItemId: item.id,
+          quantities: _quantities,
+          receiver: receiver,
+          otp: otp,
+          couponCode: _appliedCoupon,
+        );
+        if (!mounted) return;
+
+        final paid = await PaymentWebViewScreen.open(
+          context,
+          paymentUrl: gateway.paymentUrl,
+          title: 'Pay ${bdt.format(gateway.amount)}',
+        );
+        if (!mounted) return;
+        if (!paid) {
+          setState(() {
+            _formError =
+                'Payment was not completed. Verify OTP again after requesting a new code, then pay.';
+            _submitting = false;
+          });
+          return;
+        }
+
+        await repo.completeGatewayOrder(paymentToken: gateway.paymentToken);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Scheduled $_totalQty meals · ${bdt.format(_totalQty * item.price)}',
+            ),
+            backgroundColor: MiddoColors.forest,
+          ),
+        );
+        context.go('/schedule');
+        return;
+      }
+
+      await repo.placeOrder(
         menuItemId: item.id,
         quantities: _quantities,
         receiver: receiver,
         otp: otp,
         paymentMethod: _paymentMethod,
-        paymentToken:
-            _paymentMethod == 'gateway' ? _paymentToken : null,
+        paymentToken: null,
         couponCode: _appliedCoupon,
       );
       if (!mounted) return;
@@ -462,12 +475,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ? switch (_step) {
                       _CheckoutStep.dates => 'Loading…',
                       _CheckoutStep.receiver => 'Sending OTP…',
-                      _CheckoutStep.otp => 'Scheduling…',
+                      _CheckoutStep.otp => _paymentMethod == 'gateway'
+                          ? 'Verifying & opening payment…'
+                          : 'Scheduling…',
                     }
                   : switch (_step) {
                       _CheckoutStep.dates => 'Continue to receiver',
                       _CheckoutStep.receiver => 'Send SMS OTP',
-                      _CheckoutStep.otp => 'Verify & Schedule',
+                      _CheckoutStep.otp => _paymentMethod == 'gateway'
+                          ? 'Verify OTP & pay'
+                          : 'Verify & Schedule',
                     },
             ),
           ),
@@ -737,7 +754,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         onSelectionChanged: (value) {
           setState(() {
             _paymentMethod = value.first;
-            _paymentToken = null;
           });
         },
       ),

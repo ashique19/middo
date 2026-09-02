@@ -20,6 +20,7 @@ use App\Models\WalletTransaction;
 use App\Support\ChargeService;
 use App\Support\CorporateApiPresenter;
 use App\Support\CorporateGatewayPrepay;
+use App\Support\CorporateOrderGatewayCheckout;
 use App\Support\CorporateOrderLimit;
 use App\Support\CorporateOrderPrepayment;
 use App\Support\CorporateWalletTopUp;
@@ -675,7 +676,16 @@ class CorporateMobileController extends Controller
             'dates.*.date' => ['required', 'date_format:Y-m-d'],
             'dates.*.quantity' => ['required', 'integer', 'min:1'],
             'coupon_code' => ['nullable', 'string', 'max:40'],
+            'otp' => ['required', 'string', 'size:4'],
+        ], [
+            'otp.size' => 'Enter the 4-digit confirmation code sent by SMS.',
         ]);
+
+        if (! OrderConfirmationOtp::verify($data['mobile'], $data['otp'])) {
+            throw ValidationException::withMessages([
+                'otp' => ['Invalid or expired confirmation code.'],
+            ]);
+        }
 
         $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
         $this->assertDailyLimits($request->user()->id, $data['dates']);
@@ -684,8 +694,10 @@ class CorporateMobileController extends Controller
         $menuItem = MenuItem::query()->findOrFail($data['menu_item_id']);
         $charges = $this->orderChargesQuote($data, $menuItem);
         $mealsSubtotal = 0;
+        $quantities = [];
         foreach ($data['dates'] as $line) {
             $mealsSubtotal += (int) round($menuItem->price * (int) $line['quantity']);
+            $quantities[(string) $line['date']] = (int) $line['quantity'];
         }
         $grossTotal = $mealsSubtotal + (int) ($charges['total'] ?? 0);
         $couponQuote = $this->quoteOrderCoupon(
@@ -725,14 +737,23 @@ class CorporateMobileController extends Controller
             ]);
         }
 
-        $session = CorporateGatewayPrepay::create(
-            $request->user()->id,
+        $session = CorporateOrderGatewayCheckout::start(
+            $request->user(),
+            $quantities,
+            (int) $data['menu_item_id'],
+            $data['receiver_name'],
+            $data['mobile'],
+            $data['address'],
+            (int) $data['city_id'],
+            (int) $data['area_id'],
+            $data['delivery_time'] ?? '12:00 PM',
             $chargeAmount,
-            $this->cartFingerprint($data, $chargeAmount)
+            (string) ($couponQuote['coupon_code'] ?? ''),
+            (int) ($couponQuote['discount_amount'] ?? 0)
         );
 
         return response()->json([
-            'message' => 'Complete gateway payment, then place the order with the payment token.',
+            'message' => 'OTP verified. Complete payment to place your order.',
             'payment_token' => $session['token'],
             'payment_url' => $session['payment_url'] ?? app(PaymentGateway::class)->paymentUrl($session['token']),
             'amount' => $session['amount'],
@@ -741,6 +762,37 @@ class CorporateMobileController extends Controller
             'cod_allowed' => $codAllowed,
             'discount_amount' => (int) ($couponQuote['discount_amount'] ?? 0),
             'coupon_code' => $couponQuote['coupon_code'] ?? null,
+        ]);
+    }
+
+    public function completeGatewayOrder(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'payment_token' => ['required', 'string', 'max:120'],
+        ]);
+
+        $result = CorporateOrderGatewayCheckout::completeIfPaid($data['payment_token']);
+        if (! ($result['ok'] ?? false)) {
+            throw ValidationException::withMessages([
+                'payment_token' => [$result['message'] ?? 'Payment is not completed yet.'],
+            ]);
+        }
+
+        $orderIds = $result['order_ids'] ?? [];
+        $orders = Order::query()
+            ->with(['menuItem', 'deliveryRider'])
+            ->whereIn('id', $orderIds)
+            ->where('user_id', $request->user()->id)
+            ->orderBy('delivery_date')
+            ->get()
+            ->map(fn (Order $order) => CorporateApiPresenter::order($order))
+            ->values();
+
+        return response()->json([
+            'message' => $result['message'] ?? 'Your meal track has been scheduled successfully!',
+            'already_done' => (bool) ($result['already_done'] ?? false),
+            'order_ids' => $orderIds,
+            'orders' => $orders,
         ]);
     }
 
@@ -1838,11 +1890,42 @@ class CorporateMobileController extends Controller
         }
 
         return response()->json([
-            'message' => 'Complete payment in the Middo checkout, then confirm the package.',
+            'message' => 'OTP verified. Complete payment to create your package.',
             'payment_token' => $checkout['token'] ?? null,
             'payment_url' => $checkout['payment_url'] ?? null,
             'amount' => (int) ($checkout['amount'] ?? $payable),
             'payable_total' => $payable,
+        ]);
+    }
+
+    public function completePackageGateway(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'payment_token' => ['required', 'string', 'max:120'],
+        ]);
+
+        $result = PackageGatewayCheckout::completeIfPaid($data['payment_token']);
+        if (! ($result['ok'] ?? false)) {
+            throw ValidationException::withMessages([
+                'payment_token' => [$result['message'] ?? 'Payment is not completed yet.'],
+            ]);
+        }
+
+        $subscriptionId = (int) ($result['subscription_id'] ?? 0);
+        $subscription = $subscriptionId > 0
+            ? PackageSubscription::query()
+                ->with(['package', 'orders.menuItem'])
+                ->where('user_id', $request->user()->id)
+                ->find($subscriptionId)
+            : null;
+
+        return response()->json([
+            'message' => $result['message'] ?? 'Package prepaid successfully.',
+            'already_done' => (bool) ($result['already_done'] ?? false),
+            'subscription_id' => $subscriptionId > 0 ? $subscriptionId : null,
+            'subscription' => $subscription
+                ? CorporateApiPresenter::packageSubscription($subscription)
+                : null,
         ]);
     }
 

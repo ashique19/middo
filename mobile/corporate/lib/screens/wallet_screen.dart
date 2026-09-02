@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
@@ -8,6 +7,7 @@ import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
+import 'payment_webview_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -69,15 +69,19 @@ class _WalletScreenState extends State<WalletScreen> {
     setState(() => _submitting = true);
     try {
       final result = await AppScope.of(context).topUp(_selected.toDouble());
-      final uri = Uri.tryParse(result.paymentUrl);
-      if (uri != null) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
+      if (!mounted) return;
+      final paid = await PaymentWebViewScreen.open(
+        context,
+        paymentUrl: result.paymentUrl,
+        title: 'Top up ৳$_selected',
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Complete ৳$_selected in Middo checkout, then pull to refresh.',
+            paid
+                ? 'Payment finished. Refreshing Middo Balance…'
+                : 'Closed payment. Pull to refresh if you already paid.',
           ),
           backgroundColor: MiddoColors.forest,
         ),

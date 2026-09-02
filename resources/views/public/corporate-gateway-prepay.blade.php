@@ -6,7 +6,11 @@
     <title>{{ $is_wallet ? 'Middo Balance Top-up' : 'Middo Prepayment' }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-50 text-middo-dark font-sans min-h-screen flex items-center justify-center p-6">
+<body
+    class="bg-gray-50 text-middo-dark font-sans min-h-screen flex items-center justify-center p-6"
+    data-middo-payment-status="{{ ($paid || ($credited ?? false) || ($order_placed ?? false)) ? 'paid' : 'pending' }}"
+    data-middo-payment-purpose="{{ $purpose ?? 'order_prepay' }}"
+>
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm max-w-md w-full p-6 space-y-4">
         <h1 class="text-2xl font-black text-middo-dark">
             {{ $is_wallet ? 'Add Middo Balance' : ($is_package ?? false ? 'Pay for meal package' : 'Middo Prepayment') }}
@@ -63,20 +67,20 @@
                 </p>
             @elseif($is_order_checkout ?? false)
                 <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                    Payment successful — your lunch order has been placed. You can close this window.
+                    Payment successful — your lunch order has been placed. You can close this window and return to the Middo app.
                 </p>
                 @auth
                     <a href="{{ route('corporates.dashboard') }}" class="block w-full text-center bg-[#1E4630] text-white py-3.5 rounded-xl font-bold hover:opacity-90 transition">
                         Back to dashboard
                     </a>
                 @endauth
+            @elseif($is_package ?? false)
+                <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                    Payment successful — your package is being created. You can close this window and return to the Middo app.
+                </p>
             @else
                 <p class="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                    @if($is_package ?? false)
-                        Payment recorded. Return to Middo and enter the SMS OTP to create your package.
-                    @else
-                        Payment recorded. Return to Middo and confirm your order with the SMS OTP.
-                    @endif
+                    Payment recorded. You can close this window and return to Middo.
                 </p>
                 <p class="text-xs text-gray-400 break-all">Payment token: {{ $token }}</p>
             @endif
@@ -86,7 +90,7 @@
                     Complete this checkout to add funds to your Middo Balance for future office lunch orders.
                 @else
                     @if($is_package ?? false)
-                        Complete this checkout to prepay your monthly meal package. After payment you will confirm with OTP.
+                        Complete this checkout to prepay your monthly meal package. Your package is created automatically after payment.
                     @else
                         Complete this prepayment to schedule meals when the receiver differs from the account holder,
                         or when you go above {{ \App\Support\MiddoSettings::fullPrepayFromActiveOrders() }} meals (active + cart quantities).

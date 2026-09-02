@@ -93,10 +93,13 @@ class CorporateGatewayPrepayController extends Controller
 
                 return $redirect->with('message', $completed['message'] ?? 'Package prepaid successfully.');
             }
-            PackageGatewayCheckout::markIntentPaid($token);
-            if (Auth::check()) {
-                return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
+            if (! ($completed['ok'] ?? false)) {
+                PackageGatewayCheckout::markIntentPaid($token);
+                if (Auth::check()) {
+                    return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
+                }
             }
+            // Mobile / unauthenticated WebView: stay on the paid success page so the app can detect completion.
         }
 
         $orderPlaced = false;

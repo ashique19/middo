@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
@@ -9,6 +8,7 @@ import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
+import 'payment_webview_screen.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({super.key});
@@ -165,14 +165,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       onPay: order.canPayOnline &&
                               order.onlinePaymentUrl != null
                           ? () {
-                              final uri =
-                                  Uri.tryParse(order.onlinePaymentUrl!);
-                              if (uri != null) {
-                                launchUrl(
-                                  uri,
-                                  mode: LaunchMode.externalApplication,
-                                );
-                              }
+                              PaymentWebViewScreen.open(
+                                context,
+                                paymentUrl: order.onlinePaymentUrl!,
+                                title: 'Make payment',
+                              );
                             }
                           : null,
                     ),

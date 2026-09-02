@@ -86,8 +86,13 @@ abstract class CorporateRepository {
     required String menuItemId,
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
+    required String otp,
     String deliveryTime = '12:00 PM',
     String? couponCode,
+  });
+
+  Future<List<CorporateOrder>> completeGatewayOrder({
+    required String paymentToken,
   });
 
   Future<List<CorporateOrder>> placeOrder({
@@ -156,6 +161,10 @@ abstract class CorporateRepository {
     required String otp,
     String deliveryTime = '12:00 PM',
     String? couponCode,
+  });
+
+  Future<PackageSubscription> completePackageGateway({
+    required String paymentToken,
   });
 
   Future<PackageSubscription> subscribePackage({
@@ -506,6 +515,7 @@ class ApiCorporateRepository implements CorporateRepository {
     required String menuItemId,
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
+    required String otp,
     String deliveryTime = '12:00 PM',
     String? couponCode,
   }) async {
@@ -516,6 +526,7 @@ class ApiCorporateRepository implements CorporateRepository {
         quantities: quantities,
         receiver: receiver,
         deliveryTime: deliveryTime,
+        otp: otp,
         couponCode: couponCode,
       ),
     );
@@ -533,6 +544,17 @@ class ApiCorporateRepository implements CorporateRepository {
             : null,
       ),
     );
+  }
+
+  @override
+  Future<List<CorporateOrder>> completeGatewayOrder({
+    required String paymentToken,
+  }) async {
+    final json = await _client.post(
+      '/orders/gateway-complete',
+      body: {'payment_token': paymentToken},
+    );
+    return _orders(json['orders']);
   }
 
   @override
@@ -813,6 +835,21 @@ class ApiCorporateRepository implements CorporateRepository {
       amount: amount,
       prepayment: PrepaymentQuote.fromJson(null),
     );
+  }
+
+  @override
+  Future<PackageSubscription> completePackageGateway({
+    required String paymentToken,
+  }) async {
+    final json = await _client.post(
+      '/packages/gateway-complete',
+      body: {'payment_token': paymentToken},
+    );
+    final sub = json['subscription'];
+    if (sub is! Map) {
+      throw ApiException('Package payment completed but subscription was missing.');
+    }
+    return PackageSubscription.fromJson(Map<String, dynamic>.from(sub));
   }
 
   @override
@@ -1122,6 +1159,7 @@ class MockCorporateRepository implements CorporateRepository {
     required String menuItemId,
     required Map<DateTime, int> quantities,
     required ReceiverDetails receiver,
+    required String otp,
     String deliveryTime = '12:00 PM',
     String? couponCode,
   }) async {
@@ -1139,6 +1177,12 @@ class MockCorporateRepository implements CorporateRepository {
       ),
     );
   }
+
+  @override
+  Future<List<CorporateOrder>> completeGatewayOrder({
+    required String paymentToken,
+  }) async =>
+      _mock.upcomingOrders;
 
   @override
   Future<List<CorporateOrder>> placeOrder({
@@ -1317,6 +1361,29 @@ class MockCorporateRepository implements CorporateRepository {
       paymentUrl: 'https://example.com/pay',
       amount: 1000,
       prepayment: PrepaymentQuote.fromJson(null),
+    );
+  }
+
+  @override
+  Future<PackageSubscription> completePackageGateway({
+    required String paymentToken,
+  }) async {
+    final pkg = (await packages()).first;
+    return PackageSubscription(
+      id: 'sub1',
+      package: pkg,
+      quantity: 1,
+      billableDays: 20,
+      pricePerDay: 79,
+      totalAmount: 1580,
+      amountPaid: 1580,
+      status: 'active',
+      startDate: DateTime.now().toIso8601String().substring(0, 10),
+      endDate: DateTime.now()
+          .add(const Duration(days: 28))
+          .toIso8601String()
+          .substring(0, 10),
+      targetMonth: DateTime.now().toIso8601String().substring(0, 7),
     );
   }
 
