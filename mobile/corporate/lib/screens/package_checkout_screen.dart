@@ -596,24 +596,30 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
             ),
             const SizedBox(height: 14),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: TextField(
                     controller: _couponCtrl,
                     enabled: !_otpStep,
+                    textCapitalization: TextCapitalization.characters,
                     decoration: const InputDecoration(
                       labelText: 'Coupon code',
                       hintText: 'Optional',
+                      isDense: true,
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     ),
-                    textCapitalization: TextCapitalization.characters,
                   ),
                 ),
                 const SizedBox(width: 10),
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                SizedBox(
+                  height: 48,
                   child: OutlinedButton(
                     onPressed: _otpStep ? null : _applyCoupon,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                    ),
                     child: const Text('Apply'),
                   ),
                 ),

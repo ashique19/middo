@@ -625,6 +625,22 @@ class CorporateMobileApiTest extends TestCase
         ])->assertStatus(422);
     }
 
+    public function test_package_gateway_prepay_route_is_registered(): void
+    {
+        $user = $this->makeCorporate(['balance' => 0]);
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/corporate/packages/1/gateway-prepay', []);
+
+        // Route must exist (production error was "route ... could not be found").
+        $this->assertNotEquals(
+            'The route api/corporate/packages/1/gateway-prepay could not be found.',
+            $response->json('message')
+        );
+        // Missing package or validation — either proves the route matched.
+        $this->assertContains($response->status(), [404, 422]);
+    }
+
     public function test_device_token_can_be_registered_and_unregistered(): void
     {
         $user = $this->makeCorporate();

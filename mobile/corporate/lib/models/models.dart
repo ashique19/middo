@@ -300,12 +300,14 @@ class SupportMessage {
     required this.body,
     required this.at,
     this.category,
+    this.attachmentUrl,
   });
 
   final bool fromSupport;
   final String body;
   final DateTime at;
   final String? category;
+  final String? attachmentUrl;
 
   factory SupportMessage.fromJson(Map<String, dynamic> json) {
     return SupportMessage(
@@ -314,6 +316,7 @@ class SupportMessage {
       at: DateTime.tryParse(json['at']?.toString() ?? '')?.toLocal() ??
           DateTime.now(),
       category: json['category_label']?.toString() ?? json['category']?.toString(),
+      attachmentUrl: json['attachment']?.toString(),
     );
   }
 }
@@ -472,6 +475,9 @@ class OrderOtpResult {
     this.chargesTotal = 0,
     this.mealsSubtotal = 0,
     this.cartTotal = 0,
+    this.discountAmount = 0,
+    this.couponCode,
+    this.couponMessage,
   });
 
   final String? debugOtp;
@@ -481,6 +487,9 @@ class OrderOtpResult {
   final int chargesTotal;
   final int mealsSubtotal;
   final int cartTotal;
+  final int discountAmount;
+  final String? couponCode;
+  final String? couponMessage;
 }
 
 class GatewayPrepayResult {

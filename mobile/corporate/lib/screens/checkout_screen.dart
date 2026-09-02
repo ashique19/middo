@@ -34,6 +34,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _mobileCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _otpCtrl = TextEditingController();
+  final _couponCtrl = TextEditingController();
 
   int? _cityId;
   int? _areaId;
@@ -48,6 +49,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   int _chargesTotal = 0;
   int _mealsSubtotal = 0;
   int _cartTotal = 0;
+  String? _appliedCoupon;
+  int _discountAmount = 0;
+  String? _couponMessage;
 
   @override
   void didChangeDependencies() {
@@ -63,6 +67,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _mobileCtrl.dispose();
     _addressCtrl.dispose();
     _otpCtrl.dispose();
+    _couponCtrl.dispose();
     super.dispose();
   }
 
@@ -200,6 +205,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
   }
 
+  Future<void> _applyCoupon() async {
+    final code = _couponCtrl.text.trim();
+    setState(() {
+      _appliedCoupon = code.isEmpty ? null : code;
+      if (code.isEmpty) {
+        _discountAmount = 0;
+        _couponMessage = null;
+      }
+    });
+    if (_step == _CheckoutStep.otp) {
+      await _sendOtp();
+    }
+  }
+
   Future<void> _sendOtp() async {
     final item = _item;
     final receiver = _validatedReceiver();
@@ -211,6 +230,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         menuItemId: item.id,
         quantities: _quantities,
         receiver: receiver,
+        couponCode: _appliedCoupon,
       );
       if (!mounted) return;
 
@@ -233,6 +253,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           menuItemId: item.id,
           quantities: _quantities,
           receiver: receiver,
+          couponCode: _appliedCoupon,
         );
         paymentToken = gateway.paymentToken;
         final uri = Uri.tryParse(gateway.paymentUrl);
@@ -256,6 +277,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _prepayment = result.prepayment;
           _codAllowed = codAllowed;
           _paymentMethods = methods;
+          _chargesTotal = result.chargesTotal;
+          _mealsSubtotal = result.mealsSubtotal;
+          _cartTotal = result.cartTotal;
+          _discountAmount = result.discountAmount;
+          _couponMessage = result.couponMessage;
+          if (result.couponCode != null && result.couponCode!.isNotEmpty) {
+            _appliedCoupon = result.couponCode;
+          }
           _formError =
               'Insufficient Middo Balance. Need ${bdt.format(result.prepayment.amount)}, available ${bdt.format(result.prepayment.balance)}. Top up or pay online.';
         });
@@ -275,6 +304,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _chargesTotal = result.chargesTotal;
         _mealsSubtotal = result.mealsSubtotal;
         _cartTotal = result.cartTotal;
+        _discountAmount = result.discountAmount;
+        _couponMessage = result.couponMessage;
+        if (result.couponCode != null && result.couponCode!.isNotEmpty) {
+          _appliedCoupon = result.couponCode;
+        }
         _otpCtrl.clear();
         _formError = null;
       });
@@ -319,6 +353,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         paymentMethod: _paymentMethod,
         paymentToken:
             _paymentMethod == 'gateway' ? _paymentToken : null,
+        couponCode: _appliedCoupon,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -582,19 +617,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         child: Column(
           children: [
-            if (_chargesTotal > 0) ...[
+            if (_chargesTotal > 0 || _discountAmount > 0) ...[
               _row(
                 'Meals',
                 bdt.format(
                   _mealsSubtotal > 0 ? _mealsSubtotal : total,
                 ),
               ),
-              _row('Fees', bdt.format(_chargesTotal)),
+              if (_chargesTotal > 0) _row('Fees', bdt.format(_chargesTotal)),
+              if (_discountAmount > 0)
+                _row('Discount', '-${bdt.format(_discountAmount)}'),
               const Divider(height: 20),
               _row(
                 'Total',
                 bdt.format(
-                  _cartTotal > 0 ? _cartTotal : (_mealsSubtotal + _chargesTotal),
+                  _cartTotal > 0
+                      ? _cartTotal
+                      : (_mealsSubtotal + _chargesTotal - _discountAmount),
                 ),
                 bold: true,
               ),
@@ -714,6 +753,59 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
       ],
       const SizedBox(height: 12),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _couponCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Coupon code',
+                hintText: 'Optional',
+                isDense: true,
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            height: 48,
+            child: OutlinedButton(
+              onPressed: _submitting ? null : _applyCoupon,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+              ),
+              child: const Text('Apply'),
+            ),
+          ),
+        ],
+      ),
+      if (_couponMessage != null && _couponMessage!.isNotEmpty) ...[
+        const SizedBox(height: 6),
+        Text(
+          _couponMessage!,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: MiddoColors.forest,
+          ),
+        ),
+      ],
+      if (_discountAmount > 0) ...[
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: MiddoColors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: MiddoColors.creamBorder),
+          ),
+          child: _row('Discount', '-${bdt.format(_discountAmount)}'),
+        ),
+      ],
+      const SizedBox(height: 12),
       TextField(
         controller: _addressCtrl,
         maxLines: 2,
@@ -800,7 +892,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ),
       ],
-      if (_chargesTotal > 0) ...[
+      if (_chargesTotal > 0 || _discountAmount > 0) ...[
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(14),
@@ -815,16 +907,61 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'Meals',
                 bdt.format(_mealsSubtotal > 0 ? _mealsSubtotal : 0),
               ),
-              _row('Fees', bdt.format(_chargesTotal)),
+              if (_chargesTotal > 0) _row('Fees', bdt.format(_chargesTotal)),
+              if (_discountAmount > 0)
+                _row('Discount', '-${bdt.format(_discountAmount)}'),
               const Divider(height: 20),
               _row(
                 'Total',
                 bdt.format(
-                  _cartTotal > 0 ? _cartTotal : (_mealsSubtotal + _chargesTotal),
+                  _cartTotal > 0
+                      ? _cartTotal
+                      : (_mealsSubtotal + _chargesTotal - _discountAmount),
                 ),
                 bold: true,
               ),
             ],
+          ),
+        ),
+      ],
+      const SizedBox(height: 12),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _couponCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Coupon code',
+                hintText: 'Optional',
+                isDense: true,
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            height: 48,
+            child: OutlinedButton(
+              onPressed: _submitting ? null : _applyCoupon,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+              ),
+              child: const Text('Apply'),
+            ),
+          ),
+        ],
+      ),
+      if (_couponMessage != null && _couponMessage!.isNotEmpty) ...[
+        const SizedBox(height: 6),
+        Text(
+          _couponMessage!,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: MiddoColors.forest,
           ),
         ),
       ],

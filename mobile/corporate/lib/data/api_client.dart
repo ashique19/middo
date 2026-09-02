@@ -48,6 +48,49 @@ class ApiClient {
   }) =>
       _send('DELETE', path, body: body, auth: auth);
 
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    Map<String, String> fields = const {},
+    String? fileField,
+    String? filePath,
+    String? filename,
+    bool auth = true,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.apiRoot}$path');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Accept'] = 'application/json';
+
+    if (auth && AuthStore.instance.isAuthenticated) {
+      request.headers['Authorization'] = 'Bearer ${AuthStore.instance.token}';
+    }
+
+    request.fields.addAll(fields);
+
+    if (fileField != null &&
+        filePath != null &&
+        filePath.isNotEmpty) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          fileField,
+          filePath,
+          filename: filename,
+        ),
+      );
+    }
+
+    late http.Response response;
+    try {
+      final streamed = await _client.send(request);
+      response = await http.Response.fromStream(streamed);
+    } catch (_) {
+      throw ApiException(
+        'Could not reach Middo API at ${ApiConfig.baseUrl}. Is `php artisan serve` running?',
+      );
+    }
+
+    return _decodeResponse(response);
+  }
+
   Future<Map<String, dynamic>> _send(
     String method,
     String path, {
@@ -94,6 +137,10 @@ class ApiClient {
       );
     }
 
+    return _decodeResponse(response);
+  }
+
+  Map<String, dynamic> _decodeResponse(http.Response response) {
     final decoded = response.body.isEmpty
         ? <String, dynamic>{}
         : jsonDecode(response.body) as Map<String, dynamic>;
@@ -105,7 +152,9 @@ class ApiClient {
     final message = decoded['message']?.toString() ??
         (decoded['errors'] is Map
             ? ((decoded['errors'] as Map).values.first is List
-                ? ((decoded['errors'] as Map).values.first as List).first.toString()
+                ? ((decoded['errors'] as Map).values.first as List)
+                    .first
+                    .toString()
                 : decoded['errors'].toString())
             : 'Request failed (${response.statusCode})');
 
