@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app_scope.dart';
 import '../models/models.dart';
@@ -38,6 +39,9 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
   int? _cityId;
   int? _areaId;
   bool _otpStep = false;
+  String _paymentMethod = 'balance';
+  final _couponCtrl = TextEditingController();
+  String? _appliedCoupon;
 
   static const _labels = {
     0: 'Sun',
@@ -101,6 +105,7 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
     _mobileCtrl.dispose();
     _addressCtrl.dispose();
     _otpCtrl.dispose();
+    _couponCtrl.dispose();
     super.dispose();
   }
 
@@ -165,9 +170,21 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
       omittedWeekdays: _omitted.toList()..sort(),
       targetMonth: _targetMonth,
       menuSelections: _selections,
+      areaId: _areaId,
+      couponCode: _appliedCoupon,
     );
     if (!mounted) return;
-    setState(() => _quote = quote);
+    setState(() {
+      _quote = quote;
+      _paymentMethod =
+          quote.balanceSufficient ? 'balance' : 'gateway';
+    });
+  }
+
+  Future<void> _applyCoupon() async {
+    final code = _couponCtrl.text.trim();
+    setState(() => _appliedCoupon = code.isEmpty ? null : code);
+    await _refreshQuote();
   }
 
   Future<void> _sendOtp() async {
@@ -216,20 +233,46 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
       _submitting = true;
     });
     try {
-      final sub = await AppScope.of(context).subscribePackage(
+      final repo = AppScope.of(context);
+      final receiver = ReceiverDetails(
+        receiverName: _nameCtrl.text.trim(),
+        mobile: _mobileCtrl.text.trim(),
+        address: _addressCtrl.text.trim(),
+        cityId: _cityId!,
+        areaId: _areaId!,
+      );
+      final otp = _otpCtrl.text.trim();
+      String? paymentToken;
+
+      if (_paymentMethod == 'gateway') {
+        final gateway = await repo.createPackageGatewayPrepay(
+          packageId: widget.packageId,
+          quantity: _quantity,
+          omittedWeekdays: _omitted.toList()..sort(),
+          targetMonth: _targetMonth,
+          menuSelections: _selections,
+          receiver: receiver,
+          otp: otp,
+          couponCode: _appliedCoupon,
+        );
+        paymentToken = gateway.paymentToken;
+        final uri = Uri.tryParse(gateway.paymentUrl);
+        if (uri != null) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      }
+
+      final sub = await repo.subscribePackage(
         packageId: widget.packageId,
         quantity: _quantity,
         omittedWeekdays: _omitted.toList()..sort(),
         targetMonth: _targetMonth,
         menuSelections: _selections,
-        receiver: ReceiverDetails(
-          receiverName: _nameCtrl.text.trim(),
-          mobile: _mobileCtrl.text.trim(),
-          address: _addressCtrl.text.trim(),
-          cityId: _cityId!,
-          areaId: _areaId!,
-        ),
-        otp: _otpCtrl.text.trim(),
+        receiver: receiver,
+        otp: otp,
+        paymentMethod: _paymentMethod,
+        paymentToken: paymentToken,
+        couponCode: _appliedCoupon,
       );
       if (!mounted) return;
       context.go('/subscriptions/${sub.id}');
@@ -484,15 +527,25 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'TOTAL DUE NOW',
+                    'QUOTE BREAKDOWN',
                     style: TextStyle(
                       color: Colors.white70,
                       fontWeight: FontWeight.w800,
                       fontSize: 11,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  _quoteRow(
+                    'Meals subtotal',
+                    '৳${quote.mealsSubtotal > 0 ? quote.mealsSubtotal : quote.totalAmount}',
+                  ),
+                  if (quote.chargesAmount > 0)
+                    _quoteRow('Charges', '৳${quote.chargesAmount}'),
+                  if (quote.discountAmount > 0)
+                    _quoteRow('Discount', '-৳${quote.discountAmount}'),
+                  const SizedBox(height: 6),
                   Text(
-                    '৳${quote.totalAmount}',
+                    '৳${quote.payableTotal > 0 ? quote.payableTotal : quote.totalAmount}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
@@ -504,11 +557,67 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
                     style: const TextStyle(color: Colors.white70),
                   ),
                   Text(
-                    'Wallet: ৳${balance.toStringAsFixed(0)}',
+                    'Wallet: ৳${balance.toStringAsFixed(0)}'
+                    '${quote.balanceSufficient ? '' : ' · insufficient'}',
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
+                  if (quote.couponMessage != null &&
+                      quote.couponMessage!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      quote.couponMessage!,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ],
               ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Payment method',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'balance', label: Text('Balance')),
+                ButtonSegment(value: 'gateway', label: Text('Online')),
+              ],
+              selected: {_paymentMethod},
+              onSelectionChanged: _otpStep
+                  ? null
+                  : (value) {
+                      setState(() => _paymentMethod = value.first);
+                    },
+            ),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _couponCtrl,
+                    enabled: !_otpStep,
+                    decoration: const InputDecoration(
+                      labelText: 'Coupon code',
+                      hintText: 'Optional',
+                    ),
+                    textCapitalization: TextCapitalization.characters,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: OutlinedButton(
+                    onPressed: _otpStep ? null : _applyCoupon,
+                    child: const Text('Apply'),
+                  ),
+                ),
+              ],
             ),
           ],
           const SizedBox(height: 18),
@@ -560,11 +669,36 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
             ),
             child: Text(
               _otpStep
-                  ? 'Prepaid & create · ৳${quote?.totalAmount ?? 0}'
+                  ? (_paymentMethod == 'gateway'
+                      ? 'Pay online & create · ৳${quote?.payableTotal ?? quote?.totalAmount ?? 0}'
+                      : 'Prepaid & create · ৳${quote?.payableTotal ?? quote?.totalAmount ?? 0}')
                   : 'Confirm & send OTP',
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _quoteRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }

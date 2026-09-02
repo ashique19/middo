@@ -71,12 +71,14 @@ class MealOrderCard extends StatelessWidget {
     required this.order,
     this.onTrack,
     this.onSecondary,
+    this.onPay,
     this.secondaryLabel = 'Support',
   });
 
   final CorporateOrder order;
   final VoidCallback? onTrack;
   final VoidCallback? onSecondary;
+  final VoidCallback? onPay;
   final String secondaryLabel;
 
   @override
@@ -128,6 +130,17 @@ class MealOrderCard extends StatelessWidget {
                     letterSpacing: -0.2,
                   ),
                 ),
+                if (order.canPayOnline && order.amountDue > 0) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Due ${bdt.format(order.amountDue)}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: MiddoColors.orange,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
@@ -161,8 +174,27 @@ class MealOrderCard extends StatelessWidget {
                         label: 'Recv: ${order.receiverName}',
                         tone: MiddoBadgeTone.amber,
                       ),
+                    if (order.hasComplaint)
+                      const MiddoBadge(
+                        label: 'Complaint',
+                        tone: MiddoBadgeTone.orange,
+                      ),
                   ],
                 ),
+                if (onPay != null && order.canPayOnline) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: onPay,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: MiddoColors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('Make Payment'),
+                    ),
+                  ),
+                ],
                 if (onTrack != null || onSecondary != null) ...[
                   const SizedBox(height: 12),
                   Row(

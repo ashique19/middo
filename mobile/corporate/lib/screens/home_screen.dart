@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app_scope.dart';
 import '../data/push_notification_service.dart';
@@ -344,6 +345,19 @@ class _HomeScreenState extends State<HomeScreen> {
                           onTrack: () => context.push('/track/${order.id}'),
                           onSecondary: () =>
                               context.push('/support/${order.id}'),
+                          onPay: order.canPayOnline &&
+                                  order.onlinePaymentUrl != null
+                              ? () {
+                                  final uri =
+                                      Uri.tryParse(order.onlinePaymentUrl!);
+                                  if (uri != null) {
+                                    launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  }
+                                }
+                              : null,
                         ),
                       ),
                 const SectionHeader(title: 'Quick tools'),

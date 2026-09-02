@@ -20,8 +20,13 @@ class SupportScreen extends StatefulWidget {
 class _SupportScreenState extends State<SupportScreen> {
   final _composer = TextEditingController();
   String _category = 'delivery';
-  Future<({CorporateOrder order, List<SupportMessage> messages, bool hasExisting})>?
-      _future;
+  Future<
+      ({
+        CorporateOrder order,
+        List<SupportMessage> messages,
+        bool hasExisting,
+        bool isResolved,
+      })>? _future;
   bool _sending = false;
 
   @override
@@ -42,11 +47,18 @@ class _SupportScreenState extends State<SupportScreen> {
     await next;
   }
 
-  Future<void> _send(bool hasExisting) async {
-    if (hasExisting) return;
-    if (_composer.text.trim().length < 10) {
+  Future<void> _send({required bool hasExisting}) async {
+    final text = _composer.text.trim();
+    final minLen = hasExisting ? 5 : 10;
+    if (text.length < minLen) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please describe the issue in at least 10 characters.')),
+        SnackBar(
+          content: Text(
+            hasExisting
+                ? 'Reply must be at least 5 characters.'
+                : 'Please describe the issue in at least 10 characters.',
+          ),
+        ),
       );
       return;
     }
@@ -54,8 +66,8 @@ class _SupportScreenState extends State<SupportScreen> {
     try {
       await AppScope.of(context).submitSupport(
         orderId: widget.orderId,
-        category: _category,
-        message: _composer.text.trim(),
+        message: text,
+        category: hasExisting ? null : _category,
       );
       _composer.clear();
       await _reload();
@@ -111,6 +123,8 @@ class _SupportScreenState extends State<SupportScreen> {
           final data = snapshot.data!;
           final order = data.order;
           final thread = data.messages;
+          final hasExisting = data.hasExisting;
+          final isResolved = data.isResolved;
 
           return Column(
             children: [
@@ -141,8 +155,28 @@ class _SupportScreenState extends State<SupportScreen> {
                         ],
                       ),
                     ),
+                    if (isResolved) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFECFDF5),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFA7F3D0)),
+                        ),
+                        child: const Text(
+                          'This complaint is complete',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF065F46),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
-                    if (!data.hasExisting) ...[
+                    if (!hasExisting) ...[
                       DropdownButtonFormField<String>(
                         value: _category,
                         decoration: const InputDecoration(labelText: 'CATEGORY'),
@@ -177,7 +211,8 @@ class _SupportScreenState extends State<SupportScreen> {
                         keyboardType: TextInputType.multiline,
                         decoration: const InputDecoration(
                           labelText: 'DESCRIBE THE ISSUE',
-                          hintText: 'What went wrong? Include floor, desk, or timing details…',
+                          hintText:
+                              'What went wrong? Include floor, desk, or timing details…',
                           alignLabelWithHint: true,
                         ),
                       ),
@@ -263,7 +298,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   ],
                 ),
               ),
-              if (!data.hasExisting)
+              if (!hasExisting)
                 SafeArea(
                   top: false,
                   child: Padding(
@@ -276,9 +311,47 @@ class _SupportScreenState extends State<SupportScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         onPressed:
-                            _sending ? null : () => _send(data.hasExisting),
+                            _sending ? null : () => _send(hasExisting: false),
                         child: Text(_sending ? 'Sending…' : 'Send'),
                       ),
+                    ),
+                  ),
+                )
+              else if (!isResolved)
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _composer,
+                            minLines: 1,
+                            maxLines: 4,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: const InputDecoration(
+                              hintText: 'Write a reply…',
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: MiddoColors.orange,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          onPressed: _sending
+                              ? null
+                              : () => _send(hasExisting: true),
+                          child: Text(_sending ? '…' : 'Reply'),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -288,5 +361,4 @@ class _SupportScreenState extends State<SupportScreen> {
       ),
     );
   }
-
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app_scope.dart';
 import '../models/models.dart';
@@ -71,6 +72,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       onTrack: () => context.go('/menu'),
                       onSecondary: () => context.push('/support/${order.id}'),
                       secondaryLabel: 'Feedback',
+                      onPay: order.canPayOnline &&
+                              order.onlinePaymentUrl != null
+                          ? () {
+                              final uri =
+                                  Uri.tryParse(order.onlinePaymentUrl!);
+                              if (uri != null) {
+                                launchUrl(
+                                  uri,
+                                  mode: LaunchMode.externalApplication,
+                                );
+                              }
+                            }
+                          : null,
                     ),
                   ),
                 ),

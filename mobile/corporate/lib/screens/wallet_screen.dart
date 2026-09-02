@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_scope.dart';
@@ -18,7 +19,8 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen> {
   static const _tabIndex = 3;
 
-  Future<DashboardData>? _future;
+  Future<({DashboardData dashboard, List<WalletLedgerEntry> transactions})>?
+      _future;
   int _selected = 5000;
   final _custom = TextEditingController(text: '5000');
   final _scrollController = ScrollController();
@@ -33,7 +35,7 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _future ??= AppScope.of(context).dashboard();
+    _future ??= _load();
   }
 
   @override
@@ -44,8 +46,21 @@ class _WalletScreenState extends State<WalletScreen> {
     super.dispose();
   }
 
+  Future<({DashboardData dashboard, List<WalletLedgerEntry> transactions})>
+      _load() async {
+    final repo = AppScope.of(context);
+    final results = await Future.wait([
+      repo.dashboard(),
+      repo.walletTransactions(),
+    ]);
+    final dashboard = results[0] as DashboardData;
+    final ledger =
+        results[1] as ({int balance, List<WalletLedgerEntry> transactions});
+    return (dashboard: dashboard, transactions: ledger.transactions);
+  }
+
   Future<void> _reload() async {
-    final next = AppScope.of(context).dashboard();
+    final next = _load();
     setState(() => _future = next);
     await next;
   }
@@ -62,7 +77,7 @@ class _WalletScreenState extends State<WalletScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Complete ৳${_selected} in Middo checkout, then pull to refresh.',
+            'Complete ৳$_selected in Middo checkout, then pull to refresh.',
           ),
           backgroundColor: MiddoColors.forest,
         ),
@@ -83,7 +98,7 @@ class _WalletScreenState extends State<WalletScreen> {
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _reload,
-        child: FutureBuilder<DashboardData>(
+        child: FutureBuilder(
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
@@ -92,7 +107,9 @@ class _WalletScreenState extends State<WalletScreen> {
             if (snapshot.hasError) {
               return Center(child: Text(snapshot.error.toString()));
             }
-            final user = snapshot.data!.user;
+            final data = snapshot.data!;
+            final user = data.dashboard.user;
+            final transactions = data.transactions;
 
             return ListView(
               controller: _scrollController,
@@ -222,6 +239,89 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 const SizedBox(height: 22),
                 const Text(
+                  'Transactions',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 10),
+                if (transactions.isEmpty)
+                  const Text(
+                    'No wallet transactions yet.',
+                    style: TextStyle(
+                      color: MiddoColors.inkSoft,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  )
+                else
+                  ...transactions.map((tx) {
+                    final credit = tx.amount >= 0;
+                    final amountColor =
+                        credit ? MiddoColors.forest : MiddoColors.orangeDeep;
+                    final signed =
+                        '${credit ? '+' : ''}${bdt.format(tx.amount)}';
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: MiddoColors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: MiddoColors.creamBorder),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  tx.type.isNotEmpty
+                                      ? tx.type
+                                      : (credit ? 'Credit' : 'Debit'),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: MiddoColors.inkSoft,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  tx.description.isNotEmpty
+                                      ? tx.description
+                                      : 'Wallet entry',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat('MMM d, yyyy · h:mm a')
+                                      .format(tx.at),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: MiddoColors.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            signed,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: amountColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                const SizedBox(height: 22),
+                const Text(
                   'Account',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 ),
@@ -235,9 +335,21 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                   child: Column(
                     children: [
-                      MetaRow(label: 'Company', value: user.companyName, labelWidth: 100),
-                      MetaRow(label: 'Buyer', value: user.receiverName, labelWidth: 100),
-                      MetaRow(label: 'Mobile', value: user.mobile, labelWidth: 100),
+                      MetaRow(
+                        label: 'Company',
+                        value: user.companyName,
+                        labelWidth: 100,
+                      ),
+                      MetaRow(
+                        label: 'Buyer',
+                        value: user.receiverName,
+                        labelWidth: 100,
+                      ),
+                      MetaRow(
+                        label: 'Mobile',
+                        value: user.mobile,
+                        labelWidth: 100,
+                      ),
                       MetaRow(
                         label: 'Delivery area',
                         value: user.area ?? '—',

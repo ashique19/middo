@@ -45,6 +45,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   List<String> _paymentMethods = const ['cash_on_delivery'];
   String? _paymentToken;
   CorporateUser? _profile;
+  int _chargesTotal = 0;
+  int _mealsSubtotal = 0;
+  int _cartTotal = 0;
 
   @override
   void didChangeDependencies() {
@@ -269,6 +272,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _paymentMethods = methods;
         _paymentMethod = paymentMethod;
         _paymentToken = paymentToken;
+        _chargesTotal = result.chargesTotal;
+        _mealsSubtotal = result.mealsSubtotal;
+        _cartTotal = result.cartTotal;
         _otpCtrl.clear();
         _formError = null;
       });
@@ -576,16 +582,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         child: Column(
           children: [
-            _row('Meals', '$_totalQty × ${bdt.format(item.price)}'),
-            _row('Delivery window', '12:00 PM'),
-            _row(
-              'Pay from',
-              _profile != null
-                  ? 'Middo Balance (${bdt.format(_profile!.balance)})'
-                  : 'Middo Balance',
-            ),
-            const Divider(height: 20),
-            _row('Total', bdt.format(total), bold: true),
+            if (_chargesTotal > 0) ...[
+              _row(
+                'Meals',
+                bdt.format(
+                  _mealsSubtotal > 0 ? _mealsSubtotal : total,
+                ),
+              ),
+              _row('Fees', bdt.format(_chargesTotal)),
+              const Divider(height: 20),
+              _row(
+                'Total',
+                bdt.format(
+                  _cartTotal > 0 ? _cartTotal : (_mealsSubtotal + _chargesTotal),
+                ),
+                bold: true,
+              ),
+            ] else ...[
+              _row('Meals', '$_totalQty × ${bdt.format(item.price)}'),
+              _row('Delivery window', '12:00 PM'),
+              _row(
+                'Pay from',
+                _profile != null
+                    ? 'Middo Balance (${bdt.format(_profile!.balance)})'
+                    : 'Middo Balance',
+              ),
+              const Divider(height: 20),
+              _row('Total', bdt.format(total), bold: true),
+            ],
           ],
         ),
       ),
@@ -773,6 +797,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             fontSize: 12,
             fontWeight: FontWeight.w800,
             color: MiddoColors.orange,
+          ),
+        ),
+      ],
+      if (_chargesTotal > 0) ...[
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: MiddoColors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: MiddoColors.creamBorder),
+          ),
+          child: Column(
+            children: [
+              _row(
+                'Meals',
+                bdt.format(_mealsSubtotal > 0 ? _mealsSubtotal : 0),
+              ),
+              _row('Fees', bdt.format(_chargesTotal)),
+              const Divider(height: 20),
+              _row(
+                'Total',
+                bdt.format(
+                  _cartTotal > 0 ? _cartTotal : (_mealsSubtotal + _chargesTotal),
+                ),
+                bold: true,
+              ),
+            ],
           ),
         ),
       ],
