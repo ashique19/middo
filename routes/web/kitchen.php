@@ -10,6 +10,7 @@ use App\Livewire\Kitchen\Dashboard;
 use App\Livewire\Kitchen\IncomingBoxes;
 use App\Livewire\Kitchen\MenuDetails;
 use App\Livewire\Kitchen\MiddoOrderGroups;
+use App\Livewire\Kitchen\OrdersLastMonth;
 use App\Livewire\Kitchen\OrdersLastThreeMonths;
 use App\Livewire\Kitchen\OrdersThisMonth;
 use App\Livewire\Kitchen\PrepShoppingList;
@@ -30,6 +31,7 @@ Route::middleware(['auth', 'role:kitchen'])->group(function () {
 
     Route::middleware('permission:'.KitchenPermissions::ORDERS)->group(function () {
         Route::get('/orders/this-month', OrdersThisMonth::class)->name('kitchen.orders.this-month');
+        Route::get('/orders/last-month', OrdersLastMonth::class)->name('kitchen.orders.last-month');
         Route::get('/orders/last-three-months', OrdersLastThreeMonths::class)->name('kitchen.orders.last-three-months');
         Route::get('/orders/active', ActiveOrders::class)->name('kitchen.orders.active');
         Route::get('/orders/{order}', \App\Livewire\Shared\OrderShow::class)->name('kitchen.orders.show');

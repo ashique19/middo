@@ -121,12 +121,24 @@ class KitchenDashboardTest extends TestCase
         $this->actingAs($this->kitchen)
             ->get(route('kitchen.dashboard'))
             ->assertOk()
-            ->assertSee('My Order this month')
-            ->assertSee('Last 3 months')
-            ->assertSee('My active orders')
-            ->assertSee('Middo order groups')
+            ->assertSeeInOrder([
+                'Alerts',
+                'My active orders',
+                'Preparing',
+                'Ready for pickup',
+                'Middo order groups',
+                'Boxes in Stock',
+                'My Orders this month',
+                'Last month',
+                'Last 3 months',
+            ])
             ->assertSee('(1)', false)
             ->assertDontSee(KitchenBoxStock::dashboardWarningMessage(), false);
+
+        $this->actingAs($this->kitchen)
+            ->get(route('kitchen.orders.last-month'))
+            ->assertOk()
+            ->assertSee('Last month');
     }
 
     public function test_kitchen_dashboard_warns_when_box_stock_below_allowed_capacity(): void

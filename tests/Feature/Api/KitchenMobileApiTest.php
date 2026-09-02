@@ -133,9 +133,17 @@ class KitchenMobileApiTest extends TestCase
             ]);
 
         $keys = collect($this->getJson('/api/kitchen/dashboard')->json('tiles'))->pluck('key')->all();
-        $this->assertContains('alerts', $keys);
-        $this->assertContains('active_orders', $keys);
-        $this->assertContains('claimable_groups', $keys);
+        $this->assertSame([
+            'alerts',
+            'active_orders',
+            'preparing',
+            'ready_for_pickup',
+            'claimable_groups',
+            'boxes_in_stock',
+            'orders_this_month',
+            'orders_last_month',
+            'orders_last_three_months',
+        ], $keys);
     }
 
     public function test_kitchen_can_register_device_token(): void

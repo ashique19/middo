@@ -296,28 +296,15 @@ class KitchenMobileController extends Controller
             ->whereHas('orders')
             ->count();
 
+        $lastMonthStart = Carbon::now('Asia/Dhaka')->subMonthNoOverflow()->startOfMonth()->toDateString();
+        $lastMonthEnd = Carbon::now('Asia/Dhaka')->subMonthNoOverflow()->endOfMonth()->toDateString();
+
         $tiles = [
             KitchenApiPresenter::dashboardTile('alerts', 'Alerts', StaffAlerts::unreadCount($kitchenId)),
             KitchenApiPresenter::dashboardTile(
-                'complaints',
-                'Complaints',
-                KitchenComplaints::scopedRootsQuery($kitchenId)->count()
-            ),
-            KitchenApiPresenter::dashboardTile(
-                'orders_this_month',
-                'My Order this month',
-                OrderGroup::query()
-                    ->where('kitchen_id', $kitchenId)
-                    ->whereBetween('delivery_date', [$monthStart, $monthEnd])
-                    ->count()
-            ),
-            KitchenApiPresenter::dashboardTile(
-                'orders_last_three_months',
-                'Last 3 months',
-                OrderGroup::query()
-                    ->where('kitchen_id', $kitchenId)
-                    ->whereBetween('delivery_date', [$threeMonthsStart, $monthEnd])
-                    ->count()
+                'active_orders',
+                'My active orders',
+                (clone $activeOrdersQuery)->count()
             ),
             KitchenApiPresenter::dashboardTile(
                 'preparing',
@@ -334,14 +321,38 @@ class KitchenMobileController extends Controller
                     ->count()
             ),
             KitchenApiPresenter::dashboardTile(
-                'active_orders',
-                'My active orders',
-                (clone $activeOrdersQuery)->count()
-            ),
-            KitchenApiPresenter::dashboardTile(
                 'claimable_groups',
                 'Middo order groups',
                 $claimableCount
+            ),
+            KitchenApiPresenter::dashboardTile(
+                'boxes_in_stock',
+                'Boxes in Stock',
+                KitchenBoxStock::sendableCount($kitchenId)
+            ),
+            KitchenApiPresenter::dashboardTile(
+                'orders_this_month',
+                'My Orders this month',
+                OrderGroup::query()
+                    ->where('kitchen_id', $kitchenId)
+                    ->whereBetween('delivery_date', [$monthStart, $monthEnd])
+                    ->count()
+            ),
+            KitchenApiPresenter::dashboardTile(
+                'orders_last_month',
+                'Last month',
+                OrderGroup::query()
+                    ->where('kitchen_id', $kitchenId)
+                    ->whereBetween('delivery_date', [$lastMonthStart, $lastMonthEnd])
+                    ->count()
+            ),
+            KitchenApiPresenter::dashboardTile(
+                'orders_last_three_months',
+                'Last 3 months',
+                OrderGroup::query()
+                    ->where('kitchen_id', $kitchenId)
+                    ->whereBetween('delivery_date', [$threeMonthsStart, $monthEnd])
+                    ->count()
             ),
         ];
 
