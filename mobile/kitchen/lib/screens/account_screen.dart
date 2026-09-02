@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/kitchen_mobile_header.dart';
 import '../widgets/kitchen_ui.dart';
 
 class AccountScreen extends StatefulWidget {
@@ -191,15 +191,9 @@ class _AccountScreenState extends State<AccountScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Account'),
-        actions: [
-          IconButton(
-            onPressed: () => context.push('/profile'),
-            icon: const Icon(Icons.person_outline),
-            tooltip: 'Profile',
-          ),
-        ],
+      appBar: const KitchenMobileHeader(
+        title: 'Cash handovers',
+        showBack: true,
       ),
       body: RefreshIndicator(
         onRefresh: _reload,

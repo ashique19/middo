@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/kitchen_mobile_header.dart';
 import '../widgets/kitchen_ui.dart';
 
 class AlertsScreen extends StatefulWidget {
@@ -62,15 +63,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Alerts'),
-        actions: [
-          TextButton(
-            onPressed: _busy ? null : _markAll,
-            child: const Text('Mark all read'),
-          ),
-        ],
-      ),
+      appBar: KitchenMobileHeader(title: 'Alerts', showBack: true),
       body: RefreshIndicator(
         onRefresh: _reload,
         child: FutureBuilder<List<dynamic>>(
@@ -84,14 +77,34 @@ class _AlertsScreenState extends State<AlertsScreen> {
             }
             final alerts = snap.data ?? const [];
             if (alerts.isEmpty) {
-              return ListView(children: const [KitchenEmpty('No alerts.')]);
+              return ListView(
+                children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _busy ? null : _markAll,
+                      child: const Text('Mark all read'),
+                    ),
+                  ),
+                  const KitchenEmpty('No alerts.'),
+                ],
+              );
             }
             return ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              itemCount: alerts.length,
+              itemCount: alerts.length + 1,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
-                final raw = alerts[i] as Map;
+                if (i == 0) {
+                  return Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _busy ? null : _markAll,
+                      child: const Text('Mark all read'),
+                    ),
+                  );
+                }
+                final raw = alerts[i - 1] as Map;
                 final unread = raw['is_unread'] == true;
                 return KitchenPanel(
                   onTap: () => _openAlert(raw),

@@ -1,14 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../widgets/kitchen_mobile_header.dart';
+
 class ShellScaffold extends StatelessWidget {
   const ShellScaffold({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
+  static const _titles = [
+    'Kitchen Dashboard',
+    'My Active Orders',
+    'Middo Order Groups',
+    "Today's Menus",
+    'More',
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final index = navigationShell.currentIndex.clamp(0, _titles.length - 1);
+
     return Scaffold(
+      appBar: KitchenMobileHeader(title: _titles[index]),
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,

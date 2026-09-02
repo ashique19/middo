@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../app_scope.dart';
 import '../data/api_client.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/kitchen_mobile_header.dart';
 import '../widgets/kitchen_ui.dart';
 
 class DispatchScreen extends StatefulWidget {
@@ -65,7 +66,10 @@ class _DispatchScreenState extends State<DispatchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Dispatch #${widget.orderId}')),
+      appBar: KitchenMobileHeader(
+        title: 'Dispatch #${widget.orderId}',
+        showBack: true,
+      ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _future,
         builder: (context, snap) {

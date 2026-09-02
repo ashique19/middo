@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/kitchen_mobile_header.dart';
 import '../widgets/kitchen_ui.dart';
 
 class ComplaintsScreen extends StatefulWidget {
@@ -31,7 +32,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Complaints')),
+      appBar: const KitchenMobileHeader(title: 'Complaints', showBack: true),
       body: RefreshIndicator(
         onRefresh: _reload,
         child: FutureBuilder<List<dynamic>>(
@@ -121,7 +122,10 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Complaint #${widget.complaintId}')),
+      appBar: KitchenMobileHeader(
+        title: 'Complaint #${widget.complaintId}',
+        showBack: true,
+      ),
       body: RefreshIndicator(
         onRefresh: _reload,
         child: FutureBuilder<Map<String, dynamic>>(

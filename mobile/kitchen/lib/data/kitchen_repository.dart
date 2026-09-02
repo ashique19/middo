@@ -25,6 +25,8 @@ abstract class KitchenRepository {
 
   Future<List<dynamic>> alerts();
 
+  Future<int> unreadAlertCount();
+
   Future<void> markAlertRead(int id);
 
   Future<void> markAllAlertsRead();
@@ -179,6 +181,12 @@ class ApiKitchenRepository implements KitchenRepository {
   Future<List<dynamic>> alerts() async {
     final data = await _client.get('/alerts');
     return (data['alerts'] as List?) ?? (data['data'] as List?) ?? const [];
+  }
+
+  @override
+  Future<int> unreadAlertCount() async {
+    final data = await _client.get('/alerts');
+    return (data['unread_count'] as num?)?.toInt() ?? 0;
   }
 
   @override
@@ -450,6 +458,9 @@ class MockKitchenRepository implements KitchenRepository {
           'order_group_id': 11,
         },
       ];
+
+  @override
+  Future<int> unreadAlertCount() async => 1;
 
   @override
   Future<void> markAlertRead(int id) async {}

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_scope.dart';
 import '../data/api_client.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/kitchen_mobile_header.dart';
 import '../widgets/kitchen_ui.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -132,7 +133,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: const KitchenMobileHeader(title: 'Kitchen profile', showBack: true),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

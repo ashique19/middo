@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../app_scope.dart';
 import '../data/api_client.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/kitchen_mobile_header.dart';
 import '../widgets/kitchen_ui.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -49,7 +50,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Order #${widget.orderId}')),
+      appBar: KitchenMobileHeader(
+        title: 'Order #${widget.orderId}',
+        showBack: true,
+      ),
       body: RefreshIndicator(
         onRefresh: _reload,
         child: FutureBuilder<Map<String, dynamic>>(
