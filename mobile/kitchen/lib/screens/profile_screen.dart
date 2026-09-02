@@ -86,8 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (email.isNotEmpty) body['email'] = email;
       if (address.isNotEmpty) body['address'] = address;
       final res = await AppScope.of(context).updateProfile(body);
-      _user =
-          (res['user'] as Map?)?.cast<String, dynamic>() ?? _user;
+      _user = (res['user'] as Map?)?.cast<String, dynamic>() ?? _user;
       if (!mounted) return;
       showKitchenSnack(context, res['message']?.toString() ?? 'Saved.');
     } on ApiException catch (e) {
@@ -139,76 +138,194 @@ class _ProfileScreenState extends State<ProfileScreen> {
           : _error != null
               ? KitchenError(_error!, onRetry: _load)
               : ListView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   children: [
                     Text(
-                      '${_user?['city'] ?? ''} · ${_user?['area'] ?? ''}',
-                      style: const TextStyle(color: MiddoColors.inkSoft),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _first,
-                      decoration:
-                          const InputDecoration(labelText: 'First name'),
-                    ),
-                    TextField(
-                      controller: _last,
-                      decoration: const InputDecoration(labelText: 'Last name'),
-                    ),
-                    TextField(
-                      controller: _mobile,
-                      decoration: const InputDecoration(labelText: 'Mobile'),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    TextField(
-                      controller: _email,
-                      decoration: const InputDecoration(labelText: 'Email'),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    TextField(
-                      controller: _address,
-                      decoration: const InputDecoration(labelText: 'Address'),
-                      maxLines: 2,
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: _saving ? null : _saveProfile,
-                      child: Text(_saving ? 'Saving…' : 'Save profile'),
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      'Change password',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+                      'Contact details and password. Tier and capacity are managed by Middo.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: MiddoColors.inkSoft,
+                            fontWeight: FontWeight.w600,
                           ),
                     ),
-                    TextField(
-                      controller: _currentPw,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Current password',
-                      ),
-                    ),
-                    TextField(
-                      controller: _newPw,
-                      obscureText: true,
-                      decoration:
-                          const InputDecoration(labelText: 'New password'),
-                    ),
-                    TextField(
-                      controller: _confirmPw,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Confirm new password',
-                      ),
-                    ),
                     const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _saving ? null : _changePassword,
-                      child: const Text('Update password'),
+                    KitchenPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_user?['city'] ?? '—'} · ${_user?['area'] ?? '—'}',
+                            style: const TextStyle(
+                              color: MiddoColors.inkSoft,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Contact',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: _ProfileField(
+                                  label: 'First name',
+                                  controller: _first,
+                                  enabled: !_saving,
+                                  textCapitalization: TextCapitalization.words,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _ProfileField(
+                                  label: 'Last name',
+                                  controller: _last,
+                                  enabled: !_saving,
+                                  textCapitalization: TextCapitalization.words,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileField(
+                            label: 'Mobile',
+                            controller: _mobile,
+                            enabled: !_saving,
+                            keyboardType: TextInputType.phone,
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileField(
+                            label: 'Email',
+                            controller: _email,
+                            enabled: !_saving,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileField(
+                            label: 'Address',
+                            controller: _address,
+                            enabled: !_saving,
+                            maxLines: 2,
+                            textCapitalization: TextCapitalization.sentences,
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              onPressed: _saving ? null : _saveProfile,
+                              child: Text(_saving ? 'Saving…' : 'Save profile'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    KitchenPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Change password',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileField(
+                            label: 'Current password',
+                            controller: _currentPw,
+                            enabled: !_saving,
+                            obscureText: true,
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileField(
+                            label: 'New password',
+                            controller: _newPw,
+                            enabled: !_saving,
+                            obscureText: true,
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileField(
+                            label: 'Confirm new password',
+                            controller: _confirmPw,
+                            enabled: !_saving,
+                            obscureText: true,
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: _saving ? null : _changePassword,
+                              child: const Text('Update password'),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
+    );
+  }
+}
+
+class _ProfileField extends StatelessWidget {
+  const _ProfileField({
+    required this.label,
+    required this.controller,
+    this.enabled = true,
+    this.obscureText = false,
+    this.keyboardType,
+    this.maxLines = 1,
+    this.textCapitalization = TextCapitalization.none,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final bool enabled;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final int maxLines;
+  final TextCapitalization textCapitalization;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+            color: MiddoColors.muted,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          enabled: enabled,
+          obscureText: obscureText,
+          keyboardType: keyboardType,
+          maxLines: maxLines,
+          textCapitalization: textCapitalization,
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: label,
+            floatingLabelBehavior: FloatingLabelBehavior.never,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -17,7 +17,7 @@ class KitchenMobileHeader extends StatefulWidget implements PreferredSizeWidget 
   final bool showBack;
 
   @override
-  Size get preferredSize => const Size.fromHeight(64);
+  Size get preferredSize => const Size.fromHeight(72);
 
   @override
   State<KitchenMobileHeader> createState() => _KitchenMobileHeaderState();
@@ -110,11 +110,9 @@ class _KitchenMobileHeaderState extends State<KitchenMobileHeader> {
   Widget build(BuildContext context) {
     return Material(
       color: MiddoColors.cream,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+        child: Row(
             children: [
               if (widget.showBack)
                 _HeaderIconButton(
@@ -197,7 +195,6 @@ class _KitchenMobileHeaderState extends State<KitchenMobileHeader> {
             ],
           ),
         ),
-      ),
     );
   }
 }
