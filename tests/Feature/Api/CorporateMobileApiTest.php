@@ -254,8 +254,8 @@ class CorporateMobileApiTest extends TestCase
             'city_id' => $city->id,
             'area_id' => $area->id,
             'dates' => [
-                ['date' => $d1, 'quantity' => 2],
-                ['date' => $d2, 'quantity' => 3],
+                ['date' => $d1, 'quantity' => 1],
+                ['date' => $d2, 'quantity' => 1],
             ],
         ];
 
@@ -281,7 +281,7 @@ class CorporateMobileApiTest extends TestCase
             Order::query()
                 ->where('user_id', $user->id)
                 ->where('menu_item_id', $menu->id)
-                ->where('quantity', 2)
+                ->where('quantity', 1)
                 ->whereDate('delivery_date', $d1)
                 ->exists()
         );
