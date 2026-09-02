@@ -195,6 +195,7 @@
                                     <td class="p-3">
                                         <input
                                             type="checkbox"
+                                            wire:key="ops-box-req-cb-{{ $req->id }}-{{ $requestSelected ? '1' : '0' }}"
                                             wire:click.prevent="toggleRequestBoxSelection({{ $req->id }})"
                                             @checked($requestSelected)
                                             @disabled($remaining < 1)
