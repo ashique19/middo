@@ -71,29 +71,26 @@ class _AccountScreenState extends State<AccountScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextField(
+                    KitchenDialogField(
+                      label: 'Amount (৳)',
                       controller: amountCtrl,
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                       ],
-                      decoration: const InputDecoration(
-                        labelText: 'Amount (৳)',
-                      ),
                     ),
-                    TextField(
+                    const SizedBox(height: 12),
+                    KitchenDialogField(
+                      label: 'Reference (optional)',
                       controller: refCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Reference (optional)',
-                      ),
                     ),
-                    TextField(
+                    const SizedBox(height: 12),
+                    KitchenDialogField(
+                      label: 'Notes (optional)',
                       controller: noteCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Notes (optional)',
-                      ),
+                      maxLines: 2,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       onPressed: () async {
                         final file = await ImagePicker().pickImage(

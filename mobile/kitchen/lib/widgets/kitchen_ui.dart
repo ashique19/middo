@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/middo_colors.dart';
 
@@ -28,11 +29,11 @@ Future<String?> promptKitchenText(
     builder: (ctx) {
       return AlertDialog(
         title: Text(title),
-        content: TextField(
+        content: KitchenDialogField(
+          label: hint ?? 'Details',
           controller: controller,
           autofocus: true,
           maxLines: 3,
-          decoration: InputDecoration(hintText: hint),
         ),
         actions: [
           TextButton(
@@ -53,6 +54,71 @@ Future<String?> promptKitchenText(
   );
   controller.dispose();
   return result;
+}
+
+/// Form field for dialogs/screens — static label above input to avoid
+/// Material floating-label overlap when fields are stacked tightly.
+class KitchenDialogField extends StatelessWidget {
+  const KitchenDialogField({
+    super.key,
+    required this.label,
+    required this.controller,
+    this.enabled = true,
+    this.obscureText = false,
+    this.autofocus = false,
+    this.keyboardType,
+    this.inputFormatters,
+    this.maxLines = 1,
+    this.textCapitalization = TextCapitalization.none,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final bool enabled;
+  final bool obscureText;
+  final bool autofocus;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
+  final int maxLines;
+  final TextCapitalization textCapitalization;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+            color: MiddoColors.muted,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          enabled: enabled,
+          obscureText: obscureText,
+          autofocus: autofocus,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          maxLines: maxLines,
+          textCapitalization: textCapitalization,
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: label,
+            floatingLabelBehavior: FloatingLabelBehavior.never,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class KitchenPanel extends StatelessWidget {

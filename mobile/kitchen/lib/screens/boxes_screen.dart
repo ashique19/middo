@@ -64,15 +64,17 @@ class _BoxesScreenState extends State<BoxesScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
+            KitchenDialogField(
+              label: 'Quantity',
               controller: qtyCtrl,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(labelText: 'Quantity'),
             ),
-            TextField(
+            const SizedBox(height: 12),
+            KitchenDialogField(
+              label: 'Note (optional)',
               controller: noteCtrl,
-              decoration: const InputDecoration(labelText: 'Note (optional)'),
+              maxLines: 2,
             ),
           ],
         ),
@@ -88,10 +90,14 @@ class _BoxesScreenState extends State<BoxesScreen> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true) {
+      qtyCtrl.dispose();
+      noteCtrl.dispose();
+      return;
+    }
     final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
-    qtyCtrl.dispose();
     final note = noteCtrl.text.trim();
+    qtyCtrl.dispose();
     noteCtrl.dispose();
     if (qty < 1) {
       showKitchenSnack(context, 'Enter a valid quantity.', error: true);
