@@ -16,6 +16,29 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+String _unreachableApiMessage(Object error) {
+  final host = Uri.tryParse(ApiConfig.baseUrl)?.host.toLowerCase() ?? '';
+  final looksLocal = host == 'localhost' ||
+      host == '127.0.0.1' ||
+      host == '10.0.2.2' ||
+      host.endsWith('.local');
+  final detail = error.toString().toLowerCase();
+  final dnsFailure = detail.contains('failed host lookup') ||
+      detail.contains('name or service not known') ||
+      detail.contains('nodename nor servname');
+
+  if (dnsFailure) {
+    return looksLocal
+        ? 'Cannot reach Middo at ${ApiConfig.baseUrl}. Start the API (`php artisan serve`) or set API_BASE_URL.'
+        : 'Cannot reach Middo right now. Check your internet connection and try again.';
+  }
+
+  if (looksLocal) {
+    return 'Could not reach Middo API at ${ApiConfig.baseUrl}. Is the API running?';
+  }
+  return 'Could not reach Middo. Check your internet connection and try again.';
+}
+
 class ApiClient {
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
@@ -82,10 +105,8 @@ class ApiClient {
     try {
       final streamed = await _client.send(request);
       response = await http.Response.fromStream(streamed);
-    } catch (_) {
-      throw ApiException(
-        'Could not reach Middo API at ${ApiConfig.baseUrl}. Is `php artisan serve` running?',
-      );
+    } catch (error) {
+      throw ApiException(_unreachableApiMessage(error));
     }
 
     return _decodeResponse(response);
@@ -131,10 +152,8 @@ class ApiClient {
             body: body == null ? null : jsonEncode(body),
           );
       }
-    } catch (_) {
-      throw ApiException(
-        'Could not reach Middo API at ${ApiConfig.baseUrl}. Is `php artisan serve` running?',
-      );
+    } catch (error) {
+      throw ApiException(_unreachableApiMessage(error));
     }
 
     return _decodeResponse(response);

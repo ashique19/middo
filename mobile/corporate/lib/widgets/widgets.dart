@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 
+export 'middo_app_drawer.dart';
 export 'middo_page_loader.dart';
 
 final bdt = NumberFormat.currency(locale: 'en_BD', symbol: '৳', decimalDigits: 0);

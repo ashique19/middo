@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
-import '../data/push_notification_service.dart';
 import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
@@ -47,167 +46,133 @@ class _HomeScreenState extends State<HomeScreen> {
     await next;
   }
 
-  Future<void> _openAccountMenu() async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: MiddoColors.cream,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: MiddoColors.creamBorder,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'Account',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ListTile(
-                  leading: const Icon(Icons.person_outline_rounded),
-                  title: const Text(
-                    'View / edit profile',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  onTap: () => Navigator.pop(context, 'profile'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.lock_outline_rounded),
-                  title: const Text(
-                    'Change password',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  onTap: () => Navigator.pop(context, 'password'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.logout_rounded),
-                  title: const Text(
-                    'Sign out',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  onTap: () => Navigator.pop(context, 'logout'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (!mounted || action == null) return;
-    if (action == 'profile') {
-      await context.push('/profile');
-      if (mounted) await _reload();
-    } else if (action == 'password') {
-      await context.push('/profile/password');
-    } else if (action == 'logout') {
-      await PushNotificationService.instance.unregisterFromBackend();
-      if (!mounted) return;
-      await AppScope.of(context).logout();
-      if (!mounted) return;
-      context.go('/login');
-    }
+  String _greeting(CorporateUser user) {
+    final hour = DateTime.now().hour;
+    final part = hour < 12
+        ? 'Good morning'
+        : (hour < 17 ? 'Good afternoon' : 'Good evening');
+    final first = (user.firstName ?? '').trim();
+    if (first.isEmpty) return part;
+    return '$part, $first';
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: FutureBuilder<DashboardData>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const MiddoPageLoader(message: 'Loading home…');
-          }
-          if (snapshot.hasError) {
-            return _ErrorState(
-              message: snapshot.error.toString(),
-              onRetry: _reload,
-            );
-          }
+    return FutureBuilder<DashboardData>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const MiddoPageLoader(message: 'Loading home…');
+        }
+        if (snapshot.hasError) {
+          return _ErrorState(
+            message: snapshot.error.toString(),
+            onRetry: _reload,
+          );
+        }
 
-          final data = snapshot.data!;
-          final user = data.user;
-          final metrics = data.metrics;
-          final upcoming = data.upcomingOrders;
+        final data = snapshot.data!;
+        final user = data.user;
+        final metrics = data.metrics;
+        final upcoming = data.upcomingOrders;
 
-          return RefreshIndicator(
-            onRefresh: _reload,
-            child: ListView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
-              children: [
-                InkWell(
-                  onTap: _openAccountMenu,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
+        return RefreshIndicator(
+          onRefresh: _reload,
+          child: ListView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+            children: [
+              Text(
+                _greeting(user),
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.9,
+                      height: 1.15,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                user.companyName,
+                style: const TextStyle(
+                  color: MiddoColors.inkSoft,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => context.go('/menu'),
+                  borderRadius: BorderRadius.circular(22),
+                  child: Ink(
+                    height: 148,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: const LinearGradient(
+                        colors: [
+                          MiddoColors.forest,
+                          Color(0xFF2A5A3C),
+                          Color(0xFF8B3A00),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Stack(
                       children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: MiddoColors.amberSoft,
-                          foregroundColor: MiddoColors.orange,
-                          child: Text(
-                            user.initial,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
+                        Positioned(
+                          right: -18,
+                          bottom: -24,
+                          child: Icon(
+                            Icons.lunch_dining_rounded,
+                            size: 140,
+                            color: Colors.white.withValues(alpha: 0.08),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(20, 22, 20, 20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Text(
+                                'Order lunch',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 24,
+                                  letterSpacing: -0.6,
+                                ),
+                              ),
+                              SizedBox(height: 6),
+                              Text(
+                                'Browse today’s menu and schedule desk delivery.',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  height: 1.35,
+                                ),
+                              ),
+                              Spacer(),
                               Row(
                                 children: [
-                                  Flexible(
-                                    child: Text(
-                                      user.companyName,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w800,
-                                        color: MiddoColors.forest,
-                                        decoration: TextDecoration.underline,
-                                        decorationColor: MiddoColors.forest,
-                                      ),
+                                  Text(
+                                    'Open menu',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    size: 20,
-                                    color: MiddoColors.forest,
+                                  SizedBox(width: 4),
+                                  Icon(
+                                    Icons.arrow_forward_rounded,
+                                    color: Colors.white,
+                                    size: 18,
                                   ),
                                 ],
-                              ),
-                              Text(
-                                'Balance ${bdt.format(user.balance)}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: MiddoColors.inkSoft,
-                                ),
                               ),
                             ],
                           ),
@@ -216,246 +181,199 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
-                Text(
-                  'Good morning',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.8,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Manage today’s office lunches from one place.',
-                  style: TextStyle(
-                    color: MiddoColors.inkSoft,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => context.go('/menu'),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Ink(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            MiddoColors.forest,
-                            Color(0xFF2A5A3C),
-                            Color(0xFFAB3F00),
-                          ],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: MiddoColors.forestDeep),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const Icon(
-                              Icons.menu_rounded,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Browse Menu',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'Explore today’s thalis & place an order',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
+              ),
+              const SizedBox(height: 16),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                   children: [
-                    Expanded(
-                      child: KpiCard(
-                        label: 'Active orders',
-                        value: '${metrics.activeOrders}',
-                        hint: 'In production',
-                      ),
+                    _MetricChip(
+                      label: 'Active',
+                      value: '${metrics.activeOrders}',
+                      accent: MiddoColors.forest,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: KpiCard(
-                        label: 'Next meal',
-                        value: metrics.nextMealLabel,
-                        hint: metrics.nextDeliveryHint,
-                        dark: false,
-                      ),
+                    const SizedBox(width: 8),
+                    _MetricChip(
+                      label: 'Next meal',
+                      value: metrics.nextMealLabel,
+                      accent: MiddoColors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    _MetricChip(
+                      label: 'This month',
+                      value: bdt.format(metrics.monthlySpend),
+                      accent: MiddoColors.inkSoft,
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                KpiCard(
-                  label: 'Monthly spend',
-                  value: bdt.format(metrics.monthlySpend),
-                  hint: 'Saved ~${bdt.format(metrics.monthlySaved)} this month',
+              ),
+              if (metrics.monthlySaved > 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Saved ~${bdt.format(metrics.monthlySaved)} this month',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: MiddoColors.muted,
+                  ),
                 ),
-                SectionHeader(
-                  title: 'Upcoming lunches',
-                  actionLabel: 'See all',
-                  onAction: () => context.go('/schedule'),
-                ),
-                if (upcoming.isEmpty)
-                  const Text(
-                    'No upcoming lunches yet. Browse the menu to schedule.',
+              ],
+              SectionHeader(
+                title: 'Upcoming',
+                actionLabel: 'Schedule',
+                onAction: () => context.go('/schedule'),
+              ),
+              if (upcoming.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: MiddoColors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: MiddoColors.creamBorder),
+                  ),
+                  child: const Text(
+                    'No upcoming lunches yet. Open the menu to schedule your next meal.',
                     style: TextStyle(
                       color: MiddoColors.inkSoft,
                       fontWeight: FontWeight.w600,
+                      height: 1.35,
                     ),
-                  )
-                else
-                  ...upcoming.take(2).map(
-                        (order) => MealOrderCard(
-                          order: order,
-                          onTrack: () => context.push('/track/${order.id}'),
-                          onSecondary: () =>
-                              context.push('/support/${order.id}'),
-                          onPay: order.canPayOnline &&
-                                  order.onlinePaymentUrl != null
-                              ? () {
-                                  PaymentWebViewScreen.open(
-                                    context,
-                                    paymentUrl: order.onlinePaymentUrl!,
-                                    title: 'Make payment',
-                                  );
-                                }
-                              : null,
-                        ),
+                  ),
+                )
+              else
+                ...upcoming.take(3).map(
+                      (order) => MealOrderCard(
+                        order: order,
+                        onTrack: () => context.push('/track/${order.id}'),
+                        onSecondary: () =>
+                            context.push('/support/${order.id}'),
+                        onPay: order.canPayOnline &&
+                                order.onlinePaymentUrl != null
+                            ? () {
+                                PaymentWebViewScreen.open(
+                                  context,
+                                  paymentUrl: order.onlinePaymentUrl!,
+                                  title: 'Make payment',
+                                );
+                              }
+                            : null,
                       ),
-                const SectionHeader(title: 'Quick tools'),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 1.35,
-                  children: [
-                    _QuickTile(
-                      icon: Icons.add_rounded,
-                      iconColor: MiddoColors.orange,
-                      title: 'Add Money',
-                      subtitle: 'Top up Middo balance',
-                      onTap: () => context.go('/wallet'),
                     ),
-                    _QuickTile(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      iconColor: MiddoColors.forest,
-                      title: 'Support',
-                      subtitle: 'Order help & complaints',
-                      onTap: upcoming.isEmpty
-                          ? null
-                          : () => context.push('/support/${upcoming.first.id}'),
-                    ),
-                    _QuickTile(
-                      icon: Icons.history_rounded,
-                      iconColor: MiddoColors.inkSoft,
-                      title: 'History',
-                      subtitle: 'Past office lunches',
-                      onTap: () => context.push('/history'),
-                    ),
-                    _QuickTile(
-                      icon: Icons.inventory_2_outlined,
-                      iconColor: MiddoColors.orange,
-                      title: 'Boxes with you',
-                      subtitle: '${metrics.boxesInCustody} box(es) at your office',
-                      onTap: () => context.push('/boxes'),
-                    ),
-                  ],
+              const SizedBox(height: 8),
+              Material(
+                color: MiddoColors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: MiddoColors.creamBorder),
                 ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _QuickTile extends StatelessWidget {
-  const _QuickTile({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: MiddoColors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: MiddoColors.creamBorder),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: iconColor, size: 20),
-              const Spacer(),
-              Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
-                  color: MiddoColors.muted,
+                child: InkWell(
+                  onTap: () => context.go('/wallet'),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: MiddoColors.amberSoft,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.add_rounded,
+                            color: MiddoColors.orange,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Top up Middo Balance',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Pay for lunches without leaving the app',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                  color: MiddoColors.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: MiddoColors.muted,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
-        ),
+        );
+      },
+    );
+  }
+}
+
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 108),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: MiddoColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: MiddoColors.creamBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+              color: MiddoColors.muted,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.4,
+              color: accent,
+            ),
+          ),
+        ],
       ),
     );
   }
