@@ -98,31 +98,9 @@ class EpsPaymentCallbackController extends Controller
             }
         }
 
-        if ($purpose === PackageGatewayCheckout::PURPOSE && ($result['ok'] ?? false)) {
-            $completed = PackageGatewayCheckout::completeIfPaid($token);
-            if (($completed['ok'] ?? false) && Auth::check()) {
-                $subscriptionId = (int) ($completed['subscription_id'] ?? 0);
-                $redirect = $subscriptionId > 0
-                    ? redirect()->to(route('corporates.packages.show', ['subscriptionId' => $subscriptionId]))
-                    : redirect()->to(route('corporates.packages.index'));
-
-                return $redirect->with('message', $completed['message'] ?? 'Package prepaid successfully.');
-            }
-
-            if (Auth::check()) {
-                return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
-            }
-
-            return redirect()->guest(route('login'))
-                ->with('url.intended', PackageGatewayCheckout::confirmUrl($token));
-        }
-
-        if ($purpose === CorporateOrderGatewayCheckout::PURPOSE && ($result['ok'] ?? false) && Auth::check()) {
-            return redirect()
-                ->to(route('corporates.dashboard'))
-                ->with('message', 'Your meal track has been scheduled successfully!');
-        }
-
+        // Always return to the signed Middo payment result page (no web login / dashboard).
+        // Mobile WebViews have no session cookie — redirecting to /login traps users in-app.
+        // Web checkout polls completeIfPaid separately and does not need a dashboard bounce here.
         return redirect()->to(
             URL::temporarySignedRoute(
                 'corporate.gateway-prepay.show',
@@ -130,7 +108,11 @@ class EpsPaymentCallbackController extends Controller
                 [
                     'token' => $token,
                     'eps_status' => ($result['ok'] ?? false) ? 'paid' : 'unpaid',
-                    'eps_message' => $result['message'] ?? null,
+                    'eps_message' => ($result['ok'] ?? false) ? null : ($result['message'] ?? 'Payment was not completed.'),
+                    'order_placed' => (
+                        ($result['ok'] ?? false)
+                        && $purpose === CorporateOrderGatewayCheckout::PURPOSE
+                    ) ? '1' : null,
                 ]
             )
         );

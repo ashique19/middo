@@ -80,7 +80,7 @@ class CheckoutGatewayOtpThenPayTest extends TestCase
         $this->assertSame(1, Order::query()->where('user_id', $user->id)->count());
     }
 
-    public function test_pseudo_confirm_redirects_to_dashboard_after_placing_order(): void
+    public function test_pseudo_confirm_redirects_to_signed_result_page_not_dashboard(): void
     {
         $user = $this->makeCorporate();
         $menu = $this->makeMenu();
@@ -99,22 +99,25 @@ class CheckoutGatewayOtpThenPayTest extends TestCase
 
         OrderConfirmationOtp::generate('01310123452');
         $component->set('otpInput', '1234')->call('verifyGatewayOtp');
-        $url = $component->get('gatewayPaymentUrl');
-        $this->assertNotEmpty($url);
-
-        // Convert signed GET payment URL into the POST confirm endpoint.
-        $confirmUrl = str_replace('/pay/corporate-prepay/', '/pay/corporate-prepay/', $url);
-        // paymentUrl is temporarySignedRoute for show; confirm uses POST to same path with different name.
         $token = $component->get('gatewayPaymentToken');
+        $this->assertNotEmpty($token);
+
         $signedConfirm = \Illuminate\Support\Facades\URL::temporarySignedRoute(
             'corporate.gateway-prepay.confirm',
             now()->addMinutes(45),
             ['token' => $token]
         );
 
-        $this->actingAs($user)
-            ->post($signedConfirm)
-            ->assertRedirect(route('corporates.dashboard'));
+        $response = $this->actingAs($user)->post($signedConfirm);
+        $response->assertRedirect();
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringContainsString('/pay/corporate-prepay/'.$token, $location);
+        $this->assertStringNotContainsString('/login', $location);
+        $this->assertStringNotContainsString('/corporates/dashboard', $location);
+        $this->assertTrue(
+            str_contains($location, 'order_placed=1') || str_contains($location, 'eps_status=paid'),
+            'Expected paid markers on return URL: '.$location
+        );
 
         $this->assertSame(1, Order::query()->where('user_id', $user->id)->count());
     }

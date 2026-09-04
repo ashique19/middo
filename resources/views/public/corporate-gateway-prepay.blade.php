@@ -8,8 +8,9 @@
 </head>
 <body
     class="bg-gray-50 text-middo-dark font-sans min-h-screen flex items-center justify-center p-6"
-    data-middo-payment-status="{{ ($paid || ($credited ?? false) || ($order_placed ?? false)) ? 'paid' : 'pending' }}"
+    data-middo-payment-status="{{ $payment_status_marker ?? 'pending' }}"
     data-middo-payment-purpose="{{ $purpose ?? 'order_prepay' }}"
+    data-middo-eps-status="{{ $eps_status ?? '' }}"
 >
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm max-w-md w-full p-6 space-y-4">
         <h1 class="text-2xl font-black text-middo-dark">

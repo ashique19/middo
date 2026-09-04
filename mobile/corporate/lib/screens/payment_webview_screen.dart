@@ -3,7 +3,9 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../theme/middo_colors.dart';
 
-/// In-app payment frame. Detects Middo gateway success pages and returns `true`.
+enum PaymentWebViewOutcome { success, failed, cancelled }
+
+/// In-app payment frame. Detects Middo gateway success/failure and returns.
 class PaymentWebViewScreen extends StatefulWidget {
   const PaymentWebViewScreen({
     super.key,
@@ -14,13 +16,27 @@ class PaymentWebViewScreen extends StatefulWidget {
   final String paymentUrl;
   final String title;
 
-  /// Opens the payment URL in an in-app WebView and returns whether payment succeeded.
+  /// Opens the payment URL in an in-app WebView.
+  /// Returns `true` only when payment succeeded.
   static Future<bool> open(
     BuildContext context, {
     required String paymentUrl,
     String title = 'Payment',
   }) async {
-    final result = await Navigator.of(context).push<bool>(
+    final outcome = await openForOutcome(
+      context,
+      paymentUrl: paymentUrl,
+      title: title,
+    );
+    return outcome == PaymentWebViewOutcome.success;
+  }
+
+  static Future<PaymentWebViewOutcome> openForOutcome(
+    BuildContext context, {
+    required String paymentUrl,
+    String title = 'Payment',
+  }) async {
+    final result = await Navigator.of(context).push<PaymentWebViewOutcome>(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => PaymentWebViewScreen(
@@ -29,7 +45,7 @@ class PaymentWebViewScreen extends StatefulWidget {
         ),
       ),
     );
-    return result == true;
+    return result ?? PaymentWebViewOutcome.cancelled;
   }
 
   @override
@@ -41,6 +57,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
   var _loading = true;
   var _completed = false;
   String? _error;
+  String? _banner;
 
   @override
   void initState() {
@@ -49,13 +66,14 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (_) {
+          onPageStarted: (url) {
             if (mounted) setState(() => _loading = true);
+            _evaluateUrl(url);
           },
           onPageFinished: (url) async {
             if (!mounted) return;
             setState(() => _loading = false);
-            await _inspectForSuccess(url);
+            await _inspectPage(url);
           },
           onWebResourceError: (error) {
             if (!mounted || _completed) return;
@@ -65,13 +83,18 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
             });
           },
           onNavigationRequest: (request) {
-            _maybeCompleteFromUrl(request.url);
+            final decision = _evaluateUrl(request.url);
+            // Never follow Middo web login / dashboard — finish in-app instead.
+            if (decision == _NavDecision.blockAndSucceed ||
+                decision == _NavDecision.blockAndFail) {
+              return NavigationDecision.prevent;
+            }
             return NavigationDecision.navigate;
           },
           onUrlChange: (change) {
             final url = change.url;
             if (url != null) {
-              _maybeCompleteFromUrl(url);
+              _evaluateUrl(url);
             }
           },
         ),
@@ -79,50 +102,101 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
       ..loadRequest(Uri.parse(widget.paymentUrl));
   }
 
-  bool _urlLooksPaid(String url) {
+  _NavDecision _evaluateUrl(String url) {
+    if (_completed) return _NavDecision.allow;
+
     final uri = Uri.tryParse(url);
-    if (uri == null) return false;
-    if (uri.queryParameters['order_placed'] == '1') return true;
-    final state = uri.queryParameters['state']?.toLowerCase();
-    if (state == 'paid' || state == 'credited') return true;
-    return false;
+    if (uri == null) return _NavDecision.allow;
+
+    final path = uri.path.toLowerCase();
+    final host = uri.host.toLowerCase();
+    final eps = (uri.queryParameters['eps_status'] ?? '').toLowerCase();
+    final orderPlaced = uri.queryParameters['order_placed'] == '1';
+
+    if (eps == 'paid' || orderPlaced || _pathLooksPaid(path)) {
+      _finish(PaymentWebViewOutcome.success, banner: 'Payment successful');
+      return _NavDecision.blockAndSucceed;
+    }
+
+    if (eps == 'unpaid' || eps == 'failed' || eps == 'cancelled') {
+      _finish(PaymentWebViewOutcome.failed, banner: 'Payment was not completed');
+      return _NavDecision.blockAndFail;
+    }
+
+    // EPS callback landed on Middo auth pages — payment already processed server-side.
+    if (_isMiddoHost(host) && _isAuthOrDashboardPath(path)) {
+      // Prefer success: callbacks only bounce to login after attempting fulfillment.
+      // Callers still verify via gateway-complete API.
+      _finish(
+        PaymentWebViewOutcome.success,
+        banner: 'Payment finished — returning to Middo…',
+      );
+      return _NavDecision.blockAndSucceed;
+    }
+
+    return _NavDecision.allow;
   }
 
-  void _maybeCompleteFromUrl(String url) {
-    if (_completed) return;
-    if (_urlLooksPaid(url)) {
-      _finishSuccess();
-    }
+  bool _isMiddoHost(String host) {
+    if (host.isEmpty) return false;
+    return host.contains('middo') ||
+        host == 'localhost' ||
+        host == '127.0.0.1';
   }
 
-  Future<void> _inspectForSuccess(String url) async {
+  bool _isAuthOrDashboardPath(String path) {
+    return path == '/login' ||
+        path.startsWith('/login/') ||
+        path.contains('/corporates/dashboard') ||
+        path.contains('/corporates/packages') ||
+        path.endsWith('/register') ||
+        path.contains('/forgot-password');
+  }
+
+  bool _pathLooksPaid(String path) {
+    return path.contains('/pay/eps/success/');
+  }
+
+  Future<void> _inspectPage(String url) async {
     if (_completed) return;
-    if (_urlLooksPaid(url)) {
-      _finishSuccess();
-      return;
-    }
+    final decision = _evaluateUrl(url);
+    if (decision != _NavDecision.allow) return;
+
     try {
       final raw = await _controller.runJavaScriptReturningResult(
         "document.body?.getAttribute('data-middo-payment-status') || ''",
       );
       final status = raw.toString().replaceAll('"', '').trim().toLowerCase();
       if (status == 'paid' || status == 'credited') {
-        _finishSuccess();
+        _finish(PaymentWebViewOutcome.success, banner: 'Payment successful');
+      } else if (status == 'failed' || status == 'unpaid') {
+        _finish(
+          PaymentWebViewOutcome.failed,
+          banner: 'Payment was not completed',
+        );
       }
     } catch (_) {
       // Ignore JS failures on third-party (EPS) pages.
     }
   }
 
-  void _finishSuccess() {
+  void _finish(PaymentWebViewOutcome outcome, {String? banner}) {
     if (_completed || !mounted) return;
     _completed = true;
-    Navigator.of(context).pop(true);
+    if (banner != null) {
+      setState(() => _banner = banner);
+    }
+    // Brief beat so the user sees the result, then close the frame.
+    Future<void>.delayed(const Duration(milliseconds: 450), () {
+      if (!mounted) return;
+      Navigator.of(context).pop(outcome);
+    });
   }
 
   void _finishCancel() {
     if (_completed || !mounted) return;
-    Navigator.of(context).pop(false);
+    _completed = true;
+    Navigator.of(context).pop(PaymentWebViewOutcome.cancelled);
   }
 
   @override
@@ -133,11 +207,16 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
         title: Text(widget.title),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
-          onPressed: _finishCancel,
+          onPressed: _completed ? null : _finishCancel,
         ),
         actions: [
           TextButton(
-            onPressed: _completed ? null : () => _finishSuccess(),
+            onPressed: _completed
+                ? null
+                : () => _finish(
+                      PaymentWebViewOutcome.success,
+                      banner: 'Returning to Middo…',
+                    ),
             child: const Text('Done'),
           ),
         ],
@@ -154,6 +233,32 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                 minHeight: 2,
                 color: MiddoColors.orange,
                 backgroundColor: Color(0x33E87722),
+              ),
+            ),
+          if (_banner != null)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 24,
+              child: Material(
+                elevation: 3,
+                borderRadius: BorderRadius.circular(14),
+                color: MiddoColors.forest,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  child: Text(
+                    _banner!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
               ),
             ),
           if (_error != null && !_completed)
@@ -183,3 +288,5 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
     );
   }
 }
+
+enum _NavDecision { allow, blockAndSucceed, blockAndFail }

@@ -9,13 +9,12 @@ use App\Support\CorporateWalletTopUp;
 use App\Support\PackageGatewayCheckout;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\URL;
 use Illuminate\View\View;
 
 class CorporateGatewayPrepayController extends Controller
 {
-    public function show(Request $request, string $token, PaymentGateway $gateway): View|RedirectResponse
+    public function show(Request $request, string $token, PaymentGateway $gateway): View
     {
         abort_unless($request->hasValidSignature(), 403);
 
@@ -24,35 +23,37 @@ class CorporateGatewayPrepayController extends Controller
 
         $purpose = $payload['metadata']['purpose'] ?? 'order_prepay';
         $isWallet = $purpose === CorporateWalletTopUp::PURPOSE;
+        $epsStatus = strtolower((string) $request->query('eps_status', ''));
+        $paid = (bool) ($payload['paid'] ?? false) || $epsStatus === 'paid';
+        $credited = (bool) ($payload['credited'] ?? false);
+        $orderPlaced = (bool) ($payload['order_placed'] ?? false)
+            || $request->query('order_placed') === '1';
 
-        if ($purpose === PackageGatewayCheckout::PURPOSE && ($payload['paid'] ?? false) && Auth::check()) {
-            $completed = PackageGatewayCheckout::completeIfPaid($token);
-            if ($completed['ok'] ?? false) {
-                $subscriptionId = (int) ($completed['subscription_id'] ?? 0);
-                $redirect = $subscriptionId > 0
-                    ? redirect()->to(route('corporates.packages.show', ['subscriptionId' => $subscriptionId]))
-                    : redirect()->to(route('corporates.packages.index'));
-
-                return $redirect->with('message', $completed['message'] ?? 'Package prepaid successfully.');
-            }
-
-            return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
-        }
+        // Do not bounce WebViews (no session) into authenticated corporate pages.
+        // Keep the public signed result page so the app can detect paid/failed.
+        $resolvedEpsStatus = $epsStatus !== '' ? $epsStatus : ($paid ? 'paid' : 'pending');
+        $paymentStatusMarker = match (true) {
+            $resolvedEpsStatus === 'unpaid' => 'failed',
+            $paid || $credited || $orderPlaced => 'paid',
+            default => 'pending',
+        };
 
         return view('public.corporate-gateway-prepay', [
             'token' => $token,
             'amount' => (int) ($payload['amount'] ?? 0),
-            'paid' => (bool) ($payload['paid'] ?? false),
-            'credited' => (bool) ($payload['credited'] ?? false),
+            'paid' => $paid,
+            'credited' => $credited,
             'driver' => $gateway->driver(),
             'purpose' => $purpose,
             'is_wallet' => $isWallet,
             'is_package' => $purpose === PackageGatewayCheckout::PURPOSE,
             'is_order_checkout' => $purpose === CorporateOrderGatewayCheckout::PURPOSE,
-            'order_placed' => (bool) ($payload['order_placed'] ?? false),
+            'order_placed' => $orderPlaced,
             'redirect_url' => $payload['redirect_url'] ?? null,
             'eps_message' => $request->query('eps_message'),
-            'balance' => $isWallet && ($payload['credited'] ?? false)
+            'eps_status' => $resolvedEpsStatus,
+            'payment_status_marker' => $paymentStatusMarker,
+            'balance' => $isWallet && $credited
                 ? (int) (User::query()->find((int) ($payload['user_id'] ?? 0))?->balance ?? 0)
                 : null,
         ]);
@@ -83,34 +84,23 @@ class CorporateGatewayPrepayController extends Controller
             CorporateWalletTopUp::creditIfPaid($token);
         }
 
+        $orderPlaced = false;
+        $packageDone = false;
+
         if ($purpose === PackageGatewayCheckout::PURPOSE) {
             $completed = PackageGatewayCheckout::completeIfPaid($token);
-            if (($completed['ok'] ?? false) && Auth::check()) {
-                $subscriptionId = (int) ($completed['subscription_id'] ?? 0);
-                $redirect = $subscriptionId > 0
-                    ? redirect()->to(route('corporates.packages.show', ['subscriptionId' => $subscriptionId]))
-                    : redirect()->to(route('corporates.packages.index'));
-
-                return $redirect->with('message', $completed['message'] ?? 'Package prepaid successfully.');
-            }
-            if (! ($completed['ok'] ?? false)) {
+            $packageDone = (bool) ($completed['ok'] ?? false);
+            if (! $packageDone) {
                 PackageGatewayCheckout::markIntentPaid($token);
-                if (Auth::check()) {
-                    return redirect()->to(PackageGatewayCheckout::confirmUrl($token));
-                }
             }
-            // Mobile / unauthenticated WebView: stay on the paid success page so the app can detect completion.
+            // Always stay on the signed result page (mobile WebView has no web session).
         }
 
-        $orderPlaced = false;
         if ($purpose === CorporateOrderGatewayCheckout::PURPOSE) {
             $completed = CorporateOrderGatewayCheckout::completeIfPaid($token);
             $orderPlaced = (bool) ($completed['ok'] ?? false);
-            if ($orderPlaced && Auth::check()) {
-                return redirect()
-                    ->to(route('corporates.dashboard'))
-                    ->with('message', $completed['message'] ?? 'Your meal track has been scheduled successfully!');
-            }
+            // Do not redirect authenticated users to the dashboard from this confirm —
+            // that traps the Middo app WebView on web login / dashboard.
         }
 
         return redirect()->to(
@@ -120,6 +110,7 @@ class CorporateGatewayPrepayController extends Controller
                 [
                     'token' => $token,
                     'order_placed' => $orderPlaced ? '1' : null,
+                    'eps_status' => ($orderPlaced || $packageDone || ($fresh['paid'] ?? false)) ? 'paid' : null,
                 ]
             )
         );
