@@ -2,6 +2,7 @@ import '../models/models.dart';
 import 'api_client.dart';
 import 'api_config.dart';
 import 'auth_store.dart';
+import 'locations_cache.dart';
 import 'mock_repository.dart';
 
 abstract class CorporateRepository {
@@ -304,10 +305,20 @@ class ApiCorporateRepository implements CorporateRepository {
 
   @override
   Future<List<LocationCity>> locations() async {
-    final json = await _client.get('/locations', auth: false);
-    return (json['cities'] as List? ?? [])
-        .map((e) => LocationCity.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
+    try {
+      final json = await _client.get('/locations', auth: false);
+      final cities = (json['cities'] as List? ?? [])
+          .map((e) => LocationCity.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+      if (cities.isNotEmpty) {
+        await LocationsCache.instance.write(cities);
+      }
+      return cities;
+    } catch (e) {
+      final cached = await LocationsCache.instance.read();
+      if (cached != null && cached.isNotEmpty) return cached;
+      rethrow;
+    }
   }
 
   @override

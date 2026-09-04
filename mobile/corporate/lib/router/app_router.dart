@@ -12,6 +12,7 @@ import '../screens/login_screen.dart';
 import '../screens/menu_screen.dart';
 import '../screens/package_checkout_screen.dart';
 import '../screens/packages_screen.dart';
+import '../screens/payment_result_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/schedule_screen.dart';
 import '../screens/shell_scaffold.dart';
@@ -62,12 +63,19 @@ GoRouter createAppRouter() {
       final loc = state.matchedLocation;
       if (loc == '/splash') return null;
 
-      const publicAuth = {'/login', '/signup', '/forgot-password'};
+      const publicAuth = {
+        '/login',
+        '/signup',
+        '/forgot-password',
+        '/payment/result',
+      };
       final loggedIn = AuthStore.instance.isAuthenticated;
       final onPublicAuth = publicAuth.contains(loc);
 
       if (!loggedIn && !onPublicAuth) return '/login';
-      if (loggedIn && onPublicAuth) return '/home';
+      if (loggedIn && {'/login', '/signup', '/forgot-password'}.contains(loc)) {
+        return '/home';
+      }
       return null;
     },
     routes: [
@@ -98,6 +106,28 @@ GoRouter createAppRouter() {
           key: state.pageKey,
           child: const ForgotPasswordScreen(),
         ),
+      ),
+      GoRoute(
+        path: '/payment/result',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final ok = state.uri.queryParameters['ok'] != '0';
+          return _fadePage(
+            key: state.pageKey,
+            child: PaymentResultScreen(
+              success: ok,
+              title: state.uri.queryParameters['title'] ?? 'Payment',
+              message: state.uri.queryParameters['message'],
+              primaryLabel: state.uri.queryParameters['primary_label'],
+              primaryRoute: state.uri.queryParameters['primary_route'],
+              secondaryLabel:
+                  state.uri.queryParameters['secondary_label'] ?? 'Go home',
+              secondaryRoute:
+                  state.uri.queryParameters['secondary_route'] ?? '/home',
+              confirming: state.uri.queryParameters['confirming'] == '1',
+            ),
+          );
+        },
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

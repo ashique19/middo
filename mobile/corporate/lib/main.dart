@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'app_scope.dart';
 import 'data/auth_store.dart';
 import 'data/corporate_repository.dart';
+import 'data/deep_link_service.dart';
+import 'data/network_status.dart';
 import 'data/push_notification_service.dart';
 import 'router/app_router.dart';
 import 'theme/middo_theme.dart';
@@ -18,6 +20,7 @@ Future<void> main() async {
     ),
   );
   await AuthStore.instance.load();
+  await NetworkStatus.instance.start();
   await PushNotificationService.instance.init();
 
   final repository = createCorporateRepository();
@@ -43,6 +46,7 @@ class _MiddoCorporateAppState extends State<MiddoCorporateApp> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PushNotificationService.instance.consumePendingDeepLink(_router);
+      DeepLinkService.instance.start(_router);
     });
   }
 

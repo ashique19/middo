@@ -1,11 +1,15 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 
+export 'empty_state.dart';
 export 'middo_app_drawer.dart';
 export 'middo_page_loader.dart';
+export 'network_banner.dart';
+export 'skeleton.dart';
 
 final bdt = NumberFormat.currency(locale: 'en_BD', symbol: '৳', decimalDigits: 0);
 
@@ -326,25 +330,40 @@ class MealImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = item.hasNetworkImage
-        ? Image.network(
-            item.imageUrl!,
-            height: height,
-            width: width,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Image.asset(
-              item.imageAsset,
-              height: height,
-              width: width,
-              fit: BoxFit.cover,
-            ),
-          )
-        : Image.asset(
-            item.image,
-            height: height,
-            width: width,
-            fit: BoxFit.cover,
-          );
+    final Widget image;
+    if (item.hasNetworkImage) {
+      image = CachedNetworkImage(
+        imageUrl: item.imageUrl!,
+        height: height,
+        width: width,
+        fit: BoxFit.cover,
+        memCacheWidth: 900,
+        placeholder: (_, __) => Container(
+          height: height,
+          width: width,
+          color: MiddoColors.creamDeep,
+          alignment: Alignment.center,
+          child: const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        errorWidget: (_, __, ___) => Image.asset(
+          item.imageAsset,
+          height: height,
+          width: width,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else {
+      image = Image.asset(
+        item.image,
+        height: height,
+        width: width,
+        fit: BoxFit.cover,
+      );
+    }
 
     if (borderRadius <= 0) return image;
     return ClipRRect(

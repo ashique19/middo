@@ -527,6 +527,7 @@ class MiddoBoxSummary {
     required this.boxModelType,
     required this.locationLabel,
     this.readyForPickup = false,
+    this.readyForPickupAt,
   });
 
   final int id;
@@ -534,6 +535,7 @@ class MiddoBoxSummary {
   final String boxModelType;
   final String locationLabel;
   final bool readyForPickup;
+  final DateTime? readyForPickupAt;
 
   factory MiddoBoxSummary.fromJson(Map<String, dynamic> json) {
     return MiddoBoxSummary(
@@ -542,6 +544,9 @@ class MiddoBoxSummary {
       boxModelType: (json['box_model_type'] ?? '').toString(),
       locationLabel: (json['location_label'] ?? 'At your office').toString(),
       readyForPickup: json['ready_for_pickup'] == true,
+      readyForPickupAt: DateTime.tryParse(
+        json['ready_for_pickup_at']?.toString() ?? '',
+      ),
     );
   }
 }

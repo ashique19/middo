@@ -5,6 +5,7 @@ import '../app_scope.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
+import 'payment_result_screen.dart';
 import 'payment_webview_screen.dart';
 
 class PackageCheckoutScreen extends StatefulWidget {
@@ -265,6 +266,14 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
         );
         if (!mounted) return;
         if (!paid) {
+          await PaymentResultScreen.open(
+            context,
+            success: false,
+            title: 'Meal package',
+            message:
+                'Payment was not completed. Request a new OTP, then try again.',
+          );
+          if (!mounted) return;
           setState(() {
             _error =
                 'Payment was not completed. Request a new OTP, then try again.';
@@ -274,8 +283,45 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
           });
           return;
         }
-        final sub = await repo.completePackageGateway(
-          paymentToken: gateway.paymentToken,
+        if (!mounted) return;
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const AlertDialog(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                ),
+                SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'Confirming payment…',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        late final PackageSubscription sub;
+        try {
+          sub = await repo.completePackageGateway(
+            paymentToken: gateway.paymentToken,
+          );
+        } finally {
+          if (mounted) Navigator.of(context, rootNavigator: true).pop();
+        }
+        if (!mounted) return;
+        await PaymentResultScreen.open(
+          context,
+          success: true,
+          title: 'Meal package',
+          message: 'Your package subscription is ready.',
+          primaryLabel: 'View subscription',
+          primaryRoute: '/subscriptions/${sub.id}',
         );
         if (!mounted) return;
         context.go('/subscriptions/${sub.id}');

@@ -85,6 +85,13 @@
                 </p>
                 <p class="text-xs text-gray-400 break-all">Payment token: {{ $token }}</p>
             @endif
+            <a
+                href="middo://pay/result?status=paid&title={{ urlencode($is_wallet ? 'Middo Balance' : (($is_package ?? false) ? 'Meal package' : 'Lunch order')) }}"
+                class="inline-flex w-full items-center justify-center bg-middo-orange hover:opacity-90 text-white py-3.5 rounded-xl font-bold transition"
+                data-testid="gateway-prepay-open-app"
+            >
+                Open Middo app
+            </a>
         @else
             <p class="text-sm text-gray-600">
                 @if($is_wallet)

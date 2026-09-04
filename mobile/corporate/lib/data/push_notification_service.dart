@@ -134,8 +134,12 @@ class PushNotificationService {
   }
 
   void _onForegroundMessage(RemoteMessage message) {
-    final title = message.notification?.title ?? 'Middo';
-    final body = message.notification?.body ?? '';
+    final title = message.notification?.title ??
+        _titleForStatus(message.data['order_status']?.toString()) ??
+        'Middo';
+    final body = message.notification?.body ??
+        _bodyForStatus(message.data['order_status']?.toString()) ??
+        '';
     final orderId = _orderIdFrom(message.data);
 
     final ctx = rootNavigatorKey.currentContext;
@@ -159,6 +163,30 @@ class PushNotificationService {
         duration: const Duration(seconds: 5),
       ),
     );
+  }
+
+  String? _titleForStatus(String? status) {
+    return switch (status) {
+      'rider_assigned' => 'Rider assigned',
+      'on_the_way_to_delivery' => 'On the way',
+      'delivered' || 'delivered_and_paid' => 'Delivered',
+      'packed' => 'Packed and ready',
+      'processing' => 'Kitchen started',
+      'cancelled' => 'Order cancelled',
+      _ => null,
+    };
+  }
+
+  String? _bodyForStatus(String? status) {
+    return switch (status) {
+      'rider_assigned' => 'A Middo rider is assigned to your lunch.',
+      'on_the_way_to_delivery' => 'Your meal is heading to your office.',
+      'delivered' || 'delivered_and_paid' => 'Enjoy your lunch.',
+      'packed' => 'Your order is packed for dispatch.',
+      'processing' => 'The kitchen is preparing your meal.',
+      'cancelled' => 'Open the app for details.',
+      _ => null,
+    };
   }
 
   void _onMessageOpened(RemoteMessage message) {

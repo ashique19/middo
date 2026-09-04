@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
+import '../data/middo_haptics.dart';
 import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
@@ -43,12 +44,11 @@ class _ShellScaffoldState extends State<ShellScaffold> {
         _boxesInCustody =
             (results[1] as DashboardData).metrics.boxesInCustody;
       });
-    } catch (_) {
-      // Drawer still works without profile details.
-    }
+    } catch (_) {}
   }
 
   void _onDestinationSelected(int index) {
+    MiddoHaptics.selection();
     if (index == widget.navigationShell.currentIndex) {
       TabScrollBus.instance.scrollToTop(index);
       return;
@@ -120,17 +120,20 @@ class _ShellScaffoldState extends State<ShellScaffold> {
         actions: [
           if (_user != null)
             Padding(
-              padding: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.only(right: 4),
               child: Center(
                 child: Material(
                   color: MiddoColors.amberSoft,
                   borderRadius: BorderRadius.circular(999),
                   child: InkWell(
-                    onTap: () => context.go('/wallet'),
+                    onTap: () {
+                      MiddoHaptics.selection();
+                      context.go('/wallet');
+                    },
                     borderRadius: BorderRadius.circular(999),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
+                        horizontal: 10,
                         vertical: 7,
                       ),
                       child: Text(
@@ -146,9 +149,37 @@ class _ShellScaffoldState extends State<ShellScaffold> {
                 ),
               ),
             ),
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: IconButton(
+              tooltip: 'Account',
+              onPressed: () => showAccountSheet(
+                context,
+                user: _user,
+                onProfileUpdated: _loadDrawerProfile,
+              ),
+              icon: CircleAvatar(
+                radius: 16,
+                backgroundColor: MiddoColors.forest,
+                foregroundColor: Colors.white,
+                child: Text(
+                  _user?.initial ?? 'M',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
-      body: widget.navigationShell,
+      body: Column(
+        children: [
+          const NetworkBanner(),
+          Expanded(child: widget.navigationShell),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         height: 68,
         backgroundColor: MiddoColors.white,
