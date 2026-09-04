@@ -62,12 +62,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   void dispose() {
+    _nameCtrl.removeListener(_onReceiverFieldsChanged);
+    _mobileCtrl.removeListener(_onReceiverFieldsChanged);
     _nameCtrl.dispose();
     _mobileCtrl.dispose();
     _addressCtrl.dispose();
     _otpCtrl.dispose();
     _couponCtrl.dispose();
     super.dispose();
+  }
+
+  void _onReceiverFieldsChanged() {
+    if (!mounted || _step != _CheckoutStep.receiver) return;
+    setState(() {});
+  }
+
+  /// True when typed receiver name or mobile differs from the account profile.
+  bool get _receiverDiffersFromProfile {
+    final profile = _profile;
+    if (profile == null) return false;
+    final name = _nameCtrl.text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    final profileName =
+        profile.receiverName.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    final mobile = _mobileCtrl.text.trim();
+    final profileMobile = profile.mobile.trim();
+    if (name.isEmpty && mobile.isEmpty) return false;
+    return name != profileName || mobile != profileMobile;
   }
 
   Future<void> _bootstrap() async {
@@ -113,6 +133,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _areaId = areaId;
         _loading = false;
       });
+      _nameCtrl.addListener(_onReceiverFieldsChanged);
+      _mobileCtrl.addListener(_onReceiverFieldsChanged);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -841,26 +863,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
       ),
       const SizedBox(height: 12),
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF8EE),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE8D7B8)),
-        ),
-        child: const Text(
-          'Different receiver name/mobile than your profile requires full prepayment. '
-          'More than 3 meals (same day or across days) also requires full prepayment (admin-configurable).',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: MiddoColors.inkSoft,
-            height: 1.35,
+      if (_receiverDiffersFromProfile)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF8EE),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE8D7B8)),
+          ),
+          child: const Text(
+            'Different receiver name/mobile than your profile requires full prepayment. '
+            'More than 3 meals (same day or across days) also requires full prepayment (admin-configurable).',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: MiddoColors.inkSoft,
+              height: 1.35,
+            ),
           ),
         ),
-      ),
-      const SizedBox(height: 12),
+      if (_receiverDiffersFromProfile) const SizedBox(height: 12),
       Text(
         _activeDateCount == 1
             ? 'Payment method'
@@ -869,14 +892,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ),
       const SizedBox(height: 6),
       SegmentedButton<String>(
+        style: const ButtonStyle(
+          visualDensity: VisualDensity.compact,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          textStyle: WidgetStatePropertyAll(
+            TextStyle(fontSize: 12, fontWeight: FontWeight.w700, height: 1.1),
+          ),
+        ),
+        showSelectedIcon: false,
         segments: [
           if (_activeDateCount == 1 || _codAllowed)
             const ButtonSegment(
               value: 'cash_on_delivery',
-              label: Text('COD'),
+              label: Text('COD', softWrap: false),
             ),
-          const ButtonSegment(value: 'balance', label: Text('Balance')),
-          const ButtonSegment(value: 'gateway', label: Text('Online')),
+          const ButtonSegment(
+            value: 'balance',
+            label: Text('Balance', softWrap: false),
+          ),
+          const ButtonSegment(
+            value: 'gateway',
+            label: Text('Online', softWrap: false),
+          ),
         ],
         selected: {_paymentMethod},
         onSelectionChanged: (value) {

@@ -359,4 +359,14 @@ class CorporateOrderGatewayCheckout
     {
         return 'order_gateway_done_'.$token;
     }
+
+    /**
+     * @return array{ok?: bool, order_ids?: list<int>, message?: string, amount?: int}|null
+     */
+    public static function findDone(string $token): ?array
+    {
+        $done = Cache::get(self::doneKey($token));
+
+        return is_array($done) ? $done : null;
+    }
 }

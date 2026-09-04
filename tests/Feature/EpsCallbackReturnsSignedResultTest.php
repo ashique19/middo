@@ -85,6 +85,42 @@ class EpsCallbackReturnsSignedResultTest extends TestCase
             ->assertSee('return to the Middo app', false);
     }
 
+    public function test_signed_result_page_survives_consumed_payment_session(): void
+    {
+        // Order fulfillment calls consumePaid which deletes the gateway cache entry.
+        // The EPS redirect still lands on the signed result URL — must not 404.
+        $user = $this->corporate();
+        $checkout = app(PaymentGateway::class)->createCheckout($user->id, 500, [
+            'purpose' => CorporateOrderGatewayCheckout::PURPOSE,
+        ]);
+        $token = $checkout['token'];
+        app(PaymentGateway::class)->markPaid($token);
+        app(PaymentGateway::class)->consumePaid(
+            $token,
+            (int) $user->id,
+            500,
+            ['purpose' => CorporateOrderGatewayCheckout::PURPOSE]
+        );
+
+        $this->assertNull(app(PaymentGateway::class)->find($token));
+
+        $url = URL::temporarySignedRoute(
+            'corporate.gateway-prepay.show',
+            now()->addMinutes(45),
+            [
+                'token' => $token,
+                'eps_status' => 'paid',
+                'order_placed' => '1',
+            ]
+        );
+
+        $this->get($url)
+            ->assertOk()
+            ->assertSeeHtml('data-middo-payment-status="paid"')
+            ->assertDontSee('403')
+            ->assertSee('return to the Middo app', false);
+    }
+
     private function corporate(): User
     {
         $role = Role::create(['name' => 'corporate']);

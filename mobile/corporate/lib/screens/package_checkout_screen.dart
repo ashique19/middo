@@ -610,9 +610,27 @@ class _PackageCheckoutScreenState extends State<PackageCheckoutScreen> {
             ),
             const SizedBox(height: 8),
             SegmentedButton<String>(
+              style: const ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: WidgetStatePropertyAll(
+                  TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+              showSelectedIcon: false,
               segments: const [
-                ButtonSegment(value: 'balance', label: Text('Balance')),
-                ButtonSegment(value: 'gateway', label: Text('Online')),
+                ButtonSegment(
+                  value: 'balance',
+                  label: Text('Balance', softWrap: false),
+                ),
+                ButtonSegment(
+                  value: 'gateway',
+                  label: Text('Online', softWrap: false),
+                ),
               ],
               selected: {_paymentMethod},
               onSelectionChanged: _otpStep

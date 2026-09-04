@@ -25,6 +25,16 @@ class PackageGatewayCheckout
     }
 
     /**
+     * @return array{ok?: bool, subscription_id?: int, message?: string, amount?: int}|null
+     */
+    public static function findDone(string $token): ?array
+    {
+        $done = Cache::get(self::doneKey($token));
+
+        return is_array($done) ? $done : null;
+    }
+
+    /**
      * Create gateway session + intent after OTP has been verified.
      *
      * @param  array<int, array{menu_item_id: int, day_count: int}>  $selections

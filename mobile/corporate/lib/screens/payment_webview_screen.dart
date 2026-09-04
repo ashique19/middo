@@ -113,7 +113,12 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
     final eps = (uri.queryParameters['eps_status'] ?? '').toLowerCase();
     final orderPlaced = uri.queryParameters['order_placed'] == '1';
 
-    if (eps == 'paid' || orderPlaced || _pathLooksPaid(path)) {
+    // Must allow EPS callback routes to hit Laravel (confirm + fulfill).
+    if (_isEpsCallbackPath(path)) {
+      return _NavDecision.allow;
+    }
+
+    if (eps == 'paid' || orderPlaced) {
       _finish(PaymentWebViewOutcome.success, banner: 'Payment successful');
       return _NavDecision.blockAndSucceed;
     }
@@ -125,8 +130,6 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
 
     // EPS callback landed on Middo auth pages — payment already processed server-side.
     if (_isMiddoHost(host) && _isAuthOrDashboardPath(path)) {
-      // Prefer success: callbacks only bounce to login after attempting fulfillment.
-      // Callers still verify via gateway-complete API.
       _finish(
         PaymentWebViewOutcome.success,
         banner: 'Payment finished — returning to Middo…',
@@ -135,6 +138,12 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
     }
 
     return _NavDecision.allow;
+  }
+
+  bool _isEpsCallbackPath(String path) {
+    return path.contains('/pay/eps/success/') ||
+        path.contains('/pay/eps/fail/') ||
+        path.contains('/pay/eps/cancel/');
   }
 
   bool _isMiddoHost(String host) {
@@ -151,10 +160,6 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
         path.contains('/corporates/packages') ||
         path.endsWith('/register') ||
         path.contains('/forgot-password');
-  }
-
-  bool _pathLooksPaid(String path) {
-    return path.contains('/pay/eps/success/');
   }
 
   Future<void> _inspectPage(String url) async {

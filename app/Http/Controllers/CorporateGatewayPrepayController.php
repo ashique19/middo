@@ -19,15 +19,56 @@ class CorporateGatewayPrepayController extends Controller
         abort_unless($request->hasValidSignature(), 403);
 
         $payload = $gateway->find($token);
-        abort_unless(is_array($payload), 404);
+        $epsStatus = strtolower((string) $request->query('eps_status', ''));
+        $orderPlacedQuery = $request->query('order_placed') === '1';
+
+        // After EPS success, order/package fulfillment may consume (delete) the cache
+        // session before this redirect lands — still show a result page for the WebView.
+        if (! is_array($payload)) {
+            $orderDone = CorporateOrderGatewayCheckout::findDone($token);
+            $packageDone = PackageGatewayCheckout::findDone($token);
+            $finishedOk = $orderPlacedQuery
+                || $epsStatus === 'paid'
+                || (is_array($orderDone) && ($orderDone['ok'] ?? false))
+                || (is_array($packageDone) && ($packageDone['ok'] ?? false));
+
+            abort_unless($finishedOk || $epsStatus === 'unpaid', 404);
+
+            $isOrder = is_array($orderDone) || $orderPlacedQuery;
+            $isPackage = is_array($packageDone) && ! $isOrder;
+            $paid = $finishedOk;
+            $resolvedEpsStatus = $epsStatus !== '' ? $epsStatus : ($paid ? 'paid' : 'unpaid');
+
+            return view('public.corporate-gateway-prepay', [
+                'token' => $token,
+                'amount' => (int) (
+                    (is_array($orderDone) ? ($orderDone['amount'] ?? null) : null)
+                    ?? (is_array($packageDone) ? ($packageDone['amount'] ?? null) : null)
+                    ?? 0
+                ),
+                'paid' => $paid,
+                'credited' => false,
+                'driver' => $gateway->driver(),
+                'purpose' => $isOrder
+                    ? CorporateOrderGatewayCheckout::PURPOSE
+                    : ($isPackage ? PackageGatewayCheckout::PURPOSE : 'order_prepay'),
+                'is_wallet' => false,
+                'is_package' => $isPackage,
+                'is_order_checkout' => $isOrder,
+                'order_placed' => $isOrder && $paid,
+                'redirect_url' => null,
+                'eps_message' => $request->query('eps_message'),
+                'eps_status' => $resolvedEpsStatus,
+                'payment_status_marker' => $paid ? 'paid' : 'failed',
+                'balance' => null,
+            ]);
+        }
 
         $purpose = $payload['metadata']['purpose'] ?? 'order_prepay';
         $isWallet = $purpose === CorporateWalletTopUp::PURPOSE;
-        $epsStatus = strtolower((string) $request->query('eps_status', ''));
         $paid = (bool) ($payload['paid'] ?? false) || $epsStatus === 'paid';
         $credited = (bool) ($payload['credited'] ?? false);
-        $orderPlaced = (bool) ($payload['order_placed'] ?? false)
-            || $request->query('order_placed') === '1';
+        $orderPlaced = (bool) ($payload['order_placed'] ?? false) || $orderPlacedQuery;
 
         // Do not bounce WebViews (no session) into authenticated corporate pages.
         // Keep the public signed result page so the app can detect paid/failed.
