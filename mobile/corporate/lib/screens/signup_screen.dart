@@ -32,15 +32,19 @@ class _SignupScreenState extends State<SignupScreen> {
   int? _cityId;
   int? _areaId;
   bool _loadingLocations = true;
+  bool _locationsRequested = false;
   bool _submitting = false;
   String? _error;
   String? _debugOtp;
   _SignupStep _step = _SignupStep.details;
 
   @override
-  void initState() {
-    super.initState();
-    _loadLocations();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_locationsRequested) {
+      _locationsRequested = true;
+      _loadLocations();
+    }
   }
 
   @override
