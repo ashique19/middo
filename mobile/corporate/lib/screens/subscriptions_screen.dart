@@ -53,25 +53,24 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const MiddoPageLoader(message: 'Loading…');
+            return const ListSkeleton(rows: 4);
           }
           if (snapshot.hasError) {
-            return Center(child: Text(snapshot.error.toString()));
+            return MiddoEmptyState(
+              icon: Icons.cloud_off_rounded,
+              title: 'Couldn’t load subscriptions',
+              message: snapshot.error.toString(),
+            );
           }
           final items = snapshot.data ?? [];
           if (items.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('No package subscriptions yet.'),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: () => context.push('/packages'),
-                    child: const Text('Monthly package'),
-                  ),
-                ],
-              ),
+            return MiddoEmptyState(
+              icon: Icons.card_membership_outlined,
+              title: 'No subscriptions yet',
+              message:
+                  'Subscribe to a monthly office lunch package to see it here.',
+              actionLabel: 'Browse packages',
+              onAction: () => context.go('/packages'),
             );
           }
           return ListView.separated(

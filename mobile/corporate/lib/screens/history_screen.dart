@@ -64,28 +64,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const MiddoPageLoader(message: 'Loading history…');
+            return const ListSkeleton(rows: 4);
           }
           if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(snapshot.error.toString()),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _reload,
-                      child: const Text('Retry'),
-                    ),
-                    TextButton(
-                      onPressed: () => context.go('/home'),
-                      child: const Text('Go home'),
-                    ),
-                  ],
-                ),
-              ),
+            return MiddoEmptyState(
+              icon: Icons.cloud_off_rounded,
+              title: 'Couldn’t load history',
+              message: snapshot.error.toString(),
+              actionLabel: 'Retry',
+              onAction: _reload,
             );
           }
           final orders = snapshot.data!;
@@ -125,30 +112,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
                 const SizedBox(height: 14),
                 if (orders.isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: MiddoColors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: MiddoColors.creamBorder),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'No previous lunch history yet.',
-                          style: TextStyle(
-                            color: MiddoColors.inkSoft,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        TextButton(
-                          onPressed: () => context.go('/home'),
-                          child: const Text('Go home'),
-                        ),
-                      ],
-                    ),
+                  MiddoEmptyState(
+                    icon: Icons.history_rounded,
+                    title: 'No lunch history yet',
+                    message:
+                        'Past office lunches will show up here after your first delivery.',
+                    actionLabel: 'Go home',
+                    onAction: () => context.go('/home'),
                   )
                 else
                   ...orders.map(
