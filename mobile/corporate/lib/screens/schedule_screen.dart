@@ -110,28 +110,15 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const MiddoPageLoader(message: 'Loading schedule…');
+            return const ListSkeleton(rows: 4);
           }
           if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(snapshot.error.toString()),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _reload,
-                      child: const Text('Retry'),
-                    ),
-                    TextButton(
-                      onPressed: () => context.go('/home'),
-                      child: const Text('Go home'),
-                    ),
-                  ],
-                ),
-              ),
+            return MiddoEmptyState(
+              icon: Icons.cloud_off_rounded,
+              title: 'Couldn’t load schedule',
+              message: snapshot.error.toString(),
+              actionLabel: 'Retry',
+              onAction: _reload,
             );
           }
 
@@ -210,47 +197,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 ),
                 const SizedBox(height: 16),
                 if (orders.isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: MiddoColors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: MiddoColors.creamBorder),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(
-                          Icons.calendar_month_outlined,
-                          size: 36,
-                          color: MiddoColors.muted,
-                        ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Nothing on the calendar',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Order from the menu, or check past lunches in History.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: MiddoColors.inkSoft,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            height: 1.35,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        TextButton(
-                          onPressed: () => context.go('/home'),
-                          child: const Text('Go home'),
-                        ),
-                      ],
-                    ),
+                  MiddoEmptyState(
+                    icon: Icons.calendar_month_outlined,
+                    title: 'Nothing on the calendar',
+                    message:
+                        'Order from the menu, or check past lunches in History.',
+                    actionLabel: 'Browse menu',
+                    onAction: () => context.go('/menu'),
                   )
                 else
                   ...orders.map(

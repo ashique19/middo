@@ -7,6 +7,7 @@ import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
+import 'payment_result_screen.dart';
 import 'payment_webview_screen.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -76,16 +77,17 @@ class _WalletScreenState extends State<WalletScreen> {
         title: 'Top up ৳$_selected',
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            paid
-                ? 'Payment finished. Refreshing Middo Balance…'
-                : 'Closed payment. Pull to refresh if you already paid.',
-          ),
-          backgroundColor: MiddoColors.forest,
-        ),
+      await PaymentResultScreen.open(
+        context,
+        success: paid,
+        title: 'Middo Balance',
+        message: paid
+            ? 'Your top-up is recorded. Pull to refresh if the balance takes a moment.'
+            : 'Payment was closed before completion. If you already paid, pull to refresh.',
+        primaryLabel: 'Back to wallet',
+        primaryRoute: '/wallet',
       );
+      if (!mounted) return;
       await _reload();
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -106,13 +108,20 @@ class _WalletScreenState extends State<WalletScreen> {
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
-              return const MiddoPageLoader(message: 'Loading wallet…');
+              return const ListSkeleton(rows: 5);
             }
             if (snapshot.hasError) {
-              return Center(child: Text(snapshot.error.toString()));
+              return MiddoEmptyState(
+                icon: Icons.cloud_off_rounded,
+                title: 'Wallet unavailable',
+                message: snapshot.error.toString(),
+                actionLabel: 'Retry',
+                onAction: _reload,
+              );
             }
             final data = snapshot.data!;
             final user = data.dashboard.user;
+            final metrics = data.dashboard.metrics;
             final transactions = data.transactions;
 
             return ListView(
@@ -169,6 +178,24 @@ class _WalletScreenState extends State<WalletScreen> {
                           fontWeight: FontWeight.w800,
                           letterSpacing: -1,
                         ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _SpendStat(
+                              label: 'This month',
+                              value: bdt.format(metrics.monthlySpend),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _SpendStat(
+                              label: 'Saved ~',
+                              value: bdt.format(metrics.monthlySaved),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -366,6 +393,47 @@ class _WalletScreenState extends State<WalletScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _SpendStat extends StatelessWidget {
+  const _SpendStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }

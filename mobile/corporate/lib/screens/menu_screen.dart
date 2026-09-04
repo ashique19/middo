@@ -49,7 +49,7 @@ class _MenuScreenState extends State<MenuScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const MiddoPageLoader(message: 'Loading menu…');
+            return const ListSkeleton(rows: 5);
           }
           if (snapshot.hasError) {
             return Center(

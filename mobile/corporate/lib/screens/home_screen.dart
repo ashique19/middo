@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../app_scope.dart';
+import '../data/middo_haptics.dart';
 import '../data/tab_scroll_bus.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/widgets.dart';
+import 'payment_result_screen.dart';
 import 'payment_webview_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -56,18 +59,30 @@ class _HomeScreenState extends State<HomeScreen> {
     return '$part, $first';
   }
 
+  String _nextDayHint(CheckoutMeta? meta) {
+    if (meta == null || meta.dates.isEmpty) {
+      return 'Browse today’s menu and schedule desk delivery.';
+    }
+    final first = meta.dates.first;
+    final label = DateFormat('EEE, MMM d').format(first);
+    return 'Next open day: $label · tap to order';
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<DashboardData>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const MiddoPageLoader(message: 'Loading home…');
+          return const HomeSkeleton();
         }
         if (snapshot.hasError) {
-          return _ErrorState(
+          return MiddoEmptyState(
+            icon: Icons.cloud_off_rounded,
+            title: 'Couldn’t load home',
             message: snapshot.error.toString(),
-            onRetry: _reload,
+            actionLabel: 'Retry',
+            onAction: _reload,
           );
         }
 
@@ -75,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final user = data.user;
         final metrics = data.metrics;
         final upcoming = data.upcomingOrders;
+        final recent = data.recentOrders;
 
         return RefreshIndicator(
           onRefresh: _reload,
@@ -104,7 +120,10 @@ class _HomeScreenState extends State<HomeScreen> {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => context.go('/menu'),
+                  onTap: () {
+                    MiddoHaptics.selection();
+                    context.go('/menu');
+                  },
                   borderRadius: BorderRadius.circular(22),
                   child: Ink(
                     height: 148,
@@ -131,12 +150,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Colors.white.withValues(alpha: 0.08),
                           ),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.fromLTRB(20, 22, 20, 20),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 'Order lunch',
                                 style: TextStyle(
                                   color: Colors.white,
@@ -145,18 +164,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                   letterSpacing: -0.6,
                                 ),
                               ),
-                              SizedBox(height: 6),
-                              Text(
-                                'Browse today’s menu and schedule desk delivery.',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                  height: 1.35,
-                                ),
+                              const SizedBox(height: 6),
+                              FutureBuilder<CheckoutMeta>(
+                                future: AppScope.of(context).checkoutMeta(),
+                                builder: (context, metaSnap) {
+                                  return Text(
+                                    _nextDayHint(metaSnap.data),
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                      height: 1.35,
+                                    ),
+                                  );
+                                },
                               ),
-                              Spacer(),
-                              Row(
+                              const Spacer(),
+                              const Row(
                                 children: [
                                   Text(
                                     'Open menu',
@@ -218,6 +242,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
+              if (recent.isNotEmpty) ...[
+                const SectionHeader(title: 'Order again'),
+                SizedBox(
+                  height: 118,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: recent.take(6).length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (context, index) {
+                      final order = recent[index];
+                      return _OrderAgainCard(
+                        order: order,
+                        onTap: () {
+                          MiddoHaptics.selection();
+                          context.push('/checkout/${order.menuItem.id}');
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
               SectionHeader(
                 title: 'Upcoming',
                 actionLabel: 'Schedule',
@@ -232,13 +277,25 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: MiddoColors.creamBorder),
                   ),
-                  child: const Text(
-                    'No upcoming lunches yet. Open the menu to schedule your next meal.',
-                    style: TextStyle(
-                      color: MiddoColors.inkSoft,
-                      fontWeight: FontWeight.w600,
-                      height: 1.35,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'No upcoming lunches yet.',
+                        style: TextStyle(
+                          color: MiddoColors.inkSoft,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton(
+                        onPressed: () {
+                          MiddoHaptics.selection();
+                          context.go('/menu');
+                        },
+                        child: const Text('Browse menu'),
+                      ),
+                    ],
                   ),
                 )
               else
@@ -250,12 +307,22 @@ class _HomeScreenState extends State<HomeScreen> {
                             context.push('/support/${order.id}'),
                         onPay: order.canPayOnline &&
                                 order.onlinePaymentUrl != null
-                            ? () {
-                                PaymentWebViewScreen.open(
+                            ? () async {
+                                final paid = await PaymentWebViewScreen.open(
                                   context,
                                   paymentUrl: order.onlinePaymentUrl!,
                                   title: 'Make payment',
                                 );
+                                if (!context.mounted) return;
+                                await PaymentResultScreen.open(
+                                  context,
+                                  success: paid,
+                                  title: 'Order payment',
+                                  primaryLabel: paid ? 'Track order' : 'Try again',
+                                  primaryRoute:
+                                      paid ? '/track/${order.id}' : '/home',
+                                );
+                                if (paid && context.mounted) await _reload();
                               }
                             : null,
                       ),
@@ -268,7 +335,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   side: const BorderSide(color: MiddoColors.creamBorder),
                 ),
                 child: InkWell(
-                  onTap: () => context.go('/wallet'),
+                  onTap: () {
+                    MiddoHaptics.selection();
+                    context.go('/wallet');
+                  },
                   borderRadius: BorderRadius.circular(16),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -330,6 +400,81 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+class _OrderAgainCard extends StatelessWidget {
+  const _OrderAgainCard({required this.order, required this.onTap});
+
+  final CorporateOrder order;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: MiddoColors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: 200,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: MiddoColors.creamBorder),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 64,
+                  height: 88,
+                  child: MealImage(item: order.menuItem, height: 88, width: 64),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order.menuItem.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        height: 1.2,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      bdt.format(order.menuItem.price),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: MiddoColors.orange,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Reorder',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                        color: MiddoColors.forest,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MetricChip extends StatelessWidget {
   const _MetricChip({
     required this.label,
@@ -374,37 +519,6 @@ class _MetricChip extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
-
-  final String message;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: MiddoColors.inkSoft,
-              ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
       ),
     );
   }

@@ -108,6 +108,17 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
     final uri = Uri.tryParse(url);
     if (uri == null) return _NavDecision.allow;
 
+    // Custom scheme deep link — finish in-app without loading middo:// in WebView.
+    if (uri.scheme == 'middo') {
+      final status = (uri.queryParameters['status'] ?? '').toLowerCase();
+      if (status == 'unpaid' || status == 'failed' || status == 'cancelled') {
+        _finish(PaymentWebViewOutcome.failed, banner: 'Payment was not completed');
+        return _NavDecision.blockAndFail;
+      }
+      _finish(PaymentWebViewOutcome.success, banner: 'Payment successful');
+      return _NavDecision.blockAndSucceed;
+    }
+
     final path = uri.path.toLowerCase();
     final host = uri.host.toLowerCase();
     final eps = (uri.queryParameters['eps_status'] ?? '').toLowerCase();

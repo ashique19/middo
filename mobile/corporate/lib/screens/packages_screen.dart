@@ -36,10 +36,14 @@ class _PackagesScreenState extends State<PackagesScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const MiddoPageLoader(message: 'Loading package…');
+            return const ListSkeleton(rows: 3);
           }
           if (snapshot.hasError) {
-            return Center(child: Text(snapshot.error.toString()));
+            return MiddoEmptyState(
+              icon: Icons.cloud_off_rounded,
+              title: 'Couldn’t load packages',
+              message: snapshot.error.toString(),
+            );
           }
 
           final packages = snapshot.data ?? [];
@@ -56,17 +60,10 @@ class _PackagesScreenState extends State<PackagesScreen> {
               ),
               const SizedBox(height: 16),
               if (packages.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: MiddoColors.creamBorder),
-                  ),
-                  child: const Text(
-                    'No monthly package is published right now.',
-                    textAlign: TextAlign.center,
-                  ),
+                const MiddoEmptyState(
+                  icon: Icons.inventory_2_outlined,
+                  title: 'No packages available',
+                  message: 'No monthly package is published right now.',
                 )
               else
                 ...packages.map(

@@ -3,39 +3,30 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../app_scope.dart';
+import '../data/middo_haptics.dart';
 import '../data/push_notification_service.dart';
 import '../models/models.dart';
 import '../theme/middo_colors.dart';
 
 final _bdt = NumberFormat.currency(locale: 'en_BD', symbol: '৳', decimalDigits: 0);
 
-/// Side navigation for account + secondary Middo destinations.
+/// Side navigation for Middo tools (account lives under the avatar sheet).
 class MiddoAppDrawer extends StatelessWidget {
   const MiddoAppDrawer({super.key, this.user, this.boxesInCustody});
 
   final CorporateUser? user;
   final int? boxesInCustody;
 
-  Future<void> _signOut(BuildContext context) async {
-    Navigator.of(context).pop();
-    await PushNotificationService.instance.unregisterFromBackend();
-    if (!context.mounted) return;
-    await AppScope.of(context).logout();
-    if (!context.mounted) return;
-    context.go('/login');
-  }
-
   void _go(BuildContext context, String route) {
+    MiddoHaptics.selection();
     Navigator.of(context).pop();
     context.push(route);
   }
 
   @override
   Widget build(BuildContext context) {
-    final name = user?.receiverName.trim();
     final company = user?.companyName.trim() ?? 'Middo';
     final balance = user?.balance;
-    final initial = user?.initial ?? 'M';
 
     return Drawer(
       backgroundColor: MiddoColors.cream,
@@ -45,62 +36,40 @@ class MiddoAppDrawer extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 16, 16),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: MiddoColors.amberSoft,
-                    foregroundColor: MiddoColors.orange,
-                    child: Text(
-                      initial,
+                  const Text(
+                    'Middo',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 22,
+                      color: MiddoColors.forest,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    company,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: MiddoColors.inkSoft,
+                    ),
+                  ),
+                  if (balance != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Balance ${_bdt.format(balance)}',
                       style: const TextStyle(
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
-                        fontSize: 18,
+                        color: MiddoColors.orange,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          company,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            color: MiddoColors.forest,
-                          ),
-                        ),
-                        if (name != null && name.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: MiddoColors.inkSoft,
-                            ),
-                          ),
-                        ],
-                        if (balance != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            'Balance ${_bdt.format(balance)}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: MiddoColors.orange,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -109,18 +78,7 @@ class MiddoAppDrawer extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
-                  const _DrawerSectionLabel('Account'),
-                  _DrawerTile(
-                    icon: Icons.person_outline_rounded,
-                    label: 'Profile',
-                    onTap: () => _go(context, '/profile'),
-                  ),
-                  _DrawerTile(
-                    icon: Icons.lock_outline_rounded,
-                    label: 'Change password',
-                    onTap: () => _go(context, '/profile/password'),
-                  ),
-                  const _DrawerSectionLabel('Middo'),
+                  const _DrawerSectionLabel('Quick links'),
                   _DrawerTile(
                     icon: Icons.inventory_2_outlined,
                     label: 'Middo boxes',
@@ -147,20 +105,110 @@ class MiddoAppDrawer extends StatelessWidget {
                 ],
               ),
             ),
-            const Divider(height: 1, color: MiddoColors.creamBorder),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-              child: _DrawerTile(
-                icon: Icons.logout_rounded,
-                label: 'Sign out',
-                danger: true,
-                onTap: () => _signOut(context),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Text(
+                'Account settings are under your profile avatar.',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: MiddoColors.muted.withValues(alpha: 0.95),
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+/// Account actions (profile / password / sign out).
+Future<void> showAccountSheet(
+  BuildContext context, {
+  CorporateUser? user,
+  Future<void> Function()? onProfileUpdated,
+}) async {
+  MiddoHaptics.selection();
+  final action = await showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: MiddoColors.cream,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+    ),
+    builder: (context) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: MiddoColors.creamBorder,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    user?.companyName ?? 'Account',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.person_outline_rounded),
+                title: const Text(
+                  'View / edit profile',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                onTap: () => Navigator.pop(context, 'profile'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.lock_outline_rounded),
+                title: const Text(
+                  'Change password',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                onTap: () => Navigator.pop(context, 'password'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout_rounded),
+                title: const Text(
+                  'Sign out',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                onTap: () => Navigator.pop(context, 'logout'),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  if (!context.mounted || action == null) return;
+  if (action == 'profile') {
+    await context.push('/profile');
+    await onProfileUpdated?.call();
+  } else if (action == 'password') {
+    await context.push('/profile/password');
+  } else if (action == 'logout') {
+    await PushNotificationService.instance.unregisterFromBackend();
+    if (!context.mounted) return;
+    await AppScope.of(context).logout();
+    if (!context.mounted) return;
+    context.go('/login');
   }
 }
 
@@ -192,25 +240,22 @@ class _DrawerTile extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.subtitle,
-    this.danger = false,
   });
 
   final IconData icon;
   final String label;
   final String? subtitle;
   final VoidCallback onTap;
-  final bool danger;
 
   @override
   Widget build(BuildContext context) {
-    final color = danger ? MiddoColors.orangeDeep : MiddoColors.ink;
     return ListTile(
-      leading: Icon(icon, color: color),
+      leading: Icon(icon, color: MiddoColors.ink),
       title: Text(
         label,
-        style: TextStyle(
+        style: const TextStyle(
           fontWeight: FontWeight.w700,
-          color: color,
+          color: MiddoColors.ink,
         ),
       ),
       subtitle: subtitle == null

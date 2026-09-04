@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_config.dart';
 import 'auth_store.dart';
+import 'network_status.dart';
 
 class ApiException implements Exception {
   ApiException(this.message, {this.statusCode, this.errors});
@@ -106,9 +107,11 @@ class ApiClient {
       final streamed = await _client.send(request);
       response = await http.Response.fromStream(streamed);
     } catch (error) {
+      NetworkStatus.instance.markRequestFailed();
       throw ApiException(_unreachableApiMessage(error));
     }
 
+    NetworkStatus.instance.markRequestSucceeded();
     return _decodeResponse(response);
   }
 
@@ -153,9 +156,11 @@ class ApiClient {
           );
       }
     } catch (error) {
+      NetworkStatus.instance.markRequestFailed();
       throw ApiException(_unreachableApiMessage(error));
     }
 
+    NetworkStatus.instance.markRequestSucceeded();
     return _decodeResponse(response);
   }
 
