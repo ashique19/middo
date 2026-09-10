@@ -51,16 +51,25 @@ Offline mock:
 flutter run --dart-define=USE_MOCK=true
 ```
 
-### Build release APK
+### Build release APK / AAB
 
 ```bash
 cd mobile/kitchen
 flutter pub get
 flutter build apk --release \
+  --android-skip-build-dependency-validation \
+  --dart-define=API_BASE_URL=https://x.middo.com.bd
+flutter build appbundle --release \
+  --android-skip-build-dependency-validation \
   --dart-define=API_BASE_URL=https://x.middo.com.bd
 ```
 
-Published APK: `mobile/kitchen/releases/middo-kitchen-release.apk`
+Published artifacts:
+
+- APK: `mobile/kitchen/releases/middo-kitchen-release.apk`
+- AAB: `mobile/kitchen/releases/middo-kitchen-release.aab`
+
+Without `android/key.properties`, release builds are signed with the debug keystore (fine for sideload smoke). Play upload needs a real upload keystore.
 
 ### Firebase
 
