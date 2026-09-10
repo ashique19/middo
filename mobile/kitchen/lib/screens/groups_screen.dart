@@ -3,8 +3,11 @@ import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
+import '../data/middo_haptics.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/kitchen_ui.dart';
+import '../widgets/skeleton.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key});
@@ -50,6 +53,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
     await _run(id, () async {
       final res = await AppScope.of(context).acceptOrderGroup(id);
       if (!mounted) return;
+      MiddoHaptics.success();
       showKitchenSnack(
         context,
         res['message']?.toString() ?? 'Accepted.',
@@ -66,6 +70,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
       confirmLabel: 'Decline',
     );
     if (reason == null) return;
+    MiddoHaptics.warning();
     final id = g['id'] as int;
     await _run(id, () async {
       await AppScope.of(context).declineOrderGroup(id, reason: reason);
@@ -83,7 +88,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
           future: _payload,
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
+              return const ListSkeleton(rows: 4);
             }
             if (snap.hasError) {
               return KitchenError(snap.error!, onRetry: _reload);
@@ -94,6 +99,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     const {};
             if (groups.isEmpty) {
               return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   if (capacity.isNotEmpty)
                     Padding(
@@ -103,7 +109,17 @@ class _GroupsScreenState extends State<GroupsScreen> {
                         style: const TextStyle(color: MiddoColors.inkSoft),
                       ),
                     ),
-                  const KitchenEmpty('No groups in the claim pool.'),
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.45,
+                    child: MiddoEmptyState(
+                      icon: Icons.groups_outlined,
+                      title: 'Claim pool empty',
+                      message:
+                          'When Middo assigns groups to your area, they appear here to accept.',
+                      actionLabel: 'Refresh',
+                      onAction: _reload,
+                    ),
+                  ),
                 ],
               );
             }

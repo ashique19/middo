@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
+import '../data/middo_haptics.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/kitchen_ui.dart';
+import '../widgets/skeleton.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -39,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openTile(String key) {
+    MiddoHaptics.selection();
     switch (key) {
       case 'alerts':
         context.push('/alerts');
@@ -53,10 +57,16 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'preparing':
       case 'ready_for_pickup':
       case 'active_orders':
-      case 'orders_this_month':
-      case 'orders_last_month':
-      case 'orders_last_3_months':
         context.go('/orders');
+        return;
+      case 'orders_this_month':
+        context.push('/history?period=this_month');
+        return;
+      case 'orders_last_month':
+        context.push('/history?period=last_month');
+        return;
+      case 'orders_last_3_months':
+        context.push('/history?period=last_3_months');
         return;
       default:
         return;
@@ -75,13 +85,38 @@ class _HomeScreenState extends State<HomeScreen> {
               future: _dashboard,
               builder: (context, snap) {
                 if (snap.connectionState != ConnectionState.done) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
+                  return const Column(
+                    children: [
+                      SkeletonBox(height: 48, radius: 14),
+                      SizedBox(height: 12),
+                      SkeletonBox(height: 14, width: 180),
+                      SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(child: SkeletonBox(height: 88, radius: 14)),
+                          SizedBox(width: 10),
+                          Expanded(child: SkeletonBox(height: 88, radius: 14)),
+                        ],
+                      ),
+                      SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(child: SkeletonBox(height: 88, radius: 14)),
+                          SizedBox(width: 10),
+                          Expanded(child: SkeletonBox(height: 88, radius: 14)),
+                        ],
+                      ),
+                    ],
                   );
                 }
                 if (snap.hasError) {
-                  return Text('Dashboard error: ${snap.error}');
+                  return MiddoEmptyState(
+                    icon: Icons.cloud_off_outlined,
+                    title: 'Dashboard unavailable',
+                    message: '${snap.error}',
+                    actionLabel: 'Retry',
+                    onAction: _reload,
+                  );
                 }
                 final tiles = (snap.data?['tiles'] as List?) ?? const [];
                 final capacity =
@@ -97,7 +132,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: KitchenPanel(
-                          onTap: () => context.push('/boxes'),
+                          onTap: () {
+                            MiddoHaptics.warning();
+                            context.push('/boxes');
+                          },
                           child: const Text(
                             'Box stock is low vs capacity — request more boxes.',
                             style: TextStyle(
@@ -172,11 +210,14 @@ class _HomeScreenState extends State<HomeScreen> {
               future: _alerts,
               builder: (context, snap) {
                 if (snap.connectionState != ConnectionState.done) {
-                  return const SizedBox.shrink();
+                  return const SkeletonBox(height: 72, radius: 12);
                 }
                 final alerts = snap.data ?? const [];
                 if (alerts.isEmpty) {
-                  return const Text('No alerts right now.');
+                  return const Text(
+                    'No alerts right now.',
+                    style: TextStyle(color: MiddoColors.inkSoft),
+                  );
                 }
                 return Column(
                   children: [

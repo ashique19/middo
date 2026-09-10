@@ -81,6 +81,12 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () => context.push('/boxes'),
           ),
           _NavTile(
+            icon: Icons.history,
+            title: 'Order history',
+            subtitle: 'This month · last month · last 3 months',
+            onTap: () => context.push('/history'),
+          ),
+          _NavTile(
             icon: Icons.account_balance_wallet_outlined,
             title: 'Account & cash',
             subtitle: 'Balance, withdraw, handovers',
@@ -100,8 +106,8 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           _NavTile(
             icon: Icons.person_outline,
-            title: 'Profile',
-            subtitle: 'Details & password',
+            title: 'Profile & hours',
+            subtitle: 'Contact, weekly hours, password',
             onTap: () => context.push('/profile'),
           ),
           const SizedBox(height: 12),

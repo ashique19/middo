@@ -142,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   children: [
                     Text(
-                      'Contact details and password. Tier and capacity are managed by Middo.',
+                      'Contact, weekly hours, and password. Tier and capacity are managed by Middo.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: MiddoColors.inkSoft,
                             fontWeight: FontWeight.w600,
@@ -221,6 +221,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: Text(_saving ? 'Saving…' : 'Save profile'),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    KitchenPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Weekly hours',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Shown to Middo ops. Edit open/close on the web kitchen profile if you need to change them.',
+                            style: TextStyle(
+                              color: MiddoColors.inkSoft,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          for (final raw
+                              in (_user?['hours'] as List?) ?? const [])
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 100,
+                                    child: Text(
+                                      (raw as Map)['day_label']?.toString() ??
+                                          '',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      raw['label']?.toString() ??
+                                          (raw['is_closed'] == true
+                                              ? 'Closed'
+                                              : '${raw['opens_at']} – ${raw['closes_at']}'),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: raw['is_closed'] == true
+                                            ? MiddoColors.orange
+                                            : MiddoColors.inkSoft,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
                     ),

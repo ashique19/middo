@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/middo_colors.dart';
+import 'empty_state.dart';
 
 void showKitchenSnack(
   BuildContext context,
@@ -158,12 +159,10 @@ class KitchenEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Text(
-        message,
-        style: const TextStyle(color: MiddoColors.inkSoft),
-      ),
+    return MiddoEmptyState(
+      icon: Icons.inbox_outlined,
+      title: 'Nothing here',
+      message: message,
     );
   }
 }
@@ -177,18 +176,16 @@ class KitchenError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Error: $error'),
-              if (onRetry != null) ...[
-                const SizedBox(height: 12),
-                OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
-              ],
-            ],
+        SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.55,
+          child: MiddoEmptyState(
+            icon: Icons.error_outline,
+            title: 'Could not load',
+            message: '$error',
+            actionLabel: onRetry != null ? 'Retry' : null,
+            onAction: onRetry,
           ),
         ),
       ],

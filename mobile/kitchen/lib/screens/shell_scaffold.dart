@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../widgets/kitchen_mobile_header.dart';
+import '../widgets/network_banner.dart';
 
 class ShellScaffold extends StatelessWidget {
   const ShellScaffold({super.key, required this.navigationShell});
@@ -22,7 +23,12 @@ class ShellScaffold extends StatelessWidget {
 
     return Scaffold(
       appBar: KitchenMobileHeader(title: _titles[index]),
-      body: navigationShell,
+      body: Column(
+        children: [
+          const NetworkBanner(),
+          Expanded(child: navigationShell),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: (index) {

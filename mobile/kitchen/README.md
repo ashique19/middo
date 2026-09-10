@@ -16,11 +16,13 @@ API contract: [`docs/kitchen-mobile-api-contract.md`](../../docs/kitchen-mobile-
 | Orders | Active groups: mark ready, release, shortage; per-order ready + dispatch |
 | Order detail / dispatch | Detail + box multi-select dispatch |
 | Groups | Claim pool: accept / decline + capacity |
-| Prep | Today menus + shopping list |
+| Prep | Today menus (tap → detail) + searchable shopping list |
 | Boxes | In-stock (warehouse / damaged) + incoming receive + request |
 | Account & cash | Receivable/payable, withdraw, pay Middo (proof photo), cash handovers |
 | Complaints | List + thread detail |
-| Profile | Edit details + change password |
+| Profile | Edit details, weekly hours (read), change password |
+| Order history | This / last / last-3-months via `/orders/history` |
+| Offline / UX | Connectivity banner, skeletons, empty states, haptics, deep links |
 
 ## Production API
 

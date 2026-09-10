@@ -3,8 +3,11 @@ import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
+import '../data/middo_haptics.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/kitchen_ui.dart';
+import '../widgets/skeleton.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -50,6 +53,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     await _run('g-$id', () async {
       final res = await AppScope.of(context).markGroupReady(id);
       if (!mounted) return;
+      MiddoHaptics.success();
       showKitchenSnack(context, res['message']?.toString() ?? 'Marked ready.');
     });
   }
@@ -102,6 +106,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     await _run('o-$id', () async {
       final res = await AppScope.of(context).markOrderReady(id);
       if (!mounted) return;
+      MiddoHaptics.success();
       showKitchenSnack(context, res['message']?.toString() ?? 'Marked ready.');
     });
   }
@@ -115,7 +120,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           future: _groups,
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
+              return const ListSkeleton(rows: 4);
             }
             if (snap.hasError) {
               return KitchenError(snap.error!, onRetry: _reload);
@@ -123,7 +128,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
             final groups = snap.data ?? const [];
             if (groups.isEmpty) {
               return ListView(
-                children: const [KitchenEmpty('No active orders.')],
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.5,
+                    child: MiddoEmptyState(
+                      icon: Icons.receipt_long_outlined,
+                      title: 'No active orders',
+                      message:
+                          'Accepted Middo groups appear here until you cook and dispatch them.',
+                      actionLabel: 'Claim groups',
+                      onAction: () => context.go('/groups'),
+                    ),
+                  ),
+                ],
               );
             }
             return ListView.separated(
