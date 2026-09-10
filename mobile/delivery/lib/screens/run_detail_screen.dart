@@ -4,6 +4,7 @@ import '../app_scope.dart';
 import '../data/api_client.dart';
 import '../data/middo_haptics.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/deliver_otp_flow.dart';
 import '../widgets/delivery_mobile_header.dart';
 import '../widgets/delivery_ui.dart';
 
@@ -49,18 +50,17 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
   }
 
   Future<void> _deliver() async {
-    setState(() => _busy = true);
-    try {
-      final res = await AppScope.of(context).deliverRun(widget.runId);
-      MiddoHaptics.success();
-      if (!mounted) return;
-      showDeliverySnack(context, res['message']?.toString() ?? 'Delivered.');
-      await _reload();
-    } on ApiException catch (e) {
-      if (mounted) showDeliverySnack(context, e.message, error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    await runDeliverFlow(
+      context,
+      runId: widget.runId,
+      onBusy: () {
+        if (mounted) setState(() => _busy = true);
+      },
+      onIdle: () {
+        if (mounted) setState(() => _busy = false);
+      },
+      onSuccess: _reload,
+    );
   }
 
   @override
@@ -84,6 +84,8 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
             final run =
                 (snap.data?['run'] as Map?)?.cast<String, dynamic>() ??
                     const <String, dynamic>{};
+            final boxCodes = (run['box_codes'] as List?) ?? const [];
+            final showCommission = run['show_commission'] == true;
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
@@ -102,15 +104,31 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                       DeliveryStatusChip(run['status']?.toString() ?? ''),
                       const SizedBox(height: 14),
                       _kv('Kitchen', run['kitchen_name']),
+                      _kv('Kitchen phone', run['kitchen_mobile']),
+                      _kv('Kitchen address', run['kitchen_address']),
                       _kv('Area', run['area_name']),
                       _kv('Receiver', run['receiver_name']),
-                      _kv('Phone', run['receiver_phone']),
+                      _kv('Phone', run['receiver_phone'] ?? run['receiver_mobile']),
                       _kv('Address', run['address']),
                       _kv('Menu', run['menu_name']),
                       _kv('Quantity', run['quantity']),
-                      _kv('Cash due', run['cash_due'] != null
-                          ? '৳${run['cash_due']}'
-                          : null),
+                      _kv(
+                        'Payment',
+                        run['payment_method_label'] ?? run['payment_method'],
+                      ),
+                      if (showCommission)
+                        _kv(
+                          'Commission',
+                          run['commission_amount'] != null
+                              ? '৳${run['commission_amount']}'
+                              : null,
+                        ),
+                      _kv(
+                        'Cash due',
+                        run['cash_due'] != null ? '৳${run['cash_due']}' : null,
+                      ),
+                      if (boxCodes.isNotEmpty)
+                        _kv('Boxes', boxCodes.map((e) => e.toString()).join(', ')),
                     ],
                   ),
                 ),
@@ -148,7 +166,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 88,
+            width: 108,
             child: Text(
               label,
               style: const TextStyle(

@@ -7,6 +7,7 @@ import 'data/auth_store.dart';
 import 'data/deep_link_service.dart';
 import 'data/delivery_repository.dart';
 import 'data/network_status.dart';
+import 'data/offline_mutation_queue.dart';
 import 'data/push_notification_service.dart';
 import 'router/app_router.dart';
 import 'theme/middo_theme.dart';
@@ -21,6 +22,7 @@ Future<void> main() async {
   );
   await AuthStore.instance.load();
   await NetworkStatus.instance.start();
+  await OfflineMutationQueue.instance.start();
   await PushNotificationService.instance.init();
 
   final repository = createDeliveryRepository();

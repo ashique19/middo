@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:middo_delivery/data/delivery_repository.dart';
+import 'package:middo_delivery/data/offline_mutation_queue.dart';
 import 'package:middo_delivery/main.dart';
 import 'package:middo_delivery/widgets/empty_state.dart';
 import 'package:middo_delivery/widgets/skeleton.dart';
@@ -64,5 +65,60 @@ void main() {
 
     expect(find.text('Delivery Dashboard'), findsOneWidget);
     expect(find.text('Alerts'), findsWidgets);
+  });
+
+  test('Mock cash handover uses order_ids + target', () async {
+    final repo = MockDeliveryRepository();
+    final handovers = await repo.cashHandovers();
+    final eligible = (handovers['eligible_orders'] as List?) ?? [];
+    expect(eligible, isNotEmpty);
+
+    final id = (eligible.first as Map)['id'] as int;
+    final res = await repo.createCashHandover(
+      orderIds: [id],
+      target: 'kitchen',
+      notes: 'test',
+    );
+    expect(res['message']?.toString(), contains('handover'));
+    expect((res['handover'] as Map)['target'], 'kitchen');
+  });
+
+  test('Mock deliver accepts OTP 1234', () async {
+    final repo = MockDeliveryRepository();
+    final otp = await repo.sendDeliveryOtp(102);
+    expect(otp['debug_otp'], '1234');
+    final res = await repo.deliverRun(102, otp: '1234');
+    expect(res['message']?.toString(), contains('Delivered'));
+  });
+
+  test('Mock account withdraw gated by can_request_payment', () async {
+    final repo = MockDeliveryRepository();
+    final account = await repo.account();
+    expect(account.containsKey('can_request_payment'), isTrue);
+    expect(account.containsKey('due_to_middo'), isTrue);
+    expect(account['statement'], isA<List>());
+    expect(account['withdrawals'], isA<List>());
+  });
+
+  test('Offline mutation queue enqueues and persists', () async {
+    SharedPreferences.setMockInitialValues({});
+    final queue = OfflineMutationQueue.instance;
+    final before = queue.pendingCount;
+    final res = await queue.enqueue(
+      type: 'pickup',
+      method: 'POST',
+      path: '/runs/1/pickup',
+      body: const {},
+    );
+    expect(res['queued'], isTrue);
+    expect(queue.pendingCount, greaterThanOrEqualTo(before + 1));
+    expect(queue.items.last['idempotency_key'], isNotEmpty);
+  });
+
+  test('Mock pending boxes expose run_groups', () async {
+    final repo = MockDeliveryRepository();
+    final pending = await repo.pendingBoxes();
+    expect(pending['run_groups'], isA<List>());
+    expect((pending['run_groups'] as List), isNotEmpty);
   });
 }

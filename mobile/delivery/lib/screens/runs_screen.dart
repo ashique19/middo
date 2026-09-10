@@ -5,6 +5,7 @@ import '../app_scope.dart';
 import '../data/api_client.dart';
 import '../data/middo_haptics.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/deliver_otp_flow.dart';
 import '../widgets/delivery_ui.dart';
 import '../widgets/skeleton.dart';
 
@@ -48,18 +49,17 @@ class _RunsScreenState extends State<RunsScreen> {
   }
 
   Future<void> _deliver(int id) async {
-    setState(() => _busy = true);
-    try {
-      final res = await AppScope.of(context).deliverRun(id);
-      MiddoHaptics.success();
-      if (!mounted) return;
-      showDeliverySnack(context, res['message']?.toString() ?? 'Delivered.');
-      await _reload();
-    } on ApiException catch (e) {
-      if (mounted) showDeliverySnack(context, e.message, error: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    await runDeliverFlow(
+      context,
+      runId: id,
+      onBusy: () {
+        if (mounted) setState(() => _busy = true);
+      },
+      onIdle: () {
+        if (mounted) setState(() => _busy = false);
+      },
+      onSuccess: _reload,
+    );
   }
 
   @override

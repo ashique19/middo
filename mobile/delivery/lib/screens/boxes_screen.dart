@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_scope.dart';
 import '../data/api_client.dart';
 import '../data/middo_haptics.dart';
+import '../data/network_status.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/delivery_ui.dart';
 import '../widgets/skeleton.dart';
@@ -31,14 +32,36 @@ class _BoxesScreenState extends State<BoxesScreen> {
     await _pending;
   }
 
+  List<dynamic> _runGroupsOf(Map<String, dynamic>? data) {
+    final groups = data?['run_groups'] as List?;
+    if (groups != null) return groups;
+    return (data?['requests'] as List?) ?? const <dynamic>[];
+  }
+
+  int _groupRequestId(Map<String, dynamic> req) {
+    return (req['request_id'] as num?)?.toInt() ??
+        (req['id'] as num?)?.toInt() ??
+        0;
+  }
+
+  String _groupLabel(Map<String, dynamic> req, int id) {
+    return req['label']?.toString() ??
+        req['title']?.toString() ??
+        'Request #$id';
+  }
+
   Future<void> _act(Future<void> Function() action, String ok) async {
     setState(() => _busy = true);
+    final offline = !NetworkStatus.instance.isOnline;
     try {
       await action();
       MiddoHaptics.success();
       if (!mounted) return;
-      showDeliverySnack(context, ok);
-      await _reload();
+      showDeliverySnack(
+        context,
+        offline ? 'Saved — will sync when online' : ok,
+      );
+      if (!offline) await _reload();
     } on ApiException catch (e) {
       if (mounted) showDeliverySnack(context, e.message, error: true);
     } finally {
@@ -62,10 +85,9 @@ class _BoxesScreenState extends State<BoxesScreen> {
             }
             final boxes =
                 (snap.data?['boxes'] as List?) ?? const <dynamic>[];
-            final requests =
-                (snap.data?['requests'] as List?) ?? const <dynamic>[];
+            final runGroups = _runGroupsOf(snap.data);
 
-            if (boxes.isEmpty && requests.isEmpty) {
+            if (boxes.isEmpty && runGroups.isEmpty) {
               return ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
@@ -78,18 +100,18 @@ class _BoxesScreenState extends State<BoxesScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
-                if (requests.isNotEmpty) ...[
+                if (runGroups.isNotEmpty) ...[
                   const Text(
-                    'Bulk requests',
+                    'Bulk run groups',
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 15,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ...requests.map((raw) {
+                  ...runGroups.map((raw) {
                     final req = (raw as Map).cast<String, dynamic>();
-                    final id = (req['id'] as num?)?.toInt() ?? 0;
+                    final id = _groupRequestId(req);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: DeliveryPanel(
@@ -97,7 +119,7 @@ class _BoxesScreenState extends State<BoxesScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              req['label']?.toString() ?? 'Request #$id',
+                              _groupLabel(req, id),
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                               ),
@@ -116,7 +138,7 @@ class _BoxesScreenState extends State<BoxesScreen> {
                                 if (req['can_accept_all'] == true)
                                   Expanded(
                                     child: FilledButton(
-                                      onPressed: _busy
+                                      onPressed: _busy || id <= 0
                                           ? null
                                           : () => _act(
                                                 () => AppScope.of(context)
@@ -132,7 +154,7 @@ class _BoxesScreenState extends State<BoxesScreen> {
                                 if (req['can_hand_all'] == true)
                                   Expanded(
                                     child: OutlinedButton(
-                                      onPressed: _busy
+                                      onPressed: _busy || id <= 0
                                           ? null
                                           : () => _act(
                                                 () => AppScope.of(context)

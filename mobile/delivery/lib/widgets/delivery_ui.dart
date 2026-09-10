@@ -28,6 +28,7 @@ class DeliveryDialogField extends StatelessWidget {
     this.keyboardType,
     this.inputFormatters,
     this.maxLines = 1,
+    this.onChanged,
   });
 
   final String label;
@@ -38,6 +39,7 @@ class DeliveryDialogField extends StatelessWidget {
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
   final int maxLines;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +64,7 @@ class DeliveryDialogField extends StatelessWidget {
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
           maxLines: maxLines,
+          onChanged: onChanged,
           decoration: InputDecoration(
             isDense: true,
             hintText: label,

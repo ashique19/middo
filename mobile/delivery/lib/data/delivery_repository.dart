@@ -1,6 +1,8 @@
 import 'api_client.dart';
 import 'api_config.dart';
 import 'auth_store.dart';
+import 'network_status.dart';
+import 'offline_mutation_queue.dart';
 
 abstract class DeliveryRepository {
   Future<Map<String, dynamic>> login({
@@ -45,7 +47,13 @@ abstract class DeliveryRepository {
 
   Future<Map<String, dynamic>> pickupRun(int id);
 
-  Future<Map<String, dynamic>> deliverRun(int id);
+  Future<Map<String, dynamic>> sendDeliveryOtp(int id);
+
+  Future<Map<String, dynamic>> deliverRun(
+    int id, {
+    required String otp,
+    String? podPhotoPath,
+  });
 
   Future<Map<String, dynamic>> pendingBoxes();
 
@@ -74,7 +82,8 @@ abstract class DeliveryRepository {
   Future<Map<String, dynamic>> cashHandovers();
 
   Future<Map<String, dynamic>> createCashHandover({
-    required int amount,
+    required List<int> orderIds,
+    required String target,
     String? notes,
   });
 
@@ -102,6 +111,25 @@ class ApiDeliveryRepository implements DeliveryRepository {
   ApiDeliveryRepository(this._client);
 
   final ApiClient _client;
+
+  Future<Map<String, dynamic>?> _enqueueIfOffline({
+    required String type,
+    required String method,
+    required String path,
+    Map<String, dynamic>? body,
+    String? fileField,
+    String? filePath,
+  }) async {
+    if (NetworkStatus.instance.isOnline) return null;
+    return OfflineMutationQueue.instance.enqueue(
+      type: type,
+      method: method,
+      path: path,
+      body: body,
+      fileField: fileField,
+      filePath: filePath,
+    );
+  }
 
   @override
   Future<Map<String, dynamic>> login({
@@ -208,12 +236,48 @@ class ApiDeliveryRepository implements DeliveryRepository {
   Future<Map<String, dynamic>> showRun(int id) => _client.get('/runs/$id');
 
   @override
-  Future<Map<String, dynamic>> pickupRun(int id) =>
-      _client.post('/runs/$id/pickup');
+  Future<Map<String, dynamic>> pickupRun(int id) async {
+    final queued = await _enqueueIfOffline(
+      type: 'pickup',
+      method: 'POST',
+      path: '/runs/$id/pickup',
+      body: const {},
+    );
+    if (queued != null) return queued;
+    return _client.post('/runs/$id/pickup');
+  }
 
   @override
-  Future<Map<String, dynamic>> deliverRun(int id) =>
-      _client.post('/runs/$id/deliver');
+  Future<Map<String, dynamic>> sendDeliveryOtp(int id) =>
+      _client.post('/runs/$id/send-delivery-otp');
+
+  @override
+  Future<Map<String, dynamic>> deliverRun(
+    int id, {
+    required String otp,
+    String? podPhotoPath,
+  }) async {
+    final body = <String, dynamic>{'otp': otp};
+    final queued = await _enqueueIfOffline(
+      type: 'deliver',
+      method: 'POST',
+      path: '/runs/$id/deliver',
+      body: body,
+      fileField: podPhotoPath != null ? 'pod_photo' : null,
+      filePath: podPhotoPath,
+    );
+    if (queued != null) return queued;
+
+    if (podPhotoPath != null && podPhotoPath.isNotEmpty) {
+      return _client.postMultipart(
+        '/runs/$id/deliver',
+        fields: {'otp': otp},
+        fileField: 'pod_photo',
+        filePath: podPhotoPath,
+      );
+    }
+    return _client.post('/runs/$id/deliver', body: body);
+  }
 
   @override
   Future<Map<String, dynamic>> pendingBoxes() =>
@@ -221,36 +285,85 @@ class ApiDeliveryRepository implements DeliveryRepository {
 
   @override
   Future<void> acceptWarehouse(int boxId) async {
+    final queued = await _enqueueIfOffline(
+      type: 'box_accept_warehouse',
+      method: 'POST',
+      path: '/boxes/$boxId/accept-warehouse',
+      body: const {},
+    );
+    if (queued != null) return;
     await _client.post('/boxes/$boxId/accept-warehouse');
   }
 
   @override
   Future<void> handToKitchen(int boxId) async {
+    final queued = await _enqueueIfOffline(
+      type: 'box_hand_to_kitchen',
+      method: 'POST',
+      path: '/boxes/$boxId/hand-to-kitchen',
+      body: const {},
+    );
+    if (queued != null) return;
     await _client.post('/boxes/$boxId/hand-to-kitchen');
   }
 
   @override
   Future<void> acceptKitchenReturn(int boxId) async {
+    final queued = await _enqueueIfOffline(
+      type: 'box_accept_kitchen_return',
+      method: 'POST',
+      path: '/boxes/$boxId/accept-kitchen-return',
+      body: const {},
+    );
+    if (queued != null) return;
     await _client.post('/boxes/$boxId/accept-kitchen-return');
   }
 
   @override
   Future<void> handToOps(int boxId) async {
+    final queued = await _enqueueIfOffline(
+      type: 'box_hand_to_ops',
+      method: 'POST',
+      path: '/boxes/$boxId/hand-to-ops',
+      body: const {},
+    );
+    if (queued != null) return;
     await _client.post('/boxes/$boxId/hand-to-ops');
   }
 
   @override
   Future<void> collectEmpty(int boxId) async {
+    final queued = await _enqueueIfOffline(
+      type: 'box_collect_empty',
+      method: 'POST',
+      path: '/boxes/$boxId/collect-empty',
+      body: const {},
+    );
+    if (queued != null) return;
     await _client.post('/boxes/$boxId/collect-empty');
   }
 
   @override
   Future<void> acceptAllBoxes(int requestId) async {
+    final queued = await _enqueueIfOffline(
+      type: 'box_accept_all',
+      method: 'POST',
+      path: '/boxes/requests/$requestId/accept-all',
+      body: const {},
+    );
+    if (queued != null) return;
     await _client.post('/boxes/requests/$requestId/accept-all');
   }
 
   @override
   Future<void> handAllBoxes(int requestId) async {
+    final queued = await _enqueueIfOffline(
+      type: 'box_hand_all',
+      method: 'POST',
+      path: '/boxes/requests/$requestId/hand-all',
+      body: const {},
+    );
+    if (queued != null) return;
     await _client.post('/boxes/requests/$requestId/hand-all');
   }
 
@@ -265,11 +378,20 @@ class ApiDeliveryRepository implements DeliveryRepository {
     int orderId, {
     required int amount,
     String? notes,
-  }) =>
-      _client.post('/orders/$orderId/collect-cash', body: {
-        'amount': amount,
-        if (notes != null && notes.isNotEmpty) 'notes': notes,
-      });
+  }) async {
+    final body = <String, dynamic>{
+      'amount': amount,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+    };
+    final queued = await _enqueueIfOffline(
+      type: 'collect_cash',
+      method: 'POST',
+      path: '/orders/$orderId/collect-cash',
+      body: body,
+    );
+    if (queued != null) return queued;
+    return _client.post('/orders/$orderId/collect-cash', body: body);
+  }
 
   @override
   Future<Map<String, dynamic>> cashHandovers() =>
@@ -277,11 +399,13 @@ class ApiDeliveryRepository implements DeliveryRepository {
 
   @override
   Future<Map<String, dynamic>> createCashHandover({
-    required int amount,
+    required List<int> orderIds,
+    required String target,
     String? notes,
   }) =>
       _client.post('/cash-handovers', body: {
-        'amount': amount,
+        'order_ids': orderIds,
+        'target': target,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
       });
 
@@ -329,6 +453,7 @@ class MockDeliveryRepository implements DeliveryRepository {
   String _shift = 'on';
   int _balance = 1800;
   int _cashOnHand = 950;
+  int _dueToMiddo = 450;
 
   final List<Map<String, dynamic>> _alerts = [
     {
@@ -357,6 +482,8 @@ class MockDeliveryRepository implements DeliveryRepository {
       'status': 'ready_for_pickup',
       'label': 'Lunch · Gulshan Kitchen → Banani',
       'kitchen_name': 'Gulshan Kitchen',
+      'kitchen_mobile': '01710000001',
+      'kitchen_address': 'Road 7, Gulshan',
       'area_name': 'Banani',
       'receiver_name': 'Acme Corp',
       'receiver_phone': '01711112222',
@@ -366,6 +493,10 @@ class MockDeliveryRepository implements DeliveryRepository {
       'can_pickup': true,
       'can_deliver': false,
       'cash_due': 0,
+      'commission_amount': 40,
+      'show_commission': true,
+      'payment_method_label': 'Online',
+      'box_codes': ['BOX-101-A', 'BOX-101-B'],
     },
     {
       'id': 102,
@@ -373,6 +504,8 @@ class MockDeliveryRepository implements DeliveryRepository {
       'status': 'picked_up',
       'label': 'Lunch · Banani Kitchen → Gulshan',
       'kitchen_name': 'Banani Kitchen',
+      'kitchen_mobile': '01710000002',
+      'kitchen_address': 'Road 11, Banani',
       'area_name': 'Gulshan',
       'receiver_name': 'Beta Ltd',
       'receiver_phone': '01733334444',
@@ -382,6 +515,10 @@ class MockDeliveryRepository implements DeliveryRepository {
       'can_pickup': false,
       'can_deliver': true,
       'cash_due': 450,
+      'commission_amount': 45,
+      'show_commission': true,
+      'payment_method_label': 'Cash on delivery',
+      'box_codes': ['BOX-102-A'],
     },
   ];
 
@@ -477,6 +614,9 @@ class MockDeliveryRepository implements DeliveryRepository {
       'cash_due': 0,
       'cash_collected': true,
       'can_collect_cash': false,
+      'commission_open': 0,
+      'projected_commission': 0,
+      'projected_due_to_middo': 0,
     },
     {
       'id': 502,
@@ -487,6 +627,17 @@ class MockDeliveryRepository implements DeliveryRepository {
       'cash_due': 450,
       'cash_collected': false,
       'can_collect_cash': true,
+      'commission_open': 45,
+      'projected_commission': 45,
+      'projected_due_to_middo': 405,
+    },
+  ];
+
+  final List<Map<String, dynamic>> _eligibleOrders = [
+    {
+      'id': 502,
+      'menu_name': 'Veg Thali',
+      'due_to_middo': 405,
     },
   ];
 
@@ -494,9 +645,35 @@ class MockDeliveryRepository implements DeliveryRepository {
     {
       'id': 77,
       'amount': 500,
+      'target': 'kitchen',
       'status': 'pending',
       'notes': 'End of morning shift',
       'created_at': '2026-09-10 11:00',
+      'order_ids': [499],
+    },
+  ];
+
+  final List<Map<String, dynamic>> _withdrawals = [
+    {
+      'id': 3,
+      'amount': 600,
+      'status': 'paid',
+      'created_at': '2026-09-01 10:00',
+    },
+  ];
+
+  final List<Map<String, dynamic>> _statement = [
+    {
+      'id': 1,
+      'label': 'Commission · run #90',
+      'amount': 120,
+      'created_at': '2026-09-05 14:00',
+    },
+    {
+      'id': 2,
+      'label': 'Withdrawal',
+      'amount': -600,
+      'created_at': '2026-09-01 10:00',
     },
   ];
 
@@ -662,11 +839,30 @@ class MockDeliveryRepository implements DeliveryRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> deliverRun(int id) async {
+  Future<Map<String, dynamic>> sendDeliveryOtp(int id) async {
+    final exists = _runs.any((r) => r['id'] == id);
+    if (!exists) throw ApiException('Run not found', statusCode: 404);
+    return {
+      'message': 'Delivery OTP sent.',
+      'debug_otp': '1234',
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> deliverRun(
+    int id, {
+    required String otp,
+    String? podPhotoPath,
+  }) async {
+    if (otp != '1234') {
+      throw ApiException('Invalid OTP', statusCode: 422);
+    }
+    // Photo optional; mock always accepts when present.
     final i = _runs.indexWhere((r) => r['id'] == id);
     if (i < 0) throw ApiException('Run not found', statusCode: 404);
     final run = _runs[i];
     final cashDue = (run['cash_due'] as num?)?.toInt() ?? 0;
+    final commission = (run['commission_amount'] as num?)?.toInt() ?? 0;
     _runs.removeAt(i);
     _delivered.insert(0, {
       'id': 600 + id,
@@ -677,23 +873,35 @@ class MockDeliveryRepository implements DeliveryRepository {
       'cash_due': cashDue,
       'cash_collected': cashDue == 0,
       'can_collect_cash': cashDue > 0,
+      'commission_open': commission,
+      'projected_commission': commission,
+      'projected_due_to_middo': cashDue > commission ? cashDue - commission : 0,
     });
-    return {'message': 'Delivered run #$id.'};
+    return {
+      'message': 'Delivered run #$id.',
+      if (podPhotoPath != null) 'pod_photo_received': true,
+    };
   }
 
   @override
-  Future<Map<String, dynamic>> pendingBoxes() async => {
-        'boxes': List<dynamic>.from(_pendingBoxes),
-        'requests': [
-          {
-            'id': 55,
-            'label': 'Warehouse staging #55',
-            'box_count': 2,
-            'can_accept_all': true,
-            'can_hand_all': false,
-          },
-        ],
-      };
+  Future<Map<String, dynamic>> pendingBoxes() async {
+    final runGroups = [
+      {
+        'id': 55,
+        'request_id': 55,
+        'label': 'Warehouse staging #55',
+        'title': 'Warehouse staging #55',
+        'box_count': 2,
+        'can_accept_all': true,
+        'can_hand_all': false,
+      },
+    ];
+    return {
+      'boxes': List<dynamic>.from(_pendingBoxes),
+      'run_groups': runGroups,
+      'requests': runGroups,
+    };
+  }
 
   @override
   Future<void> acceptWarehouse(int boxId) async {
@@ -762,65 +970,127 @@ class MockDeliveryRepository implements DeliveryRepository {
   }) async {
     final i = _delivered.indexWhere((o) => o['id'] == orderId);
     if (i < 0) throw ApiException('Order not found', statusCode: 404);
+    final due = (_delivered[i]['cash_due'] as num?)?.toInt() ?? 0;
+    if (amount < due && (notes == null || notes.trim().isEmpty)) {
+      throw ApiException('Notes required when amount is less than cash due');
+    }
+    final commission =
+        (_delivered[i]['projected_commission'] as num?)?.toInt() ??
+            (_delivered[i]['commission_open'] as num?)?.toInt() ??
+            0;
+    final dueMiddo = amount > commission ? amount - commission : 0;
     _delivered[i] = {
       ..._delivered[i],
-      'cash_collected': true,
-      'can_collect_cash': false,
-      'cash_due': 0,
+      'cash_collected': amount >= due,
+      'can_collect_cash': amount < due,
+      'cash_due': amount >= due ? 0 : due - amount,
     };
     _cashOnHand += amount;
+    _dueToMiddo += dueMiddo;
+    if (dueMiddo > 0) {
+      _eligibleOrders.removeWhere((o) => o['id'] == orderId);
+      _eligibleOrders.insert(0, {
+        'id': orderId,
+        'menu_name': _delivered[i]['menu_name'],
+        'due_to_middo': dueMiddo,
+      });
+    }
     return {
       'message': 'Collected ৳$amount.',
       'cash_on_hand': _cashOnHand,
+      'due_to_middo': dueMiddo,
     };
   }
 
   @override
   Future<Map<String, dynamic>> cashHandovers() async => {
         'cash_on_hand': _cashOnHand,
+        'due_to_middo': _dueToMiddo,
+        'eligible_orders': List<dynamic>.from(_eligibleOrders),
         'handovers': List<dynamic>.from(_handovers),
       };
 
   @override
   Future<Map<String, dynamic>> createCashHandover({
-    required int amount,
+    required List<int> orderIds,
+    required String target,
     String? notes,
   }) async {
-    if (amount > _cashOnHand) {
-      throw ApiException('Amount exceeds cash on hand');
+    if (orderIds.isEmpty) {
+      throw ApiException('Select at least one order');
     }
-    _cashOnHand -= amount;
+    if (target != 'kitchen' && target != 'middo') {
+      throw ApiException('Target must be kitchen or middo');
+    }
+    final selected = _eligibleOrders
+        .where((o) => orderIds.contains((o['id'] as num).toInt()))
+        .toList();
+    if (selected.isEmpty) {
+      throw ApiException('No eligible orders selected');
+    }
+    final amount = selected.fold<int>(
+      0,
+      (sum, o) => sum + ((o['due_to_middo'] as num?)?.toInt() ?? 0),
+    );
+    _dueToMiddo = (_dueToMiddo - amount).clamp(0, 1 << 30);
+    _cashOnHand = (_cashOnHand - amount).clamp(0, 1 << 30);
+    _eligibleOrders.removeWhere(
+      (o) => orderIds.contains((o['id'] as num).toInt()),
+    );
     final row = {
       'id': 80 + _handovers.length,
       'amount': amount,
+      'target': target,
       'status': 'pending',
       'notes': notes,
+      'order_ids': orderIds,
       'created_at': DateTime.now().toIso8601String(),
     };
     _handovers.insert(0, row);
     return {
-      'message': 'Handover of ৳$amount submitted.',
+      'message': 'Due handover #${row['id']} submitted for $target acceptance.',
       'handover': row,
       'cash_on_hand': _cashOnHand,
     };
   }
 
   @override
-  Future<Map<String, dynamic>> account() async => {
-        'balance': _balance,
-        'cash_on_hand': _cashOnHand,
-        'receivable': _balance > 0 ? _balance : 0,
-        'has_complete_payout_method': true,
-        'preferred_payout_channel': 'bkash',
-      };
+  Future<Map<String, dynamic>> account() async {
+    final canRequest = _balance > 0 && _dueToMiddo == 0;
+    return {
+      'balance': _balance,
+      'cash_on_hand': _dueToMiddo,
+      'due_to_middo': _dueToMiddo,
+      'receivable': _balance > 0 ? _balance : 0,
+      'can_request_payment': canRequest,
+      'has_complete_payout_method': true,
+      'preferred_payout_channel': 'bkash',
+      'statement': List<dynamic>.from(_statement),
+      'withdrawals': List<dynamic>.from(_withdrawals),
+    };
+  }
 
   @override
   Future<Map<String, dynamic>> withdraw({String? notes}) async {
+    if (_dueToMiddo > 0) {
+      throw ApiException('Clear Due to Middo before withdrawing');
+    }
+    if (_balance <= 0) {
+      throw ApiException('Nothing to withdraw');
+    }
     final amount = _balance;
     _balance = 0;
+    final row = {
+      'id': 10 + _withdrawals.length,
+      'amount': amount,
+      'status': 'pending',
+      'created_at': DateTime.now().toIso8601String(),
+      'notes': notes,
+    };
+    _withdrawals.insert(0, row);
     return {
       'message': 'Withdrawal submitted.',
-      'withdrawal': {'id': 1, 'amount': amount, 'status': 'pending'},
+      'withdrawal': row,
       'balance': _balance,
     };
   }
