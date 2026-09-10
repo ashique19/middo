@@ -58,7 +58,11 @@ abstract class KitchenRepository {
 
   Future<Map<String, dynamic>> menusToday();
 
-  Future<Map<String, dynamic>> shoppingList();
+  Future<Map<String, dynamic>> showMenu(int id);
+
+  Future<Map<String, dynamic>> shoppingList({String? date});
+
+  Future<Map<String, dynamic>> ordersHistory({String period = 'this_month'});
 
   Future<Map<String, dynamic>> boxesAtKitchen();
 
@@ -261,8 +265,17 @@ class ApiKitchenRepository implements KitchenRepository {
   Future<Map<String, dynamic>> menusToday() => _client.get('/menus/today');
 
   @override
-  Future<Map<String, dynamic>> shoppingList() =>
-      _client.get('/prep/shopping-list');
+  Future<Map<String, dynamic>> showMenu(int id) => _client.get('/menus/$id');
+
+  @override
+  Future<Map<String, dynamic>> shoppingList({String? date}) =>
+      _client.get('/prep/shopping-list', query: {
+        if (date != null && date.isNotEmpty) 'date': date,
+      });
+
+  @override
+  Future<Map<String, dynamic>> ordersHistory({String period = 'this_month'}) =>
+      _client.get('/orders/history', query: {'period': period});
 
   @override
   Future<Map<String, dynamic>> boxesAtKitchen() =>
@@ -391,6 +404,25 @@ class MockKitchenRepository implements KitchenRepository {
     'city': 'Dhaka',
     'area': 'Gulshan',
     'role': 'kitchen',
+    'hours': [
+      for (var d = 0; d < 7; d++)
+        {
+          'day_of_week': d,
+          'day_label': [
+            'Sunday',
+            'Monday',
+            'Tuesday',
+            'Wednesday',
+            'Thursday',
+            'Friday',
+            'Saturday',
+          ][d],
+          'is_closed': d == 5,
+          'opens_at': '10:00',
+          'closes_at': '22:00',
+          'label': d == 5 ? 'Closed' : '10:00 – 22:00',
+        },
+    ],
   };
 
   int _balance = 2500;
@@ -435,6 +467,9 @@ class MockKitchenRepository implements KitchenRepository {
           {'key': 'active_orders', 'label': 'My active orders', 'count': 3},
           {'key': 'claimable_groups', 'label': 'Middo order groups', 'count': 2},
           {'key': 'boxes_in_stock', 'label': 'Boxes in Stock', 'count': 12},
+          {'key': 'orders_this_month', 'label': 'This month', 'count': 18},
+          {'key': 'orders_last_month', 'label': 'Last month', 'count': 22},
+          {'key': 'orders_last_3_months', 'label': 'Last 3 months', 'count': 61},
         ],
         'insufficient_box_stock': false,
         'ops_incoming_notices': <dynamic>[],
@@ -585,17 +620,88 @@ class MockKitchenRepository implements KitchenRepository {
   @override
   Future<Map<String, dynamic>> menusToday() async => {
         'menus': [
-          {'id': 1, 'name': 'Lunch Box', 'total_qty': 8, 'order_count': 4},
+          {
+            'id': 1,
+            'name': 'Lunch Box',
+            'total_qty': 8,
+            'order_count': 4,
+            'summary': 'Daily corporate thali',
+          },
         ],
       };
 
   @override
-  Future<Map<String, dynamic>> shoppingList() async => {
-        'delivery_date': '2026-08-30',
+  Future<Map<String, dynamic>> showMenu(int id) async => {
+        'menu': {
+          'id': id,
+          'name': 'Lunch Box',
+          'summary': 'Daily corporate thali',
+          'meal_items': [
+            {
+              'id': 1,
+              'name': 'Chicken curry',
+              'summary': 'Home-style',
+              'has_recipe': true,
+              'recipe_title': 'Kitchen chicken curry',
+            },
+            {
+              'id': 2,
+              'name': 'Rice',
+              'has_recipe': false,
+            },
+          ],
+        },
+      };
+
+  @override
+  Future<Map<String, dynamic>> shoppingList({String? date}) async => {
+        'delivery_date': date ?? '2026-08-30',
+        'group_count': 2,
+        'plate_count': 8,
         'ingredients': [
-          {'name': 'Chicken', 'quantity': 4, 'unit': 'kg'},
-          {'name': 'Rice', 'quantity': 6, 'unit': 'kg'},
+          {'name': 'Chicken', 'quantity': 4, 'unit': 'kg', 'key': 'chicken'},
+          {'name': 'Rice', 'quantity': 6, 'unit': 'kg', 'key': 'rice'},
+          {'name': 'Onion', 'quantity': 2, 'unit': 'kg', 'key': 'onion'},
         ],
+        'menus': [
+          {'menu_id': 1, 'menu_name': 'Lunch Box', 'total_qty': 8, 'group_ids': [1]},
+        ],
+        'warnings': <String>[],
+      };
+
+  @override
+  Future<Map<String, dynamic>> ordersHistory({
+    String period = 'this_month',
+  }) async =>
+      {
+        'period': period,
+        'label': period == 'last_month' ? 'Last month' : 'This month',
+        'from': '2026-09-01',
+        'to': '2026-09-30',
+        'groups': [
+          {
+            'id': 201,
+            'name': 'GRP-HIST',
+            'menu_name': 'Lunch Box',
+            'delivery_date': '2026-09-05',
+            'total_quantity': 6,
+            'orders': [
+              {
+                'id': 501,
+                'menu_name': 'Lunch Box',
+                'quantity': 3,
+                'order_status': 'delivered',
+                'delivery_time': '12:30 PM',
+              },
+            ],
+          },
+        ],
+        'meta': {
+          'current_page': 1,
+          'last_page': 1,
+          'per_page': 20,
+          'total': 1,
+        },
       };
 
   @override

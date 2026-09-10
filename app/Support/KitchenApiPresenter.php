@@ -4,6 +4,8 @@ namespace App\Support;
 
 use App\Models\Area;
 use App\Models\City;
+use App\Models\KitchenHour;
+use App\Models\MealItem;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\Order;
@@ -41,7 +43,47 @@ class KitchenApiPresenter
             'city_id' => $user->city_id,
             'kitchen_tier' => $user->kitchen_tier ?? null,
             'role' => $user->role?->name,
+            'hours' => self::kitchenHours((int) $user->id),
         ];
+    }
+
+    /**
+     * @return list<array{day_of_week: int, day_label: string, is_closed: bool, opens_at: ?string, closes_at: ?string, label: string}>
+     */
+    public static function kitchenHours(int $kitchenId): array
+    {
+        $existing = KitchenHour::query()
+            ->where('user_id', $kitchenId)
+            ->get()
+            ->keyBy('day_of_week');
+
+        $out = [];
+        foreach (KitchenHour::DAYS as $day => $label) {
+            $row = $existing->get($day);
+            if ($row) {
+                $opens = $row->opens_at ? substr((string) $row->opens_at, 0, 5) : null;
+                $closes = $row->closes_at ? substr((string) $row->closes_at, 0, 5) : null;
+                $out[] = [
+                    'day_of_week' => $day,
+                    'day_label' => $label,
+                    'is_closed' => (bool) $row->is_closed,
+                    'opens_at' => $opens,
+                    'closes_at' => $closes,
+                    'label' => $row->hoursLabel(),
+                ];
+            } else {
+                $out[] = [
+                    'day_of_week' => $day,
+                    'day_label' => $label,
+                    'is_closed' => false,
+                    'opens_at' => '10:00',
+                    'closes_at' => '22:00',
+                    'label' => '10:00 – 22:00',
+                ];
+            }
+        }
+
+        return $out;
     }
 
     public static function dashboardTile(string $key, string $label, int $count): array
@@ -206,6 +248,29 @@ class KitchenApiPresenter
             'is_featured' => (bool) $item->is_featured,
             'diet_tag' => $item->diet_tag ?? null,
         ];
+    }
+
+    public static function menuDetail(MenuItem $item): array
+    {
+        $item->loadMissing([
+            'mealItems' => fn ($query) => $query->with('activeRecipe')->orderByPivot('sort_order'),
+        ]);
+
+        $mealItems = $item->mealItems
+            ->map(fn (MealItem $meal) => [
+                'id' => $meal->id,
+                'name' => $meal->name,
+                'summary' => $meal->summary,
+                'has_recipe' => $meal->activeRecipe !== null,
+                'recipe_title' => $meal->activeRecipe?->title,
+                'recipe_id' => $meal->activeRecipe?->id,
+            ])
+            ->values()
+            ->all();
+
+        return array_merge(self::menuItem($item), [
+            'meal_items' => $mealItems,
+        ]);
     }
 
     public static function box(MiddoBox $box): array

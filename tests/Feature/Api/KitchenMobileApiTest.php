@@ -315,6 +315,57 @@ class KitchenMobileApiTest extends TestCase
         ]);
     }
 
+    public function test_kitchen_orders_history_and_menu_detail(): void
+    {
+        $city = City::create(['name' => 'Dhaka']);
+        $area = Area::create(['name' => 'Gulshan', 'city_id' => $city->id]);
+        $kitchen = $this->makeKitchen(['city_id' => $city->id, 'area_id' => $area->id]);
+        $corporate = $this->makeCorporate(['city_id' => $city->id, 'area_id' => $area->id, 'mobile' => '01310999111']);
+        $menu = $this->makeMenu();
+        $today = now('Asia/Dhaka')->toDateString();
+
+        $order = Order::create([
+            'user_id' => $corporate->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 2,
+            'delivery_date' => $today,
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 500,
+            'address' => 'Private',
+            'area_id' => $area->id,
+            'order_status' => OrderTransition::DELIVERED,
+            'payment_status' => 'paid',
+            'created_by' => $corporate->id,
+            'updated_by' => $corporate->id,
+        ]);
+
+        $group = OrderGroup::create([
+            'name' => 'History group',
+            'menu_id' => $menu->id,
+            'area_id' => $area->id,
+            'delivery_date' => $today,
+            'kitchen_id' => $kitchen->id,
+        ]);
+        $group->orders()->attach($order->id);
+
+        Sanctum::actingAs($kitchen);
+
+        $this->getJson('/api/kitchen/orders/history?period=this_month')
+            ->assertOk()
+            ->assertJsonPath('period', 'this_month')
+            ->assertJsonPath('groups.0.id', $group->id)
+            ->assertJsonStructure(['label', 'from', 'to', 'groups', 'meta']);
+
+        $this->getJson('/api/kitchen/menus/'.$menu->id)
+            ->assertOk()
+            ->assertJsonPath('menu.id', $menu->id)
+            ->assertJsonStructure(['menu' => ['id', 'name', 'meal_items']]);
+
+        $this->getJson('/api/kitchen/me')
+            ->assertOk()
+            ->assertJsonStructure(['user' => ['hours']]);
+    }
+
     public function test_kitchen_menus_today_and_boxes_list(): void
     {
         $kitchen = $this->makeKitchen();

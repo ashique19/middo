@@ -75,6 +75,7 @@ Decline body: `{ "reason": "…" }`.
 | Method | Path | Permission |
 |--------|------|------------|
 | `GET` | `/orders/active` | `kitchen.orders` |
+| `GET` | `/orders/history?period=` | `kitchen.orders` |
 | `GET` | `/orders/{id}` | `kitchen.orders` |
 | `POST` | `/orders/{id}/ready` | `kitchen.orders` |
 | `GET` | `/orders/{id}/dispatch-options` | `kitchen.orders` |
@@ -84,6 +85,14 @@ Decline body: `{ "reason": "…" }`.
 | `POST` | `/order-groups/{id}/shortage` | `kitchen.orders` |
 
 Dispatch body: `{ "box_ids": [1, 2, …] }` — must match order quantity. Uses `OrderKitchenDispatch`.
+
+History `period`: `this_month` | `last_month` | `last_3_months`. Response includes `groups`, `label`, `from`, `to`, `meta`.
+
+`GET /menus/{id}` returns `menu` with `meal_items[]` (`has_recipe`, `recipe_title`).
+
+`GET /me` and profile responses include `hours[]` (weekly kitchen hours). Optional `hours` on `PATCH /profile` to update them.
+
+Deep links: `middo-kitchen://groups`, `middo-kitchen://boxes`, `middo-kitchen://orders/{id}`, `middo-kitchen://history?period=this_month`, `middo-kitchen://menus/{id}`.
 
 ---
 

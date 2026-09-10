@@ -138,7 +138,12 @@ class KitchenIngredientRollupTest extends TestCase
             ->assertStatus(200)
             ->assertSee('Prep shopping list')
             ->assertSee('Chicken')
-            ->assertSee('Lunch');
+            ->assertSee('Lunch')
+            ->set('ingredientSearch', 'zzz-no-match')
+            ->assertSee('No ingredients match')
+            ->assertDontSee('Chicken', false)
+            ->set('ingredientSearch', 'chick')
+            ->assertSee('Chicken');
     }
 
     /**

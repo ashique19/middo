@@ -7,6 +7,7 @@ use App\Livewire\Kitchen\IncomingBoxes as IncomingBoxesUi;
 use App\Models\Area;
 use App\Models\CashHandover;
 use App\Models\DeviceToken;
+use App\Models\KitchenHour;
 use App\Models\KitchenBoxRequest;
 use App\Models\KitchenBoxRequestLog;
 use App\Models\KitchenMiddoTransfer;
@@ -187,25 +188,60 @@ class KitchenMobileController extends Controller
             'address' => ['nullable', 'string', 'max:1000'],
             'city_id' => ['required', 'integer', 'exists:cities,id'],
             'area_id' => ['required', 'integer', 'exists:areas,id'],
+            'hours' => ['sometimes', 'array', 'size:7'],
+            'hours.*.day_of_week' => ['required_with:hours', 'integer', 'between:0,6'],
+            'hours.*.is_closed' => ['required_with:hours', 'boolean'],
+            'hours.*.opens_at' => ['nullable', 'date_format:H:i'],
+            'hours.*.closes_at' => ['nullable', 'date_format:H:i'],
         ], [
             'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
         ]);
 
         $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
 
-        $user->first_name = $data['first_name'];
-        $user->last_name = $data['last_name'];
-        $user->mobile = $data['mobile'];
-        $user->email = $data['email'] ?? null;
-        $user->address = $data['address'] ?? null;
-        $user->city_id = $data['city_id'];
-        $user->area_id = $data['area_id'];
-        $user->save();
+        if (isset($data['hours'])) {
+            foreach ($data['hours'] as $row) {
+                $closed = (bool) ($row['is_closed'] ?? false);
+                $opens = $row['opens_at'] ?? null;
+                $closes = $row['closes_at'] ?? null;
+                if (! $closed && ($opens === null || $closes === null || $opens >= $closes)) {
+                    throw ValidationException::withMessages([
+                        'hours' => [KitchenHour::DAYS[(int) $row['day_of_week']].': set open before close, or mark closed.'],
+                    ]);
+                }
+            }
+        }
+
+        DB::transaction(function () use ($user, $data) {
+            $user->first_name = $data['first_name'];
+            $user->last_name = $data['last_name'];
+            $user->mobile = $data['mobile'];
+            $user->email = $data['email'] ?? null;
+            $user->address = $data['address'] ?? null;
+            $user->city_id = $data['city_id'];
+            $user->area_id = $data['area_id'];
+            $user->save();
+
+            if (isset($data['hours'])) {
+                foreach ($data['hours'] as $row) {
+                    $day = (int) $row['day_of_week'];
+                    $closed = (bool) ($row['is_closed'] ?? false);
+                    KitchenHour::query()->updateOrCreate(
+                        ['user_id' => $user->id, 'day_of_week' => $day],
+                        [
+                            'is_closed' => $closed,
+                            'opens_at' => $closed ? null : ($row['opens_at'] ?? null),
+                            'closes_at' => $closed ? null : ($row['closes_at'] ?? null),
+                        ],
+                    );
+                }
+            }
+        });
 
         $user->load(['role', 'area', 'city']);
 
         return response()->json([
-            'message' => 'Profile updated.',
+            'message' => isset($data['hours']) ? 'Profile and hours saved.' : 'Profile updated.',
             'user' => KitchenApiPresenter::user($user),
         ]);
     }
@@ -637,6 +673,57 @@ class KitchenMobileController extends Controller
         ]);
     }
 
+    public function ordersHistory(Request $request): JsonResponse
+    {
+        $kitchenId = (int) $request->user()->id;
+        $period = (string) $request->query('period', 'this_month');
+        if (! in_array($period, ['this_month', 'last_month', 'last_3_months'], true)) {
+            $period = 'this_month';
+        }
+        $now = Carbon::now('Asia/Dhaka');
+
+        [$start, $end, $label] = match ($period) {
+            'last_month' => [
+                $now->copy()->subMonthNoOverflow()->startOfMonth()->toDateString(),
+                $now->copy()->subMonthNoOverflow()->endOfMonth()->toDateString(),
+                $now->copy()->subMonthNoOverflow()->format('F Y'),
+            ],
+            'last_3_months' => [
+                $now->copy()->subMonthsNoOverflow(2)->startOfMonth()->toDateString(),
+                $now->copy()->endOfMonth()->toDateString(),
+                $now->copy()->subMonthsNoOverflow(2)->format('M Y').' – '.$now->format('M Y'),
+            ],
+            default => [
+                $now->copy()->startOfMonth()->toDateString(),
+                $now->copy()->endOfMonth()->toDateString(),
+                $now->format('F Y'),
+            ],
+        };
+
+        $groups = OrderGroup::with([
+            'menuItem',
+            'area',
+            'orders' => fn ($query) => $query
+                ->with(['menuItem', 'area', 'deliveryRider', 'packageSubscription.package'])
+                ->orderByDesc('delivery_date')
+                ->orderBy('delivery_time'),
+        ])
+            ->where('kitchen_id', $kitchenId)
+            ->whereBetween('delivery_date', [$start, $end])
+            ->orderByDesc('delivery_date')
+            ->orderBy('name')
+            ->paginate(20);
+
+        return response()->json([
+            'period' => $period,
+            'label' => $label,
+            'from' => $start,
+            'to' => $end,
+            'groups' => KitchenApiPresenter::orderGroups($groups->getCollection()),
+            'meta' => KitchenApiPresenter::paginationMeta($groups),
+        ]);
+    }
+
     public function showOrder(Request $request, int $id): JsonResponse
     {
         $kitchenId = (int) $request->user()->id;
@@ -734,7 +821,7 @@ class KitchenMobileController extends Controller
         }
 
         return response()->json([
-            'menu' => KitchenApiPresenter::menuItem($item),
+            'menu' => KitchenApiPresenter::menuDetail($item),
         ]);
     }
 

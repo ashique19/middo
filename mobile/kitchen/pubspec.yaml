@@ -1,7 +1,7 @@
 name: middo_kitchen
 description: "Middo Kitchen — cook partner app for order groups, prep, and dispatch."
 publish_to: 'none'
-version: 0.2.4+6
+version: 0.3.0+7
 
 environment:
   sdk: ^3.8.1
@@ -17,6 +17,8 @@ dependencies:
   shared_preferences: ^2.5.3
   firebase_core: ^3.15.1
   firebase_messaging: ^15.2.9
+  connectivity_plus: ^6.1.4
+  app_links: ^6.4.0
 
 dev_dependencies:
   flutter_test:

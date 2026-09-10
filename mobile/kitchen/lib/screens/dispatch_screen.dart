@@ -3,9 +3,11 @@ import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
+import '../data/middo_haptics.dart';
 import '../theme/middo_colors.dart';
 import '../widgets/kitchen_mobile_header.dart';
 import '../widgets/kitchen_ui.dart';
+import '../widgets/skeleton.dart';
 
 class DispatchScreen extends StatefulWidget {
   const DispatchScreen({super.key, required this.orderId});
@@ -51,6 +53,7 @@ class _DispatchScreenState extends State<DispatchScreen> {
         boxIds: _selected.toList()..sort(),
       );
       if (!mounted) return;
+      MiddoHaptics.success();
       showKitchenSnack(
         context,
         res['message']?.toString() ?? 'Dispatched.',
@@ -74,7 +77,7 @@ class _DispatchScreenState extends State<DispatchScreen> {
         future: _future,
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const ListSkeleton(rows: 3);
           }
           if (snap.hasError) {
             return KitchenError(snap.error!, onRetry: _reload);

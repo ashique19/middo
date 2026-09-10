@@ -10,8 +10,10 @@ import '../screens/dispatch_screen.dart';
 import '../screens/groups_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
+import '../screens/menu_detail_screen.dart';
 import '../screens/more_screen.dart';
 import '../screens/order_detail_screen.dart';
+import '../screens/order_history_screen.dart';
 import '../screens/orders_screen.dart';
 import '../screens/prep_screen.dart';
 import '../screens/profile_screen.dart';
@@ -79,6 +81,29 @@ GoRouter createAppRouter() {
           key: state.pageKey,
           child: const LoginScreen(),
         ),
+      ),
+      GoRoute(
+        parentNavigatorKey: rootNavigatorKey,
+        path: '/history',
+        pageBuilder: (context, state) {
+          final period =
+              state.uri.queryParameters['period'] ?? 'this_month';
+          return _fadePage(
+            key: state.pageKey,
+            child: OrderHistoryScreen(initialPeriod: period),
+          );
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: rootNavigatorKey,
+        path: '/menus/:id',
+        pageBuilder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return _fadePage(
+            key: state.pageKey,
+            child: MenuDetailScreen(menuId: id),
+          );
+        },
       ),
       GoRoute(
         parentNavigatorKey: rootNavigatorKey,

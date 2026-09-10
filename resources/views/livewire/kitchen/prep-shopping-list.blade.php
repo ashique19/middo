@@ -36,6 +36,18 @@
                 <p class="mt-0.5 text-lg font-black text-middo-orange tabular-nums">{{ $rollup['plate_count'] }}</p>
             </div>
         </div>
+        <div class="border-t border-gray-100 pt-3">
+            <label for="prep-shopping-search" class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                Search ingredients
+            </label>
+            <input
+                id="prep-shopping-search"
+                type="search"
+                wire:model.live.debounce.200ms="ingredientSearch"
+                placeholder="e.g. chicken, rice…"
+                class="block w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-middo-dark shadow-none focus:border-middo-orange focus:outline-none focus:ring-2 focus:ring-middo-orange/20"
+            >
+        </div>
     </div>
 
     @if(! empty($rollup['warnings']))
@@ -139,7 +151,11 @@
                 </div>
             @empty
                 <div class="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm text-gray-400 italic">
-                    No accepted groups with recipes for this date.
+                    @if(trim($ingredientSearch) !== '')
+                        No ingredients match “{{ $ingredientSearch }}”.
+                    @else
+                        No accepted groups with recipes for this date.
+                    @endif
                 </div>
             @endforelse
         </div>

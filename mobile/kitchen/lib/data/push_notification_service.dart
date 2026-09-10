@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../router/app_router.dart';
 import 'auth_store.dart';
 import 'kitchen_repository.dart';
+import 'middo_haptics.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -54,15 +55,6 @@ class PushNotificationService {
       if (settings.authorizationStatus == AuthorizationStatus.denied) {
         debugPrint('Push: notification permission denied');
         return;
-      }
-
-      // Kitchen Android channel expected by SendStaffAlertPush / FcmClient.
-      if (!kIsWeb && Platform.isAndroid) {
-        await messaging.setForegroundNotificationPresentationOptions(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
       }
 
       FirebaseMessaging.onMessage.listen(_onForegroundMessage);
@@ -137,8 +129,8 @@ class PushNotificationService {
   }
 
   void _onForegroundMessage(RemoteMessage message) {
-    final title = message.notification?.title ?? 'Middo Kitchen';
-    final body = message.notification?.body ?? '';
+    MiddoHaptics.light();
+    final copy = _copyFor(message);
     final path = _pathFrom(message.data);
 
     final ctx = rootNavigatorKey.currentContext;
@@ -149,7 +141,7 @@ class PushNotificationService {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          body.isEmpty ? title : '$title — $body',
+          copy.$2.isEmpty ? copy.$1 : '${copy.$1} — ${copy.$2}',
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
         ),
@@ -182,15 +174,103 @@ class PushNotificationService {
     } catch (_) {}
   }
 
+  (String, String) _copyFor(RemoteMessage message) {
+    final alertType = message.data['alert_type']?.toString() ??
+        message.data['staff_alert_type']?.toString() ??
+        '';
+    final fallbackTitle = message.notification?.title ?? 'Middo Kitchen';
+    final fallbackBody = message.notification?.body ?? '';
+
+    return switch (alertType) {
+      'group_assigned' => (
+          'New group assigned',
+          fallbackBody.isEmpty
+              ? 'Open Groups to accept or decline.'
+              : fallbackBody,
+        ),
+      'accept_window_closing' => (
+          'Accept window closing',
+          fallbackBody.isEmpty
+              ? 'Claim remaining Middo groups before the window ends.'
+              : fallbackBody,
+        ),
+      'ops_to_kitchen_box' || 'empty_box_pickup' => (
+          'Boxes incoming',
+          fallbackBody.isEmpty
+              ? 'Confirm receive on Incoming boxes after the rider hands over.'
+              : fallbackBody,
+        ),
+      'kitchen_to_ops_box' => (
+          'Empty boxes to warehouse',
+          fallbackBody.isEmpty
+              ? 'Check Boxes for kitchen→ops handoff status.'
+              : fallbackBody,
+        ),
+      'lunch_dispatch' || 'custom_run' => (
+          'Dispatch update',
+          fallbackBody.isEmpty
+              ? 'Open Orders to pack and dispatch.'
+              : fallbackBody,
+        ),
+      'kitchen_box_request' => (
+          'Box request update',
+          fallbackBody.isEmpty ? 'Ops updated your box request.' : fallbackBody,
+        ),
+      'needs_reassignment' => (
+          'Reassignment needed',
+          fallbackBody.isEmpty
+              ? 'A group needs attention — open Alerts.'
+              : fallbackBody,
+        ),
+      _ => (fallbackTitle, fallbackBody),
+    };
+  }
+
   String? _pathFrom(Map<String, dynamic> data) {
     final type = data['type']?.toString();
-    if (type == 'staff_alert') {
-      final groupId = data['order_group_id']?.toString();
-      if (groupId != null && groupId.isNotEmpty) {
-        return '/groups';
-      }
-      return '/alerts';
+    if (type != 'staff_alert' && type != null && type.isNotEmpty) {
+      return null;
     }
-    return null;
+
+    final explicit = data['path']?.toString();
+    if (explicit != null && explicit.startsWith('/')) return explicit;
+
+    final deep = data['deep_link']?.toString();
+    if (deep != null && deep.startsWith('middo-kitchen://')) {
+      final uri = Uri.tryParse(deep);
+      if (uri != null) {
+        final host = uri.host;
+        if (host.isNotEmpty) {
+          if (uri.pathSegments.isEmpty) return '/$host';
+          return '/$host/${uri.pathSegments.join('/')}';
+        }
+      }
+    }
+
+    final alertType = data['alert_type']?.toString() ??
+        data['staff_alert_type']?.toString() ??
+        '';
+    final orderId = data['order_id']?.toString();
+    final groupId = data['order_group_id']?.toString();
+
+    if (orderId != null && orderId.isNotEmpty) {
+      if (alertType == 'lunch_dispatch' || alertType == 'custom_run') {
+        return '/orders/$orderId/dispatch';
+      }
+      return '/orders/$orderId';
+    }
+
+    return switch (alertType) {
+      'group_assigned' || 'accept_window_closing' || 'needs_reassignment' =>
+        '/groups',
+      'ops_to_kitchen_box' ||
+      'empty_box_pickup' ||
+      'kitchen_to_ops_box' ||
+      'kitchen_box_request' =>
+        '/boxes',
+      'lunch_dispatch' || 'custom_run' =>
+        groupId != null && groupId.isNotEmpty ? '/orders' : '/orders',
+      _ => groupId != null && groupId.isNotEmpty ? '/groups' : '/alerts',
+    };
   }
 }

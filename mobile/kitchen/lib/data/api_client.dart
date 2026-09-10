@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_config.dart';
 import 'auth_store.dart';
+import 'network_status.dart';
 
 class ApiException implements Exception {
   ApiException(this.message, {this.statusCode, this.errors});
@@ -74,6 +75,7 @@ class ApiClient {
     try {
       streamed = await _client.send(request);
     } catch (_) {
+      NetworkStatus.instance.markRequestFailed();
       throw ApiException(
         'Could not reach Middo API at ${ApiConfig.baseUrl}. Is `php artisan serve` running?',
       );
@@ -128,6 +130,7 @@ class ApiClient {
           );
       }
     } catch (_) {
+      NetworkStatus.instance.markRequestFailed();
       throw ApiException(
         'Could not reach Middo API at ${ApiConfig.baseUrl}. Is `php artisan serve` running?',
       );
@@ -142,6 +145,7 @@ class ApiClient {
         : jsonDecode(response.body) as Map<String, dynamic>;
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
+      NetworkStatus.instance.markRequestSucceeded();
       return decoded;
     }
 
