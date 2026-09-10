@@ -76,7 +76,8 @@ Response: `{alerts:[], unread_count, meta}`.
 | `GET` | `/runs` | `delivery.runs` |
 | `GET` | `/runs/{id}` | `delivery.runs` |
 | `POST` | `/runs/{id}/pickup` | `delivery.runs` |
-| `POST` | `/runs/{id}/deliver` | `delivery.runs` |
+| `POST` | `/runs/{id}/send-delivery-otp` | `delivery.runs` | SMS OTP to receiver (`debug_otp` in local/testing) |
+| `POST` | `/runs/{id}/deliver` | `delivery.runs` | JSON or multipart: `otp`, optional `pod_photo`; send `Idempotency-Key` |
 | `GET` | `/runs/history?period=` | `delivery.runs` |
 
 **Critical:** riders **never** first-claim lunch runs. Lists are scoped via `DeliveryAreaScope` to `delivery_rider_id = rider`.
@@ -100,7 +101,7 @@ History `period`: `this_month` | `last_month` | `last_3_months`.
 | `POST` | `/boxes/requests/{id}/accept-all` | `delivery.boxes` |
 | `POST` | `/boxes/requests/{id}/hand-all` | `delivery.boxes` |
 
-`GET /boxes/pending` → `{boxes:[], run_groups:[]}`.
+`GET /boxes/pending` → `{boxes:[], run_groups:[], requests:[]}` (`requests` aliases `run_groups` for Flutter).
 
 **Critical:** riders **never** first-claim kitchen→ops (`can_claim_kitchen_return` is always false). Ops assigns; rider only accepts dispatched custody.
 
@@ -120,6 +121,8 @@ History `period`: `this_month` | `last_month` | `last_3_months`.
 Body: `{ "cash_amount": 450, "short_reason": "…" }`  
 Aliases accepted: `amount` → `cash_amount`, `notes` → `short_reason` (Flutter client).
 
+Delivered-order payload includes `cash_due`, `commission_open`, `projected_commission`, `projected_due_to_middo`.
+
 **Cash Due = collection − commission** (commission settled in-kind from float; residual Due stays on `users.balance` / `cash_due_to_middo`).
 
 ### Create handover
@@ -135,6 +138,8 @@ Amount is derived from selected orders’ Due to Middo (not a free-form amount).
 |--------|------|------------|
 | `GET` | `/account` | `delivery.account` |
 | `POST` | `/account/withdraw` | `delivery.account` |
+
+Account also returns `statement[]` and `withdrawals[]`.
 
 Withdraw body: `{ "notes"?, "payout_channel"? }`. Amount = full wallet receivable.  
 **Blocked while `users.balance` (Due to Middo) > 0.**
