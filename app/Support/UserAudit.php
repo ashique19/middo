@@ -22,6 +22,8 @@ class UserAudit
 
     public const SOURCE_KITCHEN_MOBILE = 'kitchen_mobile';
 
+    public const SOURCE_DELIVERY_MOBILE = 'delivery_mobile';
+
     public const SOURCE_KITCHEN = 'kitchen';
 
     public const SOURCE_DELIVERY = 'delivery';
@@ -74,6 +76,10 @@ class UserAudit
 
         if ($request->is('api/kitchen', 'api/kitchen/*')) {
             return self::SOURCE_KITCHEN_MOBILE;
+        }
+
+        if ($request->is('api/delivery', 'api/delivery/*')) {
+            return self::SOURCE_DELIVERY_MOBILE;
         }
 
         if ($request->is('api', 'api/*')) {
