@@ -161,9 +161,11 @@
                 </div>
             </div>
         @empty
-            <div class="rounded-2xl border border-gray-100 bg-white p-10 text-center text-sm font-semibold text-gray-400 italic">
-                No Middo boxes in your pending runs. When Ops stages stock for you, it appears here as Ready for pickup.
-            </div>
+            <x-delivery.empty-state
+                icon="boxes"
+                title="No pending boxes"
+                message="When Ops stages warehouse stock or kitchen returns for you, they appear here."
+            />
         @endforelse
     </div>
 

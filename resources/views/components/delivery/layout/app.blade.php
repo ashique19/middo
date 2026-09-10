@@ -18,7 +18,16 @@
     <link rel="manifest" href="{{ asset('manifest-delivery.webmanifest') }}">
 </head>
 <body class="delivery-shell text-middo-dark font-sans overflow-x-hidden antialiased"
-      x-data="{ moreOpen: false }">
+      x-data="{ moreOpen: false, offline: !navigator.onLine }"
+      x-init="
+        window.addEventListener('online', () => offline = false);
+        window.addEventListener('offline', () => offline = true);
+      ">
+
+    <div x-show="offline" x-cloak
+         class="sticky top-0 z-[60] bg-[#AB3F00] px-4 py-2 text-center text-xs font-bold text-white md:hidden">
+        You appear offline. Some rider actions may not work until you reconnect.
+    </div>
 
     <div class="min-h-dvh flex kitchen-app-bg md:bg-gray-50">
         <div class="hidden md:block">

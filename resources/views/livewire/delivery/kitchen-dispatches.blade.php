@@ -105,9 +105,11 @@
             </div>
         </div>
     @empty
-        <div class="bg-white border border-gray-200 rounded-2xl p-10 sm:p-12 text-center shadow-sm">
-            <p class="text-sm font-semibold text-gray-400 italic">No kitchen runs waiting right now.</p>
-        </div>
+        <x-delivery.empty-state
+            icon="runs"
+            title="No kitchen runs"
+            message="Ops-assigned packed orders will show up here for pickup and delivery."
+        />
     @endforelse
 
     @if($orders->hasPages())
