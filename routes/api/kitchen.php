@@ -41,6 +41,7 @@ Route::prefix('kitchen')->group(function () {
 
         Route::middleware('permission:'.KitchenPermissions::ORDERS)->group(function () {
             Route::get('/orders/active', [KitchenMobileController::class, 'activeOrders']);
+            Route::get('/orders/history', [KitchenMobileController::class, 'ordersHistory']);
             Route::get('/orders/{id}', [KitchenMobileController::class, 'showOrder']);
             Route::post('/orders/{id}/ready', [KitchenMobileController::class, 'markOrderReady']);
             Route::get('/orders/{id}/dispatch-options', [KitchenMobileController::class, 'dispatchOptions']);

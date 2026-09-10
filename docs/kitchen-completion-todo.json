@@ -286,7 +286,8 @@
   },
   "out_of_scope_unless_requested": [
     "Full WMS / inventory purchasing",
-    "Kitchen mobile native apps",
-    "Dynamic surge pricing by kitchen tier"
-  ]
+    "Dynamic surge pricing by kitchen tier",
+    "Native desktop kitchen clients"
+  ],
+  "native_apps_note": "Flutter kitchen app ships under mobile/kitchen/ (Sanctum /api/kitchen). UX parity pack 0.3.x adds offline banner, skeletons, history, menu detail, deep links."
 }
