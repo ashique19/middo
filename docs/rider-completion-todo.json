@@ -1,15 +1,29 @@
 {
   "title": "Rider / delivery portal — completion backlog",
-  "version": 10,
-  "updated": "2026-08-05",
+  "version": 11,
+  "updated": "2026-09-10",
   "context": {
     "existing_delivery_livewire": [
       "Dashboard",
-      "KitchenDispatches (accept lunch run kitchen→corporate, deliver)",
+      "KitchenDispatches (ops-assigned lunch pickup/deliver — no rider first-claim)",
       "DeliveredOrders + PaymentModal (cash / online residual)",
-      "PendingBoxRuns (corporate→kitchen box handoff)",
-      "CashHandovers (submit float to kitchen)"
+      "PendingBoxRuns (ops→kitchen / kitchen→ops assigned / corporate empty collect)",
+      "CashHandovers (Due handover to kitchen or Middo)",
+      "CustomRuns (start/complete)"
     ],
+    "native_app": {
+      "status": "Sanctum API shipped",
+      "base_path": "/api/delivery",
+      "contract": "docs/delivery-mobile-api-contract.md",
+      "flutter_client": "mobile/delivery/",
+      "permissions": "App\\Support\\DeliveryPermissions (synced on delivery role)",
+      "notes": [
+        "Full surface mirrors delivery_repository.dart paths",
+        "Actions extracted to DeliveryMobileActions from Livewire",
+        "Audit source delivery_mobile for api/delivery/*",
+        "Still no rider first-claim for lunch or kitchen→ops"
+      ]
+    },
     "product_rules_agreed": [
       "Middo P&L must account for ALL costs against revenue (kitchen share, rider commissions, direct costs, etc.) — rest = profit/loss",
       "Rider earns commission per ORDER or per RUN — never per Middo group",
@@ -488,7 +502,8 @@
         }
       ],
       "shipped_notes": [
-        "tests/Feature/Delivery/DeliveryMobileShellR5Test.php"
+        "tests/Feature/Delivery/DeliveryMobileShellR5Test.php",
+        "Sanctum mobile API: routes/api/delivery.php + DeliveryMobileController; tests/Feature/Api/DeliveryMobileApiTest.php; docs/delivery-mobile-api-contract.md"
       ]
     },
     {
@@ -606,12 +621,12 @@
     "Rider-to-rider cash transfer",
     "GPS tracking / route optimization",
     "Settings-based lunch rate that duplicates menu.delivery_commission",
-    "Native iOS/Android rider app (later — reuse R5 IA)"
+    "Native iOS/Android rider app UI polish (API + Flutter scaffold exist — /api/delivery)"
   ],
   "parked_next_wave_agreed_2026_08_04": {
     "status": "cleared for core next-wave — N0–N5 shipped; F0/F1 remain low/deferred",
     "deferred_product": [
-      "Native rider app (reuse R5 IA)"
+      "Native rider app UI polish (Sanctum API + Flutter client at mobile/delivery/; contract docs/delivery-mobile-api-contract.md)"
     ],
     "worth_building_next": [
       "Accounts finance stretch (F0) — scoped deferred; see docs/f0-finance-decisions.json"

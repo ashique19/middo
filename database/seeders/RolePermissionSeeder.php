@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Permission;
 use App\Models\Role;
+use App\Support\DeliveryPermissions;
 use App\Support\KitchenPermissions;
 use Illuminate\Database\Seeder;
 
@@ -24,6 +25,7 @@ class RolePermissionSeeder extends Seeder
         Role::query()->firstOrCreate(['name' => 'ground_marketing']);
 
         KitchenPermissions::syncKitchenRole($kitchen);
+        DeliveryPermissions::syncDeliveryRole($delivery);
 
         $delivery->permissions()->syncWithoutDetaching([$acceptOrder->id]);
         $operations->permissions()->syncWithoutDetaching([$acceptOrder->id]);
