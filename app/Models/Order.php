@@ -49,6 +49,8 @@ class Order extends Model
         'payment_method',
         'coupon_id',
         'dispatched_at',
+        'pod_photo_path',
+        'pod_verified_at',
         'delivery_rider_id',
         'original_delivery_rider_id',
         'created_by',
@@ -58,6 +60,7 @@ class Order extends Model
     protected $casts = [
         'delivery_date' => 'date',
         'dispatched_at' => 'datetime',
+        'pod_verified_at' => 'datetime',
         'quantity' => 'integer',
         'total_amount' => 'integer',
         'food_amount' => 'integer',

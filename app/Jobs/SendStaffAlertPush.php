@@ -61,14 +61,17 @@ class SendStaffAlertPush implements ShouldQueue
             $tokens,
             (string) $alert->title,
             (string) ($alert->body ?: $alert->title),
-            [
+            array_filter([
                 'type' => 'staff_alert',
                 'alert_id' => (string) $alert->id,
                 'alert_type' => (string) $alert->type,
                 'order_group_id' => $alert->order_group_id !== null
                     ? (string) $alert->order_group_id
                     : '',
-            ],
+                'order_id' => (string) ($alert->meta['order_id'] ?? $alert->meta['run_id'] ?? ''),
+                'path' => self::pathForAlert($alert),
+                'deep_link' => self::deepLinkForAlert($alert),
+            ], fn ($v) => $v !== null && $v !== ''),
             'middo_staff_alerts',
         );
 
@@ -78,5 +81,32 @@ class SendStaffAlertPush implements ShouldQueue
             'type' => $alert->type,
             'result' => $result,
         ]);
+    }
+
+    protected static function pathForAlert(\App\Models\StaffAlert $alert): string
+    {
+        $orderId = $alert->meta['order_id'] ?? $alert->meta['run_id'] ?? null;
+        return match ($alert->type) {
+            \App\Models\StaffAlert::TYPE_LUNCH_DISPATCH,
+            'lunch_dispatch',
+            'run_assigned',
+            \App\Models\StaffAlert::TYPE_CUSTOM_RUN,
+            'custom_run' => $orderId ? '/runs/'.$orderId : '/runs',
+            \App\Models\StaffAlert::TYPE_OPS_TO_KITCHEN_BOX,
+            \App\Models\StaffAlert::TYPE_EMPTY_BOX_PICKUP,
+            \App\Models\StaffAlert::TYPE_KITCHEN_TO_OPS_BOX,
+            \App\Models\StaffAlert::TYPE_KITCHEN_BOX_REQUEST,
+            'ops_to_kitchen_box',
+            'empty_box_pickup',
+            'kitchen_to_ops_box' => '/boxes',
+            default => '/alerts',
+        };
+    }
+
+    protected static function deepLinkForAlert(\App\Models\StaffAlert $alert): string
+    {
+        $path = ltrim(self::pathForAlert($alert), '/');
+
+        return 'middo-delivery://'.$path;
     }
 }

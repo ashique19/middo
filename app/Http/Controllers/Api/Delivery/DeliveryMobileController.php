@@ -2,6 +2,12 @@
 
 namespace App\Http\Controllers\Api\Delivery;
 
+use Illuminate\Support\Facades\Storage;
+
+use App\Support\DeliveryPodOtp;
+
+use App\Support\ApiIdempotency;
+
 use App\Http\Controllers\Controller;
 use App\Models\CashHandover;
 use App\Models\CustomRun;
@@ -408,16 +414,58 @@ class DeliveryMobileController extends Controller
         }
     }
 
+    public function sendDeliveryOtp(Request $request, int $id): JsonResponse
+    {
+        /** @var \App\Models\User $rider */
+        $rider = $request->user();
+        $order = \App\Models\Order::query()->find($id);
+        if (! $order || ! $order->isAssignedToRider((int) $rider->id)) {
+            return response()->json(['message' => 'Order not available for delivery confirmation.'], 404);
+        }
+        if (! $order->isOnTheWayToDelivery()) {
+            return response()->json(['message' => 'Send the code when the order is on the way.'], 422);
+        }
+
+        $result = DeliveryPodOtp::sendForOrder($order);
+        if (! ($result['ok'] ?? false)) {
+            return response()->json(['message' => $result['message'] ?? 'Could not send code.'], 422);
+        }
+
+        return response()->json($result);
+    }
+
     public function deliverRun(Request $request, int $id): JsonResponse
     {
-        try {
-            $order = DeliveryMobileActions::deliverToConsumer($id, (int) $request->user()->id);
+        if ($cached = ApiIdempotency::find($request)) {
+            return $cached;
+        }
 
-            return response()->json([
+        $data = $request->validate([
+            'otp' => ['nullable', 'string', 'max:12'],
+            'pod_photo' => ['nullable', 'image', 'max:5120'],
+        ]);
+
+        $photoPath = null;
+        if ($request->hasFile('pod_photo')) {
+            $photoPath = $request->file('pod_photo')->store('delivery-pod/'.$id, 'public');
+        }
+
+        try {
+            $order = DeliveryMobileActions::deliverToConsumer(
+                $id,
+                (int) $request->user()->id,
+                $data['otp'] ?? null,
+                $photoPath,
+            );
+
+            $response = response()->json([
                 'message' => 'Delivered order #'.$order->id.'. Boxes are now with the customer.',
                 'run' => DeliveryApiPresenter::run($order, $request->user()),
-                'order' => DeliveryApiPresenter::deliveredOrder($order),
+                'order' => DeliveryApiPresenter::deliveredOrder($order, $request->user()),
             ]);
+            ApiIdempotency::store($request, $response);
+
+            return $response;
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => $e->getMessage() ?: 'Could not complete delivery.',
@@ -623,7 +671,7 @@ class DeliveryMobileController extends Controller
 
         return response()->json([
             'orders' => collect($orders->items())
-                ->map(fn (Order $order) => DeliveryApiPresenter::deliveredOrder($order))
+                ->map(fn (Order $order) => DeliveryApiPresenter::deliveredOrder($order, $request->user()))
                 ->values()
                 ->all(),
             'meta' => DeliveryApiPresenter::paginationMeta($orders),
@@ -632,6 +680,10 @@ class DeliveryMobileController extends Controller
 
     public function collectCash(Request $request, int $id): JsonResponse
     {
+        if ($cached = ApiIdempotency::find($request)) {
+            return $cached;
+        }
+
         $data = $request->validate([
             'cash_amount' => ['nullable', 'integer', 'min:1'],
             'amount' => ['nullable', 'integer', 'min:1'],
@@ -662,13 +714,16 @@ class DeliveryMobileController extends Controller
                 ? "Cash recorded for #{$id}. Due to Middo ৳{$result['due_to_middo']}."
                 : "Short cash ৳{$cashAmount} recorded for #{$id}. Residual customer due ৳{$result['residual']}. Due to Middo so far ৳{$result['due_to_middo']}.";
 
-            return response()->json([
+            $response = response()->json([
                 'message' => $message,
-                'order' => DeliveryApiPresenter::deliveredOrder($result['order']),
+                'order' => DeliveryApiPresenter::deliveredOrder($result['order'], $request->user()),
                 'due_to_middo' => $result['due_to_middo'],
                 'commission' => $result['commission'],
                 'cash_on_hand' => (int) $rider->balance,
             ]);
+            ApiIdempotency::store($request, $response);
+
+            return $response;
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Throwable $e) {

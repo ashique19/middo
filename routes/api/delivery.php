@@ -37,6 +37,7 @@ Route::prefix('delivery')->group(function () {
             Route::get('/runs', [DeliveryMobileController::class, 'runs']);
             Route::get('/runs/{id}', [DeliveryMobileController::class, 'showRun']);
             Route::post('/runs/{id}/pickup', [DeliveryMobileController::class, 'pickupRun']);
+            Route::post('/runs/{id}/send-delivery-otp', [DeliveryMobileController::class, 'sendDeliveryOtp']);
             Route::post('/runs/{id}/deliver', [DeliveryMobileController::class, 'deliverRun']);
 
             Route::get('/custom-runs', [DeliveryMobileController::class, 'customRuns']);

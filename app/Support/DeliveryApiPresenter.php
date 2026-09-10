@@ -8,6 +8,7 @@ use App\Models\City;
 use App\Models\CustomRun;
 use App\Models\MiddoBox;
 use App\Models\Order;
+use App\Models\PartnerPayable;
 use App\Models\StaffAlert;
 use App\Models\User;
 use Carbon\Carbon;
@@ -129,12 +130,16 @@ class DeliveryApiPresenter
         ];
     }
 
-    public static function deliveredOrder(Order $order): array
+    public static function deliveredOrder(Order $order, ?User $rider = null): array
     {
-        $order->loadMissing(['menuItem', 'user', 'area']);
+        $order->loadMissing(['menuItem', 'user', 'area', 'deliveryRider']);
         $party = $order->partyPayload();
         $cashDue = $order->amountDue();
         $cashCollected = (int) ($order->cash_collected ?? 0);
+        $rider = $rider ?? $order->deliveryRider;
+        $openCommission = $rider ? self::openDeliveryCommission($order, $rider) : 0;
+        $projectedCommission = min($openCommission, max(0, $cashDue));
+        $projectedDue = max(0, $cashDue - $projectedCommission);
 
         return [
             'id' => $order->id,
@@ -153,8 +158,41 @@ class DeliveryApiPresenter
             'cash_collected' => $cashCollected > 0 || $order->isPaid(),
             'cash_collected_amount' => $cashCollected,
             'due_to_middo' => $order->dueToMiddoAmount(),
+            'commission_open' => $openCommission,
+            'projected_commission' => $projectedCommission,
+            'projected_due_to_middo' => $projectedDue,
             'can_collect_cash' => $order->isDelivered() && ! $order->isPaid() && $cashDue > 0,
+            'pod_photo_path' => $order->pod_photo_path,
+            'pod_verified_at' => $order->pod_verified_at?->toIso8601String(),
         ];
+    }
+
+    public static function openDeliveryCommission(Order $order, User $rider): int
+    {
+        if (\Illuminate\Support\Facades\Schema::hasTable('partner_payables')) {
+            $open = (int) PartnerPayable::query()
+                ->where('order_id', $order->id)
+                ->where('beneficiary_role', PartnerPayable::ROLE_DELIVERY)
+                ->where('beneficiary_user_id', $rider->id)
+                ->where('status', PartnerPayable::STATUS_OPEN)
+                ->value('amount');
+
+            if ($open > 0) {
+                return $open;
+            }
+
+            $exists = PartnerPayable::query()
+                ->where('order_id', $order->id)
+                ->where('beneficiary_role', PartnerPayable::ROLE_DELIVERY)
+                ->where('beneficiary_user_id', $rider->id)
+                ->exists();
+
+            if ($exists) {
+                return 0;
+            }
+        }
+
+        return min(RiderCommission::forLunchOrder($rider, $order), $order->amountDue());
     }
 
     public static function historyRun(Order $order): array
@@ -248,8 +286,53 @@ class DeliveryApiPresenter
             'has_complete_payout_method' => $rider->hasCompletePayoutMethod(
                 $rider->preferredPayoutChannel()
             ),
+            'statement' => self::accountStatement($rider),
+            'withdrawals' => self::accountWithdrawals($rider),
         ];
     }
+
+    protected static function accountStatement(User $rider): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('rider_account_ledger')) {
+            return [];
+        }
+
+        return \App\Models\RiderAccountLedgerEntry::query()
+            ->where('rider_user_id', $rider->id)
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get()
+            ->map(fn ($row) => [
+                'id' => $row->id,
+                'amount' => (int) $row->amount,
+                'balance_after' => (int) $row->balance_after,
+                'entry_type' => $row->entry_type,
+                'description' => $row->description,
+                'created_at' => $row->created_at?->toIso8601String(),
+            ])->values()->all();
+    }
+
+    protected static function accountWithdrawals(User $rider): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('rider_withdrawal_requests')) {
+            return [];
+        }
+
+        return \App\Models\RiderWithdrawalRequest::query()
+            ->where('rider_user_id', $rider->id)
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get()
+            ->map(fn ($row) => [
+                'id' => $row->id,
+                'amount' => (int) $row->amount,
+                'status' => $row->status,
+                'payout_channel' => $row->payout_channel,
+                'notes' => $row->notes,
+                'created_at' => $row->created_at?->toIso8601String(),
+            ])->values()->all();
+    }
+
 
     public static function paginationMeta($paginator): array
     {

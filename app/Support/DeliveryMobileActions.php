@@ -81,9 +81,13 @@ class DeliveryMobileActions
         });
     }
 
-    public static function deliverToConsumer(int $orderId, int $riderId): Order
-    {
-        return DB::transaction(function () use ($orderId, $riderId) {
+    public static function deliverToConsumer(
+        int $orderId,
+        int $riderId,
+        ?string $otp = null,
+        ?string $podPhotoPath = null,
+    ): Order {
+        return DB::transaction(function () use ($orderId, $riderId, $otp, $podPhotoPath) {
             $order = Order::query()
                 ->whereKey($orderId)
                 ->lockForUpdate()
@@ -95,6 +99,19 @@ class DeliveryMobileActions
 
             if (! $order->isOnTheWayToDelivery()) {
                 throw new \RuntimeException('This order is not on the way to delivery.');
+            }
+
+            if (DeliveryPodOtp::isRequired()) {
+                if ($otp === null || trim($otp) === '') {
+                    throw new \RuntimeException('Enter the delivery confirmation code from the receiver.');
+                }
+                if (! DeliveryPodOtp::verify((int) $order->id, trim($otp))) {
+                    throw new \RuntimeException('Invalid or expired delivery confirmation code.');
+                }
+            } elseif ($otp !== null && trim($otp) !== '') {
+                if (! DeliveryPodOtp::verify((int) $order->id, trim($otp))) {
+                    throw new \RuntimeException('Invalid or expired delivery confirmation code.');
+                }
             }
 
             $boxes = $order->middoBoxes()->lockForUpdate()->get();
@@ -127,6 +144,17 @@ class DeliveryMobileActions
                 'payment_status' => $toStatus === OrderTransition::DELIVERED_AND_PAID ? 'paid' : $order->payment_status,
                 'updated_by' => $riderId,
             ]);
+
+            $podAttrs = [];
+            if ($podPhotoPath) {
+                $podAttrs['pod_photo_path'] = $podPhotoPath;
+            }
+            if ($otp !== null && trim($otp) !== '') {
+                $podAttrs['pod_verified_at'] = now();
+            }
+            if ($podAttrs !== []) {
+                $order->forceFill($podAttrs)->saveQuietly();
+            }
 
             return $order->fresh([
                 'menuItem', 'user', 'area', 'deliveryRider', 'orderGroup.kitchen', 'middoBoxes',
@@ -673,6 +701,8 @@ class DeliveryMobileActions
         return [
             'boxes' => $nodes->all(),
             'run_groups' => $runGroups,
+            // Flutter 0.1 read `requests`; keep alias for bulk groups.
+            'requests' => $runGroups,
         ];
     }
 
