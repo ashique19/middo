@@ -88,15 +88,38 @@ Upload only AABs signed with the kitchen upload keystore (`CN=Middo Kitchen`). D
 
 ---
 
-## Advertising ID (Android 13 / API 33+)
+## Before you can send for review (Play Console forms)
 
-Play Console → **Policy and programs** → **App content** → **Advertising ID**:
+These **Policy** blockers are filled in Play Console — not fixed by uploading a new AAB.
 
-1. Declare that the app **uses** an advertising ID (Firebase Analytics / Play services may read it; Kitchen has **no ads**).
-2. Purpose: Analytics / App functionality (not advertising / remarketing).
-3. Manifest already includes `com.google.android.gms.permission.AD_ID` (same as Middo Corporate).
+Open the **Middo Kitchen** app → left nav **Policy and programs** → **App content**. Complete every row until nothing shows “Incomplete”.
 
-If you instead declare “No”, you must remove the AD_ID permission and ensure Analytics does not collect it — keep the permission + “Yes” path to match Corporate.
+### 1) Advertising ID (fixes “Incomplete advertising ID declaration”)
+
+1. **App content** → **Advertising ID** → **Start** / **Manage**.
+2. **Does your app use advertising ID?** → **Yes**  
+   (Firebase Analytics / Play services may read it. Kitchen has **no ads**. AAB already has `com.google.android.gms.permission.AD_ID`.)
+3. Purpose → **Analytics** (and/or **App functionality**). Do **not** select advertising / remarketing.
+4. Save. If you previously answered **No**, switch to **Yes** (conflicts with the AD_ID permission otherwise).
+
+### 2) Content ratings (fixes “Incomplete content ratings declaration”)
+
+1. **App content** → **Content ratings** → **Start questionnaire**.
+2. Enter email for the IARC certificate → continue.
+3. Category: **Utility, Productivity, Communication, or Other** (not Games).
+4. Answer **No** to violence, sexual content, drugs/alcohol/tobacco, gambling, and unrestricted public UGC.
+5. Submit → apply rating (expect **Everyone** / PEGI 3) → save until status is **Completed**.
+
+### Also complete on the same page
+
+| Section | Answer for Kitchen |
+|---------|---------------------|
+| **Ads** | No ads |
+| **App access** | Restricted — give Google a **test kitchen mobile + password** |
+| **Target audience** | 18 and over |
+| **News / Government / COVID apps** | No |
+| **Data safety** | Must be Completed (account, FCM device IDs, ops data) |
+| **Financial features** | Yes if kitchen sees Middo balance / transfers |
 
 ---
 
