@@ -1,6 +1,6 @@
 # Google Play — Middo Delivery (Rider)
 
-Package: `com.middo.delivery` · Display name: **Middo Delivery** (store can show **Middo Rider**) · Current version: **0.3.2 (10)**
+Package: `com.middo.delivery` · Display name: **Middo Delivery** (store can show **Middo Rider**) · Current version: **0.3.2 (11)**
 
 Upload artifact: `mobile/delivery/releases/middo-delivery-release.aab`
 
@@ -53,6 +53,8 @@ Same support email as https://x.middo.com.bd/contact · Website: `https://x.midd
 | Asset | Size | Notes |
 |-------|------|--------|
 | App icon | 512×512 PNG | `mobile/delivery/play-store/app-icon-512.png` (no transparency) |
+
+> Delivery icon is the **reverse** of Kitchen: cream tile + forest-green courier bag + orange speed mark (Kitchen is forest tile + cream takeout).
 | Feature graphic | 1024×500 PNG | `mobile/delivery/play-store/feature-graphic-1024x500.png` |
 | Phone screenshots | Min 2 | Runs, deliver OTP, cash, boxes |
 
@@ -131,7 +133,7 @@ flutter build appbundle --release \
 cp build/app/outputs/bundle/release/app-release.aab releases/middo-delivery-release.aab
 ```
 
-Bump `version:` in `pubspec.yaml` before each Play upload (`0.3.2+10` → name `0.3.2`, code `10`).
+Bump `version:` in `pubspec.yaml` before each Play upload (`0.3.2+11` → name `0.3.2`, code `11`).
 
 Upload only AABs signed with the delivery upload keystore (`CN=Middo Delivery`). Debug-signed builds are rejected by Play.
 
