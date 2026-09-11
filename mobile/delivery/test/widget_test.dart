@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:middo_delivery/data/auth_store.dart';
 import 'package:middo_delivery/data/delivery_repository.dart';
 import 'package:middo_delivery/data/offline_mutation_queue.dart';
 import 'package:middo_delivery/app_scope.dart';
@@ -14,6 +15,7 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    await AuthStore.instance.clear();
   });
 
   testWidgets('Splash shows delivery branding then login', (tester) async {
@@ -70,6 +72,38 @@ void main() {
 
     expect(find.text('Delivery Dashboard'), findsOneWidget);
     expect(find.text('Alerts'), findsWidgets);
+    // Shift controls moved off the dashboard.
+    expect(find.text('SHIFT'), findsNothing);
+    expect(find.text('Unable'), findsNothing);
+    expect(find.text('Unable to continue'), findsNothing);
+  });
+
+  testWidgets('Profile pull-up toggles On/Off shift', (tester) async {
+    final repo = MockDeliveryRepository();
+    await tester.pumpWidget(MiddoDeliveryApp(repository: repo));
+    await tester.pump(const Duration(milliseconds: 2300));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '01310123454');
+    await tester.enterText(find.byType(TextField).at(1), '12345678');
+    await tester.tap(find.text('Sign In'));
+    await tester.pumpAndSettle();
+
+    // Avatar initial from mock rider first name ("Demo").
+    await tester.tap(find.text('D'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('On shift'), findsOneWidget);
+    expect(find.byType(SwitchListTile), findsOneWidget);
+    expect(find.text('Unable'), findsNothing);
+
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Off shift'), findsOneWidget);
+    final me = await repo.me();
+    final user = (me['user'] as Map?) ?? me;
+    expect(user['rider_shift_status'], 'off');
   });
 
   test('Mock cash handover uses order_ids + target', () async {

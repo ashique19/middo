@@ -11,7 +11,8 @@ Package version: `0.3.2+5` · application id: `com.middo.delivery`
 | Area | Status |
 |------|--------|
 | Login / splash / logout | Wired + FCM token sync |
-| Home | Dashboard tiles + shift chip (on / off / unable) |
+| Home | Dashboard tiles |
+| Profile sheet | On shift / Off shift switch (avatar pull-up) |
 | Runs | Active list with pickup / deliver (OTP + optional POD photo) + run detail + customer ETA chips |
 | Boxes | Pending actions + bulk `run_groups` accept/hand |
 | Cash | Collect cash (collection − commission preview) + order-based handovers |

@@ -3,8 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
+import '../data/api_client.dart';
+import '../data/middo_haptics.dart';
 import '../data/push_notification_service.dart';
 import '../theme/middo_colors.dart';
+import 'delivery_ui.dart';
 
 /// Top chrome for delivery shell and stack screens.
 class DeliveryMobileHeader extends StatefulWidget implements PreferredSizeWidget {
@@ -63,8 +66,22 @@ class _DeliveryMobileHeaderState extends State<DeliveryMobileHeader> {
     context.go('/login');
   }
 
-  void _openAccountMenu() {
-    showModalBottomSheet<void>(
+  Future<void> _openAccountMenu() async {
+    var onShift = true;
+    var shiftBusy = false;
+    try {
+      final me = await AppScope.of(context).me();
+      final user = (me['user'] as Map?) ?? me;
+      final status = (user['rider_shift_status'] ??
+              me['shift_status'] ??
+              'on')
+          .toString();
+      onShift = status == 'on';
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
       context: context,
       backgroundColor: MiddoColors.white,
       shape: const RoundedRectangleBorder(
@@ -72,38 +89,94 @@ class _DeliveryMobileHeaderState extends State<DeliveryMobileHeader> {
       ),
       builder: (ctx) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: const Text('Profile'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.push('/profile');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.lock_outline),
-                title: const Text('Change password'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.push('/profile');
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text(
-                  'Log out',
-                  style: TextStyle(color: Colors.red),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _logout();
-                },
-              ),
-            ],
+          child: StatefulBuilder(
+            builder: (ctx, setSheetState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    secondary: Icon(
+                      onShift
+                          ? Icons.toggle_on_outlined
+                          : Icons.toggle_off_outlined,
+                      color: MiddoColors.forest,
+                    ),
+                    title: Text(onShift ? 'On shift' : 'Off shift'),
+                    subtitle: Text(
+                      onShift
+                          ? 'Accepting new lunch & custom runs'
+                          : 'New lunch & custom runs are paused',
+                    ),
+                    value: onShift,
+                    activeThumbColor: MiddoColors.forest,
+                    onChanged: shiftBusy
+                        ? null
+                        : (value) async {
+                            MiddoHaptics.selection();
+                            setSheetState(() => shiftBusy = true);
+                            try {
+                              await AppScope.of(context).setShift(
+                                value ? 'on' : 'off',
+                              );
+                              MiddoHaptics.success();
+                              if (!ctx.mounted) return;
+                              setSheetState(() {
+                                onShift = value;
+                                shiftBusy = false;
+                              });
+                            } on ApiException catch (e) {
+                              if (!ctx.mounted) return;
+                              setSheetState(() => shiftBusy = false);
+                              if (!mounted) return;
+                              showDeliverySnack(
+                                context,
+                                e.message,
+                                error: true,
+                              );
+                            } catch (e) {
+                              if (!ctx.mounted) return;
+                              setSheetState(() => shiftBusy = false);
+                              if (!mounted) return;
+                              showDeliverySnack(
+                                context,
+                                '$e',
+                                error: true,
+                              );
+                            }
+                          },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.person_outline),
+                    title: const Text('Profile'),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      context.push('/profile');
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.lock_outline),
+                    title: const Text('Change password'),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      context.push('/profile');
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.logout, color: Colors.red),
+                    title: const Text(
+                      'Log out',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _logout();
+                    },
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
