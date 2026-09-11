@@ -4,7 +4,7 @@ Android/iOS rider app — kitchen pickups, Middo box runs, cash collection, and 
 
 Maps to delivery PWA IA: **Home · Runs · Boxes · Cash · More**.
 
-Package version: `0.3.1+4` · application id: `com.middo.delivery`
+Package version: `0.3.2+5` · application id: `com.middo.delivery`
 
 ## Screens
 
