@@ -1,6 +1,6 @@
 # Google Play — Middo Delivery (Rider)
 
-Package: `com.middo.delivery` · Display name: **Middo Delivery** (store can show **Middo Rider**) · Current version: **0.3.2 (7)**
+Package: `com.middo.delivery` · Display name: **Middo Delivery** (store can show **Middo Rider**) · Current version: **0.3.2 (8)**
 
 Upload artifact: `mobile/delivery/releases/middo-delivery-release.aab`
 
@@ -84,9 +84,21 @@ flutter build appbundle --release \
 cp build/app/outputs/bundle/release/app-release.aab releases/middo-delivery-release.aab
 ```
 
-Bump `version:` in `pubspec.yaml` before each Play upload (`0.3.2+7` → name `0.3.2`, code `7`).
+Bump `version:` in `pubspec.yaml` before each Play upload (`0.3.2+8` → name `0.3.2`, code `8`).
 
-**Do not upload AABs from `main` until this signing PR is merged** — older `releases/*.aab` on `main` were signed with the Android **debug** keystore and Play will reject them.
+Upload only AABs signed with the delivery upload keystore (`CN=Middo Delivery`). Debug-signed builds are rejected by Play.
+
+---
+
+## Advertising ID (Android 13 / API 33+)
+
+Play Console → **Policy and programs** → **App content** → **Advertising ID**:
+
+1. Declare that the app **uses** an advertising ID (Firebase Analytics / Play services may read it; Delivery has **no ads**).
+2. Purpose: Analytics / App functionality (not advertising / remarketing).
+3. Manifest already includes `com.google.android.gms.permission.AD_ID` (same as Middo Corporate).
+
+If you instead declare “No”, you must remove the AD_ID permission and ensure Analytics does not collect it — keep the permission + “Yes” path to match Corporate.
 
 ---
 
