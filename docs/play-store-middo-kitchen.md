@@ -11,19 +11,22 @@ Terms: https://x.middo.com.bd/terms
 
 ## Store listing (copy-paste)
 
-### App name
+> **Play Metadata policy:** Title, short description, and full description must **not** be the same (or nearly the same).  
+> Do **not** paste `Middo Kitchen` into Short description. That triggers: *“Title matches description almost exactly.”*
+
+### App name (title)
 ```
 Middo Kitchen
 ```
 
-### Short description (80 chars max)
+### Short description (80 chars max — must differ from title)
 ```
-Partner kitchen app — prep lunch orders, pack Middo Boxes, hand off to riders.
+Prep corporate lunches, pack Middo Boxes, and hand off runs to riders.
 ```
 
-### Full description
+### Full description (must differ from title and short description)
 ```
-Middo Kitchen is the partner cook app for Middo’s corporate lunch network in Dhaka.
+Partner kitchen staff app for Middo’s corporate lunch network in Dhaka.
 
 Accept and prep grouped lunch orders, track packing, manage Middo Boxes, and hand off runs to delivery riders — all from one staff phone.
 
@@ -36,10 +39,17 @@ WHAT YOU CAN DO
 • Get push alerts for new work
 
 WHO IT’S FOR
-Partner kitchen staff on Middo. Sign in with your registered kitchen mobile number.
+Partner kitchen cooks and packers on Middo. Sign in with your registered kitchen mobile number.
 
 Questions? Visit https://x.middo.com.bd or contact Middo ops.
 ```
+
+### Fix in Play Console (no new AAB needed)
+1. **Grow → Store presence → Main store listing**
+2. **App name:** `Middo Kitchen`
+3. **Short description:** paste the short text above (not the app name)
+4. **Full description:** paste the full text above
+5. Save → send for review again
 
 ### Category
 **Business** (or Food & Drink)
