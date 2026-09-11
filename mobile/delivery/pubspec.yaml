@@ -1,7 +1,7 @@
 name: middo_delivery
 description: "Middo Delivery — rider app for runs, boxes, and cash."
 publish_to: 'none'
-version: 0.3.2+12
+version: 0.3.3+13
 
 environment:
   sdk: ^3.8.1
