@@ -30,6 +30,9 @@ class MiddoSettings
     /** When true, kitchen can dispatch empty boxes to warehouse via a rider (N5). Default false = direct teleport. */
     public const KEY_KITCHEN_TO_OPS_VIA_RIDER = 'delivery.kitchen_to_ops_via_rider';
 
+    /** When 1, mobile deliver requires OTP (+ optional photo). */
+    public const KEY_DELIVERY_REQUIRE_POD = 'delivery.require_pod';
+
     /** Inclusive food VAT % (default 5). Snapshot onto orders at place. */
     public const KEY_VAT_RATE_PCT = 'finance.vat_rate_pct';
 
@@ -282,6 +285,19 @@ class MiddoSettings
             self::KEY_MID_RUN_RESCUE,
             config('middo.delivery_commission_defaults.mid_run_rescue', 0)
         ));
+    }
+
+    /**
+     * When enabled, mobile deliver requires receiver OTP (photo optional).
+     */
+    public static function deliveryRequirePod(): bool
+    {
+        $raw = self::get(
+            self::KEY_DELIVERY_REQUIRE_POD,
+            config('middo.delivery_require_pod', true) ? '1' : '0'
+        );
+
+        return in_array((string) $raw, ['1', 'true', 'yes', 'on'], true);
     }
 
     /**

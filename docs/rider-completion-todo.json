@@ -12,7 +12,7 @@
       "CustomRuns (start/complete)"
     ],
     "native_app": {
-      "status": "Flutter 0.1.0 + Sanctum API + release APK/AAB",
+      "status": "Flutter 0.2 next-wave (POD/OTP, offline queue, cash Due UX) + Sanctum API",
       "base_path": "/api/delivery",
       "contract": "docs/delivery-mobile-api-contract.md",
       "flutter_client": "mobile/delivery/",
@@ -370,8 +370,8 @@
         {
           "id": "R2.3",
           "title": "Credit settings commissions on box run starts (per box)",
-          "status": "partial",
-          "notes": "corporate\u2192kitchen (DeliveredOrders::receiveBoxes) + ops\u2192kitchen (AssignMiddoBoxesModal) done. kitchen\u2192ops deferred until a rider-mediated kitchen\u2192warehouse leg exists (kitchen sendToWarehouse is direct today)."
+          "status": "done",
+          "notes": "corporate\u2192kitchen + ops\u2192kitchen + kitchen\u2192ops via rider (N5 / MiddoSettings KEY_KITCHEN_TO_OPS_VIA_RIDER). Books KITCHEN_TO_OPS commission on rider accept."
         },
         {
           "id": "R2.4",
@@ -664,10 +664,10 @@
       "Optional kitchen\u2192ops via rider (Settings toggle; books KITCHEN_TO_OPS; rider deliver to warehouse)"
     ],
     "nice_to_have": [
-      "POD / photo / delivery OTP",
+      "POD / photo / delivery OTP (shipped in delivery 0.2 API + Flutter)",
       "Corporate-facing rider name + ETA",
       "Post-hoc commission adjustments",
-      "Richer offline than PWA passthrough"
+      "Richer offline than PWA passthrough (Flutter offline mutation queue shipped)"
     ],
     "out_of_scope_or_deferred": [
       "GPS / route optimization",

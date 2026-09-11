@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Illuminate\Validation\ValidationException;
+
 use App\Models\CashHandover;
 use App\Models\CashHandoverOrder;
 use App\Models\CustomRun;
@@ -14,6 +16,8 @@ use App\Models\OrderLog;
 use App\Models\RiderWithdrawalRequest;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -81,9 +85,13 @@ class DeliveryMobileActions
         });
     }
 
-    public static function deliverToConsumer(int $orderId, int $riderId): Order
-    {
-        return DB::transaction(function () use ($orderId, $riderId) {
+    public static function deliverToConsumer(
+        int $orderId,
+        int $riderId,
+        ?string $otp = null,
+        ?string $podPhotoPath = null,
+    ): Order {
+        return DB::transaction(function () use ($orderId, $riderId, $otp, $podPhotoPath) {
             $order = Order::query()
                 ->whereKey($orderId)
                 ->lockForUpdate()
@@ -95,6 +103,19 @@ class DeliveryMobileActions
 
             if (! $order->isOnTheWayToDelivery()) {
                 throw new \RuntimeException('This order is not on the way to delivery.');
+            }
+
+            if (DeliveryPodOtp::isRequired()) {
+                if ($otp === null || trim($otp) === '') {
+                    throw new \RuntimeException('Enter the delivery confirmation code from the receiver.');
+                }
+                if (! DeliveryPodOtp::verify((int) $order->id, trim($otp))) {
+                    throw new \RuntimeException('Invalid or expired delivery confirmation code.');
+                }
+            } elseif ($otp !== null && trim($otp) !== '') {
+                if (! DeliveryPodOtp::verify((int) $order->id, trim($otp))) {
+                    throw new \RuntimeException('Invalid or expired delivery confirmation code.');
+                }
             }
 
             $boxes = $order->middoBoxes()->lockForUpdate()->get();
@@ -127,6 +148,17 @@ class DeliveryMobileActions
                 'payment_status' => $toStatus === OrderTransition::DELIVERED_AND_PAID ? 'paid' : $order->payment_status,
                 'updated_by' => $riderId,
             ]);
+
+            $podAttrs = [];
+            if ($podPhotoPath) {
+                $podAttrs['pod_photo_path'] = $podPhotoPath;
+            }
+            if ($otp !== null && trim($otp) !== '') {
+                $podAttrs['pod_verified_at'] = now();
+            }
+            if ($podAttrs !== []) {
+                $order->forceFill($podAttrs)->saveQuietly();
+            }
 
             return $order->fresh([
                 'menuItem', 'user', 'area', 'deliveryRider', 'orderGroup.kitchen', 'middoBoxes',
@@ -673,6 +705,8 @@ class DeliveryMobileActions
         return [
             'boxes' => $nodes->all(),
             'run_groups' => $runGroups,
+            // Flutter 0.1 read `requests`; keep alias for bulk groups.
+            'requests' => $runGroups,
         ];
     }
 
@@ -824,5 +858,94 @@ class DeliveryMobileActions
                 || $latestAction === 'handed_to_ops_warehouse'
             ),
         ]);
+    }
+
+    public static function updateRunEta(int $orderId, int $riderId, int $etaMinutes): Order
+    {
+        $order = Order::query()->find($orderId);
+        if (! $order || ! $order->isAssignedToRider($riderId)) {
+            throw new \RuntimeException('Order is not assigned to you.');
+        }
+        if ($order->isDelivered() || $order->order_status === 'cancelled') {
+            throw new \RuntimeException('ETA can only be set while the run is active.');
+        }
+
+        Cache::put(self::etaCacheKey($orderId), [
+            'minutes' => $etaMinutes,
+            'updated_at' => now()->toIso8601String(),
+            'rider_id' => $riderId,
+        ], now()->addHours(8));
+
+        return $order->fresh(['menuItem', 'user', 'area', 'deliveryRider', 'orderGroup.kitchen', 'middoBoxes']);
+    }
+
+    /**
+     * @return array{order: Order, payment_url: string, phone: string, sms_sent: bool, message: string}
+     */
+    public static function sendPaymentLink(int $orderId, int $riderId, ?string $phone = null): array
+    {
+        $order = Order::query()->with('menuItem')->find($orderId);
+        if (! $order || (int) $order->delivery_rider_id !== $riderId || ! $order->isDelivered() || $order->isPaid()) {
+            throw new \RuntimeException('Order is not available for online payment.');
+        }
+
+        $phone = $phone ?: (string) ($order->receiver_mobile ?: '');
+        if (! preg_match('/^01[3-9]\d{8}$/', $phone)) {
+            throw ValidationException::withMessages([
+                'phone' => ['Enter a valid 11-digit BD mobile number (e.g. 01710123456).'],
+            ]);
+        }
+
+        $due = $order->amountDue();
+        if ($due < 1) {
+            throw new \RuntimeException('Nothing due for this order.');
+        }
+
+        $paymentUrl = URL::temporarySignedRoute(
+            'public.order-payment',
+            now()->addDays(3),
+            ['order' => $order->id]
+        );
+
+        $menu = $order->menuItem?->name ?? 'order';
+        $message = "Middo payment for order #{$order->id} ({$menu}): ৳{$due} due. Pay here: {$paymentUrl}";
+        $sent = MimSms::send($phone, $message);
+
+        if (! $sent && ! config('app.debug')) {
+            throw new \RuntimeException('Could not send payment SMS. Please try again.');
+        }
+
+        $order->update(['updated_by' => $riderId]);
+
+        return [
+            'order' => $order->fresh(['menuItem', 'user', 'area', 'deliveryRider']),
+            'payment_url' => $paymentUrl,
+            'phone' => $phone,
+            'sms_sent' => (bool) $sent,
+            'message' => config('app.debug') && ! $sent
+                ? 'Payment link prepared (SMS skipped in debug/unavailable).'
+                : 'Payment link sent to '.$phone.'.',
+        ];
+    }
+
+    public static function etaCacheKey(int $orderId): string
+    {
+        return 'delivery_run_eta:'.$orderId;
+    }
+
+    /**
+     * @return array{minutes: int|null, updated_at: string|null}
+     */
+    public static function etaForOrder(int $orderId): array
+    {
+        $cached = Cache::get(self::etaCacheKey($orderId));
+        if (! is_array($cached)) {
+            return ['minutes' => null, 'updated_at' => null];
+        }
+
+        return [
+            'minutes' => isset($cached['minutes']) ? (int) $cached['minutes'] : null,
+            'updated_at' => isset($cached['updated_at']) ? (string) $cached['updated_at'] : null,
+        ];
     }
 }

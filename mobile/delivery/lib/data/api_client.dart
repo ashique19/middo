@@ -33,15 +33,29 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
     bool auth = true,
+    String? idempotencyKey,
   }) =>
-      _send('POST', path, body: body, auth: auth);
+      _send(
+        'POST',
+        path,
+        body: body,
+        auth: auth,
+        idempotencyKey: idempotencyKey,
+      );
 
   Future<Map<String, dynamic>> patch(
     String path, {
     Map<String, dynamic>? body,
     bool auth = true,
+    String? idempotencyKey,
   }) =>
-      _send('PATCH', path, body: body, auth: auth);
+      _send(
+        'PATCH',
+        path,
+        body: body,
+        auth: auth,
+        idempotencyKey: idempotencyKey,
+      );
 
   Future<Map<String, dynamic>> delete(
     String path, {
@@ -50,12 +64,52 @@ class ApiClient {
   }) =>
       _send('DELETE', path, body: body, auth: auth);
 
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    required Map<String, String> fields,
+    required String fileField,
+    required String filePath,
+    String? filename,
+    bool auth = true,
+    String? idempotencyKey,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.apiRoot}$path');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Accept'] = 'application/json';
+    if (auth && AuthStore.instance.isAuthenticated) {
+      request.headers['Authorization'] = 'Bearer ${AuthStore.instance.token}';
+    }
+    if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
+      request.headers['Idempotency-Key'] = idempotencyKey;
+    }
+    request.fields.addAll(fields);
+    request.files.add(await http.MultipartFile.fromPath(
+      fileField,
+      filePath,
+      filename: filename,
+    ));
+
+    late http.StreamedResponse streamed;
+    try {
+      streamed = await _client.send(request);
+    } catch (_) {
+      NetworkStatus.instance.markRequestFailed();
+      throw ApiException(
+        'Could not reach Middo API at ${ApiConfig.baseUrl}. Is the server running?',
+      );
+    }
+
+    final response = await http.Response.fromStream(streamed);
+    return _decode(response);
+  }
+
   Future<Map<String, dynamic>> _send(
     String method,
     String path, {
     Map<String, dynamic>? body,
     Map<String, String>? query,
     bool auth = true,
+    String? idempotencyKey,
   }) async {
     var uri = Uri.parse('${ApiConfig.apiRoot}$path');
     if (query != null && query.isNotEmpty) {
@@ -68,6 +122,9 @@ class ApiClient {
 
     if (auth && AuthStore.instance.isAuthenticated) {
       headers['Authorization'] = 'Bearer ${AuthStore.instance.token}';
+    }
+    if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
+      headers['Idempotency-Key'] = idempotencyKey;
     }
 
     late http.Response response;

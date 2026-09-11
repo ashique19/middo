@@ -4,6 +4,7 @@ import '../app_scope.dart';
 import '../data/api_client.dart';
 import '../data/middo_haptics.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/deliver_otp_flow.dart';
 import '../widgets/delivery_mobile_header.dart';
 import '../widgets/delivery_ui.dart';
 
@@ -49,12 +50,32 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
   }
 
   Future<void> _deliver() async {
+    await runDeliverFlow(
+      context,
+      runId: widget.runId,
+      onBusy: () {
+        if (mounted) setState(() => _busy = true);
+      },
+      onIdle: () {
+        if (mounted) setState(() => _busy = false);
+      },
+      onSuccess: _reload,
+    );
+  }
+
+  Future<void> _setEta(int minutes) async {
     setState(() => _busy = true);
     try {
-      final res = await AppScope.of(context).deliverRun(widget.runId);
+      final res = await AppScope.of(context).updateRunEta(
+        widget.runId,
+        etaMinutes: minutes,
+      );
       MiddoHaptics.success();
       if (!mounted) return;
-      showDeliverySnack(context, res['message']?.toString() ?? 'Delivered.');
+      showDeliverySnack(
+        context,
+        res['message']?.toString() ?? 'ETA updated to about $minutes min.',
+      );
       await _reload();
     } on ApiException catch (e) {
       if (mounted) showDeliverySnack(context, e.message, error: true);
@@ -81,10 +102,20 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
             if (snap.hasError) {
               return DeliveryError(snap.error!, onRetry: _reload);
             }
+
             final run =
                 (snap.data?['run'] as Map?)?.cast<String, dynamic>() ??
                     const <String, dynamic>{};
+            final boxCodes = (run['box_codes'] as List?) ?? const [];
+            final showCommission = run['show_commission'] == true;
+            final canPickup = run['can_pickup'] == true;
+            final canDeliver = run['can_deliver'] == true;
+            final etaMinutes = run['eta_minutes'];
+            final etaLabel = run['eta_label']?.toString();
+            final showEta = canPickup || canDeliver;
+
             return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
                 DeliveryPanel(
@@ -100,28 +131,94 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                       ),
                       const SizedBox(height: 8),
                       DeliveryStatusChip(run['status']?.toString() ?? ''),
+                      if (showEta) ...[
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Customer ETA',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          etaLabel ??
+                              'Share how soon you will arrive — shown on corporate track.',
+                          style: const TextStyle(
+                            color: MiddoColors.muted,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final minutes in const [15, 25, 40, 60])
+                              ChoiceChip(
+                                key: ValueKey('eta-$minutes'),
+                                label: Text('$minutes min'),
+                                selected: etaMinutes == minutes,
+                                onSelected:
+                                    _busy ? null : (_) => _setEta(minutes),
+                                selectedColor: MiddoColors.amberSoft,
+                                labelStyle: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: etaMinutes == minutes
+                                      ? MiddoColors.orangeDeep
+                                      : MiddoColors.ink,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 14),
                       _kv('Kitchen', run['kitchen_name']),
+                      _kv('Kitchen phone', run['kitchen_mobile']),
+                      _kv('Kitchen address', run['kitchen_address']),
                       _kv('Area', run['area_name']),
                       _kv('Receiver', run['receiver_name']),
-                      _kv('Phone', run['receiver_phone']),
+                      _kv(
+                        'Phone',
+                        run['receiver_phone'] ?? run['receiver_mobile'],
+                      ),
                       _kv('Address', run['address']),
                       _kv('Menu', run['menu_name']),
                       _kv('Quantity', run['quantity']),
-                      _kv('Cash due', run['cash_due'] != null
-                          ? '৳${run['cash_due']}'
-                          : null),
+                      _kv(
+                        'Payment',
+                        run['payment_method_label'] ?? run['payment_method'],
+                      ),
+                      if (showCommission)
+                        _kv(
+                          'Commission',
+                          run['commission_amount'] != null
+                              ? '৳${run['commission_amount']}'
+                              : null,
+                        ),
+                      _kv(
+                        'Cash due',
+                        run['cash_due'] != null
+                            ? '৳${run['cash_due']}'
+                            : null,
+                      ),
+                      if (boxCodes.isNotEmpty)
+                        _kv(
+                          'Boxes',
+                          boxCodes.map((e) => e.toString()).join(', '),
+                        ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (run['can_pickup'] == true)
+                if (canPickup)
                   FilledButton(
                     onPressed: _busy ? null : _pickup,
                     child: const Text('Confirm pickup'),
                   ),
-                if (run['can_deliver'] == true) ...[
-                  if (run['can_pickup'] == true) const SizedBox(height: 10),
+                if (canDeliver) ...[
+                  if (canPickup) const SizedBox(height: 10),
                   FilledButton(
                     onPressed: _busy ? null : _deliver,
                     style: FilledButton.styleFrom(
@@ -148,7 +245,7 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 88,
+            width: 108,
             child: Text(
               label,
               style: const TextStyle(
