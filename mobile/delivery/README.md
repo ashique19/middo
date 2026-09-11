@@ -79,7 +79,7 @@ Output: `build/app/outputs/bundle/release/app-release.aab`
 
 ### Release signing (Play Store / production)
 
-Without `android/key.properties`, release builds fall back to the **debug** keystore (fine for sideload tests only).
+Without `android/key.properties`, **release builds fail** (so Play never gets a debug-signed AAB). Use `flutter build apk --debug` for sideload tests.
 
 One-time setup on a machine with JDK `keytool`:
 
