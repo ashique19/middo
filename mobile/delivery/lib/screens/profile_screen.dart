@@ -173,8 +173,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 8),
                           DeliveryStatusChip(
-                            'Shift: ${_user?['rider_shift_status'] ?? 'on'}',
-                            positive: true,
+                            (_user?['rider_shift_status']?.toString() ??
+                                        'on') ==
+                                    'on'
+                                ? 'On shift'
+                                : 'Off shift',
+                            positive: (_user?['rider_shift_status']
+                                        ?.toString() ??
+                                    'on') ==
+                                'on',
                           ),
                         ],
                       ),

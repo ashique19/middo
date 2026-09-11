@@ -762,16 +762,14 @@ class MockDeliveryRepository implements DeliveryRepository {
 
   @override
   Future<Map<String, dynamic>> dashboard() async => {
-        'shift_status': _shift,
+        'shift_status': _shift == 'unable' ? 'off' : _shift,
         'shift_label': switch (_shift) {
-          'off' => 'Off shift',
-          'unable' => 'Unable',
+          'off' || 'unable' => 'Off shift',
           _ => 'On shift',
         },
         'shift_options': {
           'on': 'On shift',
           'off': 'Off shift',
-          'unable': 'Unable',
         },
         'tiles': [
           {'key': 'alerts', 'label': 'Alerts', 'count': 2},

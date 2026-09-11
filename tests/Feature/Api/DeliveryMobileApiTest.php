@@ -113,6 +113,11 @@ class DeliveryMobileApiTest extends TestCase
                 'shift_options',
             ]);
 
+        $this->assertSame(
+            ['on', 'off'],
+            array_keys($dashboard->json('shift_options')),
+        );
+
         $keys = collect($dashboard->json('tiles'))->pluck('key')->all();
         $this->assertSame([
             'alerts',

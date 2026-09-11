@@ -265,10 +265,10 @@ class DeliveryMobileController extends Controller
             'tiles' => $tiles,
             'shift_status' => $shift,
             'shift_label' => RiderShift::label($shift),
+            // Mobile app only exposes on/off; "unable" remains valid for ops/legacy.
             'shift_options' => [
                 RiderShift::ON => RiderShift::label(RiderShift::ON),
                 RiderShift::OFF => RiderShift::label(RiderShift::OFF),
-                RiderShift::UNABLE => RiderShift::label(RiderShift::UNABLE),
             ],
             'can_accept_new_runs' => $rider->canAcceptNewRuns(),
         ]);
