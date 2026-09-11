@@ -1,6 +1,6 @@
 # Google Play — Middo Kitchen
 
-Package: `com.middo.kitchen` · Display name: **Middo Kitchen** · Current version: **0.3.1 (11)**
+Package: `com.middo.kitchen` · Display name: **Middo Kitchen** · Current version: **0.3.1 (12)**
 
 Upload artifact: `mobile/kitchen/releases/middo-kitchen-release.aab`
 
@@ -82,7 +82,7 @@ flutter build appbundle --release \
 cp build/app/outputs/bundle/release/app-release.aab releases/middo-kitchen-release.aab
 ```
 
-Bump `version:` in `pubspec.yaml` before each Play upload (`0.3.1+11` → name `0.3.1`, code `11`).
+Bump `version:` in `pubspec.yaml` before each Play upload (`0.3.1+12` → name `0.3.1`, code `12`).
 
 Upload only AABs signed with the kitchen upload keystore (`CN=Middo Kitchen`). Debug-signed builds are rejected by Play.
 
