@@ -98,9 +98,11 @@ Play Console: create an app for package `com.middo.delivery`, upload the AAB, co
 
 ### Firebase
 
-`android/app/google-services.json` is already present for `com.middo.delivery`. Replace it with a production Firebase Android app config when going live. Until a valid project is wired, push init no-ops gracefully.
+`android/app/google-services.json` is present for `com.middo.delivery` (Firebase project `middo-55888`). Push init no-ops gracefully if Firebase is unavailable.
 
 Requires Flutter 3.32+.
+
+Play Console walkthrough: `docs/play-store-middo-delivery.md`.
 
 ## Offline mutation queue
 
