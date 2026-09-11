@@ -18,6 +18,16 @@
             <dd class="font-mono font-bold text-middo-orange mt-0.5">{{ $order->quantity }}</dd>
         </div>
         <div>
+            <dt class="text-[11px] font-bold uppercase text-gray-400">Delivery date</dt>
+            <dd class="font-semibold text-gray-800 mt-0.5">
+                {{ $order->delivery_date?->format('l, M d, Y') ?: '—' }}
+            </dd>
+        </div>
+        <div>
+            <dt class="text-[11px] font-bold uppercase text-gray-400">Delivery time</dt>
+            <dd class="font-semibold text-gray-800 mt-0.5">{{ $order->delivery_time ?: '—' }}</dd>
+        </div>
+        <div>
             <dt class="text-[11px] font-bold uppercase text-gray-400">Total</dt>
             <dd class="font-mono font-bold text-gray-900 mt-0.5">৳{{ number_format((int) $order->total_amount) }}</dd>
         </div>

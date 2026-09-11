@@ -39,6 +39,16 @@
                 <dd class="font-mono font-bold text-middo-orange mt-0.5">{{ $order->quantity }}</dd>
             </div>
             <div>
+                <dt class="text-[11px] font-bold uppercase text-gray-400">Delivery date</dt>
+                <dd class="font-semibold text-gray-800 mt-0.5">
+                    {{ $order->delivery_date?->format('l, M d, Y') ?: '—' }}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-[11px] font-bold uppercase text-gray-400">Delivery time</dt>
+                <dd class="font-semibold text-gray-800 mt-0.5">{{ $order->delivery_time ?: '—' }}</dd>
+            </div>
+            <div>
                 <dt class="text-[11px] font-bold uppercase text-gray-400">Area</dt>
                 <dd class="font-semibold text-gray-800 mt-0.5">{{ $party['area_name'] ?? '—' }}</dd>
             </div>

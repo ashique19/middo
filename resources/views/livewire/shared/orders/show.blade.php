@@ -16,11 +16,24 @@
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h1 class="text-3xl font-bold text-middo-dark font-mono">Order #{{ $order->id }}</h1>
-                <p class="text-sm text-gray-500 mt-1">
-                    {{ $order->delivery_date?->timezone('Asia/Dhaka')->format('l, M d, Y') }}
-                    · {{ $order->delivery_time ?: '—' }}
-                    · Qty {{ $order->quantity }}
-                </p>
+                <dl class="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                    <div>
+                        <dt class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Delivery date</dt>
+                        <dd class="font-semibold text-middo-dark mt-0.5">
+                            {{ $order->delivery_date?->format('l, M d, Y') ?: '—' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Delivery time</dt>
+                        <dd class="font-semibold text-middo-dark mt-0.5">
+                            {{ $order->delivery_time ?: '—' }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Qty</dt>
+                        <dd class="font-mono font-bold text-middo-dark mt-0.5">{{ $order->quantity }}</dd>
+                    </div>
+                </dl>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold uppercase bg-amber-50 text-amber-900 border border-amber-200">
