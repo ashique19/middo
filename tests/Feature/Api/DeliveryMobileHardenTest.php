@@ -2,6 +2,12 @@
 
 namespace Tests\Feature\Api;
 
+use App\Livewire\Kitchen\BoxesAtKitchen;
+use App\Livewire\Operation\MiddoBoxes;
+use App\Livewire\Shared\RiderMoneyApprovals;
+use App\Models\Area;
+use App\Models\City;
+use App\Models\KitchenWarehouseHandoff;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
 use App\Models\Order;
@@ -9,12 +15,14 @@ use App\Models\OrderGroup;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\DeliveryPermissions;
+use App\Support\DeliveryRunType;
 use App\Support\MiddoSettings;
 use App\Support\OrderTransition;
 use App\Support\PayoutChannel;
 use App\Support\RiderAccountLedger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Livewire\Livewire;
 use Tests\Support\LunchRunFlow;
 use Tests\TestCase;
 
@@ -76,7 +84,10 @@ class DeliveryMobileHardenTest extends TestCase
         ]);
     }
 
-    private function makeOnTheWayOrder(): Order
+    /**
+     * @return array{0: Order, 1: MiddoBox}
+     */
+    private function makeReadyOrderWithBox(): array
     {
         $today = now('Asia/Dhaka')->toDateString();
         $order = Order::create([
@@ -110,12 +121,28 @@ class DeliveryMobileHardenTest extends TestCase
             'total_uses_count' => 0,
         ]);
 
+        return [$order->fresh(), $box];
+    }
+
+    private function makeOnTheWayOrder(): Order
+    {
+        [$order, $box] = $this->makeReadyOrderWithBox();
+
         return LunchRunFlow::fromReadyToOnTheWay(
             $this->kitchen,
             $this->rider,
-            $order->fresh(),
+            $order,
             $box
         );
+    }
+
+    private function makePackedOrder(): Order
+    {
+        [$order, $box] = $this->makeReadyOrderWithBox();
+        LunchRunFlow::riderAccept($this->rider, $order);
+        LunchRunFlow::kitchenDispatch($this->kitchen, $order->fresh(), $box);
+
+        return $order->fresh();
     }
 
     public function test_eta_then_deliver_payment_link_and_corporate_track(): void
@@ -227,5 +254,172 @@ class DeliveryMobileHardenTest extends TestCase
         $this->postJson('/api/delivery/account/withdraw', [
             'notes' => 'cycle withdraw',
         ])->assertSuccessful();
+    }
+
+    public function test_full_api_cycle_pickup_deliver_collect_handover_withdraw(): void
+    {
+        MiddoSettings::set(MiddoSettings::KEY_DELIVERY_REQUIRE_POD, '0');
+        Sanctum::actingAs($this->rider);
+
+        $this->patchJson('/api/delivery/profile', [
+            'preferred_payout_channel' => PayoutChannel::BKASH,
+            'payout_methods' => [
+                'preferred' => PayoutChannel::BKASH,
+                PayoutChannel::BKASH => ['mobile' => '01710123456'],
+            ],
+        ])->assertOk();
+
+        $order = $this->makePackedOrder();
+        $this->assertSame(OrderTransition::PACKED, $order->order_status);
+
+        // Livewire setup actors replace Sanctum; re-auth the rider for API calls.
+        Sanctum::actingAs($this->rider);
+
+        $this->postJson("/api/delivery/runs/{$order->id}/pickup", [])->assertOk()
+            ->assertJsonPath('run.status', OrderTransition::ON_THE_WAY_TO_DELIVERY);
+
+        $this->postJson("/api/delivery/runs/{$order->id}/deliver", [])->assertOk()
+            ->assertJsonPath('run.status', OrderTransition::DELIVERED);
+
+        $this->postJson("/api/delivery/orders/{$order->id}/collect-cash", [
+            'amount' => 200,
+        ])->assertOk();
+
+        $this->postJson('/api/delivery/cash-handovers', [
+            'order_ids' => [$order->id],
+            'target' => 'middo',
+        ])->assertSuccessful();
+
+        // Pending handover does not clear Due float until ops accepts.
+        \Illuminate\Support\Facades\DB::table('users')
+            ->where('id', $this->rider->id)
+            ->update(['balance' => 0]);
+
+        if (RiderAccountLedger::balance((int) $this->rider->id) <= 0) {
+            RiderAccountLedger::credit(
+                (int) $this->rider->id,
+                40,
+                'delivery_commission',
+                'order',
+                $order->id,
+                'Commission after full API cycle'
+            );
+        }
+
+        $this->postJson('/api/delivery/account/withdraw', [
+            'notes' => 'full cycle withdraw',
+        ])->assertSuccessful();
+    }
+
+    public function test_kitchen_to_ops_box_accept_and_hand_via_api(): void
+    {
+        MiddoSettings::set(MiddoSettings::KEY_KITCHEN_TO_OPS_VIA_RIDER, '1');
+        MiddoSettings::set('delivery.commission.'.DeliveryRunType::KITCHEN_TO_OPS, '33');
+
+        $city = City::create(['name' => 'Dhaka HD']);
+        $area = Area::create(['name' => 'Gulshan HD', 'city_id' => $city->id]);
+        $this->kitchen->forceFill(['area_id' => $area->id])->save();
+        $this->rider->forceFill([
+            'city_id' => $city->id,
+            'area_id' => $area->id,
+            'rider_shift_status' => 'on',
+        ])->save();
+        $this->rider->areas()->sync([$area->id]);
+
+        $opsRole = Role::query()->where('name', 'operation')->firstOrFail();
+        $ops = User::create([
+            'first_name' => 'Ops',
+            'last_name' => 'HD',
+            'mobile' => '01932000099',
+            'password' => 'password',
+            'role_id' => $opsRole->id,
+            'status' => 'active',
+        ]);
+
+        $box = MiddoBox::create([
+            'qr_code_id' => 'MB-HD-K2O-'.uniqid(),
+            'box_model_type' => 'standard_insulated',
+            'kitchen_id' => $this->kitchen->id,
+            'held_by_user_id' => $this->kitchen->id,
+            'asset_status' => 'active',
+            'total_uses_count' => 0,
+        ]);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->call('sendToWarehouse', $box->id)
+            ->assertSet('errorMessage', null);
+
+        Livewire::actingAs($ops)
+            ->test(MiddoBoxes::class)
+            ->call('openAssignRider', $box->id, 'kitchen_to_ops')
+            ->set('assignRiderId', $this->rider->id)
+            ->call('saveAssignRider')
+            ->assertSet('errorMessage', null);
+
+        Livewire::actingAs($this->kitchen)
+            ->test(BoxesAtKitchen::class)
+            ->call('dispatchWarehouseRun', $box->id)
+            ->assertSet('errorMessage', null);
+
+        $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
+            'middo_box_id' => $box->id,
+            'rider_id' => $this->rider->id,
+            'status' => KitchenWarehouseHandoff::STATUS_DISPATCHED,
+        ]);
+
+        // Re-auth after Livewire kitchen/ops actors.
+        Sanctum::actingAs($this->rider);
+        $this->postJson("/api/delivery/boxes/{$box->id}/accept-kitchen-return", [])
+            ->assertOk();
+
+        $box->refresh();
+        $this->assertSame($this->rider->id, $box->held_by_user_id);
+        $this->assertNull($box->kitchen_id);
+
+        $this->postJson("/api/delivery/boxes/{$box->id}/hand-to-ops", [])
+            ->assertOk();
+
+        $this->assertDatabaseHas('kitchen_warehouse_handoffs', [
+            'middo_box_id' => $box->id,
+            'status' => KitchenWarehouseHandoff::STATUS_HANDED_TO_OPS,
+        ]);
+    }
+
+    public function test_accounts_can_post_hoc_adjust_rider_commission(): void
+    {
+        $accountsRole = Role::create(['name' => 'accounts']);
+        $accounts = User::create([
+            'first_name' => 'Accounts',
+            'last_name' => 'HD',
+            'mobile' => '01932000088',
+            'password' => 'password',
+            'role_id' => $accountsRole->id,
+            'status' => 'active',
+        ]);
+
+        $before = RiderAccountLedger::balance((int) $this->rider->id);
+
+        Livewire::actingAs($accounts)
+            ->test(RiderMoneyApprovals::class)
+            ->set('adjustRiderId', $this->rider->id)
+            ->set('adjustDirection', 'credit')
+            ->set('adjustAmount', '75')
+            ->set('adjustReason', 'Post-hoc delivery commission correction')
+            ->call('adjustCommission')
+            ->assertSet('errorMessage', '');
+
+        $this->assertSame($before + 75, RiderAccountLedger::balance((int) $this->rider->id));
+
+        Livewire::actingAs($accounts)
+            ->test(RiderMoneyApprovals::class)
+            ->set('adjustRiderId', $this->rider->id)
+            ->set('adjustDirection', 'debit')
+            ->set('adjustAmount', '25')
+            ->set('adjustReason', 'Clawback overpaid commission')
+            ->call('adjustCommission')
+            ->assertSet('errorMessage', '');
+
+        $this->assertSame($before + 50, RiderAccountLedger::balance((int) $this->rider->id));
     }
 }
