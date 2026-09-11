@@ -182,6 +182,54 @@ class _CashScreenState extends State<CashScreen> {
     }
   }
 
+  Future<void> _sendPaymentLink(Map<String, dynamic> order) async {
+    final id = (order['id'] as num?)?.toInt() ?? 0;
+    final phoneCtrl = TextEditingController(
+      text: order['receiver_phone']?.toString() ??
+          order['receiver_mobile']?.toString() ??
+          '',
+    );
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Send pay link · #$id'),
+        content: DeliveryDialogField(
+          label: 'Receiver phone',
+          controller: phoneCtrl,
+          keyboardType: TextInputType.phone,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Send SMS'),
+          ),
+        ],
+      ),
+    );
+    final phone = phoneCtrl.text.trim();
+    phoneCtrl.dispose();
+    if (ok != true || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      final res = await AppScope.of(context).sendPaymentLink(
+        id,
+        phone: phone.isEmpty ? null : phone,
+      );
+      MiddoHaptics.success();
+      if (!mounted) return;
+      showDeliverySnack(context, res['message']?.toString() ?? 'Link sent.');
+    } on ApiException catch (e) {
+      if (mounted) showDeliverySnack(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _createHandover(List<dynamic> eligible) async {
     if (eligible.isEmpty) {
       showDeliverySnack(context, 'No eligible orders to hand over.', error: true);
@@ -474,6 +522,13 @@ class _CashScreenState extends State<CashScreen> {
                                 onPressed:
                                     _busy ? null : () => _collectCash(order),
                                 child: const Text('Collect cash'),
+                              ),
+                              const SizedBox(height: 8),
+                              OutlinedButton(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _sendPaymentLink(order),
+                                child: const Text('Send online pay link'),
                               ),
                             ],
                           ],

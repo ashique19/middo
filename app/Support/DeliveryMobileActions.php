@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Illuminate\Validation\ValidationException;
+
 use App\Models\CashHandover;
 use App\Models\CashHandoverOrder;
 use App\Models\CustomRun;
@@ -14,6 +16,8 @@ use App\Models\OrderLog;
 use App\Models\RiderWithdrawalRequest;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -854,5 +858,94 @@ class DeliveryMobileActions
                 || $latestAction === 'handed_to_ops_warehouse'
             ),
         ]);
+    }
+
+    public static function updateRunEta(int $orderId, int $riderId, int $etaMinutes): Order
+    {
+        $order = Order::query()->find($orderId);
+        if (! $order || ! $order->isAssignedToRider($riderId)) {
+            throw new \RuntimeException('Order is not assigned to you.');
+        }
+        if ($order->isDelivered() || $order->order_status === 'cancelled') {
+            throw new \RuntimeException('ETA can only be set while the run is active.');
+        }
+
+        Cache::put(self::etaCacheKey($orderId), [
+            'minutes' => $etaMinutes,
+            'updated_at' => now()->toIso8601String(),
+            'rider_id' => $riderId,
+        ], now()->addHours(8));
+
+        return $order->fresh(['menuItem', 'user', 'area', 'deliveryRider', 'orderGroup.kitchen', 'middoBoxes']);
+    }
+
+    /**
+     * @return array{order: Order, payment_url: string, phone: string, sms_sent: bool, message: string}
+     */
+    public static function sendPaymentLink(int $orderId, int $riderId, ?string $phone = null): array
+    {
+        $order = Order::query()->with('menuItem')->find($orderId);
+        if (! $order || (int) $order->delivery_rider_id !== $riderId || ! $order->isDelivered() || $order->isPaid()) {
+            throw new \RuntimeException('Order is not available for online payment.');
+        }
+
+        $phone = $phone ?: (string) ($order->receiver_mobile ?: '');
+        if (! preg_match('/^01[3-9]\d{8}$/', $phone)) {
+            throw ValidationException::withMessages([
+                'phone' => ['Enter a valid 11-digit BD mobile number (e.g. 01710123456).'],
+            ]);
+        }
+
+        $due = $order->amountDue();
+        if ($due < 1) {
+            throw new \RuntimeException('Nothing due for this order.');
+        }
+
+        $paymentUrl = URL::temporarySignedRoute(
+            'public.order-payment',
+            now()->addDays(3),
+            ['order' => $order->id]
+        );
+
+        $menu = $order->menuItem?->name ?? 'order';
+        $message = "Middo payment for order #{$order->id} ({$menu}): ৳{$due} due. Pay here: {$paymentUrl}";
+        $sent = MimSms::send($phone, $message);
+
+        if (! $sent && ! config('app.debug')) {
+            throw new \RuntimeException('Could not send payment SMS. Please try again.');
+        }
+
+        $order->update(['updated_by' => $riderId]);
+
+        return [
+            'order' => $order->fresh(['menuItem', 'user', 'area', 'deliveryRider']),
+            'payment_url' => $paymentUrl,
+            'phone' => $phone,
+            'sms_sent' => (bool) $sent,
+            'message' => config('app.debug') && ! $sent
+                ? 'Payment link prepared (SMS skipped in debug/unavailable).'
+                : 'Payment link sent to '.$phone.'.',
+        ];
+    }
+
+    public static function etaCacheKey(int $orderId): string
+    {
+        return 'delivery_run_eta:'.$orderId;
+    }
+
+    /**
+     * @return array{minutes: int|null, updated_at: string|null}
+     */
+    public static function etaForOrder(int $orderId): array
+    {
+        $cached = Cache::get(self::etaCacheKey($orderId));
+        if (! is_array($cached)) {
+            return ['minutes' => null, 'updated_at' => null];
+        }
+
+        return [
+            'minutes' => isset($cached['minutes']) ? (int) $cached['minutes'] : null,
+            'updated_at' => isset($cached['updated_at']) ? (string) $cached['updated_at'] : null,
+        ];
     }
 }

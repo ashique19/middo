@@ -144,6 +144,32 @@ Account also returns `statement[]` and `withdrawals[]`.
 Withdraw body: `{ "notes"?, "payout_channel"? }`. Amount = full wallet receivable.  
 **Blocked while `users.balance` (Due to Middo) > 0.**
 
+## Profile & payout methods
+
+| Method | Path | Permission |
+|--------|------|------------|
+| `PATCH` | `/profile` | `delivery.profile` |
+
+Body may include `email`, `preferred_payout_channel`, and `payout_methods` (`preferred`, `bank`, `bkash`, `nagad`). Incomplete drafts are allowed; withdraw still requires a complete preferred method.
+
+## Online payment link
+
+| Method | Path | Permission |
+|--------|------|------------|
+| `POST` | `/orders/{id}/send-payment-link` | `delivery.cash` |
+
+Body: `{ "phone": "01710123456" }` (optional; defaults to order receiver mobile). Sends a temporary signed `public.order-payment` URL via MimSMS (skipped in debug).
+
+## Run ETA
+
+| Method | Path | Permission |
+|--------|------|------------|
+| `POST` | `/runs/{id}/eta` | `delivery.runs` |
+
+Body: `{ "eta_minutes": 25 }`. Cached for corporate track (`rider_name`, `eta_minutes`, `eta_label`).
+
+
+
 ---
 
 ## Custom runs

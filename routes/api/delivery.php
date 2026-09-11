@@ -39,6 +39,7 @@ Route::prefix('delivery')->group(function () {
             Route::post('/runs/{id}/pickup', [DeliveryMobileController::class, 'pickupRun']);
             Route::post('/runs/{id}/send-delivery-otp', [DeliveryMobileController::class, 'sendDeliveryOtp']);
             Route::post('/runs/{id}/deliver', [DeliveryMobileController::class, 'deliverRun']);
+            Route::post('/runs/{id}/eta', [DeliveryMobileController::class, 'updateRunEta']);
 
             Route::get('/custom-runs', [DeliveryMobileController::class, 'customRuns']);
             Route::post('/custom-runs/{id}/start', [DeliveryMobileController::class, 'startCustomRun']);
@@ -59,6 +60,7 @@ Route::prefix('delivery')->group(function () {
         Route::middleware('permission:'.DeliveryPermissions::CASH)->group(function () {
             Route::get('/orders/delivered', [DeliveryMobileController::class, 'deliveredOrders']);
             Route::post('/orders/{id}/collect-cash', [DeliveryMobileController::class, 'collectCash']);
+            Route::post('/orders/{id}/send-payment-link', [DeliveryMobileController::class, 'sendPaymentLink']);
             Route::get('/cash-handovers', [DeliveryMobileController::class, 'cashHandovers']);
             Route::post('/cash-handovers', [DeliveryMobileController::class, 'createCashHandover']);
         });
@@ -66,6 +68,10 @@ Route::prefix('delivery')->group(function () {
         Route::middleware('permission:'.DeliveryPermissions::ACCOUNT)->group(function () {
             Route::get('/account', [DeliveryMobileController::class, 'account']);
             Route::post('/account/withdraw', [DeliveryMobileController::class, 'requestWithdrawal']);
+        });
+
+        Route::middleware('permission:'.DeliveryPermissions::PROFILE)->group(function () {
+            Route::patch('/profile', [DeliveryMobileController::class, 'updateProfile']);
         });
     });
 });

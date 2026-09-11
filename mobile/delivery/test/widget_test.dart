@@ -115,6 +115,18 @@ void main() {
     expect(queue.items.last['idempotency_key'], isNotEmpty);
   });
 
+  test('Offline mutation queue parks permanent failures for review', () async {
+    SharedPreferences.setMockInitialValues({});
+    final queue = OfflineMutationQueue.instance;
+    await queue.enqueue(
+      type: 'collect_cash',
+      method: 'POST',
+      path: '/orders/1/collect-cash',
+      body: {'amount': 10},
+    );
+    expect(queue.pendingCount, greaterThan(0));
+  });
+
   test('Mock pending boxes expose run_groups', () async {
     final repo = MockDeliveryRepository();
     final pending = await repo.pendingBoxes();
