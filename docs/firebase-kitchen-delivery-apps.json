@@ -1,0 +1,118 @@
+{
+  "id": "middo-firebase-kitchen-delivery-2026-09-11",
+  "title": "Firebase Android app registration — Middo Kitchen + Middo Delivery",
+  "updated": "2026-09-11",
+  "purpose": "Exact details to register two new Android apps in the existing Middo Firebase project so kitchen and delivery Flutter/APK clients can use FCM like corporate.",
+  "existing": {
+    "firebase_project_id": "middo-55888",
+    "firebase_project_number": "272880379950",
+    "storage_bucket": "middo-55888.firebasestorage.app",
+    "console_url": "https://console.firebase.google.com/project/middo-55888",
+    "server_fcm": {
+      "api": "FCM HTTP v1 via App\\Support\\FcmClient",
+      "env": {
+        "FIREBASE_CREDENTIALS": "storage/app/firebase/service-account.json",
+        "FIREBASE_PROJECT_ID": "middo-55888"
+      },
+      "note": "One service account covers all Android apps in this project. Do not create a second Firebase project."
+    },
+    "corporate_android": {
+      "app_nickname": "Middo Corporate",
+      "package_name": "com.middo.corporates",
+      "mobilesdk_app_id": "1:272880379950:android:f3406fc052cf51683597bf",
+      "google_services_path": "mobile/corporate/android/app/google-services.json",
+      "flutter_path": "mobile/corporate",
+      "android_notification_channel_id": "middo_orders"
+    }
+  },
+  "apps_to_register": [
+    {
+      "role": "kitchen",
+      "app_nickname": "Middo Kitchen",
+      "display_name_pwa": "Middo Kitchen",
+      "package_name": "com.middo.kitchen",
+      "flutter_module_name": "middo_kitchen",
+      "proposed_paths": {
+        "flutter_root": "mobile/kitchen",
+        "google_services_json": "mobile/kitchen/android/app/google-services.json",
+        "ios_plist_later": "mobile/kitchen/ios/Runner/GoogleService-Info.plist"
+      },
+      "platform": "Android",
+      "sha1_debug_optional": "Add debug SHA-1 later if you need Google Sign-In / Dynamic Links; FCM-only does not require it for basic token delivery.",
+      "notification_channel_id_proposed": "middo_kitchen",
+      "push_use_cases_planned": [
+        "New order group / accept-window alerts",
+        "Box request / custody updates",
+        "Complaint / SLA warnings (today StaffAlerts are in-app DB only)"
+      ],
+      "backend_gaps": [
+        "No /api/kitchen/* yet",
+        "No kitchen device-token register/unregister endpoints",
+        "No kitchen FCM send pipeline yet"
+      ]
+    },
+    {
+      "role": "delivery",
+      "app_nickname": "Middo Delivery",
+      "display_name_pwa": "Middo Rider",
+      "package_name": "com.middo.delivery",
+      "flutter_module_name": "middo_delivery",
+      "naming_note": "User-facing PWA is Middo Rider (public/manifest-delivery.webmanifest). Package uses com.middo.delivery to match the /delivery role path; store listing can still show Middo Rider.",
+      "proposed_paths": {
+        "flutter_root": "mobile/delivery",
+        "google_services_json": "mobile/delivery/android/app/google-services.json",
+        "ios_plist_later": "mobile/delivery/ios/Runner/GoogleService-Info.plist"
+      },
+      "platform": "Android",
+      "sha1_debug_optional": "Same as kitchen — optional for FCM-only.",
+      "notification_channel_id_proposed": "middo_delivery",
+      "push_use_cases_planned": [
+        "New claimable runs / kitchen→ops box returns",
+        "Assignment and handoff alerts",
+        "Cash / wallet reminders"
+      ],
+      "backend_gaps": [
+        "No /api/delivery/* yet",
+        "No delivery/rider device-token endpoints",
+        "No delivery FCM send pipeline yet"
+      ]
+    }
+  ],
+  "console_checklist": [
+    "Open https://console.firebase.google.com/project/middo-55888/settings/general",
+    "Under Your apps → Add app → Android",
+    "Register Middo Kitchen with Android package name exactly: com.middo.kitchen",
+    "Download google-services.json → keep for mobile/kitchen/android/app/ when the Flutter app exists",
+    "Add app → Android again",
+    "Register Middo Delivery with Android package name exactly: com.middo.delivery",
+    "Download that google-services.json → keep for mobile/delivery/android/app/",
+    "Confirm Project settings still shows three Android apps: com.middo.corporates, com.middo.kitchen, com.middo.delivery",
+    "Server: ensure storage/app/firebase/service-account.json exists on the deploy host and FIREBASE_PROJECT_ID=middo-55888 (no new service account required)"
+  ],
+  "do_not": [
+    "Do not create a separate Firebase project per app",
+    "Do not reuse com.middo.corporates google-services.json inside kitchen/delivery APKs",
+    "Do not commit service-account.json or raw API keys to git",
+    "Do not change corporate package name"
+  ],
+  "after_registration": {
+    "save_locally": [
+      "Store downloaded JSONs outside git if Flutter folders are not created yet, e.g. Desktop/Workplace/middo-firebase/kitchen-google-services.json and delivery-google-services.json",
+      "Or create mobile/kitchen and mobile/delivery scaffolds next and drop files into android/app/"
+    ],
+    "record_here": [
+      "mobilesdk_app_id for kitchen",
+      "mobilesdk_app_id for delivery"
+    ]
+  },
+  "status": {
+    "corporate_registered": true,
+    "kitchen_registered": false,
+    "delivery_registered": false,
+    "flutter_apps_exist": {
+      "corporate": true,
+      "kitchen": false,
+      "delivery": false
+    }
+  }
+}

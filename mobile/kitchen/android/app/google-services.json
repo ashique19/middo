@@ -9,6 +9,25 @@
       "client_info": {
         "mobilesdk_app_id": "1:272880379950:android:f3406fc052cf51683597bf",
         "android_client_info": {
+          "package_name": "com.middo.corporates"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALo_7gbzk-f3tH_u694jyXwbyqXbMuHCc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:272880379950:android:a5d1297b2614c8aa3597bf",
+        "android_client_info": {
           "package_name": "com.middo.kitchen"
         }
       },
