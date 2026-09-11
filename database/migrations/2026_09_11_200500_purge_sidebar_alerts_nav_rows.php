@@ -3,18 +3,19 @@
 use App\Support\StaffNavSync;
 use Illuminate\Database\Migrations\Migration;
 
+/**
+ * Ensure Alerts rows are gone even if the earlier sync migration already ran
+ * before purgeAlertLeaves existed (deployed DBs that still show sidebar Alerts).
+ */
 return new class extends Migration
 {
     public function up(): void
     {
-        // Drop sidebar Alerts leaves; bell lives in the top bar / app header.
-        StaffNavSync::syncAll();
         StaffNavSync::purgeAlertLeaves();
     }
 
     public function down(): void
     {
-        // Structure-driven sync; restoring Alerts requires reverting StaffNavStructure.
-        StaffNavSync::syncAll();
+        // no-op: Alerts belong in the top-bar bell, not the sidebar
     }
 };

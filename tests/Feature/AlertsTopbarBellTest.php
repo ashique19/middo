@@ -75,15 +75,35 @@ class AlertsTopbarBellTest extends TestCase
             ->assertDontSee('>Alerts</span>', false);
     }
 
-    public function test_admin_dashboard_shows_topbar_alerts_bell(): void
+    public function test_sidebar_hides_alerts_even_when_stale_nav_row_exists(): void
     {
-        $admin = $this->user('admin');
+        foreach (StaffNavStructure::roleNames() as $name) {
+            $this->seedRole($name);
+        }
+
         StaffNavSync::syncAll();
 
-        $this->actingAs($admin)
-            ->get(route('admin.dashboard'))
+        $ops = $this->user('operation');
+        $overviewId = Nav::query()
+            ->where('role_id', $ops->role_id)
+            ->whereNull('parent_id')
+            ->where('title', 'Overview')
+            ->value('id');
+
+        Nav::query()->create([
+            'title' => 'Alerts',
+            'route_name' => 'operation.alerts.index',
+            'icon' => '🔔',
+            'order' => 99,
+            'role_id' => $ops->role_id,
+            'parent_id' => $overviewId,
+        ]);
+
+        $this->actingAs($ops)
+            ->get(route('operation.dashboard'))
             ->assertOk()
-            ->assertSee(route('admin.alerts.index'), false)
-            ->assertSee('aria-label="Alerts"', false);
+            ->assertSee(route('operation.alerts.index'), false)
+            ->assertSee('aria-label="Alerts"', false)
+            ->assertDontSee('>Alerts</span>', false);
     }
 }
