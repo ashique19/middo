@@ -1,6 +1,6 @@
 # Google Play — Middo Delivery (Rider)
 
-Package: `com.middo.delivery` · Display name: **Middo Delivery** (store can show **Middo Rider**) · Current version: **0.3.2 (8)**
+Package: `com.middo.delivery` · Display name: **Middo Delivery** (store can show **Middo Rider**) · Current version: **0.3.2 (9)**
 
 Upload artifact: `mobile/delivery/releases/middo-delivery-release.aab`
 
@@ -84,7 +84,7 @@ flutter build appbundle --release \
 cp build/app/outputs/bundle/release/app-release.aab releases/middo-delivery-release.aab
 ```
 
-Bump `version:` in `pubspec.yaml` before each Play upload (`0.3.2+8` → name `0.3.2`, code `8`).
+Bump `version:` in `pubspec.yaml` before each Play upload (`0.3.2+9` → name `0.3.2`, code `9`).
 
 Upload only AABs signed with the delivery upload keystore (`CN=Middo Delivery`). Debug-signed builds are rejected by Play.
 
