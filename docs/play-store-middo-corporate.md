@@ -69,8 +69,8 @@ https://x.middo.com.bd
 ### Graphics checklist
 | Asset | Size | Source |
 |-------|------|--------|
-| App icon | 512×512 PNG | `public/img/settings/logo.png` (resize; no transparency for Play) |
-| Feature graphic | 1024×500 JPG/PNG | Brand banner — create in Figma/Canva if not ready |
+| App icon | 512×512 PNG | `mobile/corporate/play-store/app-icon-512.png` (no transparency) |
+| Feature graphic | 1024×500 PNG | `mobile/corporate/play-store/feature-graphic-1024x500.png` |
 | Phone screenshots | Min 2, 1080×1920 recommended | Capture from app: login, menu, checkout, track |
 
 ---
