@@ -91,6 +91,12 @@ abstract class DeliveryRepository {
 
   Future<Map<String, dynamic>> withdraw({String? notes});
 
+  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> body);
+
+  Future<Map<String, dynamic>> sendPaymentLink(int orderId, {String? phone});
+
+  Future<Map<String, dynamic>> updateRunEta(int runId, {required int etaMinutes});
+
   Future<List<dynamic>> customRuns();
 
   Future<Map<String, dynamic>> startCustomRun(int id);
@@ -417,6 +423,21 @@ class ApiDeliveryRepository implements DeliveryRepository {
       _client.post('/account/withdraw', body: {
         if (notes != null && notes.isNotEmpty) 'notes': notes,
       });
+
+  @override
+  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> body) =>
+      _client.patch('/profile', body: body);
+
+  @override
+  Future<Map<String, dynamic>> sendPaymentLink(int orderId, {String? phone}) =>
+      _client.post('/orders/$orderId/send-payment-link', body: {
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
+      });
+
+  @override
+  Future<Map<String, dynamic>> updateRunEta(int runId,
+          {required int etaMinutes}) =>
+      _client.post('/runs/$runId/eta', body: {'eta_minutes': etaMinutes});
 
   @override
   Future<List<dynamic>> customRuns() async {
@@ -1092,6 +1113,46 @@ class MockDeliveryRepository implements DeliveryRepository {
       'message': 'Withdrawal submitted.',
       'withdrawal': row,
       'balance': _balance,
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> body) async {
+    final methods = (body['payout_methods'] as Map?)?.cast<String, dynamic>() ??
+        <String, dynamic>{};
+    _user = {
+      ..._user,
+      if (body['email'] != null) 'email': body['email'],
+      'preferred_payout_channel':
+          methods['preferred'] ?? body['preferred_payout_channel'] ?? 'bkash',
+      'has_complete_payout_method': true,
+      'payout_methods': methods,
+    };
+    return {
+      'message': 'Profile updated.',
+      'user': _user,
+      'account': await account(),
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> sendPaymentLink(int orderId,
+      {String? phone}) async {
+    return {
+      'message': 'Payment link sent to ${phone ?? '01710123456'}.',
+      'payment_url': 'https://middo.test/pay/$orderId',
+      'phone': phone ?? '01710123456',
+      'sms_sent': true,
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateRunEta(int runId,
+      {required int etaMinutes}) async {
+    return {
+      'message': 'ETA updated to about $etaMinutes minutes.',
+      'eta_minutes': etaMinutes,
+      'eta_label': 'About $etaMinutes min',
     };
   }
 

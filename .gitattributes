@@ -1,11 +1,12 @@
 * text=auto eol=lf
-
 *.blade.php diff=html
 *.css diff=css
 *.html diff=html
 *.md diff=markdown
 *.php diff=php
-
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
+# Delivery release binaries — store via Git LFS (or prefer CI artifacts)
+mobile/delivery/releases/*.apk filter=lfs diff=lfs merge=lfs -text
+mobile/delivery/releases/*.aab filter=lfs diff=lfs merge=lfs -text
