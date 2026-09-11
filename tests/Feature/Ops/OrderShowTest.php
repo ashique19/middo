@@ -109,10 +109,16 @@ class OrderShowTest extends TestCase
             'performed_by' => $ops->id,
         ]);
 
+        $deliveryDateLabel = $order->delivery_date->format('l, M d, Y');
+
         $this->actingAs($ops)
             ->get(route('operation.orders.show', $order))
             ->assertOk()
             ->assertSee('Order #'.$order->id)
+            ->assertSee('Delivery date')
+            ->assertSee('Delivery time')
+            ->assertSee($deliveryDateLabel)
+            ->assertSee('12:00 PM')
             ->assertSee('Acme Foods')
             ->assertSee('Chef One')
             ->assertSee('Rider Ali')
