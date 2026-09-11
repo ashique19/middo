@@ -58,6 +58,53 @@ Same support email as https://x.middo.com.bd/contact · Website: `https://x.midd
 
 ---
 
+## Before you can send for review (Play Console forms)
+
+These two **Policy** blockers are filled in Play Console — not fixed by uploading a new AAB.
+
+Open the **Middo Delivery** app → left nav **Policy and programs** → **App content**. Complete every row until the dashboard shows no “Incomplete” errors.
+
+### 1) Advertising ID (fixes “Incomplete advertising ID declaration”)
+
+1. Open **App content** → **Advertising ID** → **Start** / **Manage**.
+2. **Does your app use advertising ID?** → **Yes**  
+   (Firebase Analytics / Google Play services may read it. Middo Delivery has **no ads**. The AAB already declares `com.google.android.gms.permission.AD_ID`.)
+3. **Why does your app use advertising ID?** → check **Analytics** (and/or **App functionality** if shown).  
+   Do **not** check advertising, remarketing, or ads personalization.
+4. Save.
+
+If you previously answered **No**, change it to **Yes** — a “No” answer conflicts with the `AD_ID` permission in the uploaded bundle.
+
+### 2) Content ratings (fixes “Incomplete content ratings declaration”)
+
+1. Open **App content** → **Content ratings** → **Start questionnaire**.
+2. Enter email for IARC certificate → continue.
+3. **Category:** **Utility, Productivity, Communication, or Other** (not Games).
+4. Answer the questionnaire — for Middo Delivery use **No** for all of:
+   - Violence / blood / gore  
+   - Sexual content / nudity  
+   - Controlled substances / drugs / alcohol / tobacco  
+   - Gambling / contests for money  
+   - User-to-user communication that is unmoderated chat (riders talk to ops via the product, not an open social network — if asked about user-generated content / chat, prefer the option that matches a closed workplace app, or **No** if the form only asks about unrestricted public UGC)  
+   - Location sharing as a social feature (job routing for riders is operational; if forced to pick, declare location only as needed for app functionality, not “share my location publicly”)
+5. Submit → apply the generated rating (expect **Everyone** / **PEGI 3** / equivalent) to the Delivery app store listing.
+6. Save until **Content ratings** shows **Completed**.
+
+### Also complete (same App content page)
+
+| Section | Answer for Delivery |
+|---------|---------------------|
+| **Ads** | No, this app does not contain ads |
+| **App access** | Some functionality is restricted → provide a **test rider mobile + password** for Google reviewers |
+| **Target audience** | 18 and over (professional riders) |
+| **News app** | No |
+| **COVID-19 contact tracing / status apps** | No |
+| **Data safety** | See section below — must be Completed |
+| **Government apps** | No |
+| **Financial features** | Yes if riders see earnings / withdrawals; describe as payroll/payouts for delivery work, not a consumer bank |
+
+---
+
 ## Upload keystore (one-time)
 
 ```bash
@@ -87,18 +134,6 @@ cp build/app/outputs/bundle/release/app-release.aab releases/middo-delivery-rele
 Bump `version:` in `pubspec.yaml` before each Play upload (`0.3.2+10` → name `0.3.2`, code `10`).
 
 Upload only AABs signed with the delivery upload keystore (`CN=Middo Delivery`). Debug-signed builds are rejected by Play.
-
----
-
-## Advertising ID (Android 13 / API 33+)
-
-Play Console → **Policy and programs** → **App content** → **Advertising ID**:
-
-1. Declare that the app **uses** an advertising ID (Firebase Analytics / Play services may read it; Delivery has **no ads**).
-2. Purpose: Analytics / App functionality (not advertising / remarketing).
-3. Manifest already includes `com.google.android.gms.permission.AD_ID` (same as Middo Corporate).
-
-If you instead declare “No”, you must remove the AD_ID permission and ensure Analytics does not collect it — keep the permission + “Yes” path to match Corporate.
 
 ---
 
