@@ -11,19 +11,21 @@ Terms: https://x.middo.com.bd/terms
 
 ## Store listing (copy-paste)
 
-### App name
+> **Play Metadata policy:** Title and short description must not match. Do **not** paste `Middo Delivery` into Short description.
+
+### App name (title)
 ```
 Middo Delivery
 ```
 
-### Short description (80 chars max)
+### Short description (80 chars max — must differ from title)
 ```
-Rider app for Middo — pick up lunch runs, deliver, collect cash, hand over Due.
+Pick up lunch runs, deliver to offices, collect cash, and manage Middo Boxes.
 ```
 
 ### Full description
 ```
-Middo Delivery is the rider app for Middo’s corporate lunch network in Dhaka.
+Rider staff app for Middo’s corporate lunch network in Dhaka.
 
 Pick up packed lunch runs from kitchens, deliver to offices, collect cash, hand over Due to Middo, and manage Middo Box returns — with offline-safe actions and push alerts.
 
