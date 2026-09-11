@@ -54,13 +54,14 @@ android {
 
     buildTypes {
         release {
-            // Uses upload-keystore when android/key.properties exists; otherwise debug
-            // so local `flutter build apk --release` still works without secrets.
-            signingConfig = if (hasReleaseKeystore) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            // Require upload keystore for release — silent debug fallback caused Play Console
+            // "signed in debug mode" rejects. Sideload with `flutter build apk --debug` instead.
+            check(hasReleaseKeystore) {
+                "Missing android/key.properties (and upload-keystore.jks). " +
+                    "Copy key.properties.example → key.properties and set store/key passwords. " +
+                    "See docs/play-store-middo-delivery.md."
             }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

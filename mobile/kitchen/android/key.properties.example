@@ -1,4 +1,4 @@
 storePassword=YOUR_STORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD
-keyAlias=middo-corporate
+keyAlias=middo-kitchen
 storeFile=upload-keystore.jks

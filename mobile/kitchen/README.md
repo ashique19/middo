@@ -69,11 +69,28 @@ Published artifacts:
 - APK: `mobile/kitchen/releases/middo-kitchen-release.apk`
 - AAB: `mobile/kitchen/releases/middo-kitchen-release.aab`
 
-Without `android/key.properties`, release builds are signed with the debug keystore (fine for sideload smoke). Play upload needs a real upload keystore.
+### Release signing (Play Store / production)
+
+Without `android/key.properties`, **release builds fail** (so Play never gets a debug-signed AAB). Use `flutter build apk --debug` for sideload tests.
+
+One-time setup on a machine with JDK `keytool`:
+
+```bash
+cd mobile/kitchen/android
+keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias middo-kitchen
+cp key.properties.example key.properties
+# Edit key.properties with your store/key passwords
+```
+
+`keyAlias` must be `middo-kitchen` (see `android/key.properties.example`).
+
+Keep `upload-keystore.jks` and `key.properties` out of git (already gitignored). Losing the keystore blocks Play Store updates for the same app listing.
+
+Play Console: create an app for package `com.middo.kitchen`, upload the AAB, complete store listing / content ratings / target audience forms. See `docs/play-store-middo-kitchen.md`.
 
 ### Firebase
 
-Replace `android/app/google-services.json` with a Firebase Android app registered as `com.middo.kitchen`. Until then, push init no-ops gracefully.
+`android/app/google-services.json` is present for `com.middo.kitchen` (Firebase project `middo-55888`). Push init no-ops gracefully if Firebase is unavailable.
 
 Requires Flutter 3.32+.
 
