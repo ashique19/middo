@@ -54,7 +54,6 @@ class StaffNavStructure
                 'title' => 'Overview',
                 'items' => [
                     ['title' => 'Dashboard', 'route_name' => 'admin.dashboard', 'icon' => '🏠'],
-                    ['title' => 'Alerts', 'route_name' => 'admin.alerts.index', 'icon' => '🔔'],
                     ['title' => 'Ops day', 'route_name' => 'admin.ops-day.index', 'icon' => '📅'],
                 ],
             ],
@@ -141,7 +140,6 @@ class StaffNavStructure
                 'title' => 'Overview',
                 'items' => [
                     ['title' => 'Dashboard', 'route_name' => 'operation.dashboard', 'icon' => '🏠'],
-                    ['title' => 'Alerts', 'route_name' => 'operation.alerts.index', 'icon' => '🔔'],
                     ['title' => 'Ops day', 'route_name' => 'operation.ops-day.index', 'icon' => '📅'],
                 ],
             ],
@@ -268,7 +266,6 @@ class StaffNavStructure
                 'title' => 'Overview',
                 'items' => [
                     ['title' => 'Dashboard', 'route_name' => 'kitchen.dashboard', 'icon' => '🏠'],
-                    ['title' => 'Alerts', 'route_name' => 'kitchen.alerts', 'icon' => '🔔'],
                 ],
             ],
             [
@@ -321,7 +318,6 @@ class StaffNavStructure
                 'title' => 'Overview',
                 'items' => [
                     ['title' => 'Dashboard', 'route_name' => 'delivery.dashboard', 'icon' => '🏠'],
-                    ['title' => 'Alerts', 'route_name' => 'delivery.alerts', 'icon' => '🔔'],
                 ],
             ],
             [
