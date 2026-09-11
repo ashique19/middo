@@ -50,8 +50,8 @@ Same support email as https://x.middo.com.bd/contact · Website: `https://x.midd
 ### Graphics checklist
 | Asset | Size | Notes |
 |-------|------|--------|
-| App icon | 512×512 PNG | No transparency for Play |
-| Feature graphic | 1024×500 | Brand banner |
+| App icon | 512×512 PNG | `mobile/kitchen/play-store/app-icon-512.png` (no transparency) |
+| Feature graphic | 1024×500 PNG | `mobile/kitchen/play-store/feature-graphic-1024x500.png` |
 | Phone screenshots | Min 2 | Home, prep queue, boxes, handoff |
 
 ---
