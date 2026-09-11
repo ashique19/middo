@@ -22,7 +22,9 @@ void main() {
     expect(find.text('Middo'), findsOneWidget);
     expect(find.text('Kitchen'), findsOneWidget);
 
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+    // Splash uses looping pulse/steam until navigation (~2.2s).
+    await tester.pump(const Duration(milliseconds: 2300));
+    await tester.pumpAndSettle();
 
     expect(find.textContaining('Cook, pack'), findsOneWidget);
     expect(find.text('Sign In'), findsOneWidget);
@@ -55,7 +57,8 @@ void main() {
   testWidgets('Mock login reaches home shell', (tester) async {
     final repo = MockKitchenRepository();
     await tester.pumpWidget(MiddoKitchenApp(repository: repo));
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 2300));
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, '01310123453');
     await tester.enterText(find.byType(TextField).at(1), '12345678');

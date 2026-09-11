@@ -1,7 +1,7 @@
 name: middo_kitchen
 description: "Middo Kitchen — cook partner app for order groups, prep, and dispatch."
 publish_to: 'none'
-version: 0.3.1+13
+version: 0.3.1+14
 
 environment:
   sdk: ^3.8.1
