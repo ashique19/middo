@@ -3,11 +3,13 @@
         Welcome back, {{ Auth::user()->first_name }}
     </div>
 
-    <div class="flex items-center gap-6">
+    <div class="flex items-center gap-4 sm:gap-6">
         <a href="{{ route('kitchen.cash-handovers') }}"
            class="inline-flex items-center px-3.5 py-2 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition">
             Cash Management
         </a>
+
+        <x-staff.alerts-bell />
 
         {{-- ACCOUNT DROPDOWN (Profile / Change Password / Logout) --}}
         <div class="relative" x-data="{ accountOpen: false }">

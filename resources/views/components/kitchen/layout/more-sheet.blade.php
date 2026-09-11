@@ -1,6 +1,5 @@
 @php
     $items = [
-        ['title' => 'Alerts', 'route' => 'kitchen.alerts', 'hint' => 'Assignments & window warnings'],
         ['title' => 'Complaints', 'route' => 'kitchen.complaints', 'hint' => 'Assigned-order feedback'],
         ['title' => 'Prep shopping list', 'route' => 'kitchen.prep.shopping-list', 'hint' => 'Ingredients for accepted groups'],
         ['title' => 'Boxes at kitchen', 'route' => 'kitchen.middo-boxes.at-kitchen', 'hint' => 'Inventory with you'],

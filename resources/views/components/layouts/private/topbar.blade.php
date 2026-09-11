@@ -3,10 +3,12 @@
         Welcome back, {{ Auth::user()->first_name }}
     </div>
 
-    <div class="flex items-center gap-6">
+    <div class="flex items-center gap-4 sm:gap-6">
         <div class="text-sm">
             Balance: <span class="font-bold text-middo-orange">৳ 0.00</span>
         </div>
+
+        <x-staff.alerts-bell />
 
         {{-- ACCOUNT DROPDOWN (Profile / Change Password / Logout) --}}
         <div class="relative" x-data="{ accountOpen: false }">

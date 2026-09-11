@@ -2,7 +2,6 @@
     $items = [
         ['title' => 'Account', 'route' => 'delivery.account', 'hint' => 'Wallet when Middo owes you'],
         ['title' => 'Custom runs', 'route' => 'delivery.custom-runs', 'hint' => 'Point → point jobs'],
-        ['title' => 'Alerts', 'route' => 'delivery.alerts', 'hint' => 'Parcel calls in your areas'],
         ['title' => 'Delivered orders', 'route' => 'delivery.orders.delivered', 'hint' => 'Collect payment & receive boxes'],
         ['title' => 'Cash handovers', 'route' => 'delivery.cash-handovers', 'hint' => 'Hand over Due when you hold cash'],
         ['title' => 'Kitchen dispatches', 'route' => 'delivery.kitchen-dispatches', 'hint' => 'Assigned lunch runs'],
