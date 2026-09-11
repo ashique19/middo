@@ -9,6 +9,18 @@ use Illuminate\Support\Facades\DB;
 class StaffNavSync
 {
     /**
+     * Alert pages live behind the top-bar bell — never in the desktop sidebar.
+     *
+     * @var list<string>
+     */
+    public const ALERT_ROUTE_NAMES = [
+        'admin.alerts.index',
+        'operation.alerts.index',
+        'kitchen.alerts',
+        'delivery.alerts',
+    ];
+
+    /**
      * Rebuild each role's desktop nav tree from StaffNavStructure.
      * Idempotent: matches leaf rows by route_name + role_id.
      */
@@ -17,6 +29,21 @@ class StaffNavSync
         foreach (StaffNavStructure::roleNames() as $roleName) {
             self::syncRole($roleName);
         }
+
+        self::purgeAlertLeaves();
+    }
+
+    /**
+     * Hard-delete any leftover Alerts sidebar rows (legacy seeders / unsynced DBs).
+     */
+    public static function purgeAlertLeaves(): void
+    {
+        Nav::query()
+            ->where(function ($query) {
+                $query->whereIn('route_name', self::ALERT_ROUTE_NAMES)
+                    ->orWhere('title', 'Alerts');
+            })
+            ->delete();
     }
 
     public static function syncRole(string $roleName): void
