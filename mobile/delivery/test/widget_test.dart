@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:middo_delivery/data/delivery_repository.dart';
 import 'package:middo_delivery/data/offline_mutation_queue.dart';
+import 'package:middo_delivery/app_scope.dart';
 import 'package:middo_delivery/main.dart';
+import 'package:middo_delivery/screens/run_detail_screen.dart';
 import 'package:middo_delivery/widgets/empty_state.dart';
 import 'package:middo_delivery/widgets/skeleton.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -133,4 +135,32 @@ void main() {
     expect(pending['run_groups'], isA<List>());
     expect((pending['run_groups'] as List), isNotEmpty);
   });
+
+
+
+
+
+  testWidgets('Run detail can set customer ETA chips', (tester) async {
+    final repo = MockDeliveryRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppScope(
+          repository: repo,
+          child: const RunDetailScreen(runId: 102),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Customer ETA'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('eta-25')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('About 25 min'), findsWidgets);
+    final shown = await repo.showRun(102);
+    expect((shown['run'] as Map)['eta_minutes'], 25);
+  });
+
+
+
 }

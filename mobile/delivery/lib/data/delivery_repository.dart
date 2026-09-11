@@ -518,6 +518,8 @@ class MockDeliveryRepository implements DeliveryRepository {
       'show_commission': true,
       'payment_method_label': 'Online',
       'box_codes': ['BOX-101-A', 'BOX-101-B'],
+      'eta_minutes': null,
+      'eta_label': null,
     },
     {
       'id': 102,
@@ -540,6 +542,8 @@ class MockDeliveryRepository implements DeliveryRepository {
       'show_commission': true,
       'payment_method_label': 'Cash on delivery',
       'box_codes': ['BOX-102-A'],
+      'eta_minutes': null,
+      'eta_label': null,
     },
   ];
 
@@ -1149,10 +1153,19 @@ class MockDeliveryRepository implements DeliveryRepository {
   @override
   Future<Map<String, dynamic>> updateRunEta(int runId,
       {required int etaMinutes}) async {
+    final i = _runs.indexWhere((r) => r['id'] == runId);
+    if (i < 0) throw ApiException('Run not found', statusCode: 404);
+    final label = 'About $etaMinutes min';
+    _runs[i] = {
+      ..._runs[i],
+      'eta_minutes': etaMinutes,
+      'eta_label': label,
+    };
     return {
       'message': 'ETA updated to about $etaMinutes minutes.',
+      'run': _runs[i],
       'eta_minutes': etaMinutes,
-      'eta_label': 'About $etaMinutes min',
+      'eta_label': label,
     };
   }
 
