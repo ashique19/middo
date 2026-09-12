@@ -6,6 +6,7 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 val keystoreProperties = Properties()
@@ -67,4 +68,8 @@ flutter {
 }
 
 dependencies {
+    // Firebase Android BoM — keeps native Firebase libs on compatible versions.
+    // Dart APIs come from the Flutter firebase_* plugins.
+    implementation(platform("com.google.firebase:firebase-bom:34.16.0"))
+    implementation("com.google.firebase:firebase-analytics")
 }

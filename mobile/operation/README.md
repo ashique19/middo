@@ -4,7 +4,7 @@ Field-pulse Android/iOS app for ops during lunch peak.
 
 Bottom nav: **Home · Boxes · Riders · Cash · More**
 
-Package: `com.middo.operation` · version `0.2.0+2`
+Package: `com.middo.operation` · version `0.2.1+3`
 
 - Plan: [`docs/operation-mobile-plan.json`](../../docs/operation-mobile-plan.json)
 - Contract: [`docs/operation-mobile-api-contract.md`](../../docs/operation-mobile-api-contract.md)
@@ -23,7 +23,7 @@ Package: `com.middo.operation` · version `0.2.0+2`
 | Orders | Search + detail with force-cancel / release rider |
 | Complaints | List (More) + detail reply/complete |
 | Offline queue | Enqueue stub + **Flush** on More |
-| FCM | Device-token API + scaffold (Firebase app still deferred) |
+| FCM | Firebase Messaging wired (`google-services.json` + token sync)
 
 Desk catalog / packages / deep finance stay on web.
 
@@ -68,9 +68,10 @@ cp key.properties.example key.properties
 # Edit store/key passwords
 ```
 
-## FCM (scaffold)
+## FCM
 
-`PushNotificationService` posts to `POST /device-tokens` once a token exists. Add a Firebase Android app for `com.middo.operation`, drop in `google-services.json`, then wire `firebase_core` / `firebase_messaging` like kitchen.
+`android/app/google-services.json` is present for `com.middo.operation` (Firebase project `middo-55888`).
+`PushNotificationService` initializes Firebase Messaging, requests notification permission, and registers the FCM token via `POST /device-tokens` after login. Works on sideloaded APKs (Play listing not required).
 
 ## Play Console (P3.3 — parked)
 

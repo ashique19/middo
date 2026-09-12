@@ -39,6 +39,14 @@ class _MiddoOperationAppState extends State<MiddoOperationApp> {
   late final GoRouter _router = createAppRouter();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PushNotificationService.instance.consumePendingDeepLink(_router);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AppScope(
       repository: widget.repository,
