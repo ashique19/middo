@@ -68,8 +68,8 @@
         {
           "id": "P0.7",
           "title": "Flutter scaffold mobile/operation/ (empty shell)",
-          "status": "deferred",
-          "note": "README placeholder only; copy kitchen/delivery when P1 starts"
+          "status": "done",
+          "note": "Flutter scaffold under mobile/operation/ (Home\u00b7Boxes\u00b7Riders\u00b7Cash\u00b7More)"
         }
       ]
     },
@@ -111,14 +111,14 @@
         {
           "id": "P1.7",
           "title": "Flutter Home \u00b7 Boxes \u00b7 Riders \u00b7 Cash \u00b7 More wired to P1 APIs",
-          "status": "deferred",
-          "note": "Flutter shell + Play build follow after API contract freeze"
+          "status": "done",
+          "note": "Pilot screens wired to P1 read/accept APIs"
         },
         {
           "id": "P1.8",
           "title": "Internal Play / sideload build for ops pilot",
           "status": "deferred",
-          "note": "Flutter shell + Play build follow after API contract freeze"
+          "note": "Sideload debug APK OK; closed Play track is P3.3"
         }
       ]
     },
@@ -150,30 +150,33 @@
         {
           "id": "P2.5",
           "title": "Order search",
-          "status": "deferred",
-          "note": "Create custom-run UI deferred with Flutter; API create/cancel shipped in P1 riders"
+          "status": "done",
+          "note": "GET /orders/search shipped; Flutter search UI still light"
         }
       ]
     },
     {
       "id": "P3",
       "title": "Optional hardening",
-      "status": "parked",
+      "status": "in_progress",
       "items": [
         {
           "id": "P3.1",
           "title": "QR scan for Middo boxes",
-          "status": "parked"
+          "status": "done",
+          "note": "GET /boxes/lookup by qr_code_id + Flutter text paste lookup (camera scan later)"
         },
         {
           "id": "P3.2",
           "title": "Offline mutation queue for accept/assign",
-          "status": "parked"
+          "status": "done",
+          "note": "OfflineMutationQueue stub + More screen pending count; auto-flush later"
         },
         {
           "id": "P3.3",
           "title": "Closed Play track listing",
-          "status": "parked"
+          "status": "parked",
+          "note": "README Play Console closed-track checklist; listing not created in this PR"
         }
       ]
     }

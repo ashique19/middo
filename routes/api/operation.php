@@ -36,6 +36,7 @@ Route::prefix('operation')->group(function () {
 
         Route::middleware('permission:'.OperationPermissions::BOXES)->group(function () {
             Route::get('/boxes', [OperationMobileFieldController::class, 'boxes']);
+            Route::get('/boxes/lookup', [OperationMobileFieldController::class, 'lookupBox']);
             Route::get('/boxes/requests', [OperationMobileFieldController::class, 'boxRequests']);
             Route::post('/boxes/requests/{id}/assign', [OperationMobileFieldController::class, 'assignBoxRequest']);
             Route::post('/boxes/{id}/reassign', [OperationMobileFieldController::class, 'reassignBox']);

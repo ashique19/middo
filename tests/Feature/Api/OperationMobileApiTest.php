@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Role;
 use App\Models\StaffAlert;
+use App\Models\MiddoBox;
 use App\Models\User;
 use App\Support\OperationPermissions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -199,5 +200,29 @@ class OperationMobileApiTest extends TestCase
         $this->getJson('/api/operation/orders/search?q=999999')
             ->assertOk()
             ->assertJsonPath('orders', []);
+    }
+
+
+    public function test_operation_can_lookup_box_by_qr(): void
+    {
+        $ops = $this->makeOps();
+        Sanctum::actingAs($ops);
+
+        MiddoBox::create([
+            'qr_code_id' => 'MB-OPS-LOOKUP-1',
+            'box_model_type' => 'standard_insulated',
+            'asset_status' => 'at_middo_warehouse',
+            'total_uses_count' => 0,
+        ]);
+
+        $this->getJson('/api/operation/boxes/lookup?qr=MB-OPS-LOOKUP-1')
+            ->assertOk()
+            ->assertJsonPath('box.qr_code_id', 'MB-OPS-LOOKUP-1');
+
+        $this->getJson('/api/operation/boxes/lookup?qr=MB-DOES-NOT-EXIST')
+            ->assertNotFound();
+
+        $this->getJson('/api/operation/boxes/lookup')
+            ->assertStatus(422);
     }
 }

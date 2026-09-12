@@ -1,12 +1,12 @@
 # Operation Mobile API Contract
 
-**Status:** Phase 0–2 API live (auth, home, boxes, riders, cash, SLA, complaints, ops-day, orders) — 2026-09-12  
+**Status:** Phase 0–3 API live (incl. QR box lookup) (auth, home, boxes, riders, cash, SLA, complaints, ops-day, orders) — 2026-09-12  
 **Auth:** Sanctum bearer token  
 **Base path:** `/api/operation`  
 **Role gate:** `auth:sanctum` + `role:operation` (+ `permission:operation.*` on resource routes)  
 **Plan:** `docs/operation-mobile-plan.json`  
 **Reference clients:** `mobile/kitchen/`, `mobile/delivery/` (Flutter patterns to copy)  
-**Future client:** `mobile/operation/`
+**Client:** `mobile/operation/` (Flutter pilot scaffold)
 
 Screen IA (target): **Home · Boxes · Riders · Cash · More**.
 
@@ -89,7 +89,8 @@ Response: `{unread_count, alerts:[], meta}`.
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/boxes` | Custody list + filters |
+| `GET` | `/boxes` |
+| `GET` | `/boxes/lookup` | `?qr=` exact `MiddoBox.qr_code_id` → `{box}` or 404 | Custody list + filters |
 | `GET` | `/boxes/requests` | Open kitchen box requests |
 | `POST` | `/boxes/requests/{id}/assign` | Assign rider / stage |
 | `POST` | `/boxes/{id}/reassign` | Reassign custody rider |

@@ -68,6 +68,27 @@ class OperationMobileFieldController extends Controller
         ]);
     }
 
+    public function lookupBox(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'qr' => ['required', 'string', 'min:3', 'max:64'],
+        ]);
+
+        $qr = trim((string) $data['qr']);
+
+        $box = MiddoBox::query()
+            ->where('qr_code_id', $qr)
+            ->first();
+
+        if (! $box) {
+            return response()->json(['message' => 'No Middo box matches that QR code.'], 404);
+        }
+
+        return response()->json([
+            'box' => OperationApiPresenter::box($box),
+        ]);
+    }
+
     public function boxRequests(): JsonResponse
     {
         $requests = KitchenBoxRequest::query()
