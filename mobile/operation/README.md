@@ -4,7 +4,7 @@ Field-pulse Android/iOS app for ops during lunch peak.
 
 Bottom nav: **Home · Boxes · Riders · Cash · More**
 
-Package: `com.middo.operation` · version `0.2.1+3`
+Package: `com.middo.operation` · version `0.3.0+4`
 
 - Plan: [`docs/operation-mobile-plan.json`](../../docs/operation-mobile-plan.json)
 - Contract: [`docs/operation-mobile-api-contract.md`](../../docs/operation-mobile-api-contract.md)
