@@ -1,7 +1,7 @@
 name: middo_operation
 description: Middo Operation — field-pulse app for boxes, riders, cash, and SLA.
 publish_to: "none"
-version: 0.3.0+4
+version: 0.3.1+5
 
 environment:
   sdk: ^3.8.1

@@ -91,4 +91,4 @@ cp key.properties.example key.properties
 
 ## Home boards (feedback)
 
-Home is a date-scoped serial board (packages, orders, grouping with payment badges, rider cash, box requests, complaints). Alerts live on the top-right notification icon.
+Home is a serial list of board buttons (Packages, Orders, Grouping, Rider cash, Box requests, Complaints). Each opens its own screen where tabs live. Alerts use the top-right notification icon.
