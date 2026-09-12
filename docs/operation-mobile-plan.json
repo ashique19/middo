@@ -1,0 +1,85 @@
+{
+  "title": "Operation mobile app — phased backlog",
+  "version": 1,
+  "updated": "2026-09-12",
+  "status": "active",
+  "decision": "Ship a field-pulse Flutter app (not full web parity). Desk catalog/packages/finance stay on web; Accounts owns money writes.",
+  "related": {
+    "api_contract": "docs/operation-mobile-api-contract.md",
+    "ops_web_review": "docs/ops-review.json",
+    "ops_web_backlog": "docs/ops-completion-todo.json",
+    "kitchen_pattern": "docs/kitchen-mobile-api-contract.md",
+    "delivery_pattern": "docs/delivery-mobile-api-contract.md"
+  },
+  "product": {
+    "goal": "Ops can firefight lunch peak from a phone: alerts, boxes, riders, SLA assign, Middo cash accept, complaints.",
+    "bottom_nav": ["Home", "Boxes", "Riders", "Cash", "More"],
+    "non_goals": [
+      "Full Active Orders drag-regroup / Excel",
+      "Package builder & subscriptions admin",
+      "Menu/meal catalog CRUD",
+      "Areas & coverage admin",
+      "COD recon / P&L / Middo cash adjust / Accounts Hub",
+      "Admin settings / users / system navs"
+    ]
+  },
+  "phases": [
+    {
+      "id": "P0",
+      "title": "Foundation — API shell + docs",
+      "status": "done",
+      "items": [
+        {"id": "P0.1", "title": "docs/operation-mobile-plan.json", "status": "done"},
+        {"id": "P0.2", "title": "docs/operation-mobile-api-contract.md (P0–P1 endpoints)", "status": "done"},
+        {"id": "P0.3", "title": "OperationPermissions + RolePermissionSeeder sync", "status": "done"},
+        {"id": "P0.4", "title": "routes/api/operation.php + OperationMobileController auth/me/dashboard/alerts/device-tokens", "status": "done"},
+        {"id": "P0.5", "title": "UserAudit SOURCE_OPERATION_MOBILE", "status": "done"},
+        {"id": "P0.6", "title": "Feature tests for login/me/dashboard/alerts", "status": "done"},
+        {"id": "P0.7", "title": "Flutter scaffold mobile/operation/ (empty shell)", "status": "deferred", "note": "README placeholder only; copy kitchen/delivery when P1 starts"}
+      ]
+    },
+    {
+      "id": "P1",
+      "title": "Field pulse MVP",
+      "status": "todo",
+      "items": [
+        {"id": "P1.1", "title": "FCM push wiring for ops staff alerts", "status": "todo"},
+        {"id": "P1.2", "title": "Boxes API: pending requests, assign/reassign rider, ack return", "status": "todo"},
+        {"id": "P1.3", "title": "Riders API: packed-awaiting-rider, lunch assign, reassign, custom-run cancel", "status": "todo"},
+        {"id": "P1.4", "title": "Cash handovers API: list pending Middo Due, accept, reject-propose", "status": "todo"},
+        {"id": "P1.5", "title": "SLA lite: unassigned closed + late-to-pack + kitchen assign (single/bulk)", "status": "todo"},
+        {"id": "P1.6", "title": "Complaints inbox: list, show, reply, complete", "status": "todo"},
+        {"id": "P1.7", "title": "Flutter Home · Boxes · Riders · Cash · More wired to P1 APIs", "status": "todo"},
+        {"id": "P1.8", "title": "Internal Play / sideload build for ops pilot", "status": "todo"}
+      ]
+    },
+    {
+      "id": "P2",
+      "title": "Day command",
+      "status": "todo",
+      "items": [
+        {"id": "P2.1", "title": "Ops-day checklist endpoints", "status": "todo"},
+        {"id": "P2.2", "title": "Order show + lenses + force cancel / release rider", "status": "todo"},
+        {"id": "P2.3", "title": "Custom-run create", "status": "todo"},
+        {"id": "P2.4", "title": "Kitchen capacity snapshot on assign", "status": "todo"},
+        {"id": "P2.5", "title": "Order search", "status": "todo"}
+      ]
+    },
+    {
+      "id": "P3",
+      "title": "Optional hardening",
+      "status": "parked",
+      "items": [
+        {"id": "P3.1", "title": "QR scan for Middo boxes", "status": "parked"},
+        {"id": "P3.2", "title": "Offline mutation queue for accept/assign", "status": "parked"},
+        {"id": "P3.3", "title": "Closed Play track listing", "status": "parked"}
+      ]
+    }
+  ],
+  "success_metrics": [
+    "Ops opens app ≥1× during lunch peak without needing web for assign/handover/alert",
+    "Time-to-assign kitchen/rider from alert < 30s",
+    "Middo cash handover accept without desk",
+    "Every Home tile deep-links to a working action"
+  ]
+}

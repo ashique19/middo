@@ -24,6 +24,8 @@ class UserAudit
 
     public const SOURCE_DELIVERY_MOBILE = 'delivery_mobile';
 
+    public const SOURCE_OPERATION_MOBILE = 'operation_mobile';
+
     public const SOURCE_KITCHEN = 'kitchen';
 
     public const SOURCE_DELIVERY = 'delivery';
@@ -80,6 +82,10 @@ class UserAudit
 
         if ($request->is('api/delivery', 'api/delivery/*')) {
             return self::SOURCE_DELIVERY_MOBILE;
+        }
+
+        if ($request->is('api/operation', 'api/operation/*')) {
+            return self::SOURCE_OPERATION_MOBILE;
         }
 
         if ($request->is('api', 'api/*')) {

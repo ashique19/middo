@@ -282,6 +282,16 @@ class User extends Authenticatable
             }
         }
 
+        if (is_string($permissionName) && str_starts_with($permissionName, 'operation.')) {
+            $hasOperationMatrix = $this->role->permissions()
+                ->where('name', 'like', 'operation.%')
+                ->exists();
+
+            if (! $hasOperationMatrix) {
+                return $this->role->name === 'operation';
+            }
+        }
+
         return $this->role->permissions()->where('name', $permissionName)->exists();
     }
 }
