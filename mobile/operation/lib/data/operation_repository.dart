@@ -42,6 +42,13 @@ class OperationRepository {
 
   Future<Map<String, dynamic>> dashboard() => _client.get('/dashboard');
 
+  Future<Map<String, dynamic>> boards({String? date}) => _client.get(
+      '/boards',
+      query: {
+        if (date != null && date.isNotEmpty) 'date': date,
+      },
+    );
+
   Future<Map<String, dynamic>> alerts() => _client.get('/alerts');
 
   Future<Map<String, dynamic>> markAlertRead(int id) =>

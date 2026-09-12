@@ -263,4 +263,32 @@ class OperationMobileApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('unread_count', 0);
     }
+
+    public function test_operation_boards_endpoint_returns_serial_sections(): void
+    {
+        $ops = $this->makeOps();
+        Sanctum::actingAs($ops);
+
+        $response = $this->getJson('/api/operation/boards?date='.now()->toDateString());
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'date',
+                'packages' => ['unassigned_meals' => ['count', 'items'], 'orders' => ['count', 'items']],
+                'orders' => ['all', 'package', 'individual'],
+                'grouping' => [
+                    'ungrouped',
+                    'grouped_pending',
+                    'accepted',
+                    'packed',
+                    'picked',
+                    'delivered',
+                    'failed',
+                ],
+                'cash_collection' => ['at_rider', 'kitchen', 'middo'],
+                'box_requests' => ['count', 'items'],
+                'complaints' => ['count', 'items'],
+                'alerts_unread',
+            ]);
+    }
 }

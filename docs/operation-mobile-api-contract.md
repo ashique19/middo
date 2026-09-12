@@ -186,3 +186,16 @@ Pilot screens call the Phase 1–2 mutation endpoints above:
 - Complaints reply / complete
 - Orders search / force-cancel / release-rider
 - Alerts mark-read / read-all
+
+## Home boards
+
+`GET /api/operation/boards?date=YYYY-MM-DD` (permission: `operation.dashboard`)
+
+Returns serial home sections:
+
+- `packages.unassigned_meals` / `packages.orders`
+- `orders.all` / `orders.package` / `orders.individual`
+- `grouping.{ungrouped,grouped_pending,accepted,packed,picked,delivered,failed}` with `payment_badge` (`paid`|`unpaid`|`rotten`)
+- `cash_collection.{at_rider,kitchen,middo}`
+- `box_requests`, `complaints`, `alerts_unread`
+
