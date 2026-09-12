@@ -6,6 +6,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Support\DeliveryPermissions;
 use App\Support\KitchenPermissions;
+use App\Support\OperationPermissions;
 use Illuminate\Database\Seeder;
 
 class RolePermissionSeeder extends Seeder
@@ -26,6 +27,7 @@ class RolePermissionSeeder extends Seeder
 
         KitchenPermissions::syncKitchenRole($kitchen);
         DeliveryPermissions::syncDeliveryRole($delivery);
+        OperationPermissions::syncOperationRole($operations);
 
         $delivery->permissions()->syncWithoutDetaching([$acceptOrder->id]);
         $operations->permissions()->syncWithoutDetaching([$acceptOrder->id]);
