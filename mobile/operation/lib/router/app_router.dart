@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../data/auth_store.dart';
 import '../screens/alerts_screen.dart';
+import '../screens/board_screens.dart';
 import '../screens/boxes_screen.dart';
 import '../screens/cash_screen.dart';
 import '../screens/complaint_detail_screen.dart';
@@ -64,6 +65,37 @@ GoRouter createAppRouter() {
           final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
           return ComplaintDetailScreen(complaintId: id);
         },
+      ),
+      
+      GoRoute(
+        path: '/boards/packages',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => PackagesBoardScreen(date: state.uri.queryParameters['date']),
+      ),
+      GoRoute(
+        path: '/boards/orders',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => OrdersBoardScreen(date: state.uri.queryParameters['date']),
+      ),
+      GoRoute(
+        path: '/boards/grouping',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => GroupingBoardScreen(date: state.uri.queryParameters['date']),
+      ),
+      GoRoute(
+        path: '/boards/cash-collection',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => CashCollectionBoardScreen(date: state.uri.queryParameters['date']),
+      ),
+      GoRoute(
+        path: '/boards/box-requests',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => BoxRequestsBoardScreen(date: state.uri.queryParameters['date']),
+      ),
+      GoRoute(
+        path: '/boards/complaints',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => ComplaintsBoardScreen(date: state.uri.queryParameters['date']),
       ),
       GoRoute(
         path: '/qr-scan',
