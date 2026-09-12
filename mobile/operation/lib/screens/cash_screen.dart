@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_scope.dart';
 import '../data/api_client.dart';
 import '../theme/middo_colors.dart';
+import '../widgets/pickers.dart';
 
 class CashScreen extends StatefulWidget {
   const CashScreen({super.key});
@@ -47,13 +48,25 @@ class _CashScreenState extends State<CashScreen> {
     try {
       await AppScope.of(context).acceptCashHandover(id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Handover accepted into Middo cash.')),
-      );
+      showSnack(context, 'Handover accepted into Middo cash.');
       await _load();
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      showSnack(context, e.message);
+    }
+  }
+
+  Future<void> _reject(int id) async {
+    final reason = await promptText(context, title: 'Reject / propose reason');
+    if (!mounted) return;
+    try {
+      await AppScope.of(context).rejectCashHandover(id, reason: reason);
+      if (!mounted) return;
+      showSnack(context, 'Reject proposed for accounts.');
+      await _load();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      showSnack(context, e.message);
     }
   }
 
@@ -85,7 +98,10 @@ class _CashScreenState extends State<CashScreen> {
           ),
           const SizedBox(height: 8),
           if (_handovers.isEmpty)
-            const Text('No pending handovers.', style: TextStyle(color: MiddoColors.muted)),
+            const Text(
+              'No pending handovers.',
+              style: TextStyle(color: MiddoColors.muted),
+            ),
           ..._handovers.map((raw) {
             final row = Map<String, dynamic>.from(raw as Map);
             final id = row['id'] as int? ?? 0;
@@ -96,9 +112,18 @@ class _CashScreenState extends State<CashScreen> {
               child: ListTile(
                 title: Text('৳${row['amount'] ?? 0}'),
                 subtitle: Text(rider?['name']?.toString() ?? 'Rider'),
-                trailing: FilledButton(
-                  onPressed: id == 0 ? null : () => _accept(id),
-                  child: const Text('Accept'),
+                trailing: Wrap(
+                  spacing: 4,
+                  children: [
+                    TextButton(
+                      onPressed: id == 0 ? null : () => _reject(id),
+                      child: const Text('Reject'),
+                    ),
+                    FilledButton(
+                      onPressed: id == 0 ? null : () => _accept(id),
+                      child: const Text('Accept'),
+                    ),
+                  ],
                 ),
               ),
             );

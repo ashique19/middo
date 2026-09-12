@@ -117,8 +117,8 @@
         {
           "id": "P1.8",
           "title": "Internal Play / sideload build for ops pilot",
-          "status": "deferred",
-          "note": "Sideload debug APK OK; closed Play track is P3.3"
+          "status": "done",
+          "note": "Debug sideload APK documented; release signing via key.properties.example"
         }
       ]
     },
@@ -158,25 +158,73 @@
     {
       "id": "P3",
       "title": "Optional hardening",
-      "status": "in_progress",
+      "status": "done",
       "items": [
         {
           "id": "P3.1",
           "title": "QR scan for Middo boxes",
           "status": "done",
-          "note": "GET /boxes/lookup by qr_code_id + Flutter text paste lookup (camera scan later)"
+          "note": "Text + camera QR scan (mobile_scanner) + GET /boxes/lookup"
         },
         {
           "id": "P3.2",
           "title": "Offline mutation queue for accept/assign",
           "status": "done",
-          "note": "OfflineMutationQueue stub + More screen pending count; auto-flush later"
+          "note": "OfflineMutationQueue with Flush on More"
         },
         {
           "id": "P3.3",
           "title": "Closed Play track listing",
           "status": "parked",
           "note": "README Play Console closed-track checklist; listing not created in this PR"
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "title": "Pilot mutation UI + day command on phone",
+      "status": "done",
+      "items": [
+        {
+          "id": "P4.1",
+          "title": "Home tile deep-links + Alerts screen",
+          "status": "done"
+        },
+        {
+          "id": "P4.2",
+          "title": "Boxes assign / reassign / ack return UI",
+          "status": "done"
+        },
+        {
+          "id": "P4.3",
+          "title": "Riders assign / reassign / custom-run UI",
+          "status": "done"
+        },
+        {
+          "id": "P4.4",
+          "title": "Cash accept + reject-propose UI",
+          "status": "done"
+        },
+        {
+          "id": "P4.5",
+          "title": "SLA kitchen assign UI",
+          "status": "done"
+        },
+        {
+          "id": "P4.6",
+          "title": "Complaints reply / complete UI",
+          "status": "done"
+        },
+        {
+          "id": "P4.7",
+          "title": "Order search + force-cancel / release rider",
+          "status": "done"
+        },
+        {
+          "id": "P4.8",
+          "title": "FCM scaffold (Firebase app deferred)",
+          "status": "done",
+          "note": "PushNotificationService + device-tokens API"
         }
       ]
     }

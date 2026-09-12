@@ -6,4 +6,7 @@ class ApiConfig {
   );
 
   static String get apiRoot => '$baseUrl/api/operation';
+
+  /// Alias used by some error messages.
+  static String get baseUrlAlias => baseUrl;
 }

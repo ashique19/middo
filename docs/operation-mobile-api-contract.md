@@ -6,7 +6,7 @@
 **Role gate:** `auth:sanctum` + `role:operation` (+ `permission:operation.*` on resource routes)  
 **Plan:** `docs/operation-mobile-plan.json`  
 **Reference clients:** `mobile/kitchen/`, `mobile/delivery/` (Flutter patterns to copy)  
-**Client:** `mobile/operation/` (Flutter pilot scaffold)
+**Client:** `mobile/operation/` (Flutter pilot — read + mutations wired)
 
 Screen IA (target): **Home · Boxes · Riders · Cash · More**.
 
@@ -173,3 +173,16 @@ Synced via `OperationPermissions::syncOperationRole()`.
 | `422` | Validation |
 
 Audit source for `/api/operation/*`: `operation_mobile`.
+
+
+## Phase 4 — Flutter mutation surfaces
+
+Pilot screens call the Phase 1–2 mutation endpoints above:
+
+- Boxes assign / reassign / ack-return
+- Riders assign / reassign / custom-runs
+- Cash accept / reject
+- SLA assign-kitchen
+- Complaints reply / complete
+- Orders search / force-cancel / release-rider
+- Alerts mark-read / read-all

@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/auth_store.dart';
+import '../screens/alerts_screen.dart';
 import '../screens/boxes_screen.dart';
 import '../screens/cash_screen.dart';
+import '../screens/complaint_detail_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/more_screen.dart';
+import '../screens/orders_screen.dart';
+import '../screens/qr_scan_screen.dart';
 import '../screens/riders_screen.dart';
 import '../screens/shell_scaffold.dart';
+import '../screens/sla_screen.dart';
 import '../screens/splash_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -29,6 +34,42 @@ GoRouter createAppRouter() {
     routes: [
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(
+        path: '/alerts',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, __) => const AlertsScreen(),
+      ),
+      GoRoute(
+        path: '/sla',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, __) => const SlaScreen(),
+      ),
+      GoRoute(
+        path: '/orders',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, __) => const OrdersScreen(),
+      ),
+      GoRoute(
+        path: '/orders/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return OrderDetailScreen(orderId: id);
+        },
+      ),
+      GoRoute(
+        path: '/complaints/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return ComplaintDetailScreen(complaintId: id);
+        },
+      ),
+      GoRoute(
+        path: '/qr-scan',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, __) => const QrScanScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             ShellScaffold(navigationShell: navigationShell),

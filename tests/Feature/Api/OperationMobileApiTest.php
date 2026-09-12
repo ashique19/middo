@@ -225,4 +225,42 @@ class OperationMobileApiTest extends TestCase
         $this->getJson('/api/operation/boxes/lookup')
             ->assertStatus(422);
     }
+
+    public function test_operation_can_mark_alerts_read(): void
+    {
+        $ops = $this->makeOps(['mobile' => '01310999001']);
+        Sanctum::actingAs($ops);
+
+        $alert = StaffAlert::query()->create([
+            'user_id' => $ops->id,
+            'type' => StaffAlert::TYPE_NEEDS_REASSIGNMENT,
+            'title' => 'Pilot rider',
+            'body' => 'Order waiting',
+        ]);
+
+        $this->getJson('/api/operation/alerts')
+            ->assertOk()
+            ->assertJsonPath('unread_count', 1);
+
+        $this->patchJson('/api/operation/alerts/'.$alert->id.'/read')
+            ->assertOk();
+
+        $this->getJson('/api/operation/alerts')
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0);
+
+        StaffAlert::query()->create([
+            'user_id' => $ops->id,
+            'type' => StaffAlert::TYPE_NEEDS_REASSIGNMENT,
+            'title' => 'Another',
+            'body' => 'Body',
+        ]);
+
+        $this->postJson('/api/operation/alerts/read-all')
+            ->assertOk();
+
+        $this->getJson('/api/operation/alerts')
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0);
+    }
 }

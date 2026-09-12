@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'app_scope.dart';
 import 'data/auth_store.dart';
 import 'data/operation_repository.dart';
+import 'data/push_notification_service.dart';
 import 'router/app_router.dart';
 import 'theme/middo_theme.dart';
 
@@ -18,7 +19,11 @@ Future<void> main() async {
   );
   await AuthStore.instance.load();
 
-  runApp(MiddoOperationApp(repository: createOperationRepository()));
+  final repository = createOperationRepository();
+  PushNotificationService.instance.attachRepository(repository);
+  await PushNotificationService.instance.init();
+
+  runApp(MiddoOperationApp(repository: repository));
 }
 
 class MiddoOperationApp extends StatefulWidget {

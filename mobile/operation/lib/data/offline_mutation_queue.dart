@@ -2,10 +2,9 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Phase 3.2 — local queue for ops mutations when offline.
-///
-/// Stores pending POST/PATCH payloads and flushes FIFO when connectivity
-/// returns. Not auto-wired yet; Home/More expose pending count for pilot.
+import 'api_client.dart';
+
+/// Local FIFO queue for ops mutations when offline.
 class OfflineMutationQueue {
   OfflineMutationQueue._();
   static final instance = OfflineMutationQueue._();
@@ -41,6 +40,10 @@ class OfflineMutationQueue {
       'label': label ?? '$method $path',
       'queued_at': DateTime.now().toIso8601String(),
     });
+    await _save(items);
+  }
+
+  Future<void> _save(List<Map<String, dynamic>> items) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, jsonEncode(items));
   }
@@ -48,5 +51,54 @@ class OfflineMutationQueue {
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
+  }
+
+  /// Flush queued mutations FIFO. Returns flushed / remaining / last error.
+  Future<Map<String, dynamic>> flush(ApiClient client) async {
+    final items = await peek();
+    if (items.isEmpty) {
+      return {'flushed': 0, 'remaining': 0};
+    }
+
+    final remaining = <Map<String, dynamic>>[];
+    var flushed = 0;
+    String? lastError;
+
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      final method = (item['method']?.toString() ?? 'POST').toUpperCase();
+      final path = item['path']?.toString() ?? '';
+      final body = item['body'] is Map
+          ? Map<String, dynamic>.from(item['body'] as Map)
+          : null;
+      if (path.isEmpty) continue;
+
+      try {
+        switch (method) {
+          case 'PATCH':
+            await client.patch(path, body: body);
+          case 'DELETE':
+            await client.delete(path, body: body);
+          default:
+            await client.post(path, body: body);
+        }
+        flushed++;
+      } on ApiException catch (e) {
+        lastError = e.message;
+        remaining.addAll(items.sublist(i));
+        break;
+      } catch (e) {
+        lastError = e.toString();
+        remaining.addAll(items.sublist(i));
+        break;
+      }
+    }
+
+    await _save(remaining);
+    return {
+      'flushed': flushed,
+      'remaining': remaining.length,
+      if (lastError != null) 'error': lastError,
+    };
   }
 }

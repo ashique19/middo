@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
@@ -49,6 +50,25 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _openTile(String key) {
+    switch (key) {
+      case 'alerts':
+        context.push('/alerts');
+      case 'sla':
+        context.push('/sla');
+      case 'awaiting_rider':
+        context.go('/riders');
+      case 'box_requests':
+        context.go('/boxes');
+      case 'cash_handovers':
+        context.go('/cash');
+      case 'complaints':
+        context.push('/more');
+      default:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -71,6 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final tiles = (_dashboard?['tiles'] as List?) ?? const [];
+    final today = (_dashboard?['today'] as Map?)?.cast<String, dynamic>();
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -83,19 +104,57 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontWeight: FontWeight.w800,
                 ),
           ),
+          if (today != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              '${today['label'] ?? today['date'] ?? ''} · '
+              '${today['orders'] ?? 0} orders · qty ${today['qty'] ?? 0}',
+              style: const TextStyle(color: MiddoColors.muted),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ActionChip(
+                avatar: const Icon(Icons.search, size: 18),
+                label: const Text('Orders'),
+                onPressed: () => context.push('/orders'),
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.notifications_outlined, size: 18),
+                label: const Text('Alerts'),
+                onPressed: () => context.push('/alerts'),
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.speed, size: 18),
+                label: const Text('SLA'),
+                onPressed: () => context.push('/sla'),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           ...tiles.map((raw) {
             final tile = Map<String, dynamic>.from(raw as Map);
+            final key = tile['key']?.toString() ?? '';
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
-                title: Text(tile['label']?.toString() ?? tile['key']?.toString() ?? '—'),
-                trailing: Text(
-                  '${tile['count'] ?? 0}',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: MiddoColors.orange,
-                        fontWeight: FontWeight.w800,
-                      ),
+                onTap: key.isEmpty ? null : () => _openTile(key),
+                title: Text(tile['label']?.toString() ?? key),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${tile['count'] ?? 0}',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: MiddoColors.orange,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const Icon(Icons.chevron_right, color: MiddoColors.muted),
+                  ],
                 ),
               ),
             );
