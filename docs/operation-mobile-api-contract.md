@@ -1,6 +1,6 @@
 # Operation Mobile API Contract
 
-**Status:** Phase 0 scaffold (auth / me / dashboard / alerts) — 2026-09-12  
+**Status:** Phase 0–2 API live (auth, home, boxes, riders, cash, SLA, complaints, ops-day, orders) — 2026-09-12  
 **Auth:** Sanctum bearer token  
 **Base path:** `/api/operation`  
 **Role gate:** `auth:sanctum` + `role:operation` (+ `permission:operation.*` on resource routes)  
@@ -83,7 +83,7 @@ Response: `{unread_count, alerts:[], meta}`.
 
 ---
 
-## Phase 1 (planned — not implemented yet)
+## Phase 1 (implemented)
 
 ### Boxes (`operation.boxes`)
 
@@ -131,7 +131,7 @@ Response: `{unread_count, alerts:[], meta}`.
 
 ---
 
-## Phase 2 (planned)
+## Phase 2 (implemented — read/mutate; Flutter deferred)
 
 | Method | Path | Permission |
 |--------|------|------------|

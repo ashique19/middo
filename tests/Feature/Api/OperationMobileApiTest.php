@@ -149,4 +149,55 @@ class OperationMobileApiTest extends TestCase
         ])->assertOk()
             ->assertJsonPath('message', 'Device token registered.');
     }
+
+    public function test_phase1_and_phase2_read_endpoints_return_ok(): void
+    {
+        $ops = $this->makeOps();
+        Sanctum::actingAs($ops);
+
+        $this->getJson('/api/operation/boxes')
+            ->assertOk()
+            ->assertJsonStructure(['summary', 'custody', 'boxes', 'meta']);
+
+        $this->getJson('/api/operation/boxes/requests')
+            ->assertOk()
+            ->assertJsonStructure(['requests']);
+
+        $this->getJson('/api/operation/riders/board')
+            ->assertOk()
+            ->assertJsonStructure([
+                'counts',
+                'riders',
+                'awaiting_accept',
+                'on_the_way',
+                'box_custody',
+                'custom_runs',
+            ]);
+
+        $this->getJson('/api/operation/cash-handovers')
+            ->assertOk()
+            ->assertJsonStructure(['handovers']);
+
+        $this->getJson('/api/operation/sla')
+            ->assertOk()
+            ->assertJsonStructure([
+                'counts',
+                'unassigned_groups',
+                'late_to_pack',
+                'kitchen_hints',
+                'kitchens',
+            ]);
+
+        $this->getJson('/api/operation/complaints')
+            ->assertOk()
+            ->assertJsonStructure(['complaints']);
+
+        $this->getJson('/api/operation/ops-day')
+            ->assertOk()
+            ->assertJsonStructure(['date', 'sections', 'totals']);
+
+        $this->getJson('/api/operation/orders/search?q=999999')
+            ->assertOk()
+            ->assertJsonPath('orders', []);
+    }
 }

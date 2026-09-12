@@ -4,9 +4,14 @@ Field-pulse Android client for Middo **operation** staff.
 
 ## Status
 
-Phase 0 backend API is live under `/api/operation` (auth, me, dashboard, alerts, device tokens).
+Backend API **Phase 0–2** is live under `/api/operation`:
 
-Flutter scaffold is **not** started yet — copy structure from `mobile/kitchen/` or `mobile/delivery/` when Phase 1 begins.
+- Auth / me / dashboard / alerts / device tokens
+- Boxes, riders board, Middo cash handovers, SLA kitchen assign
+- Complaints inbox, ops-day checklist, order search/show/force-cancel/release-rider
+- Custom run create/cancel
+
+Flutter UI scaffold is **deferred** — copy `mobile/kitchen/` or `mobile/delivery/` when starting the client. Keep web for packages/catalog/deep finance.
 
 ## Docs
 
@@ -20,7 +25,7 @@ Flutter scaffold is **not** started yet — copy structure from `mobile/kitchen/
 ## Auth
 
 ```bash
-curl -s -X POST "$API/api/operation/login" \
+curl -sk -X POST "$API/api/operation/login" \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
   -d '{"mobile":"01310123451","password":"…","device_name":"ops-pixel"}'
