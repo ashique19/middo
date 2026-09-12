@@ -32,6 +32,9 @@ class AppScope extends InheritedWidget {
 
   Future<Map<String, dynamic>> dashboard() => repository.dashboard();
 
+  Future<Map<String, dynamic>> boards({String? date}) =>
+      repository.boards(date: date);
+
   Future<Map<String, dynamic>> alerts() => repository.alerts();
 
   Future<Map<String, dynamic>> markAlertRead(int id) =>

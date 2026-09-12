@@ -9,6 +9,7 @@ use App\Models\StaffAlert;
 use App\Models\User;
 use App\Models\UserLog;
 use App\Support\OperationApiPresenter;
+use App\Support\OpsDashboardBoards;
 use App\Support\OpsDashboardMetrics;
 use App\Support\OpsRiderBoard;
 use App\Support\OpsSlaBoard;
@@ -255,6 +256,20 @@ class OperationMobileController extends Controller
                 'pending_middo_handover_amount' => (int) ($money['pending_middo_handover_amount'] ?? 0),
             ],
         ]);
+    }
+
+
+    public function boards(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'date' => ['nullable', 'date'],
+        ]);
+
+        $date = $data['date'] ?? now(config('app.timezone', 'Asia/Dhaka'))->toDateString();
+
+        return response()->json(
+            OpsDashboardBoards::forDate($date, (int) $request->user()->id)
+        );
     }
 
     public function alerts(Request $request): JsonResponse

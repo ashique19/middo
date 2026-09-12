@@ -14,7 +14,8 @@ Package: `com.middo.operation` · version `0.2.1+3`
 | Area | Status |
 |------|--------|
 | Login / splash / logout | Wired (Sanctum bearer) |
-| Home | Dashboard tiles with deep-links + Orders/Alerts/SLA chips |
+| Home | Serial boards: packages / orders / grouping / cash / boxes / complaints; alerts via nav bell |
+| Home (legacy note) | Dashboard tiles with deep-links + Orders/Alerts/SLA chips |
 | Alerts | List, mark read, mark all read |
 | Boxes | QR paste + **camera scan**, assign request, reassign, ack return |
 | Riders | Awaiting assign/reassign, custom-run create/cancel |
@@ -87,3 +88,7 @@ cp key.properties.example key.properties
 - `OperationRepository` → `/api/operation/*`
 - `OfflineMutationQueue` FIFO flush
 - `mobile_scanner` for box QR
+
+## Home boards (feedback)
+
+Home is a date-scoped serial board (packages, orders, grouping with payment badges, rider cash, box requests, complaints). Alerts live on the top-right notification icon.

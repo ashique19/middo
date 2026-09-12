@@ -25,6 +25,7 @@ Route::prefix('operation')->group(function () {
 
         Route::middleware('permission:'.OperationPermissions::DASHBOARD)->group(function () {
             Route::get('/dashboard', [OperationMobileController::class, 'dashboard']);
+            Route::get('/boards', [OperationMobileController::class, 'boards']);
             Route::get('/ops-day', [OperationMobileFieldController::class, 'opsDay']);
         });
 

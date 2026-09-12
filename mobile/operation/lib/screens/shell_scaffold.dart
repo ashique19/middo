@@ -1,27 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-class ShellScaffold extends StatelessWidget {
+import '../app_scope.dart';
+
+class ShellScaffold extends StatefulWidget {
   const ShellScaffold({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
+  @override
+  State<ShellScaffold> createState() => _ShellScaffoldState();
+}
+
+class _ShellScaffoldState extends State<ShellScaffold> {
   static const _titles = ['Home', 'Boxes', 'Riders', 'Cash', 'More'];
+  int _unread = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshUnread());
+  }
+
+  Future<void> _refreshUnread() async {
+    try {
+      final data = await AppScope.of(context).alerts();
+      if (!mounted) return;
+      setState(() {
+        _unread = (data['unread_count'] as num?)?.toInt() ?? 0;
+      });
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
-    final index = navigationShell.currentIndex.clamp(0, _titles.length - 1);
+    final index =
+        widget.navigationShell.currentIndex.clamp(0, _titles.length - 1);
 
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[index])),
-      body: navigationShell,
+      appBar: AppBar(
+        title: Text(_titles[index]),
+        actions: [
+          IconButton(
+            tooltip: 'Alerts',
+            onPressed: () async {
+              await context.push('/alerts');
+              if (mounted) _refreshUnread();
+            },
+            icon: Badge(
+              isLabelVisible: _unread > 0,
+              label: Text(_unread > 99 ? '99+' : '$_unread'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+          ),
+        ],
+      ),
+      body: widget.navigationShell,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
+        selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: (i) {
-          navigationShell.goBranch(
+          widget.navigationShell.goBranch(
             i,
-            initialLocation: i == navigationShell.currentIndex,
+            initialLocation: i == widget.navigationShell.currentIndex,
           );
+          if (i == 0) _refreshUnread();
         },
         destinations: const [
           NavigationDestination(
