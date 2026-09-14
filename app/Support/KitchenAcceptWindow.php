@@ -30,32 +30,60 @@ class KitchenAcceptWindow
         return Carbon::parse($group->delivery_date->toDateString().' 12:00 PM', 'Asia/Dhaka');
     }
 
-    public static function windowOpenAt(OrderGroup $group): Carbon
+    /**
+     * Inclusive accept window for a group.
+     *
+     * - No start clock: [delivery − minutes, delivery]
+     * - Start clock before delivery on delivery day: [that clock, delivery]
+     * - Start clock at/after delivery (e.g. 10:30 PM for lunch): night-before
+     *   window [previous day @ start, open + minutes], capped by delivery.
+     *
+     * Live MiddoSettings always apply — never frozen at order/group creation.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public static function windowBounds(OrderGroup $group): array
     {
-        $closeAt = self::windowCloseAt($group);
-        $fromMinutes = $closeAt->copy()->subMinutes(MiddoSettings::acceptWindowMinutes());
+        $delivery = self::scheduledStart($group);
+        $minutes = MiddoSettings::acceptWindowMinutes();
 
         $startsAt = MiddoSettings::acceptWindowStartsAt();
         if ($startsAt === null) {
-            return $fromMinutes;
+            return [
+                $delivery->copy()->subMinutes($minutes),
+                $delivery->copy(),
+            ];
         }
 
-        $fromClock = Carbon::parse(
-            $closeAt->toDateString().' '.$startsAt,
+        $onDeliveryDay = Carbon::parse(
+            $delivery->toDateString().' '.$startsAt,
             'Asia/Dhaka'
         );
 
-        // Never open at/after delivery — fall back to minutes-before-delivery.
-        if ($fromClock->gte($closeAt)) {
-            return $fromMinutes;
+        // Same-day morning/afternoon start — open until delivery.
+        if ($onDeliveryDay->lt($delivery)) {
+            return [$onDeliveryDay, $delivery->copy()];
         }
 
-        return $fromClock;
+        // Evening (or otherwise at/after delivery) → open the previous calendar
+        // day at the configured clock for `accept_window_minutes`.
+        $openAt = $onDeliveryDay->copy()->subDay();
+        $closeAt = $openAt->copy()->addMinutes($minutes);
+        if ($closeAt->gt($delivery)) {
+            $closeAt = $delivery->copy();
+        }
+
+        return [$openAt, $closeAt];
+    }
+
+    public static function windowOpenAt(OrderGroup $group): Carbon
+    {
+        return self::windowBounds($group)[0];
     }
 
     public static function windowCloseAt(OrderGroup $group): Carbon
     {
-        return self::scheduledStart($group)->copy();
+        return self::windowBounds($group)[1];
     }
 
     public static function minutesUntilClose(OrderGroup $group, ?Carbon $now = null): int
@@ -85,8 +113,9 @@ class KitchenAcceptWindow
     public static function isOpen(OrderGroup $group, ?Carbon $now = null): bool
     {
         $now = ($now ?? now('Asia/Dhaka'))->copy()->timezone('Asia/Dhaka');
+        [$openAt, $closeAt] = self::windowBounds($group);
 
-        return $now->betweenIncluded(self::windowOpenAt($group), self::windowCloseAt($group));
+        return $now->betweenIncluded($openAt, $closeAt);
     }
 
     public static function assertCanAccept(OrderGroup $group, ?Carbon $now = null): void
@@ -96,8 +125,7 @@ class KitchenAcceptWindow
         }
 
         $now = ($now ?? now('Asia/Dhaka'))->copy()->timezone('Asia/Dhaka');
-        $openAt = self::windowOpenAt($group);
-        $closeAt = self::windowCloseAt($group);
+        [$openAt, $closeAt] = self::windowBounds($group);
 
         if ($now->lt($openAt)) {
             throw new \RuntimeException(sprintf(
@@ -126,8 +154,7 @@ class KitchenAcceptWindow
     public static function statusPayload(OrderGroup $group, ?Carbon $now = null): array
     {
         $now = ($now ?? now('Asia/Dhaka'))->copy()->timezone('Asia/Dhaka');
-        $openAt = self::windowOpenAt($group);
-        $closeAt = self::windowCloseAt($group);
+        [$openAt, $closeAt] = self::windowBounds($group);
         $isOpen = $now->betweenIncluded($openAt, $closeAt);
         $minutesRemaining = $isOpen ? self::minutesUntilClose($group, $now) : null;
         $closingSoon = $isOpen && self::isClosingSoon($group, $now);

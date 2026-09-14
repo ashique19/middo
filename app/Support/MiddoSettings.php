@@ -136,7 +136,9 @@ class MiddoSettings
     }
 
     /**
-     * Accept-window open clock time as H:i (24h), Asia/Dhaka on the delivery day.
+     * Accept-window open clock time as H:i (24h), Asia/Dhaka.
+     * Morning clocks open on the delivery day until delivery.
+     * Evening clocks (at/after delivery) open the night before for accept_window_minutes.
      * Empty/null falls back to "delivery time − accept_window_minutes".
      */
     public static function acceptWindowStartsAt(): ?string
