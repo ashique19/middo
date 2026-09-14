@@ -197,12 +197,14 @@ class OperationApiPresenter
 
     public static function orderSummary(\App\Models\Order $order): array
     {
+        // Do not constrain HasOneThrough orderGroup columns — SQLite errors with
+        // "ambiguous column name: id" when joining order_groups ↔ order_group_orders.
         $order->loadMissing([
             'menuItem:id,name',
             'user:id,first_name,last_name,mobile,company_name',
             'deliveryRider:id,first_name,last_name,mobile',
             'area:id,name',
-            'orderGroup:id,name,kitchen_id',
+            'orderGroup',
         ]);
 
         return [
