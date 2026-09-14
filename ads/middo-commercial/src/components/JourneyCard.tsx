@@ -23,7 +23,7 @@ export const JourneyCard: React.FC<{
   return (
     <div
       style={{
-        flex: 1,
+        flex: compact ? 1 : "none",
         opacity: enter,
         transform: `translateY(${y}px)`,
         background: colors.darkLift,
