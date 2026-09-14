@@ -11,7 +11,7 @@ class ShellScaffold extends StatelessWidget {
 
   static const _titles = [
     'Kitchen Dashboard',
-    'My Active Orders',
+    'Order groups',
     'Middo Order Groups',
     "Today's Menus",
     'More',

@@ -677,7 +677,7 @@ class KitchenMobileController extends Controller
     {
         $kitchenId = (int) $request->user()->id;
         $period = (string) $request->query('period', 'this_month');
-        if (! in_array($period, ['this_month', 'last_month', 'last_3_months'], true)) {
+        if (! in_array($period, ['this_month', 'last_month', 'last_2_months', 'last_3_months'], true)) {
             $period = 'this_month';
         }
         $now = Carbon::now('Asia/Dhaka');
@@ -687,6 +687,11 @@ class KitchenMobileController extends Controller
                 $now->copy()->subMonthNoOverflow()->startOfMonth()->toDateString(),
                 $now->copy()->subMonthNoOverflow()->endOfMonth()->toDateString(),
                 $now->copy()->subMonthNoOverflow()->format('F Y'),
+            ],
+            'last_2_months' => [
+                $now->copy()->subMonthsNoOverflow(1)->startOfMonth()->toDateString(),
+                $now->copy()->endOfMonth()->toDateString(),
+                $now->copy()->subMonthsNoOverflow(1)->format('M Y').' – '.$now->format('M Y'),
             ],
             'last_3_months' => [
                 $now->copy()->subMonthsNoOverflow(2)->startOfMonth()->toDateString(),

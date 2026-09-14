@@ -356,6 +356,12 @@ class KitchenMobileApiTest extends TestCase
             ->assertJsonPath('groups.0.id', $group->id)
             ->assertJsonStructure(['label', 'from', 'to', 'groups', 'meta']);
 
+        $this->getJson('/api/kitchen/orders/history?period=last_2_months')
+            ->assertOk()
+            ->assertJsonPath('period', 'last_2_months')
+            ->assertJsonPath('groups.0.id', $group->id)
+            ->assertJsonStructure(['label', 'from', 'to', 'groups', 'meta']);
+
         $this->getJson('/api/kitchen/menus/'.$menu->id)
             ->assertOk()
             ->assertJsonPath('menu.id', $menu->id)

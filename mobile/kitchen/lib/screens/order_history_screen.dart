@@ -25,6 +25,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   static const _periods = [
     ('this_month', 'This month'),
     ('last_month', 'Last month'),
+    ('last_2_months', 'Past 2 months'),
     ('last_3_months', 'Last 3 months'),
   ];
 
