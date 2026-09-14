@@ -4,7 +4,7 @@ Android/iOS rider app — kitchen pickups, Middo box runs, cash collection, and 
 
 Maps to delivery PWA IA: **Home · Runs · Boxes · Cash · More**.
 
-Package version: `0.2.0+2` · application id: `com.middo.delivery`
+Package version: `0.3.1+4` · application id: `com.middo.delivery`
 
 ## Screens
 
@@ -12,12 +12,12 @@ Package version: `0.2.0+2` · application id: `com.middo.delivery`
 |------|--------|
 | Login / splash / logout | Wired + FCM token sync |
 | Home | Dashboard tiles + shift chip (on / off / unable) |
-| Runs | Active list with pickup / deliver (OTP + optional POD photo) + run detail |
+| Runs | Active list with pickup / deliver (OTP + optional POD photo) + run detail + customer ETA chips |
 | Boxes | Pending actions + bulk `run_groups` accept/hand |
 | Cash | Collect cash (collection − commission preview) + order-based handovers |
 | Account | Wallet, withdraw guards (`can_request_payment`), statement / withdrawals |
 | Alerts | List, mark read / mark all read |
-| Profile | Change password |
+| Profile | Change password + payout methods (bKash / Nagad / bank) |
 | More | Custom runs start/complete, history, account links |
 | Offline / UX | Connectivity banner, offline mutation queue, skeletons, deep links |
 
@@ -117,6 +117,10 @@ Before deliver:
 1. `POST /runs/{id}/send-delivery-otp`
 2. Dialog: OTP + optional POD photo (`image_picker`)
 3. `POST /runs/{id}/deliver` as multipart (`otp`, `pod_photo`) or JSON `{otp}` when no photo
+
+## Customer ETA
+
+On an active run detail screen, riders tap **15 / 25 / 40 / 60 min** chips. That calls `POST /runs/{id}/eta` and corporate track shows the updated `eta_label`.
 
 ## Architecture
 
