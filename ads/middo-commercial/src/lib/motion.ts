@@ -12,8 +12,8 @@ export const fadeInOut = (
 ) => {
   return interpolate(
     frame,
-    [0, fadeFrames, durationInFrames - fadeFrames, durationInFrames],
-    [0, 1, 1, 0],
+    [0, durationInFrames - fadeFrames, durationInFrames],
+    [1, 1, 0],
     clamp,
   );
 };
