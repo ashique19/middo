@@ -416,4 +416,71 @@ class OperationMobileApiTest extends TestCase
         ])->assertOk()
             ->assertJsonStructure(['message', 'assigned', 'date']);
     }
+
+    public function test_operation_order_group_detail_does_not_sql_error(): void
+    {
+        $ops = $this->makeOps();
+        Sanctum::actingAs($ops);
+
+        $corporateRole = Role::query()->firstOrCreate(['name' => 'corporate']);
+        $customer = User::query()->create([
+            'first_name' => 'Cust',
+            'last_name' => 'Detail',
+            'mobile' => '01310999021',
+            'password' => '12345678',
+            'role_id' => $corporateRole->id,
+            'status' => 'active',
+            'is_mobile_verified' => true,
+            'company_name' => 'Detail Co',
+        ]);
+
+        $menu = \App\Models\MenuItem::query()->create([
+            'name' => 'Detail Meal',
+            'price' => 110,
+            'kitchen_commission' => 30,
+            'delivery_commission' => 20,
+        ]);
+
+        $order = \App\Models\Order::query()->create([
+            'user_id' => $customer->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => now()->toDateString(),
+            'delivery_time' => '12:00',
+            'total_amount' => 110,
+            'amount_paid' => 110,
+            'address' => 'Detail St',
+            'order_status' => 'processing',
+            'payment_status' => 'paid',
+            'payment_method' => 'wallet',
+        ]);
+
+        $group = \App\Models\OrderGroup::query()->create([
+            'name' => 'GRP-DETAIL-SQL',
+            'menu_id' => $menu->id,
+            'delivery_date' => now()->toDateString(),
+            'kitchen_id' => $this->kitchenRole ? null : null,
+        ]);
+        // Prefer attaching kitchen user when available
+        $kitchen = User::query()->create([
+            'first_name' => 'Kit',
+            'last_name' => 'Detail',
+            'mobile' => '01310999022',
+            'password' => '12345678',
+            'role_id' => $this->kitchenRole->id,
+            'status' => 'active',
+            'is_mobile_verified' => true,
+        ]);
+        $group->update(['kitchen_id' => $kitchen->id]);
+        $group->orders()->attach($order->id);
+
+        $this->getJson('/api/operation/order-groups/'.$group->id)
+            ->assertOk()
+            ->assertJsonPath('group.id', $group->id)
+            ->assertJsonPath('group.name', 'GRP-DETAIL-SQL')
+            ->assertJsonPath('group.orders.0.id', $order->id)
+            ->assertJsonPath('group.orders.0.group_id', $group->id)
+            ->assertJsonPath('group.orders.0.group_name', 'GRP-DETAIL-SQL');
+    }
+
 }
