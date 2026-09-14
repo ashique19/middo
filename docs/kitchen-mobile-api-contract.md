@@ -86,7 +86,7 @@ Decline body: `{ "reason": "…" }`.
 
 Dispatch body: `{ "box_ids": [1, 2, …] }` — must match order quantity. Uses `OrderKitchenDispatch`.
 
-History `period`: `this_month` | `last_month` | `last_3_months`. Response includes `groups`, `label`, `from`, `to`, `meta`.
+History `period`: `this_month` | `last_month` | `last_2_months` | `last_3_months`. Response includes `groups`, `label`, `from`, `to`, `meta`.
 
 `GET /menus/{id}` returns `menu` with `meal_items[]` (`has_recipe`, `recipe_title`).
 
