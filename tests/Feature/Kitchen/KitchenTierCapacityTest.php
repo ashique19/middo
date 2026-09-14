@@ -172,6 +172,106 @@ class KitchenTierCapacityTest extends TestCase
         $this->assertSame('09:00', $openAt->format('H:i'));
     }
 
+    public function test_evening_accept_window_opens_night_before_for_configured_minutes(): void
+    {
+        // Lunch tomorrow — evening start must open tonight, not fall back to a morning window.
+        $deliveryDate = now('Asia/Dhaka')->addDay()->toDateString();
+
+        MiddoSettings::updateMealAndKitchenDefaults([
+            'accept_window_minutes' => 120,
+            'accept_window_starts_at' => '22:30',
+        ]);
+
+        $order = Order::create([
+            'user_id' => $this->customer->id,
+            'menu_item_id' => $this->menu->id,
+            'quantity' => 2,
+            'delivery_date' => $deliveryDate,
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 500,
+            'address' => 'Test Address',
+            'order_status' => 'pending',
+            'payment_status' => 'paid',
+        ]);
+
+        $group = OrderGroup::create([
+            'name' => 'GRP-NIGHT',
+            'menu_id' => $this->menu->id,
+            'delivery_date' => $deliveryDate,
+            'kitchen_id' => null,
+        ]);
+        $group->orders()->attach($order->id);
+        $group = $group->fresh(['orders']);
+
+        [$openAt, $closeAt] = \App\Support\KitchenAcceptWindow::windowBounds($group);
+
+        $this->assertSame(
+            now('Asia/Dhaka')->toDateString().' 22:30',
+            $openAt->format('Y-m-d H:i')
+        );
+        $this->assertSame(
+            now('Asia/Dhaka')->addDay()->toDateString().' 00:30',
+            $closeAt->format('Y-m-d H:i')
+        );
+
+        $duringWindow = Carbon::parse(
+            now('Asia/Dhaka')->toDateString().' 22:42',
+            'Asia/Dhaka'
+        );
+        $this->assertTrue(\App\Support\KitchenAcceptWindow::isOpen($group, $duringWindow));
+
+        $beforeWindow = Carbon::parse(
+            now('Asia/Dhaka')->toDateString().' 22:00',
+            'Asia/Dhaka'
+        );
+        $this->assertFalse(\App\Support\KitchenAcceptWindow::isOpen($group, $beforeWindow));
+    }
+
+    public function test_accept_window_uses_live_settings_not_order_created_at(): void
+    {
+        $deliveryDate = now('Asia/Dhaka')->addDay()->toDateString();
+
+        // Group created while morning window was configured.
+        MiddoSettings::updateMealAndKitchenDefaults([
+            'accept_window_minutes' => 120,
+            'accept_window_starts_at' => '09:00',
+        ]);
+
+        $order = Order::create([
+            'user_id' => $this->customer->id,
+            'menu_item_id' => $this->menu->id,
+            'quantity' => 2,
+            'delivery_date' => $deliveryDate,
+            'delivery_time' => '12:00 PM',
+            'total_amount' => 500,
+            'address' => 'Test Address',
+            'order_status' => 'pending',
+            'payment_status' => 'paid',
+        ]);
+
+        $group = OrderGroup::create([
+            'name' => 'GRP-LIVE',
+            'menu_id' => $this->menu->id,
+            'delivery_date' => $deliveryDate,
+            'kitchen_id' => null,
+        ]);
+        $group->orders()->attach($order->id);
+        $group = $group->fresh(['orders']);
+
+        // Admin later switches to an evening window for tonight.
+        MiddoSettings::updateMealAndKitchenDefaults([
+            'accept_window_minutes' => 120,
+            'accept_window_starts_at' => '22:30',
+        ]);
+
+        $duringWindow = Carbon::parse(
+            now('Asia/Dhaka')->toDateString().' 22:42',
+            'Asia/Dhaka'
+        );
+        $this->assertTrue(\App\Support\KitchenAcceptWindow::isOpen($group, $duringWindow));
+        $this->assertSame('22:30', \App\Support\KitchenAcceptWindow::windowOpenAt($group)->format('H:i'));
+    }
+
     public function test_activation_copies_tier_default_allowed_open_groups(): void
     {
         MiddoSettings::updateMealAndKitchenDefaults([

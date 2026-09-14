@@ -85,7 +85,8 @@
             <div>
                 <h2 class="text-lg font-bold text-middo-dark">Accept window</h2>
                 <p class="text-sm text-gray-500 mt-1">
-                    When kitchens may accept Middo groups on the delivery day (Asia/Dhaka). Window closes at delivery time.
+                    When kitchens may accept Middo groups (Asia/Dhaka). Morning starts open until delivery.
+                    Evening starts (at/after delivery clock) open the night before for the minutes below.
                 </p>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -98,6 +99,7 @@
                     @error('accept_window_starts_at') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     <p class="text-xs text-gray-400 mt-1">
                         Leave blank to open “minutes before delivery” instead.
+                        Evening times (e.g. 10:30 PM) open the night before delivery.
                     </p>
                 </div>
                 <div>
@@ -108,7 +110,7 @@
                            class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-middo-orange focus:ring-middo-orange">
                     @error('accept_window_minutes') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     <p class="text-xs text-gray-400 mt-1">
-                        Fallback when start time is blank or at/after delivery.
+                        Duration for evening/night-before windows; also used when start time is blank.
                     </p>
                 </div>
                 <div>
