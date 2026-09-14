@@ -139,7 +139,11 @@ Response: `{unread_count, alerts:[], meta}`.
 | `GET` | `/ops-day` | `operation.dashboard` |
 | `GET` | `/orders/{id}` | `operation.orders` |
 | `POST` | `/orders/{id}/force-cancel` | `operation.orders` |
-| `POST` | `/orders/{id}/release-rider` | `operation.orders` |
+| `POST` | `/orders/{id}/release-rider` | `operation.orders` | Unassign rider → packed |
+| `POST` | `/orders/auto-group` | `operation.orders` | `{date}` auto-group selected day |
+| `POST` | `/orders/{id}/ungroup` | `operation.orders` |
+| `GET` | `/order-groups/{id}` | `operation.orders` | Group detail + member orders |
+| `GET` | `/parties/{id}` | `operation.orders` | Customer / kitchen / rider card |
 | `GET` | `/orders/search` | `operation.orders` |
 | `POST` | `/custom-runs` | `operation.riders` |
 
@@ -194,7 +198,7 @@ Pilot screens call the Phase 1–2 mutation endpoints above:
 Returns serial home sections:
 
 - `packages.unassigned_meals` / `packages.orders`
-- `orders.all` / `orders.package` / `orders.individual`
+- `orders.all` / `orders.package` / `orders.individual` / `orders.by_group` (group visibility; latest-first)
 - `grouping.{ungrouped,grouped_pending,accepted,packed,picked,delivered,failed}` with `payment_badge` (`paid`|`unpaid`|`rotten`)
 - `cash_collection.{at_rider,kitchen,middo}`
 - `box_requests`, `complaints`, `alerts_unread`

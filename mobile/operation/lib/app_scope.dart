@@ -158,6 +158,17 @@ class AppScope extends InheritedWidget {
   Future<Map<String, dynamic>> releaseRider(int id, {String? reason}) =>
       repository.releaseRider(id, reason: reason);
 
+  Future<Map<String, dynamic>> autoGroupOrders({required String date}) =>
+      repository.autoGroupOrders(date: date);
+
+  Future<Map<String, dynamic>> ungroupOrder(int id) =>
+      repository.ungroupOrder(id);
+
+  Future<Map<String, dynamic>> showOrderGroup(int id) =>
+      repository.showOrderGroup(id);
+
+  Future<Map<String, dynamic>> showParty(int id) => repository.showParty(id);
+
   bool get isAuthenticated => AuthStore.instance.isAuthenticated;
 
   @override

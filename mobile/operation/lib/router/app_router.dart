@@ -11,6 +11,7 @@ import '../screens/home_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/more_screen.dart';
 import '../screens/orders_screen.dart';
+import '../screens/party_screens.dart';
 import '../screens/qr_scan_screen.dart';
 import '../screens/riders_screen.dart';
 import '../screens/shell_scaffold.dart';
@@ -56,6 +57,22 @@ GoRouter createAppRouter() {
         builder: (_, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
           return OrderDetailScreen(orderId: id);
+        },
+      ),
+      GoRoute(
+        path: '/parties/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return PartyDetailScreen(partyId: id);
+        },
+      ),
+      GoRoute(
+        path: '/order-groups/:id',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (_, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return OrderGroupDetailScreen(groupId: id);
         },
       ),
       GoRoute(

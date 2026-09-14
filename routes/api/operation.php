@@ -73,9 +73,13 @@ Route::prefix('operation')->group(function () {
 
         Route::middleware('permission:'.OperationPermissions::ORDERS)->group(function () {
             Route::get('/orders/search', [OperationMobileFieldController::class, 'searchOrders']);
+            Route::post('/orders/auto-group', [OperationMobileFieldController::class, 'autoGroupOrders']);
             Route::get('/orders/{id}', [OperationMobileFieldController::class, 'showOrder']);
             Route::post('/orders/{id}/force-cancel', [OperationMobileFieldController::class, 'forceCancelOrder']);
             Route::post('/orders/{id}/release-rider', [OperationMobileFieldController::class, 'releaseRider']);
+            Route::post('/orders/{id}/ungroup', [OperationMobileFieldController::class, 'ungroupOrder']);
+            Route::get('/order-groups/{id}', [OperationMobileFieldController::class, 'showOrderGroup']);
+            Route::get('/parties/{id}', [OperationMobileFieldController::class, 'showParty']);
         });
     });
 });

@@ -46,13 +46,12 @@ class OpsDashboardBoards
                 'user:id,first_name,last_name,mobile,company_name',
                 'deliveryRider:id,first_name,last_name,mobile',
                 'area:id,name',
-                'orderGroup.kitchen:id,first_name,last_name',
+                'orderGroup.kitchen:id,first_name,last_name,mobile',
                 'packageSubscription.package:id,name',
                 'cashHandoverOrder.handover',
             ])
             ->whereDate('delivery_date', $day)
-            ->orderBy('delivery_time')
-            ->orderBy('id')
+            ->orderByDesc('id')
             ->get();
     }
 
@@ -140,7 +139,42 @@ class OpsDashboardBoards
             'individual' => self::orderTab(
                 $dayOrders->filter(fn (Order $order) => $order->package_subscription_id === null)->values()
             ),
+            'by_group' => self::ordersByGroup($dayOrders->values()),
         ];
+    }
+
+    /**
+     * Group visibility: cluster selected-day orders under their order group (or Ungrouped).
+     *
+     * @param  Collection<int, Order>  $orders
+     * @return list<array<string, mixed>>
+     */
+    protected static function ordersByGroup(Collection $orders): array
+    {
+        $grouped = $orders->groupBy(fn (Order $order) => $order->orderGroup?->id ?? 0);
+
+        return $grouped
+            ->map(function (Collection $rows, $groupKey) {
+                /** @var Order|null $sample */
+                $sample = $rows->first();
+                $group = $sample?->orderGroup;
+
+                return [
+                    'group_id' => $group?->id,
+                    'group_name' => $group?->name ?? 'Ungrouped',
+                    'kitchen_id' => $group?->kitchen_id,
+                    'kitchen_name' => $group?->kitchen?->name,
+                    'count' => $rows->count(),
+                    'qty' => (int) $rows->sum('quantity'),
+                    'items' => $rows->map(fn (Order $order) => self::orderCard($order))->values()->all(),
+                ];
+            })
+            ->sortBy(fn (array $bucket) => [
+                $bucket['group_id'] === null ? 1 : 0,
+                strtolower((string) $bucket['group_name']),
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -381,14 +415,18 @@ class OpsDashboardBoards
             'delivery_time' => $order->delivery_time,
             'quantity' => (int) $order->quantity,
             'menu_name' => $order->menuItem?->name,
+            'customer_id' => $order->user_id,
             'customer_name' => $party['customer_name'] ?? ($order->user?->company_name ?: $order->user?->name),
             'customer_mobile' => $order->user?->mobile,
             'area_name' => $order->area?->name,
+            'rider_id' => $order->delivery_rider_id,
             'rider_name' => $order->deliveryRider?->name,
+            'rider_mobile' => $order->deliveryRider?->mobile,
             'group_id' => $order->orderGroup?->id,
             'group_name' => $order->orderGroup?->name,
             'kitchen_id' => $order->orderGroup?->kitchen_id,
             'kitchen_name' => $order->orderGroup?->kitchen?->name,
+            'kitchen_mobile' => $order->orderGroup?->kitchen?->mobile,
             'is_package' => $order->package_subscription_id !== null,
             'package_name' => $order->packageSubscription?->package?->name,
             'payment_status' => $order->payment_status,
@@ -397,6 +435,8 @@ class OpsDashboardBoards
             'payment_badge' => $badge['key'],
             'payment_badge_label' => $badge['label'],
             'address' => $order->address,
+            'can_release_rider' => (string) $order->order_status === OrderTransition::ON_THE_WAY_TO_DELIVERY
+                && $order->delivery_rider_id !== null,
         ];
     }
 

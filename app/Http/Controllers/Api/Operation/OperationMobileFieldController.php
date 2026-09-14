@@ -23,8 +23,11 @@ use App\Support\OpsDayChecklist;
 use App\Support\OpsRiderBoard;
 use App\Support\OpsRiderMidRunReassign;
 use App\Support\OpsSlaBoard;
+use App\Support\MealOrderGrouper;
+use App\Support\OrderGroupManager;
 use App\Support\OrderOpsForce;
 use App\Support\StaffAlerts;
+use App\Support\StaffPortal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -664,6 +667,90 @@ class OperationMobileFieldController extends Controller
 
         return response()->json([
             'message' => 'Rider released; order back to packed.',
+            'order' => OperationApiPresenter::orderSummary($order),
+        ]);
+    }
+
+    public function showParty(int $id): JsonResponse
+    {
+        $user = User::query()
+            ->with(['role:id,name', 'area:id,name', 'city:id,name'])
+            ->findOrFail($id);
+
+        $role = $user->role?->name;
+        if (! in_array($role, ['corporate', 'kitchen', 'delivery'], true)) {
+            return response()->json(['message' => 'Party profile is only available for customers, kitchens, and riders.'], 422);
+        }
+
+        return response()->json([
+            'party' => OperationApiPresenter::party($user),
+        ]);
+    }
+
+    public function showOrderGroup(int $id): JsonResponse
+    {
+        $group = OrderGroup::query()->findOrFail($id);
+
+        return response()->json([
+            'group' => OperationApiPresenter::orderGroup($group),
+        ]);
+    }
+
+    public function autoGroupOrders(Request $request): JsonResponse
+    {
+        if (! StaffPortal::isDayOps($request->user()?->loadMissing('role')->role?->name)) {
+            return response()->json(['message' => 'Only admin/operation can auto-group orders.'], 403);
+        }
+
+        $data = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $userId = (int) $request->user()->id;
+
+        $orders = Order::query()
+            ->with(['menuItem', 'user', 'orderGroup'])
+            ->whereDate('delivery_date', $data['date'])
+            ->where('order_status', '!=', \App\Support\OrderTransition::CANCELLED)
+            ->orderBy('delivery_time')
+            ->orderBy('id')
+            ->get();
+
+        $assigned = app(MealOrderGrouper::class)->autoGroup($orders, $userId);
+
+        return response()->json([
+            'message' => $assigned > 0
+                ? "{$assigned} order(s) auto-grouped for {$data['date']}."
+                : "No new orders available to auto-group for {$data['date']}.",
+            'assigned' => $assigned,
+            'date' => $data['date'],
+        ]);
+    }
+
+    public function ungroupOrder(int $id): JsonResponse
+    {
+        if (! StaffPortal::isDayOps(request()->user()?->loadMissing('role')->role?->name)) {
+            return response()->json(['message' => 'Only admin/operation can ungroup orders.'], 403);
+        }
+
+        try {
+            app(OrderGroupManager::class)->ungroup($id);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => $e->getMessage() ?: 'Could not ungroup order.'], 422);
+        }
+
+        $order = Order::query()
+            ->with([
+                'menuItem:id,name',
+                'user:id,first_name,last_name,mobile,company_name',
+                'deliveryRider:id,first_name,last_name,mobile',
+                'area:id,name',
+                'orderGroup',
+            ])
+            ->findOrFail($id);
+
+        return response()->json([
+            'message' => 'Order removed from group.',
             'order' => OperationApiPresenter::orderSummary($order),
         ]);
     }
