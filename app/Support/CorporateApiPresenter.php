@@ -66,7 +66,7 @@ class CorporateApiPresenter
 
     public static function order(Order $order): array
     {
-        $order->loadMissing('menuItem');
+        $order->loadMissing('menuItem', 'deliveryRider');
 
         $canPayOnline = CorporateOrderPresentation::canPayOnline($order);
 
@@ -112,6 +112,13 @@ class CorporateApiPresenter
             'can_delete' => ! $order->package_subscription_id
                 && OrderCutoff::allowsModification($order),
             'is_history' => optional($order->delivery_date)->lt(now('Asia/Dhaka')->startOfDay()) ?? false,
+            'rider_name' => $order->relationLoaded('deliveryRider') || $order->delivery_rider_id
+                ? ($order->deliveryRider?->name)
+                : null,
+            'rider_mobile' => $order->deliveryRider?->mobile,
+            'eta_minutes' => \App\Support\DeliveryMobileActions::etaForOrder((int) $order->id)['minutes'],
+            'eta_label' => \App\Support\DeliveryApiPresenter::etaLabel($order),
+            'delivery_window' => $order->delivery_time,
         ];
     }
 

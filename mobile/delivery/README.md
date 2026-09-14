@@ -126,3 +126,26 @@ Before deliver:
 - **Data:** `ApiDeliveryRepository` → `/api/delivery/*` (`USE_MOCK` fallback)
 - **Push:** `PushNotificationService` → `POST/DELETE /device-tokens` (deep link via `path` / `deep_link`)
 - **Deep links:** `middo-delivery://`
+
+
+## Sync conflicts (offline queue)
+
+When a queued mutation fails with a permanent 4xx (except 408/429), it moves to a **failed** list instead of being dropped silently. The network banner shows **sync conflicts — tap to review** with Retry / Discard actions.
+
+## Play signing checklist
+
+1. Generate an upload keystore (never commit it):
+   `keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias middo-delivery`
+2. Copy `android/key.properties.example` → `android/key.properties` and fill store/key passwords.
+3. Build: `flutter build appbundle --release --dart-define=API_BASE_URL=https://x.middo.com.bd`
+4. Upload the AAB from CI or local `build/app/outputs/bundle/release/`; keep large APK/AAB out of git (Git LFS or release artifacts).
+
+## FCM payload (production)
+
+Staff alert pushes include:
+
+- `path` — app route (e.g. `/runs/123`, `/boxes`, `/alerts`)
+- `deep_link` — `middo-delivery://runs/123`
+- `type`, `alert_id`, `alert_type`, `order_id`
+
+Wire Firebase with a production `google-services.json` for `com.middo.delivery` before Play rollout.

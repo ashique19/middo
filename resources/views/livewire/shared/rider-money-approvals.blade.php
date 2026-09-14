@@ -14,6 +14,49 @@
         <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{{ $errorMessage }}</div>
     @endif
 
+
+    @if($canWriteMoney)
+        <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 space-y-3">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Post-hoc commission adjustment</h2>
+                <p class="text-xs text-gray-500 mt-1">Credit or debit a rider wallet after the run (ops/accounts only).</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                    <label class="block text-[10px] font-bold uppercase text-gray-400 mb-1">Rider</label>
+                    <select wire:model="adjustRiderId" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        <option value="">Select rider…</option>
+                        @foreach($riders as $rider)
+                            <option value="{{ $rider->id }}">{{ $rider->name }} · {{ $rider->mobile }}</option>
+                        @endforeach
+                    </select>
+                    @error('adjustRiderId') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold uppercase text-gray-400 mb-1">Direction</label>
+                    <select wire:model="adjustDirection" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        <option value="credit">Credit (increase wallet)</option>
+                        <option value="debit">Debit (decrease wallet)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold uppercase text-gray-400 mb-1">Amount (৳)</label>
+                    <input type="number" min="1" wire:model="adjustAmount" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="e.g. 40">
+                    @error('adjustAmount') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold uppercase text-gray-400 mb-1">Reason</label>
+                    <input type="text" wire:model="adjustReason" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="Missed commission / clawback…">
+                    @error('adjustReason') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button type="button" wire:click="adjustCommission" wire:confirm="Post this commission adjustment?"
+                        class="px-3 py-1.5 rounded-xl bg-middo-dark text-white text-xs font-bold">Post adjustment</button>
+            </div>
+        </div>
+    @endif
+
     <div class="space-y-4">
         @forelse($withdrawals as $w)
             @php

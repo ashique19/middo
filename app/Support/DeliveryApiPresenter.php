@@ -46,6 +46,7 @@ class DeliveryApiPresenter
             'has_complete_payout_method' => $user->hasCompletePayoutMethod(
                 $user->preferredPayoutChannel()
             ),
+            'payout_methods' => $user->normalizedPayoutMethods(),
         ];
     }
 
@@ -123,6 +124,8 @@ class DeliveryApiPresenter
             'can_pickup' => $mine && $order->isAwaitingRiderPickup(),
             'can_mark_delivered' => $mine && $order->isOnTheWayToDelivery(),
             'can_deliver' => $mine && $order->isOnTheWayToDelivery(),
+            'eta_minutes' => DeliveryMobileActions::etaForOrder((int) $order->id)['minutes'],
+            'eta_label' => self::etaLabel($order),
             'awaiting_kitchen_pack' => $mine && $order->isAssignedAwaitingKitchenPrep(),
             'awaiting_accept' => false,
             'dispatched_at' => $order->dispatched_at?->toIso8601String(),
@@ -286,6 +289,7 @@ class DeliveryApiPresenter
             'has_complete_payout_method' => $rider->hasCompletePayoutMethod(
                 $rider->preferredPayoutChannel()
             ),
+            'payout_methods' => $rider->normalizedPayoutMethods(),
             'statement' => self::accountStatement($rider),
             'withdrawals' => self::accountWithdrawals($rider),
         ];
@@ -370,5 +374,30 @@ class DeliveryApiPresenter
         }
 
         return Carbon::parse($date, 'Asia/Dhaka')->format('l, F-j');
+    }
+
+    public static function etaLabel(Order $order): ?string
+    {
+        $eta = DeliveryMobileActions::etaForOrder((int) $order->id);
+        if ($eta['minutes']) {
+            return 'About '.$eta['minutes'].' min';
+        }
+        $slot = trim((string) ($order->delivery_time ?? ''));
+
+        return $slot !== '' ? 'Window '.$slot : null;
+    }
+
+    /**
+     * @return array{minutes: int|null, updated_at: string|null, label: string|null}
+     */
+    public static function etaPayload(Order $order): array
+    {
+        $eta = DeliveryMobileActions::etaForOrder((int) $order->id);
+
+        return [
+            'minutes' => $eta['minutes'],
+            'updated_at' => $eta['updated_at'],
+            'label' => self::etaLabel($order),
+        ];
     }
 }

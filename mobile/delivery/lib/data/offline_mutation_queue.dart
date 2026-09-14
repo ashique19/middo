@@ -14,10 +14,12 @@ class OfflineMutationQueue {
   static final instance = OfflineMutationQueue._();
 
   static const _prefsKey = 'delivery_offline_mutation_queue_v1';
+  static const _prefsKeyFailed = 'delivery_offline_mutation_failed_v1';
 
   final _controller = StreamController<int>.broadcast();
   StreamSubscription<bool>? _netSub;
   List<Map<String, dynamic>> _items = [];
+  List<Map<String, dynamic>> _failed = [];
   var _loaded = false;
   var _flushing = false;
   var _started = false;
@@ -25,7 +27,9 @@ class OfflineMutationQueue {
 
   Stream<int> get onChange => _controller.stream;
   int get pendingCount => _items.length;
+  int get failedCount => _failed.length;
   List<Map<String, dynamic>> get items => List.unmodifiable(_items);
+  List<Map<String, dynamic>> get failedItems => List.unmodifiable(_failed);
 
   Future<void> start({ApiClient? client}) async {
     if (_started) return;
@@ -88,10 +92,17 @@ class OfflineMutationQueue {
           await _persist();
           _controller.add(_items.length);
         } on ApiException catch (e) {
-          // Drop permanently failed client errors; keep for network / 5xx.
+          // Park permanent client failures for rider review; keep network / 5xx.
           final code = e.statusCode ?? 0;
           if (code >= 400 && code < 500 && code != 408 && code != 429) {
+            final failed = {
+              ...item,
+              'failed_at': DateTime.now().toUtc().toIso8601String(),
+              'error_status': code,
+              'error_message': e.message,
+            };
             _items = _items.sublist(1);
+            _failed = [..._failed, failed];
             await _persist();
             _controller.add(_items.length);
             continue;
@@ -157,6 +168,16 @@ class OfflineMutationQueue {
               .toList();
         }
       }
+      final rawFailed = prefs.getString(_prefsKeyFailed);
+      if (rawFailed != null && rawFailed.isNotEmpty) {
+        final decoded = jsonDecode(rawFailed);
+        if (decoded is List) {
+          _failed = decoded
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      }
     } catch (_) {
       _items = [];
     }
@@ -167,6 +188,7 @@ class OfflineMutationQueue {
     if (kIsWeb) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, jsonEncode(_items));
+    await prefs.setString(_prefsKeyFailed, jsonEncode(_failed));
   }
 
   String _newUuid() {
@@ -178,6 +200,36 @@ class OfflineMutationQueue {
     final h = bytes.map(hex).join();
     return '${h.substring(0, 8)}-${h.substring(8, 12)}-'
         '${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
+  }
+
+
+  Future<void> retryFailed(String id) async {
+    await _ensureLoaded();
+    final idx = _failed.indexWhere((e) => e['id']?.toString() == id);
+    if (idx < 0) return;
+    final item = Map<String, dynamic>.from(_failed[idx]);
+    item.remove('failed_at');
+    item.remove('error_status');
+    item.remove('error_message');
+    _failed = [..._failed]..removeAt(idx);
+    _items = [..._items, item];
+    await _persist();
+    _controller.add(_items.length);
+    await flush();
+  }
+
+  Future<void> discardFailed(String id) async {
+    await _ensureLoaded();
+    _failed = _failed.where((e) => e['id']?.toString() != id).toList();
+    await _persist();
+    _controller.add(_items.length);
+  }
+
+  Future<void> discardAllFailed() async {
+    await _ensureLoaded();
+    _failed = [];
+    await _persist();
+    _controller.add(_items.length);
   }
 
   Future<void> dispose() async {

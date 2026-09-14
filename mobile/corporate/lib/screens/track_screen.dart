@@ -92,6 +92,19 @@ class _TrackScreenState extends State<TrackScreen> {
                       value: order.statusLabel,
                       valueColor: MiddoColors.forest,
                     ),
+                    if (order.riderName != null && order.riderName!.isNotEmpty)
+                      MetaRow(
+                        label: 'Rider',
+                        value: order.riderMobile == null || order.riderMobile!.isEmpty
+                            ? order.riderName!
+                            : '${order.riderName} · ${order.riderMobile}',
+                      ),
+                    if (order.etaLabel != null && order.etaLabel!.isNotEmpty)
+                      MetaRow(
+                        label: 'ETA',
+                        value: order.etaLabel!,
+                        valueColor: MiddoColors.forest,
+                      ),
                     MetaRow(
                       label: 'Total',
                       value: bdt.format(order.totalAmount),

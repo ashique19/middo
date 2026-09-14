@@ -23,6 +23,14 @@ class RiderMoneyApprovals extends Component
 
     public string $errorMessage = '';
 
+    public ?int $adjustRiderId = null;
+
+    public string $adjustDirection = 'credit';
+
+    public string $adjustAmount = '';
+
+    public string $adjustReason = '';
+
     /** @var array<int|string, int|string|null> */
     public array $approveBankAccountId = [];
 
@@ -90,6 +98,61 @@ class RiderMoneyApprovals extends Component
         }
     }
 
+
+    public function adjustCommission(): void
+    {
+        abort_unless(StaffPortal::canWriteMoney(), 403);
+        $this->statusMessage = '';
+        $this->errorMessage = '';
+
+        $this->validate([
+            'adjustRiderId' => 'required|integer|exists:users,id',
+            'adjustDirection' => 'required|in:credit,debit',
+            'adjustAmount' => 'required|integer|min:1|max:100000',
+            'adjustReason' => 'required|string|min:3|max:500',
+        ]);
+
+        try {
+            $rider = \App\Models\User::query()->findOrFail((int) $this->adjustRiderId);
+            if (! $rider->isDelivery()) {
+                throw new \RuntimeException('Select a delivery rider.');
+            }
+
+            $amount = (int) $this->adjustAmount;
+            $reason = trim($this->adjustReason);
+            if ($this->adjustDirection === 'credit') {
+                \App\Support\RiderAccountLedger::credit(
+                    (int) $rider->id,
+                    $amount,
+                    'commission_adjustment',
+                    'manual_adjustment',
+                    null,
+                    $reason,
+                    (int) \Illuminate\Support\Facades\Auth::id(),
+                );
+                $this->statusMessage = "Credited ৳{$amount} to {$rider->name}'s rider wallet.";
+            } else {
+                \App\Support\RiderAccountLedger::debit(
+                    (int) $rider->id,
+                    $amount,
+                    'commission_adjustment',
+                    'manual_adjustment',
+                    null,
+                    $reason,
+                    (int) \Illuminate\Support\Facades\Auth::id(),
+                );
+                $this->statusMessage = "Debited ৳{$amount} from {$rider->name}'s rider wallet.";
+            }
+
+            $this->reset(['adjustRiderId', 'adjustAmount', 'adjustReason']);
+            $this->adjustDirection = 'credit';
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not adjust rider commission.';
+        }
+    }
+
     public function render()
     {
         $withdrawals = RiderWithdrawalRequest::query()
@@ -109,7 +172,15 @@ class RiderMoneyApprovals extends Component
             ->orderBy('name')
             ->get();
 
+                $riders = \App\Models\User::query()
+            ->whereHas('role', fn ($q) => $q->where('name', 'delivery'))
+            ->where('status', 'active')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'mobile']);
+
         return view('livewire.shared.rider-money-approvals', [
+            'riders' => $riders,
             'withdrawals' => $withdrawals,
             'previews' => $previews,
             'banks' => $banks,

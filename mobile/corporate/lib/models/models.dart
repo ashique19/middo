@@ -183,6 +183,10 @@ class CorporateOrder {
     this.hasComplaint = false,
     this.canPayOnline = false,
     this.onlinePaymentUrl,
+    this.riderName,
+    this.riderMobile,
+    this.etaLabel,
+    this.etaMinutes,
   });
 
   final String id;
@@ -208,6 +212,10 @@ class CorporateOrder {
   final bool hasComplaint;
   final bool canPayOnline;
   final String? onlinePaymentUrl;
+  final String? riderName;
+  final String? riderMobile;
+  final String? etaLabel;
+  final int? etaMinutes;
 
   String get statusLabel => switch (status) {
         OrderStatus.pending => 'Pending',
@@ -253,6 +261,10 @@ class CorporateOrder {
       hasComplaint: json['has_complaint'] == true,
       canPayOnline: json['can_pay_online'] == true,
       onlinePaymentUrl: json['online_payment_url']?.toString(),
+      riderName: json['rider_name']?.toString(),
+      riderMobile: json['rider_mobile']?.toString(),
+      etaLabel: json['eta_label']?.toString(),
+      etaMinutes: json['eta_minutes'] == null ? null : _asInt(json['eta_minutes'], 0),
     );
   }
 
