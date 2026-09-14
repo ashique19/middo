@@ -112,17 +112,87 @@ class OperationApiPresenter
 
     public static function orderGroup(\App\Models\OrderGroup $group): array
     {
-        $group->loadMissing(['kitchen:id,first_name,last_name,mobile', 'menuItem:id,name', 'orders']);
+        $group->loadMissing([
+            'kitchen:id,first_name,last_name,mobile',
+            'menuItem:id,name',
+            'area:id,name',
+            'orders.menuItem:id,name',
+            'orders.user:id,first_name,last_name,mobile,company_name',
+            'orders.deliveryRider:id,first_name,last_name,mobile',
+        ]);
 
         return [
             'id' => $group->id,
             'name' => $group->name,
+            'delivery_date' => $group->delivery_date?->toDateString() ?? $group->delivery_date,
             'kitchen_id' => $group->kitchen_id,
             'kitchen_name' => $group->kitchen?->name,
+            'kitchen_mobile' => $group->kitchen?->mobile,
             'menu_name' => $group->menuItem?->name,
+            'area_name' => $group->area?->name,
             'orders_count' => $group->orders->count(),
             'qty' => (int) $group->orders->sum('quantity'),
+            'orders' => $group->orders
+                ->sortByDesc('id')
+                ->values()
+                ->map(fn (\App\Models\Order $order) => self::orderSummary($order))
+                ->all(),
         ];
+    }
+
+    /**
+     * Compact party card for customer / kitchen / rider deep-links from order screens.
+     *
+     * @return array<string, mixed>
+     */
+    public static function party(\App\Models\User $user): array
+    {
+        $user->loadMissing(['role:id,name', 'area:id,name', 'city:id,name']);
+        $role = $user->role?->name;
+
+        $payload = [
+            'id' => $user->id,
+            'role' => $role,
+            'name' => $user->company_name ?: $user->name,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'company_name' => $user->company_name,
+            'mobile' => $user->mobile,
+            'area_name' => $user->area?->name,
+            'city_name' => $user->city?->name,
+            'status' => $user->status,
+        ];
+
+        if ($role === 'corporate') {
+            $payload['open_orders_count'] = \App\Models\Order::query()
+                ->where('user_id', $user->id)
+                ->whereNotIn('order_status', [
+                    OrderTransition::DELIVERED,
+                    OrderTransition::DELIVERED_AND_PAID,
+                    OrderTransition::CANCELLED,
+                ])
+                ->count();
+        }
+
+        if ($role === 'kitchen') {
+            $payload['active_groups_count'] = \App\Models\OrderGroup::query()
+                ->where('kitchen_id', $user->id)
+                ->whereDate('delivery_date', '>=', now()->toDateString())
+                ->count();
+        }
+
+        if ($role === 'delivery') {
+            $payload['active_runs_count'] = \App\Models\Order::query()
+                ->where('delivery_rider_id', $user->id)
+                ->whereIn('order_status', [
+                    OrderTransition::RIDER_ASSIGNED,
+                    OrderTransition::PACKED,
+                    OrderTransition::ON_THE_WAY_TO_DELIVERY,
+                ])
+                ->count();
+        }
+
+        return $payload;
     }
 
     public static function orderSummary(\App\Models\Order $order): array
@@ -132,6 +202,7 @@ class OperationApiPresenter
             'user:id,first_name,last_name,mobile,company_name',
             'deliveryRider:id,first_name,last_name,mobile',
             'area:id,name',
+            'orderGroup:id,name,kitchen_id',
         ]);
 
         return [
@@ -141,12 +212,18 @@ class OperationApiPresenter
             'delivery_time' => $order->delivery_time,
             'quantity' => (int) $order->quantity,
             'menu_name' => $order->menuItem?->name,
+            'customer_id' => $order->user_id,
             'customer_name' => $order->user?->company_name ?: $order->user?->name,
             'customer_mobile' => $order->user?->mobile,
             'area_name' => $order->area?->name,
             'rider_id' => $order->delivery_rider_id,
             'rider_name' => $order->deliveryRider?->name,
+            'rider_mobile' => $order->deliveryRider?->mobile,
+            'group_id' => $order->orderGroup?->id,
+            'group_name' => $order->orderGroup?->name,
             'address' => $order->address,
+            'can_release_rider' => (string) $order->order_status === OrderTransition::ON_THE_WAY_TO_DELIVERY
+                && $order->delivery_rider_id !== null,
         ];
     }
 
@@ -164,13 +241,13 @@ class OperationApiPresenter
         return array_merge(self::orderSummary($order), [
             'kitchen_id' => $order->orderGroup?->kitchen_id,
             'kitchen_name' => $order->orderGroup?->kitchen?->name,
-            'group_id' => $order->orderGroup?->id,
-            'group_name' => $order->orderGroup?->name,
+            'kitchen_mobile' => $order->orderGroup?->kitchen?->mobile,
             'package_name' => $order->packageSubscription?->package?->name,
             'amount_paid' => (int) ($order->amount_paid ?? 0),
             'cash_collected' => (int) ($order->cash_collected ?? 0),
             'dispatched_at' => $order->dispatched_at?->toIso8601String(),
             'notes' => $order->notes ?? $order->special_instructions ?? null,
+            'release_rider_hint' => 'Unassigns the rider, returns Middo boxes to the kitchen, voids the open delivery share, and sets the order back to packed so another rider can take it.',
         ]);
     }
 

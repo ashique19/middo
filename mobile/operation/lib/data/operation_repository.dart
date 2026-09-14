@@ -210,6 +210,18 @@ class OperationRepository {
       _client.post('/orders/$id/release-rider', body: {
         if (reason != null && reason.isNotEmpty) 'reason': reason,
       });
+
+  Future<Map<String, dynamic>> autoGroupOrders({required String date}) =>
+      _client.post('/orders/auto-group', body: {'date': date});
+
+  Future<Map<String, dynamic>> ungroupOrder(int id) =>
+      _client.post('/orders/$id/ungroup');
+
+  Future<Map<String, dynamic>> showOrderGroup(int id) =>
+      _client.get('/order-groups/$id');
+
+  Future<Map<String, dynamic>> showParty(int id) =>
+      _client.get('/parties/$id');
 }
 
 OperationRepository createOperationRepository() => OperationRepository();

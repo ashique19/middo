@@ -193,35 +193,127 @@ class BoardOrderTile extends StatelessWidget {
   final Map<String, dynamic> item;
   final bool showPaymentBadge;
 
+  void _openParty(BuildContext context, dynamic id) {
+    if (id is int && id > 0) {
+      context.push('/parties/$id');
+    }
+  }
+
+  void _openGroup(BuildContext context, dynamic id) {
+    if (id is int && id > 0) {
+      context.push('/order-groups/$id');
+    }
+  }
+
+  Widget _link(BuildContext context, String label, dynamic id, {IconData? icon}) {
+    final hasId = id is int && id > 0;
+    return InkWell(
+      onTap: hasId ? () => _openParty(context, id) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 14, color: hasId ? MiddoColors.orange : MiddoColors.muted),
+              const SizedBox(width: 4),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: hasId ? MiddoColors.orange : MiddoColors.muted,
+                  fontWeight: hasId ? FontWeight.w600 : FontWeight.w400,
+                  decoration: hasId ? TextDecoration.underline : TextDecoration.none,
+                  decorationColor: MiddoColors.orange.withValues(alpha: 0.5),
+                  fontSize: 12,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final id = item['id'];
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        '#$id · ${item['menu_name'] ?? 'Order'} · qty ${item['quantity'] ?? 1}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+    final groupId = item['group_id'];
+    final groupName = item['group_name']?.toString();
+    final customer = item['customer_name']?.toString() ?? '—';
+    final rider = item['rider_name']?.toString();
+    final kitchen = item['kitchen_name']?.toString();
+
+    return InkWell(
+      onTap: id is int ? () => context.push('/orders/$id') : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '#$id · ${item['menu_name'] ?? 'Order'} · qty ${item['quantity'] ?? 1}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    [
+                      item['area_name'],
+                      item['order_status'],
+                      if (item['is_package'] == true) 'package',
+                    ].where((e) => e != null && e.toString().isNotEmpty).join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: MiddoColors.muted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  if (groupName != null && groupName.isNotEmpty)
+                    InkWell(
+                      onTap: () => _openGroup(context, groupId),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          'Group: $groupName',
+                          style: TextStyle(
+                            color: groupId is int ? MiddoColors.orange : MiddoColors.muted,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            decoration: groupId is int ? TextDecoration.underline : null,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 2,
+                    children: [
+                      _link(context, 'Customer: $customer', item['customer_id'], icon: Icons.business),
+                      if (rider != null && rider.isNotEmpty)
+                        _link(context, 'Rider: $rider', item['rider_id'], icon: Icons.delivery_dining),
+                      if (kitchen != null && kitchen.isNotEmpty)
+                        _link(context, 'Kitchen: $kitchen', item['kitchen_id'], icon: Icons.soup_kitchen),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (showPaymentBadge)
+              BoardPaymentBadge(
+                item['payment_badge']?.toString() ?? 'unpaid',
+                item['payment_badge_label']?.toString() ?? 'Unpaid',
+              ),
+          ],
+        ),
       ),
-      subtitle: Text(
-        [
-          item['customer_name'],
-          item['area_name'],
-          item['order_status'],
-          if (item['is_package'] == true) 'package',
-        ].where((e) => e != null && e.toString().isNotEmpty).join(' · '),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: showPaymentBadge
-          ? BoardPaymentBadge(
-              item['payment_badge']?.toString() ?? 'unpaid',
-              item['payment_badge_label']?.toString() ?? 'Unpaid',
-            )
-          : null,
-      onTap: () {
-        if (id is int) context.push('/orders/$id');
-      },
     );
   }
 }

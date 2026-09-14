@@ -275,7 +275,7 @@ class OperationMobileApiTest extends TestCase
             ->assertJsonStructure([
                 'date',
                 'packages' => ['unassigned_meals' => ['count', 'items'], 'orders' => ['count', 'items']],
-                'orders' => ['all', 'package', 'individual'],
+                'orders' => ['all', 'package', 'individual', 'by_group'],
                 'grouping' => [
                     'ungrouped',
                     'grouped_pending',
@@ -290,5 +290,130 @@ class OperationMobileApiTest extends TestCase
                 'complaints' => ['count', 'items'],
                 'alerts_unread',
             ]);
+    }
+
+    public function test_operation_orders_board_lists_latest_first_and_exposes_group_visibility(): void
+    {
+        $ops = $this->makeOps();
+        Sanctum::actingAs($ops);
+
+        $corporateRole = Role::query()->create(['name' => 'corporate']);
+        $customer = User::query()->create([
+            'first_name' => 'Cust',
+            'last_name' => 'One',
+            'mobile' => '01310999011',
+            'password' => '12345678',
+            'role_id' => $corporateRole->id,
+            'status' => 'active',
+            'is_mobile_verified' => true,
+            'company_name' => 'Acme Foods',
+        ]);
+
+        $menu = \App\Models\MenuItem::query()->create([
+            'name' => 'Board Meal',
+            'price' => 150,
+            'kitchen_commission' => 40,
+            'delivery_commission' => 30,
+        ]);
+
+        $day = now()->toDateString();
+
+        $older = \App\Models\Order::query()->create([
+            'user_id' => $customer->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 1,
+            'delivery_date' => $day,
+            'delivery_time' => '12:00',
+            'total_amount' => 150,
+            'amount_paid' => 150,
+            'address' => 'Old St',
+            'order_status' => 'processing',
+            'payment_status' => 'paid',
+            'payment_method' => 'wallet',
+        ]);
+
+        $newer = \App\Models\Order::query()->create([
+            'user_id' => $customer->id,
+            'menu_item_id' => $menu->id,
+            'quantity' => 2,
+            'delivery_date' => $day,
+            'delivery_time' => '13:00',
+            'total_amount' => 300,
+            'amount_paid' => 300,
+            'address' => 'New St',
+            'order_status' => 'processing',
+            'payment_status' => 'paid',
+            'payment_method' => 'wallet',
+        ]);
+
+        $group = \App\Models\OrderGroup::query()->create([
+            'name' => 'GRP-TEST-BOARD',
+            'menu_id' => $menu->id,
+            'delivery_date' => $day,
+        ]);
+        $group->orders()->attach([$older->id, $newer->id]);
+
+        $response = $this->getJson('/api/operation/boards?date='.$day)->assertOk();
+        $ids = collect($response->json('orders.all.items'))->pluck('id')->all();
+        $this->assertSame([$newer->id, $older->id], $ids);
+
+        $first = $response->json('orders.all.items.0');
+        $this->assertSame($customer->id, $first['customer_id']);
+        $this->assertSame($group->id, $first['group_id']);
+        $this->assertSame('GRP-TEST-BOARD', $first['group_name']);
+
+        $byGroup = collect($response->json('orders.by_group'));
+        $this->assertTrue($byGroup->contains(fn ($bucket) => ($bucket['group_id'] ?? null) === $group->id));
+    }
+
+    public function test_operation_party_and_group_detail_endpoints(): void
+    {
+        $ops = $this->makeOps();
+        Sanctum::actingAs($ops);
+
+        $kitchen = User::query()->create([
+            'first_name' => 'Kit',
+            'last_name' => 'Chen',
+            'mobile' => '01310999012',
+            'password' => '12345678',
+            'role_id' => $this->kitchenRole->id,
+            'status' => 'active',
+            'is_mobile_verified' => true,
+        ]);
+
+        $this->getJson('/api/operation/parties/'.$kitchen->id)
+            ->assertOk()
+            ->assertJsonPath('party.id', $kitchen->id)
+            ->assertJsonPath('party.role', 'kitchen');
+
+        $menu = \App\Models\MenuItem::query()->create([
+            'name' => 'Group Meal',
+            'price' => 120,
+            'kitchen_commission' => 40,
+            'delivery_commission' => 30,
+        ]);
+        $group = \App\Models\OrderGroup::query()->create([
+            'name' => 'GRP-DETAIL',
+            'menu_id' => $menu->id,
+            'delivery_date' => now()->toDateString(),
+            'kitchen_id' => $kitchen->id,
+        ]);
+
+        $this->getJson('/api/operation/order-groups/'.$group->id)
+            ->assertOk()
+            ->assertJsonPath('group.id', $group->id)
+            ->assertJsonPath('group.kitchen_id', $kitchen->id)
+            ->assertJsonPath('group.name', 'GRP-DETAIL');
+    }
+
+    public function test_operation_can_auto_group_orders_for_selected_date(): void
+    {
+        $ops = $this->makeOps();
+        Sanctum::actingAs($ops);
+
+        $this->postJson('/api/operation/orders/auto-group', [
+            'date' => now()->toDateString(),
+        ])->assertOk()
+            ->assertJsonStructure(['message', 'assigned', 'date']);
     }
 }

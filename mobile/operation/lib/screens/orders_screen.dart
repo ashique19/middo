@@ -162,7 +162,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _releaseRider() async {
-    final reason = await promptText(context, title: 'Release rider reason');
+    final reason = await promptText(
+      context,
+      title: 'Return to packed — reason',
+      label: 'Why is the rider being released?',
+    );
     if (!mounted) return;
     try {
       final res = await AppScope.of(context).releaseRider(
@@ -170,7 +174,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         reason: reason,
       );
       if (!mounted) return;
-      showSnack(context, res['message']?.toString() ?? 'Rider released.');
+      showSnack(context, res['message']?.toString() ?? 'Rider released; order back to packed.');
       await _load();
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -178,8 +182,43 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
+  Future<void> _ungroup() async {
+    try {
+      final res = await AppScope.of(context).ungroupOrder(widget.orderId);
+      if (!mounted) return;
+      showSnack(context, res['message']?.toString() ?? 'Removed from group.');
+      await _load();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      showSnack(context, e.message);
+    }
+  }
+
+  Widget _partyTile({
+    required String role,
+    required String title,
+    String? subtitle,
+    dynamic id,
+    IconData icon = Icons.person,
+  }) {
+    final hasId = id is int && id > 0;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: hasId ? MiddoColors.orange : MiddoColors.muted),
+      title: Text('$role · $title'),
+      subtitle: subtitle == null || subtitle.isEmpty ? null : Text(subtitle),
+      trailing: hasId ? const Icon(Icons.chevron_right) : null,
+      onTap: hasId ? () => context.push('/parties/$id') : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final order = _order;
+    final canRelease = order?['can_release_rider'] == true;
+    final groupId = order?['group_id'];
+    final groupName = order?['group_name']?.toString();
+
     return Scaffold(
       appBar: AppBar(title: Text('Order #${widget.orderId}')),
       body: _loading
@@ -190,32 +229,79 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   padding: const EdgeInsets.all(16),
                   children: [
                     Text(
-                      _order?['menu_name']?.toString() ??
-                          _order?['menu']?.toString() ??
+                      order?['menu_name']?.toString() ??
+                          order?['menu']?.toString() ??
                           'Order',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
                     ),
                     const SizedBox(height: 8),
-                    Text('Status: ${_order?['order_status'] ?? '—'}'),
-                    Text(
-                      'Customer: ${_order?['customer_name'] ?? '—'} '
-                      '(${_order?['customer_mobile'] ?? ''})',
+                    Text('Status: ${order?['order_status'] ?? '—'}'),
+                    Text('Area: ${order?['area_name'] ?? '—'}'),
+                    if (order?['delivery_date'] != null)
+                      Text(
+                        'Delivery: ${order?['delivery_date']}'
+                        '${order?['delivery_time'] != null ? ' · ${order?['delivery_time']}' : ''}',
+                      ),
+                    if (order?['address'] != null) Text('Address: ${order?['address']}'),
+                    const SizedBox(height: 12),
+                    const Text('Group', style: TextStyle(fontWeight: FontWeight.w800)),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.layers_outlined),
+                      title: Text(groupName?.isNotEmpty == true ? groupName! : 'Ungrouped'),
+                      subtitle: groupId is int ? Text('Group #$groupId') : const Text('Not in a group'),
+                      trailing: groupId is int ? const Icon(Icons.chevron_right) : null,
+                      onTap: groupId is int
+                          ? () => context.push('/order-groups/$groupId')
+                          : null,
                     ),
-                    Text('Area: ${_order?['area_name'] ?? '—'}'),
-                    Text(
-                      'Rider: ${_order?['rider_name'] ?? _order?['rider_id'] ?? '—'}',
+                    if (groupId is int)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          onPressed: _ungroup,
+                          child: const Text('Remove from group'),
+                        ),
+                      ),
+                    const Divider(height: 28),
+                    const Text('Parties', style: TextStyle(fontWeight: FontWeight.w800)),
+                    _partyTile(
+                      role: 'Customer',
+                      title: order?['customer_name']?.toString() ?? '—',
+                      subtitle: order?['customer_mobile']?.toString(),
+                      id: order?['customer_id'],
+                      icon: Icons.business,
                     ),
-                    Text(
-                      'Kitchen: ${_order?['kitchen_name'] ?? _order?['kitchen_id'] ?? '—'}',
+                    _partyTile(
+                      role: 'Rider',
+                      title: order?['rider_name']?.toString() ?? 'Unassigned',
+                      subtitle: order?['rider_mobile']?.toString(),
+                      id: order?['rider_id'],
+                      icon: Icons.delivery_dining,
+                    ),
+                    _partyTile(
+                      role: 'Kitchen',
+                      title: order?['kitchen_name']?.toString() ?? 'Unassigned',
+                      subtitle: order?['kitchen_mobile']?.toString(),
+                      id: order?['kitchen_id'],
+                      icon: Icons.soup_kitchen,
                     ),
                     const SizedBox(height: 20),
-                    FilledButton(
-                      onPressed: _releaseRider,
-                      child: const Text('Release rider'),
-                    ),
-                    const SizedBox(height: 8),
+                    if (canRelease) ...[
+                      Text(
+                        order?['release_rider_hint']?.toString() ??
+                            'Unassigns the rider, returns Middo boxes to the kitchen, voids the open delivery share, and sets the order back to packed.',
+                        style: const TextStyle(color: MiddoColors.muted, fontSize: 13),
+                      ),
+                      const SizedBox(height: 8),
+                      FilledButton(
+                        onPressed: _releaseRider,
+                        child: const Text('Return to packed (release rider)'),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     OutlinedButton(
                       onPressed: _forceCancel,
                       child: const Text('Force cancel'),
