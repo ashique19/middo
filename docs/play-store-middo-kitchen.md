@@ -1,6 +1,6 @@
 # Google Play — Middo Kitchen
 
-Package: `com.middo.kitchen` · Display name: **Middo Kitchen** · Current version: **0.3.2 (16)**
+Package: `com.middo.kitchen` · Display name: **Middo Kitchen** · Current version: **0.3.3 (17)**
 
 Upload artifact: `mobile/kitchen/releases/middo-kitchen-release.aab`
 
@@ -92,7 +92,14 @@ flutter build appbundle --release \
 cp build/app/outputs/bundle/release/app-release.aab releases/middo-kitchen-release.aab
 ```
 
-Bump `version:` in `pubspec.yaml` before each Play upload (`0.3.2+16` → name `0.3.2`, code `16`).
+Bump `version:` in `pubspec.yaml` before each Play upload (`0.3.3+17` → name `0.3.3`, code `17`).
+
+### Device support notes
+- Effective `minSdk` is **24** (Android 7.0) — required by `image_picker_android` (cannot go to 23 without override).
+- Release AAB includes **armeabi-v7a + arm64-v8a + x86_64** (no `abiFilter`).
+- Optional `uses-feature` (camera / telephony / touchscreen / wifi / location) so Play does not filter tablets/Chromebooks if a dependency merges related permissions.
+- `image_picker` Photo Picker `ModuleDependencies` service is removed from the merged manifest so it is not a hard Play device requirement.
+- JNI libs use **legacy packaging** (`useLegacyPackaging = true`) for broader install compatibility on older API-24/25 devices.
 
 Upload only AABs signed with the kitchen upload keystore (`CN=Middo Kitchen`). Debug-signed builds are rejected by Play.
 
