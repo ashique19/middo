@@ -30,15 +30,30 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    // image_picker_android declares minSdk 24, so we cannot go lower without
+    // tools:overrideLibrary (unsafe). Keep an explicit val so Flutter's migrator
+    // (which rewrites bare minSdk = 16..23) cannot silently change policy.
+    val middoMinSdk = 24
+
     defaultConfig {
         applicationId = "com.middo.kitchen"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // Firebase Messaging (BoM 34.x) requires minSdk 23+.
-        minSdk = maxOf(flutter.minSdkVersion, 23)
+        minSdk = middoMinSdk
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Do not abiFilter here — Flutter ships armeabi-v7a + arm64-v8a + x86_64.
+        // Filtering would silently drop 32-bit ARM (~large Play device share).
+    }
+
+    packaging {
+        jniLibs {
+            // Legacy packaging (extractNativeLibs=true) avoids install failures on
+            // some older API-24/25 devices with compressed 16KB-aligned native libs.
+            useLegacyPackaging = true
+        }
     }
 
     signingConfigs {

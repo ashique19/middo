@@ -1,15 +1,35 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- Required on Android 13+ when Firebase Analytics (or other Play services)
          may read the advertising ID. Middo Kitchen has no ads; this satisfies Play Console. -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+
+    <!-- Kitchen does not require these; mark optional so Play does not filter devices
+         if a dependency merges a related permission/feature. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
+    <uses-feature android:name="android.hardware.telephony" android:required="false"/>
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
+    <uses-feature android:name="android.hardware.wifi" android:required="false"/>
+    <uses-feature android:name="android.hardware.location" android:required="false"/>
+    <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+
     <application
         android:label="Middo Kitchen"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="false">
+        <!-- image_picker injects ModuleDependencies with photopicker_activity:0:required,
+             which can shrink Play's supported-device set on older GMS builds. Keep picker
+             usable where available without making the module a hard requirement. -->
+        <service
+            android:name="com.google.android.gms.metadata.ModuleDependencies"
+            android:enabled="false"
+            android:exported="false"
+            tools:node="remove"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
