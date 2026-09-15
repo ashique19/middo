@@ -10,8 +10,9 @@ import type { MiddoAdLayout } from "../schema";
 export const CtaScene: React.FC<{
   readonly layout: MiddoAdLayout;
   readonly ctaLabel: string;
+  readonly ctaSub: string;
   readonly durationInFrames: number;
-}> = ({ layout, ctaLabel, durationInFrames }) => {
+}> = ({ layout, ctaLabel, ctaSub, durationInFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const vertical = layout === "vertical";
@@ -57,7 +58,7 @@ export const CtaScene: React.FC<{
             letterSpacing: 0.2,
           }}
         >
-          Kitchen · Rider · Corporate
+          {ctaSub}
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

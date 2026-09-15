@@ -15,6 +15,7 @@ export const MiddoAd: FC<MiddoAdProps> = ({
   benefitLine,
   benefitSub,
   ctaLabel,
+  ctaSub,
 }) => {
   return (
     <AbsoluteFill style={{ backgroundColor: colors.dark, fontFamily }}>
@@ -64,6 +65,7 @@ export const MiddoAd: FC<MiddoAdProps> = ({
         <CtaScene
           layout={layout}
           ctaLabel={ctaLabel}
+          ctaSub={ctaSub}
           durationInFrames={beats.cta.durationInFrames}
         />
       </Sequence>

@@ -26,12 +26,31 @@ export const beats = {
 } as const;
 
 export const copy = {
-  hookLine: "Hungry?",
-  hookSub: "Dinner from kitchens near you.",
-  benefitLine: "Fast local delivery",
-  benefitSub: "From kitchen to door",
+  hookLine: "Lunchtime?",
+  hookSub: "Middo brings it to your desk.",
+  journeyTitle: "Menu to desk.",
+  benefitLine: "Office lunch, sorted.",
+  benefitSub: "From kitchen to your desk",
   ctaLabel: "Get Middo",
-  ctaSub: "Kitchen · Rider · Corporate",
+  ctaSub: "Office lunch, delivered.",
+  chips: ["Daily menus", "Office delivery", "Track in the app"] as const,
+  journey: [
+    {
+      iconKey: "order" as const,
+      label: "Browse",
+      caption: "Daily menus for the office",
+    },
+    {
+      iconKey: "kitchen" as const,
+      label: "Kitchen",
+      caption: "Cooked fresh, packed for lunch",
+    },
+    {
+      iconKey: "office" as const,
+      label: "Desk",
+      caption: "Delivered to your office",
+    },
+  ],
 } as const;
 
 export const assets = {
@@ -40,4 +59,5 @@ export const assets = {
   order: "order-icon.svg",
   kitchen: "kitchen-icon.svg",
   rider: "rider-icon.svg",
+  office: "office-icon.svg",
 } as const;

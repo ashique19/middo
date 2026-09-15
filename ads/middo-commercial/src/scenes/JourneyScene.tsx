@@ -3,7 +3,7 @@ import { JourneyCard } from "../components/JourneyCard";
 import { SceneBackground } from "../components/SceneBackground";
 import { fontFamily } from "../font";
 import { clamp, fadeInOut } from "../lib/motion";
-import { assets, colors } from "../theme";
+import { assets, colors, copy } from "../theme";
 import type { MiddoAdLayout } from "../schema";
 
 export const JourneyScene: React.FC<{
@@ -30,27 +30,16 @@ export const JourneyScene: React.FC<{
         width: "100%",
       }}
     >
-      <JourneyCard
-        icon={assets.order}
-        label="Order"
-        caption="Choose a meal from a local kitchen"
-        delay={6}
-        compact={!vertical}
-      />
-      <JourneyCard
-        icon={assets.kitchen}
-        label="Kitchen"
-        caption="Prepared fresh on Middo Kitchen"
-        delay={16}
-        compact={!vertical}
-      />
-      <JourneyCard
-        icon={assets.rider}
-        label="Rider"
-        caption="A Middo Rider is en route"
-        delay={26}
-        compact={!vertical}
-      />
+      {copy.journey.map((step, index) => (
+        <JourneyCard
+          key={step.label}
+          icon={assets[step.iconKey]}
+          label={step.label}
+          caption={step.caption}
+          delay={6 + index * 10}
+          compact={!vertical}
+        />
+      ))}
     </div>
   );
 
@@ -76,7 +65,7 @@ export const JourneyScene: React.FC<{
             textAlign: vertical ? "center" : "left",
           }}
         >
-          Order. Kitchen. Door.
+          {copy.journeyTitle}
         </div>
         {cards}
       </AbsoluteFill>

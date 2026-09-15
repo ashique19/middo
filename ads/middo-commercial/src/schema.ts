@@ -8,6 +8,7 @@ export const middoAdSchema = z.object({
   benefitLine: z.string(),
   benefitSub: z.string(),
   ctaLabel: z.string(),
+  ctaSub: z.string(),
 });
 
 export type MiddoAdProps = z.infer<typeof middoAdSchema>;
@@ -20,4 +21,5 @@ export const defaultAdProps: MiddoAdProps = {
   benefitLine: copy.benefitLine,
   benefitSub: copy.benefitSub,
   ctaLabel: copy.ctaLabel,
+  ctaSub: copy.ctaSub,
 };

@@ -1,10 +1,10 @@
 # Middo commercial
 
-A ~20 second image-driven motion-graphics ad for **Middo**, a multi-role food delivery platform (ops / kitchen / rider / corporate).
+A ~20 second image-driven motion-graphics ad for **Middo**, the office-lunch app (the corporate buyer product; store name is Middo).
 
 This folder is a **self-contained Remotion** app. It does not depend on the Laravel or Flutter apps in the rest of this repository.
 
-Brand palette matches the product CSS tokens: cream `#f5f2e9`, dark `#1A1C19`, orange `#ab3f00`, green `#2f4a33`. All stills (food plate, wordmark, kitchen, rider, order) are original SVGs — no third-party or store trademarks.
+Brand palette matches the product CSS tokens: cream `#f5f2e9`, dark `#1A1C19`, orange `#ab3f00`, green `#2f4a33`. All stills (food plate, wordmark, kitchen, office, order) are original SVGs — no third-party or store trademarks.
 
 ## Compositions
 
@@ -17,10 +17,10 @@ Duration: **20 seconds** at 30 fps.
 
 ### Beats
 
-1. **Hook (0–3s)** — plated meal, Middo wordmark, “Hungry?”
-2. **Journey (3–8s)** — Order → Kitchen → Rider en route
-3. **Benefit (8–14s)** — “Fast local delivery” / “From kitchen to door”
-4. **CTA (14–20s)** — “Get Middo” (no App Store / Play logos)
+1. **Hook (0–3s)** — plated meal, Middo wordmark, “Lunchtime?”
+2. **Journey (3–8s)** — Browse menus → kitchen cooks → delivered to the desk
+3. **Benefit (8–14s)** — “Office lunch, sorted.” / “From kitchen to your desk”
+4. **CTA (14–20s)** — “Get Middo” (no App Store / Play logos; product name is Middo, not Middo Corporate)
 
 ## Setup
 

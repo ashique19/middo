@@ -8,10 +8,8 @@ import {
 import { SceneBackground } from "../components/SceneBackground";
 import { fontFamily } from "../font";
 import { clamp, fadeInOut } from "../lib/motion";
-import { colors } from "../theme";
+import { colors, copy } from "../theme";
 import type { MiddoAdLayout } from "../schema";
-
-const chips = ["Middo Kitchen", "Middo Rider", "Middo Corporate"] as const;
 
 export const BenefitScene: React.FC<{
   readonly layout: MiddoAdLayout;
@@ -88,7 +86,7 @@ export const BenefitScene: React.FC<{
             marginTop: 18,
           }}
         >
-          {chips.map((label) => (
+          {copy.chips.map((label) => (
             <div
               key={label}
               style={{
