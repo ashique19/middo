@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-label="Plated meal">
+  <title>Plated meal</title>
+  <defs>
+    <radialGradient id="table" cx="50%" cy="48%" r="52%">
+      <stop offset="0%" stop-color="#3a2418"/>
+      <stop offset="100%" stop-color="#1A1C19"/>
+    </radialGradient>
+    <radialGradient id="plate" cx="50%" cy="42%" r="58%">
+      <stop offset="0%" stop-color="#fffaf3"/>
+      <stop offset="70%" stop-color="#f5f2e9"/>
+      <stop offset="100%" stop-color="#e4d8c4"/>
+    </radialGradient>
+    <radialGradient id="well" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#f7ecda"/>
+      <stop offset="100%" stop-color="#d9c4a4"/>
+    </radialGradient>
+    <radialGradient id="curry" cx="40%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#f0a02a"/>
+      <stop offset="55%" stop-color="#d46a12"/>
+      <stop offset="100%" stop-color="#ab3f00"/>
+    </radialGradient>
+    <linearGradient id="steam" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#f5f2e9" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#f5f2e9" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="800" fill="none"/>
+  <ellipse cx="400" cy="430" rx="310" ry="70" fill="#000" opacity="0.28"/>
+  <ellipse cx="400" cy="410" rx="300" ry="300" fill="url(#table)"/>
+  <ellipse cx="400" cy="400" rx="270" ry="270" fill="#c4b49a"/>
+  <ellipse cx="400" cy="396" rx="252" ry="252" fill="url(#plate)"/>
+  <ellipse cx="400" cy="400" rx="196" ry="196" fill="url(#well)"/>
+  <!-- rice -->
+  <ellipse cx="400" cy="408" rx="168" ry="150" fill="#f3e2c0"/>
+  <ellipse cx="392" cy="396" rx="150" ry="132" fill="#fff1d4"/>
+  <g fill="#e8d3a4" opacity="0.55">
+    <ellipse cx="330" cy="370" rx="18" ry="10"/>
+    <ellipse cx="370" cy="348" rx="16" ry="9"/>
+    <ellipse cx="420" cy="340" rx="20" ry="11"/>
+    <ellipse cx="460" cy="368" rx="15" ry="8"/>
+    <ellipse cx="348" cy="430" rx="17" ry="9"/>
+    <ellipse cx="430" cy="444" rx="19" ry="10"/>
+    <ellipse cx="470" cy="416" rx="14" ry="8"/>
+  </g>
+  <!-- curry bowl on the plate -->
+  <ellipse cx="400" cy="412" rx="118" ry="96" fill="url(#curry)"/>
+  <ellipse cx="392" cy="396" rx="90" ry="70" fill="#e8871c" opacity="0.55"/>
+  <ellipse cx="368" cy="380" rx="28" ry="16" fill="#ffd08a" opacity="0.45"/>
+  <!-- protein / veg -->
+  <ellipse cx="360" cy="420" rx="22" ry="14" fill="#6b2a12"/>
+  <ellipse cx="420" cy="438" rx="20" ry="13" fill="#7a3216"/>
+  <ellipse cx="444" cy="400" rx="16" ry="11" fill="#2f4a33"/>
+  <ellipse cx="348" cy="388" rx="12" ry="9" fill="#2f4a33"/>
+  <circle cx="388" cy="456" r="8" fill="#dc2626"/>
+  <circle cx="456" cy="428" r="7" fill="#c2410c"/>
+  <!-- lemon + cucumber -->
+  <ellipse cx="292" cy="430" rx="28" ry="18" fill="#e8d34a" transform="rotate(-18 292 430)"/>
+  <ellipse cx="292" cy="430" rx="18" ry="10" fill="#f5e98a" transform="rotate(-18 292 430)"/>
+  <ellipse cx="508" cy="404" rx="24" ry="12" fill="#7d9a4a"/>
+  <ellipse cx="508" cy="400" rx="18" ry="8" fill="#c5d98a"/>
+  <!-- herbs -->
+  <path d="M430 352c18-22 8-36-4-28-8 6-6 18 4 28z" fill="#2f4a33"/>
+  <path d="M448 360c14-18 4-30-8-22-6 5-4 16 8 22z" fill="#3f6344"/>
+  <path d="M352 352c-16-18-8-32 4-24 8 5 6 16-4 24z" fill="#2f4a33"/>
+  <!-- rim highlight -->
+  <ellipse cx="400" cy="396" rx="252" ry="252" fill="none" stroke="#fffaf3" stroke-width="10" opacity="0.55"/>
+  <path d="M200 330c40-80 140-120 210-110" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.28"/>
+  <!-- steam -->
+  <path d="M360 220c-8 28 8 40 4 62" fill="none" stroke="url(#steam)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M400 200c-4 32 12 44 6 70" fill="none" stroke="url(#steam)" stroke-width="9" stroke-linecap="round"/>
+  <path d="M440 216c8 26-6 40-2 64" fill="none" stroke="url(#steam)" stroke-width="8" stroke-linecap="round"/>
+</svg>
