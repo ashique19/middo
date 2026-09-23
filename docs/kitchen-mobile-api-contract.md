@@ -97,6 +97,8 @@ History `period`: `this_month` | `last_month` | `last_2_months` | `last_3_months
 
 `POST /verification` is multipart. Fields: `nid_number` (10–17 digits, empty clears), `nid_front`, `nid_back`, `selfie` (images), and `remove_nid_front` / `remove_nid_back` / `remove_selfie` (`1` to delete). The server re-encodes photos to JPEG (longest edge 960px, quality 52) on the public disk. `selfie` is stored as `profile_photo_url`. Ops and rider payloads expose that URL as `profile_photo_url` or `kitchen_profile_photo_url` and do not include NID fields.
 
+Kitchen rating (`kitchen_rating`, 0–10, and `kitchen_rating_note`) is admin-only. It is not included in kitchen, operations, or rider payloads. Sending either field on `PATCH /profile` or `POST /verification` returns `422`.
+
 Deep links: `middo-kitchen://groups`, `middo-kitchen://boxes`, `middo-kitchen://orders/{id}`, `middo-kitchen://history?period=this_month`, `middo-kitchen://menus/{id}`.
 
 ---

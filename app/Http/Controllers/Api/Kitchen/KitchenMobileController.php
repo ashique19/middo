@@ -32,6 +32,7 @@ use App\Support\KitchenComplaints;
 use App\Support\KitchenIdentity;
 use App\Support\KitchenIngredientRollup;
 use App\Support\KitchenMoneyService;
+use App\Support\KitchenRating;
 use App\Support\KitchenVerification;
 use App\Support\MiddoBoxKitchenActions;
 use App\Support\MiddoBoxLifecycle;
@@ -173,8 +174,9 @@ class KitchenMobileController extends Controller
         $user = $request->user();
 
         $identityErrors = KitchenIdentity::changeErrors($user, $request->all());
-        if ($identityErrors !== []) {
-            throw ValidationException::withMessages($identityErrors);
+        $ratingErrors = KitchenRating::changeErrors($request->all());
+        if ($identityErrors !== [] || $ratingErrors !== []) {
+            throw ValidationException::withMessages($identityErrors + $ratingErrors);
         }
 
         $data = $request->validate([
@@ -257,6 +259,11 @@ class KitchenMobileController extends Controller
     {
         /** @var User $user */
         $user = $request->user();
+
+        $ratingErrors = KitchenRating::changeErrors($request->all());
+        if ($ratingErrors !== []) {
+            throw ValidationException::withMessages($ratingErrors);
+        }
 
         $data = $request->validate(KitchenVerification::rules(), KitchenVerification::messages());
 

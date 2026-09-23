@@ -9,6 +9,7 @@ use App\Models\KitchenHour;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\KitchenActivation;
+use App\Support\KitchenRating;
 use App\Support\KitchenTier;
 use App\Support\KitchenVerification;
 use App\Support\MiddoSettings;
@@ -69,6 +70,10 @@ class StaffProfileShow extends Component
 
     public string $nid_number = '';
 
+    public string $kitchen_rating = '';
+
+    public string $kitchen_rating_note = '';
+
     public $nid_front = null;
 
     public $nid_back = null;
@@ -115,6 +120,7 @@ class StaffProfileShow extends Component
         $this->edit_city_id = $this->staff->city_id ? (string) $this->staff->city_id : null;
         $this->edit_area_id = $this->staff->area_id ? (string) $this->staff->area_id : null;
         $this->nid_number = $this->staff->nid_number ?? '';
+        $this->syncKitchenRatingFields();
         $this->identityAreas = $this->edit_city_id
             ? Area::query()->where('city_id', $this->edit_city_id)->orderBy('name')->get()
             : collect();
@@ -136,6 +142,62 @@ class StaffProfileShow extends Component
     public function canEditKitchenIdentity(): bool
     {
         return $this->canManageKitchenStatus();
+    }
+
+    public function canManageKitchenRating(): bool
+    {
+        return $this->canManageKitchenStatus();
+    }
+
+    protected function syncKitchenRatingFields(): void
+    {
+        if (! $this->canManageKitchenRating()) {
+            $this->kitchen_rating = '';
+            $this->kitchen_rating_note = '';
+
+            return;
+        }
+
+        $this->kitchen_rating = $this->staff->kitchen_rating === null
+            ? ''
+            : (string) $this->staff->kitchen_rating;
+        $this->kitchen_rating_note = $this->staff->kitchen_rating_note ?? '';
+    }
+
+    public function saveKitchenRating(): void
+    {
+        abort_unless($this->canManageKitchenRating(), 403);
+
+        $this->validate([
+            'kitchen_rating_note' => KitchenRating::rules()['kitchen_rating_note'],
+        ]);
+
+        $ratingInput = trim($this->kitchen_rating);
+        $rating = null;
+        if ($ratingInput !== '') {
+            $valid = ctype_digit($ratingInput)
+                && (int) $ratingInput >= KitchenRating::MIN
+                && (int) $ratingInput <= KitchenRating::MAX;
+            if (! $valid) {
+                $this->addError('kitchen_rating', 'Rating must be a whole number from 0 to 10.');
+
+                return;
+            }
+            $rating = (int) $ratingInput;
+        }
+
+        $changed = KitchenRating::apply(
+            $this->staff,
+            $rating,
+            $this->kitchen_rating_note,
+        );
+
+        $this->staff->refresh();
+        $this->syncKitchenRatingFields();
+
+        session()->flash('message', $changed
+            ? 'Kitchen rating updated.'
+            : 'Rating is unchanged.');
     }
 
     protected function syncRiderAreaFields(): void
@@ -560,6 +622,12 @@ class StaffProfileShow extends Component
                 ? $this->staff->kitchenHours()->orderBy('day_of_week')->get()
                 : collect(),
             'dayLabels' => KitchenHour::DAYS,
+            'ratingHistory' => $this->canManageKitchenRating()
+                ? $this->staff->ratingLogs()->with('actor:id,first_name,last_name')->limit(50)->get()->sortBy([
+                    ['created_at', 'asc'],
+                    ['id', 'asc'],
+                ])->values()
+                : collect(),
             'areaOptions' => $areaOptions,
         ])->layout('layouts.private.app', ['title' => $title]);
     }

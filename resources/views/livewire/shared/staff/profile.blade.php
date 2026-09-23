@@ -184,6 +184,55 @@
         </div>
     @endif
 
+    @if($staffRole === 'kitchen' && $this->canManageKitchenRating())
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Rating</h2>
+                <p class="text-sm text-gray-500 mt-1">Admin only, on a 0–10 scale. Kitchens, operations, and riders do not see this.</p>
+            </div>
+            <form wire:submit="saveKitchenRating" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Score</label>
+                        <input type="number" min="0" max="10" step="1" wire:model="kitchen_rating" placeholder="—" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        @error('kitchen_rating') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Note</label>
+                        <textarea wire:model="kitchen_rating_note" rows="2" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="Optional context for this score"></textarea>
+                        @error('kitchen_rating_note') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+                <button type="submit" class="inline-flex px-4 py-2 rounded-xl bg-middo-orange text-white text-xs font-bold hover:bg-[#733614] transition">
+                    Save rating
+                </button>
+            </form>
+            <div class="border-t border-gray-100 pt-4 space-y-2">
+                <h3 class="text-sm font-bold text-middo-dark">History</h3>
+                @forelse($ratingHistory as $entry)
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 text-sm border border-gray-100 rounded-xl px-3 py-2">
+                        <div>
+                            <span class="font-semibold text-gray-800">
+                                {{ $entry->old_rating === null ? '—' : $entry->old_rating }}
+                                →
+                                {{ $entry->new_rating === null ? '—' : $entry->new_rating }}
+                            </span>
+                            @if($entry->note)
+                                <span class="text-gray-600">· {{ $entry->note }}</span>
+                            @endif
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            {{ $entry->actor?->name ?: 'Admin' }}
+                            · {{ $entry->created_at?->timezone('Asia/Dhaka')->format('M d, Y g:i A') }}
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-xs text-gray-400 italic">No rating changes yet.</p>
+                @endforelse
+            </div>
+        </div>
+    @endif
+
     @if($staffRole === 'kitchen' && $this->canManageKitchenVerification())
         <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
             <div>

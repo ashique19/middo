@@ -40,12 +40,14 @@ use Laravel\Sanctum\HasApiTokens;
     'nid_front_path',
     'nid_back_path',
     'profile_photo_path',
+    'kitchen_rating',
+    'kitchen_rating_note',
     'city_id',
     'area_id',
     'rider_commission_overrides',
     'payout_methods',
 ])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'kitchen_rating', 'kitchen_rating_note'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -64,6 +66,7 @@ class User extends Authenticatable
             'is_mobile_verified' => 'boolean', // Ensures 0/1 becomes false/true
             'balance' => 'integer',
             'allowed_open_groups' => 'integer',
+            'kitchen_rating' => 'integer',
             'max_order_qty_allowed' => 'integer',
             'rider_commission_overrides' => 'array',
             'payout_methods' => 'array',
@@ -250,6 +253,13 @@ class User extends Authenticatable
     public function logs(): HasMany
     {
         return $this->hasMany(UserLog::class);
+    }
+
+    public function ratingLogs(): HasMany
+    {
+        return $this->hasMany(KitchenRatingLog::class, 'kitchen_id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
     }
 
     public function profilePhotoUrl(): ?string
