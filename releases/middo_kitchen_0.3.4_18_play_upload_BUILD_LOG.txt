@@ -1,0 +1,32 @@
+Middo Kitchen — Play upload AAB build log
+=========================================
+Built at (UTC):     2026-09-23T15:27:36Z
+Git branch:         main
+Git commit:         a88912754af5386987f0b86bbb09576df1ae9fcc (a8891275)
+pubspec version:    version: 0.3.4+18
+versionName:        0.3.4
+versionCode:        18
+API_BASE_URL:       https://x.middo.com.bd
+Flutter:            Flutter 3.35.4 • channel stable • https://github.com/flutter/flutter.git
+
+Artifact:
+  path:             /opt/cursor/artifacts/middo_kitchen_0.3.4_18_play_upload.aab
+  size_bytes:       44741738
+  sha256:           e3353d3994146efb8dd991c0c9979825687220c67af26a7b2ce0a2974b56f755
+
+Signing (upload key — same as prior middo_kitchen_upload_keystore):
+  keystore:         android/upload-keystore.jks (NOT committed)
+  alias:            middo-kitchen
+  Owner:            CN=Middo Kitchen, OU=Middo, O=Middo, L=Dhaka, ST=Dhaka, C=BD
+  SHA1:             F4:1B:2C:6F:54:AE:C2:AD:5C:40:E8:A4:E3:81:8B:85:BB:B8:1B:A4
+  SHA256:           A8:18:70:6F:E9:DD:19:A9:72:3D:ED:FC:72:0D:93:38:5D:BE:46:50:7B:5F:22:CC:05:FA:B4:3B:2D:73:20:3A
+  Play expected:    F4:1B:2C:6F:54:AE:C2:AD:5C:40:E8:A4:E3:81:8B:85:BB:B8:1B:A4
+  Match:            YES
+
+Build command:
+  flutter build appbundle --release \
+    --android-skip-build-dependency-validation \
+    --dart-define=API_BASE_URL=https://x.middo.com.bd
+
+Play Console upload from this VM: NO (no Play Console credentials / upload API here).
+Coordinator should download the AAB artifact and upload manually.
