@@ -2,19 +2,39 @@
     <div class="min-h-screen bg-middo-cream md:p-8 flex items-center justify-center"
          x-data="{ 
             form: { first_name: '', last_name: '', mobile: '', password: '', address: '', city_id: '', area_id: '', nid_number: '' },
-            nidFront: null, nidBack: null, selfie: null,
+            photos: {
+                nidFront: { file: null, preview: null, name: '' },
+                nidBack: { file: null, preview: null, name: '' },
+                selfie: { file: null, preview: null, name: '' },
+            },
             errors: {}, loading: false,
             cityName: 'Select City', areaName: 'Select Area', cityOpen: false, areaOpen: false, areas: [],
             get isMobileValid() { return this.form.mobile.length === 0 || /^01[3-9][0-9]{8}$/.test(this.form.mobile); },
+            setPhoto(slot, file) {
+                const current = this.photos[slot];
+                if (current.preview) URL.revokeObjectURL(current.preview);
+                if (!file) {
+                    this.photos[slot] = { file: null, preview: null, name: '' };
+                    return;
+                }
+                this.photos[slot] = {
+                    file,
+                    preview: URL.createObjectURL(file),
+                    name: file.name,
+                };
+            },
+            clearPhoto(slot) {
+                this.setPhoto(slot, null);
+            },
             async submit() {
                 if (!this.isMobileValid) return;
                 this.loading = true; this.errors = {};
                 try {
                     const body = new FormData();
                     Object.entries(this.form).forEach(([key, value]) => body.append(key, value ?? ''));
-                    if (this.nidFront) body.append('nid_front', this.nidFront);
-                    if (this.nidBack) body.append('nid_back', this.nidBack);
-                    if (this.selfie) body.append('selfie', this.selfie);
+                    if (this.photos.nidFront.file) body.append('nid_front', this.photos.nidFront.file);
+                    if (this.photos.nidBack.file) body.append('nid_back', this.photos.nidBack.file);
+                    if (this.photos.selfie.file) body.append('selfie', this.photos.selfie.file);
                     let response = await fetch('{{ route('kitchen.register') }}', {
                         method: 'POST',
                         headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
@@ -107,20 +127,100 @@
                         <template x-if="errors.address"><p class="text-red-500 text-xs mt-1" x-text="errors.address[0]"></p></template>
                     </div>
 
-                    <div class="mb-6 space-y-3">
-                        <p class="text-sm font-bold text-middo-dark">Verification (optional)</p>
-                        <p class="text-xs text-gray-500">NID front, NID back, NID number, and a chef selfie. Photos are compressed. The selfie becomes your profile photo.</p>
-                        <input x-model="form.nid_number" type="text" inputmode="numeric" placeholder="NID number (10–17 digits)" class="w-full p-4 rounded-xl border border-gray-300">
-                        <template x-if="errors.nid_number"><p class="text-red-500 text-xs mt-1" x-text="errors.nid_number[0]"></p></template>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-400">NID photo front</label>
-                        <input type="file" accept="image/*" @change="nidFront = $event.target.files[0] || null" class="block w-full text-sm">
-                        <template x-if="errors.nid_front"><p class="text-red-500 text-xs mt-1" x-text="errors.nid_front[0]"></p></template>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-400">NID photo back</label>
-                        <input type="file" accept="image/*" @change="nidBack = $event.target.files[0] || null" class="block w-full text-sm">
-                        <template x-if="errors.nid_back"><p class="text-red-500 text-xs mt-1" x-text="errors.nid_back[0]"></p></template>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-400">Chef selfie (profile photo)</label>
-                        <input type="file" accept="image/*" @change="selfie = $event.target.files[0] || null" class="block w-full text-sm">
-                        <template x-if="errors.selfie"><p class="text-red-500 text-xs mt-1" x-text="errors.selfie[0]"></p></template>
+                    <div class="mb-6 rounded-2xl border border-gray-200 bg-white/70 md:bg-middo-cream/40 p-5 space-y-4">
+                        <div>
+                            <p class="text-sm font-bold text-middo-dark">Verification photos (optional)</p>
+                            <p class="text-xs text-gray-500 mt-1">Add NID front, NID back, and a chef selfie. Photos are compressed. The selfie becomes your kitchen profile photo.</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">NID number</label>
+                            <input x-model="form.nid_number" type="text" inputmode="numeric" placeholder="10–17 digits" class="w-full p-4 rounded-xl border border-gray-300 bg-white">
+                            <template x-if="errors.nid_number"><p class="text-red-500 text-xs mt-1" x-text="errors.nid_number[0]"></p></template>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {{-- NID front --}}
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-gray-400">NID front</p>
+                                    <button type="button" x-show="photos.nidFront.file" @click="clearPhoto('nidFront')"
+                                            class="text-[11px] font-bold text-middo-orange hover:underline">Clear</button>
+                                </div>
+                                <label class="relative block h-40 rounded-2xl border-2 border-dashed overflow-hidden cursor-pointer transition"
+                                       :class="photos.nidFront.preview ? 'border-middo-orange/40 bg-white' : 'border-gray-300 bg-white hover:border-middo-orange/60 hover:bg-orange-50/40'">
+                                    <input type="file" accept="image/*" class="sr-only"
+                                           @change="setPhoto('nidFront', $event.target.files[0] || null); $event.target.value = ''">
+                                    <div x-show="photos.nidFront.preview" class="absolute inset-0" x-cloak>
+                                        <img :src="photos.nidFront.preview" alt="NID front" class="h-full w-full object-cover">
+                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-3">
+                                            <p class="text-[11px] font-semibold text-white truncate" x-text="photos.nidFront.name"></p>
+                                            <p class="text-[10px] text-white/80">Tap to replace</p>
+                                        </div>
+                                    </div>
+                                    <div x-show="!photos.nidFront.preview" class="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+                                        <span class="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-middo-orange/10 text-middo-orange text-lg font-bold">+</span>
+                                        <p class="text-sm font-bold text-middo-dark">Add NID front</p>
+                                        <p class="text-[11px] text-gray-500 mt-1">Card front photo</p>
+                                    </div>
+                                </label>
+                                <template x-if="errors.nid_front"><p class="text-red-500 text-xs" x-text="errors.nid_front[0]"></p></template>
+                            </div>
+
+                            {{-- NID back --}}
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-gray-400">NID back</p>
+                                    <button type="button" x-show="photos.nidBack.file" @click="clearPhoto('nidBack')"
+                                            class="text-[11px] font-bold text-middo-orange hover:underline">Clear</button>
+                                </div>
+                                <label class="relative block h-40 rounded-2xl border-2 border-dashed overflow-hidden cursor-pointer transition"
+                                       :class="photos.nidBack.preview ? 'border-middo-orange/40 bg-white' : 'border-gray-300 bg-white hover:border-middo-orange/60 hover:bg-orange-50/40'">
+                                    <input type="file" accept="image/*" class="sr-only"
+                                           @change="setPhoto('nidBack', $event.target.files[0] || null); $event.target.value = ''">
+                                    <div x-show="photos.nidBack.preview" class="absolute inset-0" x-cloak>
+                                        <img :src="photos.nidBack.preview" alt="NID back" class="h-full w-full object-cover">
+                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-3">
+                                            <p class="text-[11px] font-semibold text-white truncate" x-text="photos.nidBack.name"></p>
+                                            <p class="text-[10px] text-white/80">Tap to replace</p>
+                                        </div>
+                                    </div>
+                                    <div x-show="!photos.nidBack.preview" class="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+                                        <span class="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-middo-orange/10 text-middo-orange text-lg font-bold">+</span>
+                                        <p class="text-sm font-bold text-middo-dark">Add NID back</p>
+                                        <p class="text-[11px] text-gray-500 mt-1">Card back photo</p>
+                                    </div>
+                                </label>
+                                <template x-if="errors.nid_back"><p class="text-red-500 text-xs" x-text="errors.nid_back[0]"></p></template>
+                            </div>
+
+                            {{-- Chef selfie --}}
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Chef selfie</p>
+                                    <button type="button" x-show="photos.selfie.file" @click="clearPhoto('selfie')"
+                                            class="text-[11px] font-bold text-middo-orange hover:underline">Clear</button>
+                                </div>
+                                <label class="relative block h-40 rounded-2xl border-2 border-dashed overflow-hidden cursor-pointer transition"
+                                       :class="photos.selfie.preview ? 'border-middo-orange/40 bg-white' : 'border-gray-300 bg-white hover:border-middo-orange/60 hover:bg-orange-50/40'">
+                                    <input type="file" accept="image/*" class="sr-only"
+                                           @change="setPhoto('selfie', $event.target.files[0] || null); $event.target.value = ''">
+                                    <div x-show="photos.selfie.preview" class="absolute inset-0" x-cloak>
+                                        <img :src="photos.selfie.preview" alt="Chef selfie" class="h-full w-full object-cover">
+                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-3">
+                                            <p class="text-[11px] font-semibold text-white truncate" x-text="photos.selfie.name"></p>
+                                            <p class="text-[10px] text-white/80">Tap to replace</p>
+                                        </div>
+                                    </div>
+                                    <div x-show="!photos.selfie.preview" class="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+                                        <span class="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-middo-orange/10 text-middo-orange text-lg font-bold">+</span>
+                                        <p class="text-sm font-bold text-middo-dark">Add chef selfie</p>
+                                        <p class="text-[11px] text-gray-500 mt-1">Used as profile photo</p>
+                                    </div>
+                                </label>
+                                <template x-if="errors.selfie"><p class="text-red-500 text-xs" x-text="errors.selfie[0]"></p></template>
+                            </div>
+                        </div>
                     </div>
 
                     <button type="submit" 
