@@ -7,11 +7,6 @@
                 nidBack: { file: null, preview: null, name: '' },
                 selfie: { file: null, preview: null, name: '' },
             },
-            photoSlots: [
-                { key: 'nidFront', error: 'nid_front', title: 'NID front', hint: 'Card front photo' },
-                { key: 'nidBack', error: 'nid_back', title: 'NID back', hint: 'Card back photo' },
-                { key: 'selfie', error: 'selfie', title: 'Chef selfie', hint: 'Used as profile photo' },
-            ],
             errors: {}, loading: false,
             cityName: 'Select City', areaName: 'Select Area', cityOpen: false, areaOpen: false, areas: [],
             get isMobileValid() { return this.form.mobile.length === 0 || /^01[3-9][0-9]{8}$/.test(this.form.mobile); },
@@ -145,51 +140,86 @@
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <template x-for="slot in photoSlots" :key="slot.key">
-                                <div class="space-y-2">
-                                    <div class="flex items-center justify-between gap-2">
-                                        <p class="text-xs font-bold uppercase tracking-wider text-gray-400" x-text="slot.title"></p>
-                                        <button type="button"
-                                                x-show="photos[slot.key].file"
-                                                @click="clearPhoto(slot.key)"
-                                                class="text-[11px] font-bold text-middo-orange hover:underline">
-                                            Clear
-                                        </button>
-                                    </div>
-
-                                    <label class="relative group block h-40 rounded-2xl border-2 border-dashed overflow-hidden cursor-pointer transition"
-                                           :class="photos[slot.key].preview
-                                                ? 'border-middo-orange/40 bg-white'
-                                                : 'border-gray-300 bg-white hover:border-middo-orange/60 hover:bg-orange-50/40'">
-                                        <input type="file"
-                                               accept="image/*"
-                                               class="sr-only"
-                                               @change="setPhoto(slot.key, $event.target.files[0] || null); $event.target.value = ''">
-
-                                        <template x-if="photos[slot.key].preview">
-                                            <div class="absolute inset-0">
-                                                <img :src="photos[slot.key].preview" :alt="slot.title" class="h-full w-full object-cover">
-                                                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-3">
-                                                    <p class="text-[11px] font-semibold text-white truncate" x-text="photos[slot.key].name"></p>
-                                                    <p class="text-[10px] text-white/80">Tap to replace</p>
-                                                </div>
-                                            </div>
-                                        </template>
-
-                                        <template x-if="!photos[slot.key].preview">
-                                            <div class="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
-                                                <span class="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-middo-orange/10 text-middo-orange text-lg font-bold">+</span>
-                                                <p class="text-sm font-bold text-middo-dark" x-text="'Add ' + slot.title.toLowerCase()"></p>
-                                                <p class="text-[11px] text-gray-500 mt-1" x-text="slot.hint"></p>
-                                            </div>
-                                        </template>
-                                    </label>
-
-                                    <template x-if="errors[slot.error]">
-                                        <p class="text-red-500 text-xs" x-text="errors[slot.error][0]"></p>
-                                    </template>
+                            {{-- NID front --}}
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-gray-400">NID front</p>
+                                    <button type="button" x-show="photos.nidFront.file" @click="clearPhoto('nidFront')"
+                                            class="text-[11px] font-bold text-middo-orange hover:underline">Clear</button>
                                 </div>
-                            </template>
+                                <label class="relative block h-40 rounded-2xl border-2 border-dashed overflow-hidden cursor-pointer transition"
+                                       :class="photos.nidFront.preview ? 'border-middo-orange/40 bg-white' : 'border-gray-300 bg-white hover:border-middo-orange/60 hover:bg-orange-50/40'">
+                                    <input type="file" accept="image/*" class="sr-only"
+                                           @change="setPhoto('nidFront', $event.target.files[0] || null); $event.target.value = ''">
+                                    <div x-show="photos.nidFront.preview" class="absolute inset-0" x-cloak>
+                                        <img :src="photos.nidFront.preview" alt="NID front" class="h-full w-full object-cover">
+                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-3">
+                                            <p class="text-[11px] font-semibold text-white truncate" x-text="photos.nidFront.name"></p>
+                                            <p class="text-[10px] text-white/80">Tap to replace</p>
+                                        </div>
+                                    </div>
+                                    <div x-show="!photos.nidFront.preview" class="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+                                        <span class="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-middo-orange/10 text-middo-orange text-lg font-bold">+</span>
+                                        <p class="text-sm font-bold text-middo-dark">Add NID front</p>
+                                        <p class="text-[11px] text-gray-500 mt-1">Card front photo</p>
+                                    </div>
+                                </label>
+                                <template x-if="errors.nid_front"><p class="text-red-500 text-xs" x-text="errors.nid_front[0]"></p></template>
+                            </div>
+
+                            {{-- NID back --}}
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-gray-400">NID back</p>
+                                    <button type="button" x-show="photos.nidBack.file" @click="clearPhoto('nidBack')"
+                                            class="text-[11px] font-bold text-middo-orange hover:underline">Clear</button>
+                                </div>
+                                <label class="relative block h-40 rounded-2xl border-2 border-dashed overflow-hidden cursor-pointer transition"
+                                       :class="photos.nidBack.preview ? 'border-middo-orange/40 bg-white' : 'border-gray-300 bg-white hover:border-middo-orange/60 hover:bg-orange-50/40'">
+                                    <input type="file" accept="image/*" class="sr-only"
+                                           @change="setPhoto('nidBack', $event.target.files[0] || null); $event.target.value = ''">
+                                    <div x-show="photos.nidBack.preview" class="absolute inset-0" x-cloak>
+                                        <img :src="photos.nidBack.preview" alt="NID back" class="h-full w-full object-cover">
+                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-3">
+                                            <p class="text-[11px] font-semibold text-white truncate" x-text="photos.nidBack.name"></p>
+                                            <p class="text-[10px] text-white/80">Tap to replace</p>
+                                        </div>
+                                    </div>
+                                    <div x-show="!photos.nidBack.preview" class="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+                                        <span class="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-middo-orange/10 text-middo-orange text-lg font-bold">+</span>
+                                        <p class="text-sm font-bold text-middo-dark">Add NID back</p>
+                                        <p class="text-[11px] text-gray-500 mt-1">Card back photo</p>
+                                    </div>
+                                </label>
+                                <template x-if="errors.nid_back"><p class="text-red-500 text-xs" x-text="errors.nid_back[0]"></p></template>
+                            </div>
+
+                            {{-- Chef selfie --}}
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Chef selfie</p>
+                                    <button type="button" x-show="photos.selfie.file" @click="clearPhoto('selfie')"
+                                            class="text-[11px] font-bold text-middo-orange hover:underline">Clear</button>
+                                </div>
+                                <label class="relative block h-40 rounded-2xl border-2 border-dashed overflow-hidden cursor-pointer transition"
+                                       :class="photos.selfie.preview ? 'border-middo-orange/40 bg-white' : 'border-gray-300 bg-white hover:border-middo-orange/60 hover:bg-orange-50/40'">
+                                    <input type="file" accept="image/*" class="sr-only"
+                                           @change="setPhoto('selfie', $event.target.files[0] || null); $event.target.value = ''">
+                                    <div x-show="photos.selfie.preview" class="absolute inset-0" x-cloak>
+                                        <img :src="photos.selfie.preview" alt="Chef selfie" class="h-full w-full object-cover">
+                                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-3">
+                                            <p class="text-[11px] font-semibold text-white truncate" x-text="photos.selfie.name"></p>
+                                            <p class="text-[10px] text-white/80">Tap to replace</p>
+                                        </div>
+                                    </div>
+                                    <div x-show="!photos.selfie.preview" class="absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
+                                        <span class="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-middo-orange/10 text-middo-orange text-lg font-bold">+</span>
+                                        <p class="text-sm font-bold text-middo-dark">Add chef selfie</p>
+                                        <p class="text-[11px] text-gray-500 mt-1">Used as profile photo</p>
+                                    </div>
+                                </label>
+                                <template x-if="errors.selfie"><p class="text-red-500 text-xs" x-text="errors.selfie[0]"></p></template>
+                            </div>
                         </div>
                     </div>
 
