@@ -219,12 +219,28 @@ class _BoxesScreenState extends State<BoxesScreen> {
                           ),
                           if (box['kitchen_name'] != null) ...[
                             const SizedBox(height: 2),
-                            Text(
-                              box['kitchen_name'].toString(),
-                              style: const TextStyle(
-                                color: MiddoColors.muted,
-                                fontSize: 12,
-                              ),
+                            Row(
+                              children: [
+                                if ((box['kitchen_profile_photo_url']?.toString() ?? '').isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: CircleAvatar(
+                                      radius: 10,
+                                      backgroundImage: NetworkImage(
+                                        box['kitchen_profile_photo_url'].toString(),
+                                      ),
+                                    ),
+                                  ),
+                                Expanded(
+                                  child: Text(
+                                    box['kitchen_name'].toString(),
+                                    style: const TextStyle(
+                                      color: MiddoColors.muted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                           const SizedBox(height: 10),

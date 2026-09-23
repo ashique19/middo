@@ -126,10 +126,7 @@ class KitchenTrustK6Test extends TestCase
 
         Livewire::actingAs($this->kitchen)
             ->test(Profile::class)
-            ->set('first_name', 'Updated')
-            ->set('last_name', 'Kitchen')
-            ->set('mobile', '01770000001')
-            ->set('address', 'New Road')
+            ->set('email', 'chef@example.com')
             ->set('city_id', (string) $this->city->id)
             ->set('area_id', (string) $this->area->id)
             ->set('hours.0.is_closed', true)
@@ -139,8 +136,9 @@ class KitchenTrustK6Test extends TestCase
             ->assertSet('statusMessage', 'Profile and hours saved.');
 
         $this->kitchen->refresh();
-        $this->assertSame('Updated', $this->kitchen->first_name);
-        $this->assertSame('New Road', $this->kitchen->address);
+        $this->assertSame('Gulshan', $this->kitchen->first_name);
+        $this->assertSame('01770000001', $this->kitchen->mobile);
+        $this->assertSame('chef@example.com', $this->kitchen->email);
         $this->assertSame($originalTier, $this->kitchen->kitchen_tier);
         $this->assertSame($originalSlots, $this->kitchen->allowed_open_groups);
 
@@ -155,6 +153,30 @@ class KitchenTrustK6Test extends TestCase
             ->where('day_of_week', 1)
             ->first();
         $this->assertTrue(str_starts_with((string) $monday?->opens_at, '09:00'));
+    }
+
+    public function test_kitchen_cannot_change_name_address_or_phone(): void
+    {
+        Livewire::actingAs($this->kitchen)
+            ->test(Profile::class)
+            ->set('first_name', 'Updated')
+            ->set('address', 'New Road')
+            ->set('mobile', '01770000099')
+            ->set('city_id', (string) $this->city->id)
+            ->set('area_id', (string) $this->area->id)
+            ->set('hours.0.is_closed', true)
+            ->call('save')
+            ->assertHasErrors(['first_name', 'mobile', 'address']);
+
+        $this->kitchen->refresh();
+        $this->assertSame('Gulshan', $this->kitchen->first_name);
+        $this->assertSame('01770000001', $this->kitchen->mobile);
+        $this->assertNull($this->kitchen->address);
+
+        $this->assertNull(KitchenHour::query()
+            ->where('user_id', $this->kitchen->id)
+            ->where('day_of_week', 0)
+            ->first());
     }
 
     public function test_kitchen_permission_matrix_sync_and_revoke(): void

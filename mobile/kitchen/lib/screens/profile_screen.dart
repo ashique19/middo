@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../app_scope.dart';
 import '../data/api_client.dart';
@@ -19,6 +22,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _mobile = TextEditingController();
   final _email = TextEditingController();
   final _address = TextEditingController();
+  final _nid = TextEditingController();
   final _currentPw = TextEditingController();
   final _newPw = TextEditingController();
   final _confirmPw = TextEditingController();
@@ -27,6 +31,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
   bool _saving = false;
   String? _error;
+  XFile? _nidFront;
+  XFile? _nidBack;
+  XFile? _selfie;
 
   @override
   void didChangeDependencies() {
@@ -52,6 +59,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _mobile.text = user['mobile']?.toString() ?? '';
       _email.text = user['email']?.toString() ?? '';
       _address.text = user['address']?.toString() ?? '';
+      _nid.text = user['nid_number']?.toString() ?? '';
+      _nidFront = null;
+      _nidBack = null;
+      _selfie = null;
     } catch (e) {
       _error = '$e';
     } finally {
@@ -60,33 +71,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
-    final user = _user;
-    if (user == null) return;
-    final cityId = user['city_id'];
-    final areaId = user['area_id'];
-    if (cityId == null || areaId == null) {
-      showKitchenSnack(
-        context,
-        'City/area missing on profile — update via web if needed.',
-        error: true,
-      );
-      return;
-    }
     setState(() => _saving = true);
     try {
-      final body = <String, dynamic>{
-        'first_name': _first.text.trim(),
-        'last_name': _last.text.trim(),
-        'mobile': _mobile.text.trim(),
-        'city_id': cityId,
-        'area_id': areaId,
-      };
       final email = _email.text.trim();
-      final address = _address.text.trim();
-      if (email.isNotEmpty) body['email'] = email;
-      if (address.isNotEmpty) body['address'] = address;
-      final res = await AppScope.of(context).updateProfile(body);
+      final res = await AppScope.of(context).updateProfile({
+        'email': email.isEmpty ? null : email,
+      });
       _user = (res['user'] as Map?)?.cast<String, dynamic>() ?? _user;
+      if (!mounted) return;
+      showKitchenSnack(context, res['message']?.toString() ?? 'Saved.');
+    } on ApiException catch (e) {
+      if (mounted) showKitchenSnack(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<XFile?> _pickImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Camera'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return null;
+    return ImagePicker().pickImage(
+      source: source,
+      maxWidth: 960,
+      maxHeight: 960,
+      imageQuality: 52,
+    );
+  }
+
+  Future<void> _saveVerification() async {
+    setState(() => _saving = true);
+    try {
+      final res = await AppScope.of(context).updateVerification(
+        nidNumber: _nid.text.trim(),
+        clearNidNumber: _nid.text.trim().isEmpty,
+        nidFrontPath: _nidFront?.path,
+        nidBackPath: _nidBack?.path,
+        selfiePath: _selfie?.path,
+      );
+      _user = (res['user'] as Map?)?.cast<String, dynamic>() ?? _user;
+      _nidFront = null;
+      _nidBack = null;
+      _selfie = null;
       if (!mounted) return;
       showKitchenSnack(context, res['message']?.toString() ?? 'Saved.');
     } on ApiException catch (e) {
@@ -123,6 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _mobile.dispose();
     _email.dispose();
     _address.dispose();
+    _nid.dispose();
     _currentPw.dispose();
     _newPw.dispose();
     _confirmPw.dispose();
@@ -142,13 +187,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   children: [
                     Text(
-                      'Contact, weekly hours, and password. Tier and capacity are managed by Middo.',
+                      'Email and verification photos. Name, address, and phone are managed by Middo admin.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: MiddoColors.inkSoft,
                             fontWeight: FontWeight.w600,
                           ),
                     ),
                     const SizedBox(height: 12),
+                    KitchenPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              _PhotoPreview(
+                                url: _user?['profile_photo_url']?.toString(),
+                                file: _selfie,
+                                label: _first.text.isEmpty
+                                    ? 'K'
+                                    : _first.text.substring(0, 1),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Your chef selfie is the profile photo ops and riders see.',
+                                  style: TextStyle(
+                                    color: MiddoColors.inkSoft,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    KitchenPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'NID and selfie',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Photos are resized before upload. Camera or gallery.',
+                            style: TextStyle(
+                              color: MiddoColors.inkSoft,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _ProfileField(
+                            label: 'NID number',
+                            controller: _nid,
+                            enabled: !_saving,
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 12),
+                          _PhotoSlot(
+                            title: 'NID front',
+                            url: _user?['nid_front_url']?.toString(),
+                            file: _nidFront,
+                            busy: _saving,
+                            onPick: () async {
+                              final file = await _pickImage();
+                              if (file != null) setState(() => _nidFront = file);
+                            },
+                          ),
+                          _PhotoSlot(
+                            title: 'NID back',
+                            url: _user?['nid_back_url']?.toString(),
+                            file: _nidBack,
+                            busy: _saving,
+                            onPick: () async {
+                              final file = await _pickImage();
+                              if (file != null) setState(() => _nidBack = file);
+                            },
+                          ),
+                          _PhotoSlot(
+                            title: 'Chef selfie',
+                            url: _user?['profile_photo_url']?.toString(),
+                            file: _selfie,
+                            busy: _saving,
+                            onPick: () async {
+                              final file = await _pickImage();
+                              if (file != null) setState(() => _selfie = file);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              onPressed: _saving ? null : _saveVerification,
+                              child: Text(
+                                _saving ? 'Saving…' : 'Save verification',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     KitchenPanel(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,6 +314,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               fontSize: 16,
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Name, phone, and address are read-only.',
+                            style: TextStyle(
+                              color: MiddoColors.inkSoft,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           const SizedBox(height: 12),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,7 +331,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: _ProfileField(
                                   label: 'First name',
                                   controller: _first,
-                                  enabled: !_saving,
+                                  enabled: false,
                                   textCapitalization: TextCapitalization.words,
                                 ),
                               ),
@@ -185,7 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: _ProfileField(
                                   label: 'Last name',
                                   controller: _last,
-                                  enabled: !_saving,
+                                  enabled: false,
                                   textCapitalization: TextCapitalization.words,
                                 ),
                               ),
@@ -195,7 +350,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _ProfileField(
                             label: 'Mobile',
                             controller: _mobile,
-                            enabled: !_saving,
+                            enabled: false,
                             keyboardType: TextInputType.phone,
                           ),
                           const SizedBox(height: 12),
@@ -209,7 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _ProfileField(
                             label: 'Address',
                             controller: _address,
-                            enabled: !_saving,
+                            enabled: false,
                             maxLines: 2,
                             textCapitalization: TextCapitalization.sentences,
                           ),
@@ -218,7 +373,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             width: double.infinity,
                             child: FilledButton(
                               onPressed: _saving ? null : _saveProfile,
-                              child: Text(_saving ? 'Saving…' : 'Save profile'),
+                              child: Text(_saving ? 'Saving…' : 'Save email'),
                             ),
                           ),
                         ],
@@ -328,6 +483,116 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
+    );
+  }
+}
+
+class _PhotoPreview extends StatelessWidget {
+  const _PhotoPreview({
+    required this.label,
+    this.url,
+    this.file,
+  });
+
+  final String label;
+  final String? url;
+  final XFile? file;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget fallback() => CircleAvatar(
+          radius: 28,
+          backgroundColor: MiddoColors.orange.withValues(alpha: 0.12),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: MiddoColors.orange,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        );
+
+    if (file != null) {
+      return ClipOval(
+        child: Image.file(
+          File(file!.path),
+          width: 56,
+          height: 56,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => fallback(),
+        ),
+      );
+    }
+    final remote = url?.trim();
+    if (remote != null && remote.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          remote,
+          width: 56,
+          height: 56,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => fallback(),
+        ),
+      );
+    }
+    return fallback();
+  }
+}
+
+class _PhotoSlot extends StatelessWidget {
+  const _PhotoSlot({
+    required this.title,
+    required this.busy,
+    required this.onPick,
+    this.url,
+    this.file,
+  });
+
+  final String title;
+  final String? url;
+  final XFile? file;
+  final bool busy;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final remote = url?.trim();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          _PhotoPreview(
+            label: title.substring(0, 1),
+            url: remote,
+            file: file,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                  file != null
+                      ? 'New photo selected'
+                      : (remote != null && remote.isNotEmpty)
+                          ? 'Saved'
+                          : 'Not uploaded',
+                  style: const TextStyle(
+                    color: MiddoColors.inkSoft,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          OutlinedButton(
+            onPressed: busy ? null : onPick,
+            child: const Text('Photo'),
+          ),
+        ],
+      ),
     );
   }
 }

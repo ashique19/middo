@@ -11,10 +11,16 @@ class ProfileModal extends Component
     public bool $showModal = false;
 
     public string $name = '';
+
     public string $mobile = '';
+
     public ?string $address = null;
+
     public string $cityName = '';
+
     public string $areaName = '';
+
+    public ?string $profilePhotoUrl = null;
 
     #[On('open-profile-modal')]
     public function openModal(): void
@@ -58,6 +64,7 @@ class ProfileModal extends Component
         $this->address = $user->address;
         $this->cityName = $user->city_name ?: '—';
         $this->areaName = $user->area_name ?: '—';
+        $this->profilePhotoUrl = $user->profilePhotoUrl();
     }
 
     public function render()

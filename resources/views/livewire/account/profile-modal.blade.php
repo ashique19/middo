@@ -17,6 +17,11 @@
                 </div>
 
                 <div class="p-5 space-y-4">
+                    @if($profilePhotoUrl)
+                        <div class="flex justify-center">
+                            <img src="{{ $profilePhotoUrl }}" alt="{{ $name }}" class="h-20 w-20 rounded-full object-cover border border-[#EBE3D3]">
+                        </div>
+                    @endif
                     <div class="space-y-3">
                         <div class="rounded-xl border border-[#EBE3D3] bg-[#FDFBF7] px-4 py-3">
                             <p class="text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Name</p>

@@ -18,6 +18,7 @@ Screen IA maps to the kitchen PWA bottom nav: **Home · Orders · Groups · Prep
 | `POST` | `/logout` | auth | More |
 | `GET` | `/me` | auth | Profile |
 | `PATCH` | `/profile` | `kitchen.profile` | Profile |
+| `POST` | `/verification` | `kitchen.profile` | Profile (NID + selfie) |
 | `POST` | `/change-password` | auth | Profile |
 | `POST` | `/device-tokens` | auth | App bootstrap (FCM) |
 | `DELETE` | `/device-tokens` | auth | Logout / unregister |
@@ -90,7 +91,13 @@ History `period`: `this_month` | `last_month` | `last_2_months` | `last_3_months
 
 `GET /menus/{id}` returns `menu` with `meal_items[]` (`has_recipe`, `recipe_title`).
 
-`GET /me` and profile responses include `hours[]` (weekly kitchen hours). Optional `hours` on `PATCH /profile` to update them.
+`GET /me` and profile responses include `hours[]` (weekly kitchen hours), `profile_photo_url` (chef selfie), `nid_number`, `nid_front_url`, and `nid_back_url`.
+
+`PATCH /profile` updates email, city/area (together), and optional `hours`. Name (`first_name` / `last_name`), `mobile`, and `address` are admin-only: sending a different value returns `422`. Resending the current value is accepted and ignored.
+
+`POST /verification` is multipart. Fields: `nid_number` (10–17 digits, empty clears), `nid_front`, `nid_back`, `selfie` (images), and `remove_nid_front` / `remove_nid_back` / `remove_selfie` (`1` to delete). The server re-encodes photos to JPEG (longest edge 960px, quality 52) on the public disk. `selfie` is stored as `profile_photo_url`. Ops and rider payloads expose that URL as `profile_photo_url` or `kitchen_profile_photo_url` and do not include NID fields.
+
+Kitchen rating (`kitchen_rating`, 0–10, and `kitchen_rating_note`) is admin-only. It is not included in kitchen, operations, or rider payloads. Sending either field on `PATCH /profile` or `POST /verification` returns `422`.
 
 Deep links: `middo-kitchen://groups`, `middo-kitchen://boxes`, `middo-kitchen://orders/{id}`, `middo-kitchen://history?period=this_month`, `middo-kitchen://menus/{id}`.
 

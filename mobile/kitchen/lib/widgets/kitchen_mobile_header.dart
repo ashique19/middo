@@ -26,27 +26,44 @@ class KitchenMobileHeader extends StatefulWidget implements PreferredSizeWidget 
   State<KitchenMobileHeader> createState() => _KitchenMobileHeaderState();
 }
 
+class _AccountMark {
+  const _AccountMark({required this.initial, this.photoUrl});
+
+  final String initial;
+  final String? photoUrl;
+}
+
 class _KitchenMobileHeaderState extends State<KitchenMobileHeader> {
   Future<int>? _unread;
-  Future<String>? _initial;
+  Future<_AccountMark>? _mark;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _unread ??= AppScope.of(context).unreadAlertCount();
-    _initial ??= _loadInitial();
+    _mark ??= _loadMark();
   }
 
-  Future<String> _loadInitial() async {
+  Future<_AccountMark> _loadMark() async {
     try {
       final data = await AppScope.of(context).me();
       final user = (data['user'] as Map?) ?? data;
       final first = user['first_name']?.toString().trim();
-      if (first != null && first.isNotEmpty) {
-        return first.substring(0, 1).toUpperCase();
-      }
+      final photo = user['profile_photo_url']?.toString().trim();
+      return _AccountMark(
+        initial: (first != null && first.isNotEmpty)
+            ? first.substring(0, 1).toUpperCase()
+            : 'K',
+        photoUrl: (photo != null && photo.isNotEmpty) ? photo : null,
+      );
     } catch (_) {}
-    return 'K';
+    return const _AccountMark(initial: 'K');
+  }
+
+  void _refreshMark() {
+    setState(() {
+      _mark = _loadMark();
+    });
   }
 
   void _refreshUnread() {
@@ -77,9 +94,10 @@ class _KitchenMobileHeaderState extends State<KitchenMobileHeader> {
               ListTile(
                 leading: const Icon(Icons.person_outline),
                 title: const Text('Profile'),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(ctx);
-                  context.push('/profile');
+                  await context.push('/profile');
+                  if (mounted) _refreshMark();
                 },
               ),
               ListTile(
@@ -187,21 +205,38 @@ class _KitchenMobileHeaderState extends State<KitchenMobileHeader> {
               },
             ),
             const SizedBox(width: 8),
-            FutureBuilder<String>(
-              future: _initial,
+            FutureBuilder<_AccountMark>(
+              future: _mark,
               builder: (context, snap) {
-                final initial = snap.data ?? 'K';
+                final mark = snap.data ?? const _AccountMark(initial: 'K');
                 return _HeaderIconButton(
                   onTap: _openAccountMenu,
                   background: MiddoColors.orange.withValues(alpha: 0.12),
                   foreground: MiddoColors.orange,
-                  child: Text(
-                    initial,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                    ),
-                  ),
+                  child: mark.photoUrl == null
+                      ? Text(
+                          mark.initial,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        )
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.network(
+                            mark.photoUrl!,
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Text(
+                              mark.initial,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
                 );
               },
             ),

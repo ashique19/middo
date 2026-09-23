@@ -7,9 +7,9 @@ use App\Livewire\Kitchen\IncomingBoxes as IncomingBoxesUi;
 use App\Models\Area;
 use App\Models\CashHandover;
 use App\Models\DeviceToken;
-use App\Models\KitchenHour;
 use App\Models\KitchenBoxRequest;
 use App\Models\KitchenBoxRequestLog;
+use App\Models\KitchenHour;
 use App\Models\KitchenMiddoTransfer;
 use App\Models\MenuItem;
 use App\Models\MiddoBox;
@@ -29,8 +29,11 @@ use App\Support\KitchenBoxRequestFlow;
 use App\Support\KitchenBoxStock;
 use App\Support\KitchenCapacity;
 use App\Support\KitchenComplaints;
+use App\Support\KitchenIdentity;
 use App\Support\KitchenIngredientRollup;
 use App\Support\KitchenMoneyService;
+use App\Support\KitchenRating;
+use App\Support\KitchenVerification;
 use App\Support\MiddoBoxKitchenActions;
 use App\Support\MiddoBoxLifecycle;
 use App\Support\MiddoSettings;
@@ -170,34 +173,39 @@ class KitchenMobileController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        $identityErrors = KitchenIdentity::changeErrors($user, $request->all());
+        $ratingErrors = KitchenRating::changeErrors($request->all());
+        if ($identityErrors !== [] || $ratingErrors !== []) {
+            throw ValidationException::withMessages($identityErrors + $ratingErrors);
+        }
+
         $data = $request->validate([
-            'first_name' => ['required', 'string', 'min:2', 'max:255'],
-            'last_name' => ['required', 'string', 'min:2', 'max:255'],
-            'mobile' => [
-                'required',
-                'string',
-                'regex:/^01[3-9]\d{8}$/',
-                'unique:users,mobile,'.$user->id,
-            ],
             'email' => [
+                'sometimes',
                 'nullable',
                 'email',
                 'max:255',
                 'unique:users,email,'.$user->id,
             ],
-            'address' => ['nullable', 'string', 'max:1000'],
-            'city_id' => ['required', 'integer', 'exists:cities,id'],
-            'area_id' => ['required', 'integer', 'exists:areas,id'],
+            'city_id' => ['sometimes', 'nullable', 'integer', 'exists:cities,id'],
+            'area_id' => ['sometimes', 'nullable', 'integer', 'exists:areas,id'],
             'hours' => ['sometimes', 'array', 'size:7'],
             'hours.*.day_of_week' => ['required_with:hours', 'integer', 'between:0,6'],
             'hours.*.is_closed' => ['required_with:hours', 'boolean'],
             'hours.*.opens_at' => ['nullable', 'date_format:H:i'],
             'hours.*.closes_at' => ['nullable', 'date_format:H:i'],
-        ], [
-            'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
         ]);
 
-        $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
+        $hasCity = array_key_exists('city_id', $data) && $data['city_id'] !== null;
+        $hasArea = array_key_exists('area_id', $data) && $data['area_id'] !== null;
+        if ($hasCity xor $hasArea) {
+            throw ValidationException::withMessages([
+                'area_id' => ['City and area must be updated together.'],
+            ]);
+        }
+        if ($hasCity && $hasArea) {
+            $this->assertAreaBelongsToCity((int) $data['city_id'], (int) $data['area_id']);
+        }
 
         if (isset($data['hours'])) {
             foreach ($data['hours'] as $row) {
@@ -213,13 +221,14 @@ class KitchenMobileController extends Controller
         }
 
         DB::transaction(function () use ($user, $data) {
-            $user->first_name = $data['first_name'];
-            $user->last_name = $data['last_name'];
-            $user->mobile = $data['mobile'];
-            $user->email = $data['email'] ?? null;
-            $user->address = $data['address'] ?? null;
-            $user->city_id = $data['city_id'];
-            $user->area_id = $data['area_id'];
+            if (array_key_exists('email', $data)) {
+                $user->email = $data['email'] ?: null;
+            }
+            if (array_key_exists('city_id', $data) && array_key_exists('area_id', $data)
+                && $data['city_id'] !== null && $data['area_id'] !== null) {
+                $user->city_id = $data['city_id'];
+                $user->area_id = $data['area_id'];
+            }
             $user->save();
 
             if (isset($data['hours'])) {
@@ -242,6 +251,32 @@ class KitchenMobileController extends Controller
 
         return response()->json([
             'message' => isset($data['hours']) ? 'Profile and hours saved.' : 'Profile updated.',
+            'user' => KitchenApiPresenter::user($user),
+        ]);
+    }
+
+    public function updateVerification(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $ratingErrors = KitchenRating::changeErrors($request->all());
+        if ($ratingErrors !== []) {
+            throw ValidationException::withMessages($ratingErrors);
+        }
+
+        $data = $request->validate(KitchenVerification::rules(), KitchenVerification::messages());
+
+        KitchenVerification::apply($user, $data, [
+            'nid_front' => $request->file('nid_front'),
+            'nid_back' => $request->file('nid_back'),
+            'selfie' => $request->file('selfie'),
+        ]);
+
+        $user->load(['role', 'area', 'city']);
+
+        return response()->json([
+            'message' => 'Verification details saved.',
             'user' => KitchenApiPresenter::user($user),
         ]);
     }

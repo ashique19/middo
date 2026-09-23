@@ -50,6 +50,40 @@ class ApiClient {
   }) =>
       _send('DELETE', path, body: body, auth: auth);
 
+  Future<Map<String, dynamic>> postForm(
+    String path, {
+    Map<String, String> fields = const {},
+    Map<String, String> files = const {},
+    bool auth = true,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.apiRoot}$path');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Accept'] = 'application/json';
+    if (auth && AuthStore.instance.isAuthenticated) {
+      request.headers['Authorization'] = 'Bearer ${AuthStore.instance.token}';
+    }
+    request.fields.addAll(fields);
+    for (final entry in files.entries) {
+      request.files.add(await http.MultipartFile.fromPath(
+        entry.key,
+        entry.value,
+      ));
+    }
+
+    late http.StreamedResponse streamed;
+    try {
+      streamed = await _client.send(request);
+    } catch (_) {
+      NetworkStatus.instance.markRequestFailed();
+      throw ApiException(
+        'Could not reach Middo API at ${ApiConfig.baseUrl}. Is `php artisan serve` running?',
+      );
+    }
+
+    final response = await http.Response.fromStream(streamed);
+    return _decode(response);
+  }
+
   Future<Map<String, dynamic>> postMultipart(
     String path, {
     required Map<String, String> fields,

@@ -9,9 +9,12 @@ use App\Models\CustomRun;
 use App\Models\MiddoBox;
 use App\Models\Order;
 use App\Models\PartnerPayable;
+use App\Models\RiderAccountLedgerEntry;
+use App\Models\RiderWithdrawalRequest;
 use App\Models\StaffAlert;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class DeliveryApiPresenter
 {
@@ -103,6 +106,7 @@ class DeliveryApiPresenter
             'kitchen_name' => $kitchen?->name ?? 'Kitchen',
             'kitchen_mobile' => $kitchen?->mobile,
             'kitchen_address' => $kitchen?->address,
+            'kitchen_profile_photo_url' => $kitchen?->profilePhotoUrl(),
             'area_name' => $order->area?->name ?? $order->orderGroup?->area?->name,
             'customer_name' => $party['customer_name'] ?? null,
             'account_holder_name' => $party['account_holder_name'] ?? null,
@@ -172,7 +176,7 @@ class DeliveryApiPresenter
 
     public static function openDeliveryCommission(Order $order, User $rider): int
     {
-        if (\Illuminate\Support\Facades\Schema::hasTable('partner_payables')) {
+        if (Schema::hasTable('partner_payables')) {
             $open = (int) PartnerPayable::query()
                 ->where('order_id', $order->id)
                 ->where('beneficiary_role', PartnerPayable::ROLE_DELIVERY)
@@ -297,11 +301,11 @@ class DeliveryApiPresenter
 
     protected static function accountStatement(User $rider): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('rider_account_ledger')) {
+        if (! Schema::hasTable('rider_account_ledger')) {
             return [];
         }
 
-        return \App\Models\RiderAccountLedgerEntry::query()
+        return RiderAccountLedgerEntry::query()
             ->where('rider_user_id', $rider->id)
             ->orderByDesc('id')
             ->limit(30)
@@ -318,11 +322,11 @@ class DeliveryApiPresenter
 
     protected static function accountWithdrawals(User $rider): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('rider_withdrawal_requests')) {
+        if (! Schema::hasTable('rider_withdrawal_requests')) {
             return [];
         }
 
-        return \App\Models\RiderWithdrawalRequest::query()
+        return RiderWithdrawalRequest::query()
             ->where('rider_user_id', $rider->id)
             ->orderByDesc('id')
             ->limit(20)
@@ -336,7 +340,6 @@ class DeliveryApiPresenter
                 'created_at' => $row->created_at?->toIso8601String(),
             ])->values()->all();
     }
-
 
     public static function paginationMeta($paginator): array
     {

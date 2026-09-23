@@ -3,7 +3,7 @@
         <a href="{{ route('kitchen.dashboard') }}" class="text-sm font-semibold text-middo-orange hover:underline">← Dashboard</a>
         <h1 class="text-3xl font-bold text-middo-dark">Kitchen profile</h1>
         <p class="text-sm font-semibold text-gray-500">
-            Contact details, withdrawal methods, and weekly operating hours. Tier and capacity are managed by Middo.
+            Email, city, hours, and verification photos. Name, address, and phone are set by Middo admin.
         </p>
     </div>
 
@@ -24,23 +24,77 @@
         <p><span class="font-bold text-middo-dark">Open group slots:</span> {{ $allowedOpenGroups !== null ? $allowedOpenGroups : '—' }}</p>
     </div>
 
+    <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+        <div class="flex items-center gap-4">
+            <x-kitchen.avatar :url="auth()->user()->profilePhotoUrl()" :name="auth()->user()->name" class="h-16 w-16 text-lg" />
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Profile photo</h2>
+                <p class="text-sm text-gray-500">Your chef selfie is the photo ops and riders see.</p>
+            </div>
+        </div>
+    </div>
+
+    <form wire:submit="saveVerification" class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+        <div>
+            <h2 class="text-lg font-bold text-middo-dark">NID and selfie</h2>
+            <p class="text-sm text-gray-500 mt-1">Photos are compressed before they are stored. You can replace them anytime.</p>
+        </div>
+        <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">NID number</label>
+            <input type="text" wire:model="nid_number" inputmode="numeric" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="10–17 digits">
+            @error('nid_number') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">NID front</label>
+                @if(auth()->user()->nidFrontUrl())
+                    <img src="{{ auth()->user()->nidFrontUrl() }}" alt="NID front" class="mb-2 h-24 w-full rounded-xl object-cover border border-gray-200">
+                @endif
+                <input type="file" wire:model="nid_front" accept="image/*" class="block w-full text-xs">
+                @error('nid_front') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">NID back</label>
+                @if(auth()->user()->nidBackUrl())
+                    <img src="{{ auth()->user()->nidBackUrl() }}" alt="NID back" class="mb-2 h-24 w-full rounded-xl object-cover border border-gray-200">
+                @endif
+                <input type="file" wire:model="nid_back" accept="image/*" class="block w-full text-xs">
+                @error('nid_back') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Chef selfie</label>
+                @if(auth()->user()->profilePhotoUrl())
+                    <img src="{{ auth()->user()->profilePhotoUrl() }}" alt="Chef selfie" class="mb-2 h-24 w-full rounded-xl object-cover border border-gray-200">
+                @endif
+                <input type="file" wire:model="selfie" accept="image/*" class="block w-full text-xs">
+                @error('selfie') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+        </div>
+        <div class="flex justify-stretch sm:justify-end">
+            <button type="submit" class="w-full sm:w-auto inline-flex justify-center px-5 py-2.5 rounded-xl bg-middo-orange hover:bg-[#733614] text-white text-sm font-bold transition">
+                Save verification
+            </button>
+        </div>
+    </form>
+
     <form wire:submit="save" class="space-y-6">
         <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
             <h2 class="text-lg font-bold text-middo-dark">Contact</h2>
+            <p class="text-xs font-semibold text-gray-500">Name, phone, and address are read-only. Ask Middo admin to change them.</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">First name</label>
-                    <input type="text" wire:model="first_name" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <input type="text" wire:model="first_name" readonly class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
                     @error('first_name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Last name</label>
-                    <input type="text" wire:model="last_name" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <input type="text" wire:model="last_name" readonly class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
                     @error('last_name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Mobile</label>
-                    <input type="text" wire:model="mobile" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <input type="text" wire:model="mobile" readonly class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
                     @error('mobile') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
@@ -50,7 +104,7 @@
                 </div>
                 <div class="sm:col-span-2">
                     <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Address</label>
-                    <input type="text" wire:model="address" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    <input type="text" wire:model="address" readonly class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
                     @error('address') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>

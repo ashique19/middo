@@ -9,20 +9,25 @@ use App\Models\KitchenHour;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\KitchenActivation;
+use App\Support\KitchenRating;
 use App\Support\KitchenTier;
+use App\Support\KitchenVerification;
 use App\Support\MiddoSettings;
 use App\Support\OrdersExcelExport;
 use App\Support\PackageOrderPresenter;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StaffProfileShow extends Component
 {
+    use WithFileUploads;
     use WithOrdersListView;
     use WithPagination;
 
@@ -49,6 +54,35 @@ class StaffProfileShow extends Component
 
     public string $areasErrorMessage = '';
 
+    public string $edit_first_name = '';
+
+    public string $edit_last_name = '';
+
+    public string $edit_mobile = '';
+
+    public string $edit_email = '';
+
+    public string $edit_address = '';
+
+    public ?string $edit_city_id = null;
+
+    public ?string $edit_area_id = null;
+
+    public string $nid_number = '';
+
+    public string $kitchen_rating = '';
+
+    public string $kitchen_rating_note = '';
+
+    public $nid_front = null;
+
+    public $nid_back = null;
+
+    public $selfie = null;
+
+    /** @var Collection<int, Area> */
+    public $identityAreas;
+
     public function mount(?User $kitchen = null, ?User $delivery = null): void
     {
         $viewerRole = Auth::user()?->role?->name;
@@ -63,6 +97,7 @@ class StaffProfileShow extends Component
 
         $this->staff = $staff;
         $this->staffRole = $expected;
+        $this->identityAreas = collect();
         $this->syncKitchenEditFields();
         $this->loadHours();
         $this->syncRiderAreaFields();
@@ -77,6 +112,92 @@ class StaffProfileShow extends Component
         $this->edit_kitchen_tier = KitchenTier::normalize($this->staff->kitchen_tier);
         $this->edit_allowed_open_groups = $this->staff->allowed_open_groups
             ?? MiddoSettings::defaultAllowedOpenGroupsForTier($this->edit_kitchen_tier);
+        $this->edit_first_name = $this->staff->first_name ?? '';
+        $this->edit_last_name = $this->staff->last_name ?? '';
+        $this->edit_mobile = $this->staff->mobile ?? '';
+        $this->edit_email = $this->staff->email ?? '';
+        $this->edit_address = $this->staff->address ?? '';
+        $this->edit_city_id = $this->staff->city_id ? (string) $this->staff->city_id : null;
+        $this->edit_area_id = $this->staff->area_id ? (string) $this->staff->area_id : null;
+        $this->nid_number = $this->staff->nid_number ?? '';
+        $this->syncKitchenRatingFields();
+        $this->identityAreas = $this->edit_city_id
+            ? Area::query()->where('city_id', $this->edit_city_id)->orderBy('name')->get()
+            : collect();
+    }
+
+    public function updatedEditCityId($value): void
+    {
+        $this->identityAreas = $value
+            ? Area::query()->where('city_id', $value)->orderBy('name')->get()
+            : collect();
+        $this->edit_area_id = null;
+    }
+
+    public function canManageKitchenVerification(): bool
+    {
+        return $this->canManageKitchenStatus();
+    }
+
+    public function canEditKitchenIdentity(): bool
+    {
+        return $this->canManageKitchenStatus();
+    }
+
+    public function canManageKitchenRating(): bool
+    {
+        return $this->canManageKitchenStatus();
+    }
+
+    protected function syncKitchenRatingFields(): void
+    {
+        if (! $this->canManageKitchenRating()) {
+            $this->kitchen_rating = '';
+            $this->kitchen_rating_note = '';
+
+            return;
+        }
+
+        $this->kitchen_rating = $this->staff->kitchen_rating === null
+            ? ''
+            : (string) $this->staff->kitchen_rating;
+        $this->kitchen_rating_note = $this->staff->kitchen_rating_note ?? '';
+    }
+
+    public function saveKitchenRating(): void
+    {
+        abort_unless($this->canManageKitchenRating(), 403);
+
+        $this->validate([
+            'kitchen_rating_note' => KitchenRating::rules()['kitchen_rating_note'],
+        ]);
+
+        $ratingInput = trim($this->kitchen_rating);
+        $rating = null;
+        if ($ratingInput !== '') {
+            $valid = ctype_digit($ratingInput)
+                && (int) $ratingInput >= KitchenRating::MIN
+                && (int) $ratingInput <= KitchenRating::MAX;
+            if (! $valid) {
+                $this->addError('kitchen_rating', 'Rating must be a whole number from 0 to 10.');
+
+                return;
+            }
+            $rating = (int) $ratingInput;
+        }
+
+        $changed = KitchenRating::apply(
+            $this->staff,
+            $rating,
+            $this->kitchen_rating_note,
+        );
+
+        $this->staff->refresh();
+        $this->syncKitchenRatingFields();
+
+        session()->flash('message', $changed
+            ? 'Kitchen rating updated.'
+            : 'Rating is unchanged.');
     }
 
     protected function syncRiderAreaFields(): void
@@ -191,6 +312,87 @@ class StaffProfileShow extends Component
         $this->staff->refresh();
 
         session()->flash('message', "{$this->staff->name} suspended.");
+    }
+
+    public function saveKitchenIdentity(): void
+    {
+        abort_unless($this->canEditKitchenIdentity(), 403);
+
+        $this->validate([
+            'edit_first_name' => 'required|string|min:2|max:255',
+            'edit_last_name' => 'required|string|min:2|max:255',
+            'edit_mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/', 'unique:users,mobile,'.$this->staff->id],
+            'edit_email' => ['nullable', 'email', 'max:255', 'unique:users,email,'.$this->staff->id],
+            'edit_address' => 'nullable|string|max:1000',
+            'edit_city_id' => 'nullable|exists:cities,id',
+            'edit_area_id' => 'nullable|exists:areas,id',
+        ], [
+            'edit_mobile.regex' => 'Provide a valid 11-digit mobile number (e.g. 01710123456).',
+        ]);
+
+        $this->staff->update([
+            'first_name' => $this->edit_first_name,
+            'last_name' => $this->edit_last_name,
+            'mobile' => $this->edit_mobile,
+            'email' => $this->edit_email !== '' ? $this->edit_email : null,
+            'address' => $this->edit_address !== '' ? $this->edit_address : null,
+            'city_id' => $this->edit_city_id ?: null,
+            'area_id' => $this->edit_area_id ?: null,
+        ]);
+        $this->staff->refresh()->load(['role', 'city', 'area']);
+        $this->syncKitchenEditFields();
+
+        session()->flash('message', 'Kitchen name, phone, and address updated.');
+    }
+
+    public function saveKitchenVerification(): void
+    {
+        abort_unless($this->canManageKitchenVerification(), 403);
+
+        $this->validate([
+            'nid_number' => KitchenVerification::rules()['nid_number'],
+            'nid_front' => KitchenVerification::rules()['nid_front'],
+            'nid_back' => KitchenVerification::rules()['nid_back'],
+            'selfie' => KitchenVerification::rules()['selfie'],
+        ], KitchenVerification::messages());
+
+        KitchenVerification::apply($this->staff, [
+            'nid_number' => $this->nid_number,
+        ], [
+            'nid_front' => $this->nid_front,
+            'nid_back' => $this->nid_back,
+            'selfie' => $this->selfie,
+        ]);
+
+        $this->reset('nid_front', 'nid_back', 'selfie');
+        $this->staff->refresh();
+        $this->nid_number = $this->staff->nid_number ?? '';
+
+        session()->flash('message', 'Kitchen verification details updated.');
+    }
+
+    public function deleteKitchenVerificationImage(string $slot): void
+    {
+        abort_unless($this->canManageKitchenVerification(), 403);
+        abort_unless(array_key_exists($slot, KitchenVerification::SLOTS), 404);
+
+        KitchenVerification::apply($this->staff, [
+            'remove_'.$slot => true,
+        ]);
+        $this->staff->refresh();
+
+        session()->flash('message', 'Verification image removed.');
+    }
+
+    public function clearKitchenNidNumber(): void
+    {
+        abort_unless($this->canManageKitchenVerification(), 403);
+
+        $this->staff->update(['nid_number' => null]);
+        $this->staff->refresh();
+        $this->nid_number = '';
+
+        session()->flash('message', 'NID number removed.');
     }
 
     public function saveKitchenCapacity(): void
@@ -420,6 +622,12 @@ class StaffProfileShow extends Component
                 ? $this->staff->kitchenHours()->orderBy('day_of_week')->get()
                 : collect(),
             'dayLabels' => KitchenHour::DAYS,
+            'ratingHistory' => $this->canManageKitchenRating()
+                ? $this->staff->ratingLogs()->with('actor:id,first_name,last_name')->limit(50)->get()->sortBy([
+                    ['created_at', 'asc'],
+                    ['id', 'asc'],
+                ])->values()
+                : collect(),
             'areaOptions' => $areaOptions,
         ])->layout('layouts.private.app', ['title' => $title]);
     }

@@ -15,6 +15,17 @@ abstract class KitchenRepository {
 
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> body);
 
+  Future<Map<String, dynamic>> updateVerification({
+    String? nidNumber,
+    String? nidFrontPath,
+    String? nidBackPath,
+    String? selfiePath,
+    bool clearNidNumber = false,
+    bool removeNidFront = false,
+    bool removeNidBack = false,
+    bool removeSelfie = false,
+  });
+
   Future<void> changePassword({
     required String currentPassword,
     required String password,
@@ -164,6 +175,33 @@ class ApiKitchenRepository implements KitchenRepository {
   @override
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> body) =>
       _client.patch('/profile', body: body);
+
+  @override
+  Future<Map<String, dynamic>> updateVerification({
+    String? nidNumber,
+    String? nidFrontPath,
+    String? nidBackPath,
+    String? selfiePath,
+    bool clearNidNumber = false,
+    bool removeNidFront = false,
+    bool removeNidBack = false,
+    bool removeSelfie = false,
+  }) {
+    final fields = <String, String>{};
+    final files = <String, String>{};
+    if (clearNidNumber) {
+      fields['nid_number'] = '';
+    } else if (nidNumber != null) {
+      fields['nid_number'] = nidNumber;
+    }
+    if (removeNidFront) fields['remove_nid_front'] = '1';
+    if (removeNidBack) fields['remove_nid_back'] = '1';
+    if (removeSelfie) fields['remove_selfie'] = '1';
+    if (nidFrontPath != null) files['nid_front'] = nidFrontPath;
+    if (nidBackPath != null) files['nid_back'] = nidBackPath;
+    if (selfiePath != null) files['selfie'] = selfiePath;
+    return _client.postForm('/verification', fields: fields, files: files);
+  }
 
   @override
   Future<void> changePassword({
@@ -404,6 +442,10 @@ class MockKitchenRepository implements KitchenRepository {
     'city': 'Dhaka',
     'area': 'Gulshan',
     'role': 'kitchen',
+    'nid_number': null,
+    'nid_front_url': null,
+    'nid_back_url': null,
+    'profile_photo_url': null,
     'hours': [
       for (var d = 0; d < 7; d++)
         {
@@ -449,6 +491,31 @@ class MockKitchenRepository implements KitchenRepository {
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> body) async {
     _user = {..._user, ...body};
     return {'user': _user, 'message': 'Profile updated.'};
+  }
+
+  @override
+  Future<Map<String, dynamic>> updateVerification({
+    String? nidNumber,
+    String? nidFrontPath,
+    String? nidBackPath,
+    String? selfiePath,
+    bool clearNidNumber = false,
+    bool removeNidFront = false,
+    bool removeNidBack = false,
+    bool removeSelfie = false,
+  }) async {
+    if (clearNidNumber) {
+      _user['nid_number'] = null;
+    } else if (nidNumber != null) {
+      _user['nid_number'] = nidNumber;
+    }
+    if (removeNidFront) _user['nid_front_url'] = null;
+    if (removeNidBack) _user['nid_back_url'] = null;
+    if (removeSelfie) _user['profile_photo_url'] = null;
+    if (nidFrontPath != null) _user['nid_front_url'] = nidFrontPath;
+    if (nidBackPath != null) _user['nid_back_url'] = nidBackPath;
+    if (selfiePath != null) _user['profile_photo_url'] = selfiePath;
+    return {'user': _user, 'message': 'Verification details saved.'};
   }
 
   @override

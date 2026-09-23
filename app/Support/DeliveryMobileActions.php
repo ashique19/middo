@@ -2,8 +2,6 @@
 
 namespace App\Support;
 
-use Illuminate\Validation\ValidationException;
-
 use App\Models\CashHandover;
 use App\Models\CashHandoverOrder;
 use App\Models\CustomRun;
@@ -17,9 +15,10 @@ use App\Models\RiderWithdrawalRequest;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Transaction helpers for Delivery Sanctum mobile API (extracted from Livewire).
@@ -683,6 +682,7 @@ class DeliveryMobileActions
                     'kitchen_name' => $first['kitchen_name'],
                     'kitchen_mobile' => $first['kitchen_mobile'],
                     'kitchen_address' => $first['kitchen_address'],
+                    'kitchen_profile_photo_url' => $first['kitchen_profile_photo_url'] ?? null,
                     'box_count' => $groupNodes->count(),
                     'can_accept_all' => $groupNodes->contains(fn (array $n) => $n['can_accept_warehouse']),
                     'can_hand_all' => $groupNodes->contains(fn (array $n) => $n['can_hand_to_kitchen'] && ($n['can_hand_warehouse_stock'] ?? false)),
@@ -841,6 +841,9 @@ class DeliveryMobileActions
                 : ($showWarehouseDestination && ! $destinationKitchen
                     ? null
                     : $destinationKitchen?->address),
+            'kitchen_profile_photo_url' => $isEmptyBoxCollect
+                ? null
+                : $destinationKitchen?->profilePhotoUrl(),
             'order_id' => $linkedOrder?->id,
             'menu_name' => $linkedOrder?->menuItem?->name,
             'customer_name' => $linkedOrder

@@ -46,7 +46,7 @@ class OpsDashboardBoards
                 'user:id,first_name,last_name,mobile,company_name',
                 'deliveryRider:id,first_name,last_name,mobile',
                 'area:id,name',
-                'orderGroup.kitchen:id,first_name,last_name,mobile',
+                'orderGroup.kitchen:id,first_name,last_name,mobile,profile_photo_path',
                 'packageSubscription.package:id,name',
                 'cashHandoverOrder.handover',
             ])
@@ -164,6 +164,7 @@ class OpsDashboardBoards
                     'group_name' => $group?->name ?? 'Ungrouped',
                     'kitchen_id' => $group?->kitchen_id,
                     'kitchen_name' => $group?->kitchen?->name,
+                    'kitchen_profile_photo_url' => $group?->kitchen?->profilePhotoUrl(),
                     'count' => $rows->count(),
                     'qty' => (int) $rows->sum('quantity'),
                     'items' => $rows->map(fn (Order $order) => self::orderCard($order))->values()->all(),
@@ -348,7 +349,7 @@ class OpsDashboardBoards
     protected static function boxRequestsBoard(): array
     {
         $requests = KitchenBoxRequest::query()
-            ->with(['kitchen:id,first_name,last_name,mobile'])
+            ->with(['kitchen:id,first_name,last_name,mobile,profile_photo_path'])
             ->where('status', KitchenBoxRequest::STATUS_PENDING)
             ->orderByDesc('id')
             ->limit(30)
@@ -427,6 +428,7 @@ class OpsDashboardBoards
             'kitchen_id' => $order->orderGroup?->kitchen_id,
             'kitchen_name' => $order->orderGroup?->kitchen?->name,
             'kitchen_mobile' => $order->orderGroup?->kitchen?->mobile,
+            'kitchen_profile_photo_url' => $order->orderGroup?->kitchen?->profilePhotoUrl(),
             'is_package' => $order->package_subscription_id !== null,
             'package_name' => $order->packageSubscription?->package?->name,
             'payment_status' => $order->payment_status,

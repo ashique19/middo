@@ -6,14 +6,18 @@ use App\Livewire\Concerns\ManagesProfilePayoutMethods;
 use App\Models\Area;
 use App\Models\City;
 use App\Models\KitchenHour;
+use App\Support\KitchenIdentity;
+use App\Support\KitchenVerification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class Profile extends Component
 {
     use ManagesProfilePayoutMethods;
+    use WithFileUploads;
 
     public string $first_name = '';
 
@@ -24,6 +28,14 @@ class Profile extends Component
     public ?string $email = null;
 
     public ?string $address = null;
+
+    public string $nid_number = '';
+
+    public $nid_front = null;
+
+    public $nid_back = null;
+
+    public $selfie = null;
 
     public ?string $city_id = null;
 
@@ -61,21 +73,30 @@ class Profile extends Component
         $user = Auth::user();
 
         try {
+            $identityErrors = KitchenIdentity::changeErrors($user, [
+                'first_name' => $this->first_name,
+                'last_name' => $this->last_name,
+                'mobile' => $this->mobile,
+                'address' => $this->address,
+            ]);
+            if ($identityErrors !== []) {
+                foreach ($identityErrors as $field => $messages) {
+                    $this->addError($field, $messages[0]);
+                }
+                $this->errorMessage = 'Name, address, and phone can only be changed by an admin.';
+
+                return;
+            }
+
             $validated = $this->validate(array_merge([
-                'first_name' => 'required|string|min:2|max:255',
-                'last_name' => 'required|string|min:2|max:255',
-                'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/', 'unique:users,mobile,'.$user->id],
                 'email' => ['nullable', 'email', 'max:255', 'unique:users,email,'.$user->id],
-                'address' => 'nullable|string|max:1000',
                 'city_id' => 'required|exists:cities,id',
                 'area_id' => 'required|exists:areas,id',
                 'hours' => 'required|array|size:7',
                 'hours.*.is_closed' => 'boolean',
                 'hours.*.opens_at' => 'nullable|date_format:H:i',
                 'hours.*.closes_at' => 'nullable|date_format:H:i',
-            ], $this->payoutMethodValidationRules()), array_merge([
-                'mobile.regex' => 'Provide a valid 11-digit mobile number (e.g., 01710123456).',
-            ], $this->payoutMethodValidationMessages()));
+            ], $this->payoutMethodValidationRules()), $this->payoutMethodValidationMessages());
 
             foreach ($this->hours as $day => $row) {
                 if (! empty($row['is_closed'])) {
@@ -90,11 +111,7 @@ class Profile extends Component
             }
 
             DB::transaction(function () use ($user, $validated) {
-                $user->first_name = $validated['first_name'];
-                $user->last_name = $validated['last_name'];
-                $user->mobile = $validated['mobile'];
                 $user->email = $validated['email'] ?: null;
-                $user->address = $validated['address'];
                 $user->city_id = $validated['city_id'];
                 $user->area_id = $validated['area_id'];
                 $this->savePayoutMethodsToUser($user);
@@ -136,6 +153,7 @@ class Profile extends Component
         $this->mobile = $user->mobile ?? '';
         $this->email = $user->email;
         $this->address = $user->address;
+        $this->nid_number = $user->nid_number ?? '';
         $this->city_id = $user->city_id ? (string) $user->city_id : null;
         $this->area_id = $user->area_id ? (string) $user->area_id : null;
         $this->loadPayoutMethodsFromUser($user);
@@ -170,6 +188,39 @@ class Profile extends Component
                     'closes_at' => '22:00',
                 ];
             }
+        }
+    }
+
+    public function saveVerification(): void
+    {
+        $this->statusMessage = '';
+        $this->errorMessage = '';
+        $user = Auth::user();
+        if (! $user) {
+            return;
+        }
+
+        try {
+            $this->validate([
+                'nid_number' => KitchenVerification::rules()['nid_number'],
+                'nid_front' => KitchenVerification::rules()['nid_front'],
+                'nid_back' => KitchenVerification::rules()['nid_back'],
+                'selfie' => KitchenVerification::rules()['selfie'],
+            ], KitchenVerification::messages());
+
+            KitchenVerification::apply($user, [
+                'nid_number' => $this->nid_number,
+            ], [
+                'nid_front' => $this->nid_front,
+                'nid_back' => $this->nid_back,
+                'selfie' => $this->selfie,
+            ]);
+
+            $this->reset('nid_front', 'nid_back', 'selfie');
+            $this->loadUser();
+            $this->statusMessage = 'Verification photos saved.';
+        } catch (\Throwable $e) {
+            $this->errorMessage = $e->getMessage() ?: 'Could not save verification photos.';
         }
     }
 

@@ -282,6 +282,13 @@ class _BoxesScreenState extends State<BoxesScreen> {
           final row = Map<String, dynamic>.from(raw as Map);
           return Card(
             child: ListTile(
+              leading: (row['kitchen_profile_photo_url']?.toString() ?? '').isNotEmpty
+                  ? CircleAvatar(
+                      backgroundImage: NetworkImage(
+                        row['kitchen_profile_photo_url'].toString(),
+                      ),
+                    )
+                  : const Icon(Icons.soup_kitchen),
               title: Text(
                 row['kitchen_name']?.toString() ??
                     'Kitchen #${row['kitchen_id']}',

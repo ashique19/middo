@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserLog;
+use App\Support\KitchenVerification;
 use App\Support\PasswordResetOtp;
 use App\Support\SignupOtp;
 use App\Support\UserAudit;
@@ -113,7 +114,7 @@ class AuthController extends Controller
     public function registerKitchen(Request $request)
     {
         try {
-            $validated = $request->validate([
+            $validated = $request->validate(array_merge([
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
                 'mobile' => ['required', 'string', 'regex:/^01[3-9][0-9]{8}$/', 'unique:users,mobile'],
@@ -121,12 +122,12 @@ class AuthController extends Controller
                 'address' => 'required|string',
                 'city_id' => 'required|exists:cities,id',
                 'area_id' => 'required|exists:areas,id',
-            ]);
+            ], KitchenVerification::rules()), KitchenVerification::messages());
 
             $role = Role::where('name', 'kitchen')->firstOrFail();
 
             // User casts password to 'hashed' — pass the plain value (same as corporate register).
-            User::create([
+            $user = User::create([
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
                 'mobile' => $validated['mobile'],
@@ -138,6 +139,18 @@ class AuthController extends Controller
                 'status' => 'pending',
                 'is_mobile_verified' => false,
             ]);
+
+            try {
+                KitchenVerification::apply($user, $validated, [
+                    'nid_front' => $request->file('nid_front'),
+                    'nid_back' => $request->file('nid_back'),
+                    'selfie' => $request->file('selfie'),
+                ]);
+            } catch (\Throwable $e) {
+                KitchenVerification::purge($user);
+                $user->delete();
+                throw $e;
+            }
 
             session()->flash(
                 'status',

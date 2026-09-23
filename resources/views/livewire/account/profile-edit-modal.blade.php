@@ -7,7 +7,13 @@
                 <div class="flex items-center justify-between p-5 border-b border-[#EBE3D3] sticky top-0 bg-white rounded-t-2xl">
                     <div>
                         <h2 class="text-xl font-black tracking-tight text-[#2B1A11]">Edit Profile</h2>
-                        <p class="text-xs font-semibold text-[#635347] mt-0.5">Update your account and delivery details.</p>
+                        <p class="text-xs font-semibold text-[#635347] mt-0.5">
+                            @if($this->identityLocked())
+                                Name, phone, and address are managed by Middo admin.
+                            @else
+                                Update your account and delivery details.
+                            @endif
+                        </p>
                     </div>
                     <button type="button" wire:click="closeModal" class="p-1.5 rounded-lg text-gray-400 hover:text-[#2B1A11] hover:bg-[#F7F4EB] transition" aria-label="Close">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -20,22 +26,22 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">First Name <span class="text-gray-400 normal-case font-medium">(your name)</span></label>
-                            <input type="text" wire:model="first_name"
-                                   class="w-full border border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none">
+                            <input type="text" wire:model="first_name" @readonly($this->identityLocked())
+                                   class="w-full border border-gray-200 rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none {{ $this->identityLocked() ? 'bg-gray-50 text-gray-600' : 'bg-white' }}">
                             @error('first_name') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
                         </div>
 
                         <div>
                             <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Last Name</label>
-                            <input type="text" wire:model="last_name"
-                                   class="w-full border border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none">
+                            <input type="text" wire:model="last_name" @readonly($this->identityLocked())
+                                   class="w-full border border-gray-200 rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none {{ $this->identityLocked() ? 'bg-gray-50 text-gray-600' : 'bg-white' }}">
                             @error('last_name') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
                         </div>
 
                         <div>
                             <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Phone Number</label>
-                            <input type="text" wire:model="mobile" placeholder="01XXXXXXXXX"
-                                   class="w-full border border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none">
+                            <input type="text" wire:model="mobile" placeholder="01XXXXXXXXX" @readonly($this->identityLocked())
+                                   class="w-full border border-gray-200 rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none {{ $this->identityLocked() ? 'bg-gray-50 text-gray-600' : 'bg-white' }}">
                             @error('mobile') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
                         </div>
 
@@ -56,8 +62,8 @@
 
                     <div>
                         <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Address</label>
-                        <textarea wire:model="address" rows="2" placeholder="Office / building, street, area"
-                                  class="w-full border border-gray-200 bg-white rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none"></textarea>
+                        <textarea wire:model="address" rows="2" placeholder="Office / building, street, area" @readonly($this->identityLocked())
+                                  class="w-full border border-gray-200 rounded-xl text-sm p-2.5 shadow-sm focus:ring-2 focus:ring-middo-orange focus:border-middo-orange outline-none {{ $this->identityLocked() ? 'bg-gray-50 text-gray-600' : 'bg-white' }}"></textarea>
                         @error('address') <span class="text-red-500 text-xs font-semibold mt-0.5 block">{{ $message }}</span> @enderror
                     </div>
 

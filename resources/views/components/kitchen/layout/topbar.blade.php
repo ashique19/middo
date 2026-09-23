@@ -15,8 +15,12 @@
         <div class="relative" x-data="{ accountOpen: false }">
             <button type="button" @click="accountOpen = !accountOpen"
                     class="flex items-center gap-2 text-sm font-semibold text-middo-dark hover:text-middo-orange transition focus:outline-none">
-                <span class="w-8 h-8 rounded-full bg-middo-orange/10 text-middo-orange flex items-center justify-center font-black">
-                    {{ strtoupper(substr(Auth::user()->first_name ?? 'U', 0, 1)) }}
+                <span class="w-8 h-8 rounded-full bg-middo-orange/10 text-middo-orange flex items-center justify-center font-black overflow-hidden">
+                    @if(Auth::user()->profilePhotoUrl())
+                        <img src="{{ Auth::user()->profilePhotoUrl() }}" alt="" class="w-full h-full object-cover">
+                    @else
+                        {{ strtoupper(substr(Auth::user()->first_name ?? 'U', 0, 1)) }}
+                    @endif
                 </span>
                 <span class="hidden sm:inline">Account</span>
                 <svg class="w-4 h-4 transition-transform" :class="accountOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

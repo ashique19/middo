@@ -205,8 +205,15 @@ class BoardOrderTile extends StatelessWidget {
     }
   }
 
-  Widget _link(BuildContext context, String label, dynamic id, {IconData? icon}) {
+  Widget _link(
+    BuildContext context,
+    String label,
+    dynamic id, {
+    IconData? icon,
+    String? photoUrl,
+  }) {
     final hasId = id is int && id > 0;
+    final photo = photoUrl?.trim();
     return InkWell(
       onTap: hasId ? () => _openParty(context, id) : null,
       child: Padding(
@@ -214,7 +221,10 @@ class BoardOrderTile extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) ...[
+            if (photo != null && photo.isNotEmpty) ...[
+              CircleAvatar(radius: 8, backgroundImage: NetworkImage(photo)),
+              const SizedBox(width: 4),
+            ] else if (icon != null) ...[
               Icon(icon, size: 14, color: hasId ? MiddoColors.orange : MiddoColors.muted),
               const SizedBox(width: 4),
             ],
@@ -300,7 +310,13 @@ class BoardOrderTile extends StatelessWidget {
                       if (rider != null && rider.isNotEmpty)
                         _link(context, 'Rider: $rider', item['rider_id'], icon: Icons.delivery_dining),
                       if (kitchen != null && kitchen.isNotEmpty)
-                        _link(context, 'Kitchen: $kitchen', item['kitchen_id'], icon: Icons.soup_kitchen),
+                        _link(
+                          context,
+                          'Kitchen: $kitchen',
+                          item['kitchen_id'],
+                          icon: Icons.soup_kitchen,
+                          photoUrl: item['kitchen_profile_photo_url']?.toString(),
+                        ),
                     ],
                   ),
                 ],
@@ -378,8 +394,12 @@ class BoardBoxRequestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final photo = item['kitchen_profile_photo_url']?.toString();
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      leading: (photo != null && photo.isNotEmpty)
+          ? CircleAvatar(backgroundImage: NetworkImage(photo))
+          : const Icon(Icons.soup_kitchen),
       title: Text(item['kitchen_name']?.toString() ?? 'Kitchen'),
       subtitle: Text(
         'Qty ${(item['quantity'] ?? item['allocated_qty'] ?? '—')} · ${item['status'] ?? ''}',

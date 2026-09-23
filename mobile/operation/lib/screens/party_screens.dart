@@ -60,6 +60,16 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
+                    if ((party?['profile_photo_url']?.toString() ?? '').isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: CircleAvatar(
+                          radius: 36,
+                          backgroundImage: NetworkImage(
+                            party!['profile_photo_url'].toString(),
+                          ),
+                        ),
+                      ),
                     Text(
                       party?['name']?.toString() ?? '—',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -162,7 +172,13 @@ class _OrderGroupDetailScreenState extends State<OrderGroupDetailScreen> {
                     const SizedBox(height: 8),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.soup_kitchen),
+                      leading: (group?['kitchen_profile_photo_url']?.toString() ?? '').isNotEmpty
+                          ? CircleAvatar(
+                              backgroundImage: NetworkImage(
+                                group!['kitchen_profile_photo_url'].toString(),
+                              ),
+                            )
+                          : const Icon(Icons.soup_kitchen),
                       title: Text(group?['kitchen_name']?.toString() ?? 'Kitchen unassigned'),
                       subtitle: Text(group?['kitchen_mobile']?.toString() ?? ''),
                       trailing: kitchenId is int ? const Icon(Icons.chevron_right) : null,

@@ -21,8 +21,10 @@ Route::prefix('kitchen')->group(function () {
         Route::post('/device-tokens', [KitchenMobileController::class, 'registerDeviceToken']);
         Route::delete('/device-tokens', [KitchenMobileController::class, 'unregisterDeviceToken']);
 
-        Route::middleware('permission:'.KitchenPermissions::PROFILE)
-            ->patch('/profile', [KitchenMobileController::class, 'updateProfile']);
+        Route::middleware('permission:'.KitchenPermissions::PROFILE)->group(function () {
+            Route::patch('/profile', [KitchenMobileController::class, 'updateProfile']);
+            Route::post('/verification', [KitchenMobileController::class, 'updateVerification']);
+        });
 
         Route::middleware('permission:'.KitchenPermissions::DASHBOARD)
             ->get('/dashboard', [KitchenMobileController::class, 'dashboard']);

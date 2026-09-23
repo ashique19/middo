@@ -4,7 +4,11 @@
             ← Back
         </a>
         <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
+            <div class="flex items-center gap-4">
+                @if($staffRole === 'kitchen')
+                    <x-kitchen.avatar :url="$staff->profilePhotoUrl()" :name="$staff->name" class="h-16 w-16 text-xl" />
+                @endif
+                <div>
                 <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">{{ $staffRole }} profile</p>
                 <h1 class="text-3xl font-bold text-middo-dark">
                     {{ $staff->name ?: trim($staff->first_name.' '.$staff->last_name) }}
@@ -15,6 +19,7 @@
                         · {{ $staff->email }}
                     @endif
                 </p>
+                </div>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <span @class([
@@ -119,6 +124,168 @@
             @endif
         </dl>
     </div>
+
+    @if($staffRole === 'kitchen' && $this->canEditKitchenIdentity())
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Identity</h2>
+                <p class="text-sm text-gray-500 mt-1">Admin can change the kitchen name, phone, and address. Kitchens cannot.</p>
+            </div>
+            <form wire:submit="saveKitchenIdentity" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">First name</label>
+                    <input type="text" wire:model="edit_first_name" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    @error('edit_first_name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Last name</label>
+                    <input type="text" wire:model="edit_last_name" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    @error('edit_last_name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Phone</label>
+                    <input type="text" wire:model="edit_mobile" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    @error('edit_mobile') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Email</label>
+                    <input type="email" wire:model="edit_email" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    @error('edit_email') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Address</label>
+                    <input type="text" wire:model="edit_address" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                    @error('edit_address') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">City</label>
+                    <select wire:model.live="edit_city_id" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        <option value="">Select city</option>
+                        @foreach(\App\Models\City::query()->orderBy('name')->get() as $city)
+                            <option value="{{ $city->id }}">{{ $city->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Area</label>
+                    <select wire:model="edit_area_id" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        <option value="">Select area</option>
+                        @foreach($identityAreas as $area)
+                            <option value="{{ $area->id }}">{{ $area->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="sm:col-span-2">
+                    <button type="submit" class="inline-flex px-4 py-2 rounded-xl bg-middo-orange text-white text-xs font-bold hover:bg-[#733614] transition">
+                        Save identity
+                    </button>
+                </div>
+            </form>
+        </div>
+    @endif
+
+    @if($staffRole === 'kitchen' && $this->canManageKitchenRating())
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Rating</h2>
+                <p class="text-sm text-gray-500 mt-1">Admin only, on a 0–10 scale. Kitchens, operations, and riders do not see this.</p>
+            </div>
+            <form wire:submit="saveKitchenRating" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Score</label>
+                        <input type="number" min="0" max="10" step="1" wire:model="kitchen_rating" placeholder="—" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm">
+                        @error('kitchen_rating') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Note</label>
+                        <textarea wire:model="kitchen_rating_note" rows="2" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="Optional context for this score"></textarea>
+                        @error('kitchen_rating_note') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+                <button type="submit" class="inline-flex px-4 py-2 rounded-xl bg-middo-orange text-white text-xs font-bold hover:bg-[#733614] transition">
+                    Save rating
+                </button>
+            </form>
+            <div class="border-t border-gray-100 pt-4 space-y-2">
+                <h3 class="text-sm font-bold text-middo-dark">History</h3>
+                @forelse($ratingHistory as $entry)
+                    <div class="flex flex-wrap items-baseline justify-between gap-2 text-sm border border-gray-100 rounded-xl px-3 py-2">
+                        <div>
+                            <span class="font-semibold text-gray-800">
+                                {{ $entry->old_rating === null ? '—' : $entry->old_rating }}
+                                →
+                                {{ $entry->new_rating === null ? '—' : $entry->new_rating }}
+                            </span>
+                            @if($entry->note)
+                                <span class="text-gray-600">· {{ $entry->note }}</span>
+                            @endif
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            {{ $entry->actor?->name ?: 'Admin' }}
+                            · {{ $entry->created_at?->timezone('Asia/Dhaka')->format('M d, Y g:i A') }}
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-xs text-gray-400 italic">No rating changes yet.</p>
+                @endforelse
+            </div>
+        </div>
+    @endif
+
+    @if($staffRole === 'kitchen' && $this->canManageKitchenVerification())
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm space-y-4">
+            <div>
+                <h2 class="text-lg font-bold text-middo-dark">Verification</h2>
+                <p class="text-sm text-gray-500 mt-1">NID photos, NID number, and chef selfie. The selfie is the kitchen profile photo. Uploads are compressed.</p>
+            </div>
+            <form wire:submit="saveKitchenVerification" class="space-y-4">
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="flex-1 min-w-[12rem]">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">NID number</label>
+                        <input type="text" wire:model="nid_number" inputmode="numeric" class="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" placeholder="10–17 digits">
+                        @error('nid_number') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    @if($staff->nid_number)
+                        <button type="button" wire:click="clearKitchenNidNumber" wire:confirm="Remove this NID number?"
+                                class="inline-flex px-3 py-2 rounded-xl border border-red-200 text-xs font-bold text-red-600 hover:bg-red-50">
+                            Delete number
+                        </button>
+                    @endif
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    @foreach([
+                        'nid_front' => ['label' => 'NID front', 'url' => $staff->nidFrontUrl()],
+                        'nid_back' => ['label' => 'NID back', 'url' => $staff->nidBackUrl()],
+                        'selfie' => ['label' => 'Chef selfie', 'url' => $staff->profilePhotoUrl()],
+                    ] as $slot => $photo)
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">{{ $photo['label'] }}</p>
+                            @if($photo['url'])
+                                <img src="{{ $photo['url'] }}" alt="{{ $photo['label'] }}" class="mb-2 h-28 w-full rounded-xl object-cover border border-gray-200">
+                                <button type="button" wire:click="deleteKitchenVerificationImage('{{ $slot }}')" wire:confirm="Delete this photo?"
+                                        class="mb-2 text-xs font-bold text-red-600 hover:underline">
+                                    Delete photo
+                                </button>
+                            @else
+                                <p class="mb-2 text-xs text-gray-400 italic">No photo yet.</p>
+                            @endif
+                            <input type="file" wire:model="{{ $slot }}" accept="image/*" class="block w-full text-xs">
+                            @error($slot) <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    @endforeach
+                </div>
+                <button type="submit" class="inline-flex px-4 py-2 rounded-xl bg-middo-orange text-white text-xs font-bold hover:bg-[#733614] transition">
+                    Save verification
+                </button>
+            </form>
+        </div>
+    @elseif($staffRole === 'kitchen' && $staff->profilePhotoUrl())
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-middo-dark mb-3">Profile photo</h2>
+            <img src="{{ $staff->profilePhotoUrl() }}" alt="{{ $staff->name }}" class="h-28 w-28 rounded-2xl object-cover border border-gray-200">
+        </div>
+    @endif
 
     @if($staffRole === 'kitchen')
         @if($this->canEditKitchenHours())

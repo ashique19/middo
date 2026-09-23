@@ -115,6 +115,33 @@ class _RunsScreenState extends State<RunsScreen> {
                           ),
                         ],
                       ),
+                      if ((run['kitchen_profile_photo_url']?.toString() ?? '').isNotEmpty ||
+                          (run['kitchen_name']?.toString() ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            if ((run['kitchen_profile_photo_url']?.toString() ?? '').isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: CircleAvatar(
+                                  radius: 14,
+                                  backgroundImage: NetworkImage(
+                                    run['kitchen_profile_photo_url'].toString(),
+                                  ),
+                                ),
+                              ),
+                            Expanded(
+                              child: Text(
+                                run['kitchen_name']?.toString() ?? 'Kitchen',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       Text(
                         '${run['menu_name'] ?? ''} · qty ${run['quantity'] ?? ''}',
