@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\KitchenVerification;
 use App\Support\PayoutChannel;
 use App\Support\RiderShift;
 use Database\Factories\UserFactory;
@@ -35,6 +36,10 @@ use Laravel\Sanctum\HasApiTokens;
     'max_order_qty_allowed',
     'is_mobile_verified',
     'address',
+    'nid_number',
+    'nid_front_path',
+    'nid_back_path',
+    'profile_photo_path',
     'city_id',
     'area_id',
     'rider_commission_overrides',
@@ -245,6 +250,21 @@ class User extends Authenticatable
     public function logs(): HasMany
     {
         return $this->hasMany(UserLog::class);
+    }
+
+    public function profilePhotoUrl(): ?string
+    {
+        return KitchenVerification::publicUrl($this->profile_photo_path);
+    }
+
+    public function nidFrontUrl(): ?string
+    {
+        return KitchenVerification::publicUrl($this->nid_front_path);
+    }
+
+    public function nidBackUrl(): ?string
+    {
+        return KitchenVerification::publicUrl($this->nid_back_path);
     }
 
     public function getNameAttribute(): string

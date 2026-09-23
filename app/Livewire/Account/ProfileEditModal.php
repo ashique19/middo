@@ -5,6 +5,7 @@ namespace App\Livewire\Account;
 use App\Livewire\Concerns\ManagesProfilePayoutMethods;
 use App\Models\Area;
 use App\Models\City;
+use App\Support\KitchenIdentity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
@@ -63,20 +64,46 @@ class ProfileEditModal extends Component
         $this->area_id = null;
     }
 
+    public function identityLocked(): bool
+    {
+        return (bool) Auth::user()?->isKitchen();
+    }
+
     public function save(): void
     {
         $user = Auth::user();
 
+        if ($user->isKitchen()) {
+            $identityErrors = KitchenIdentity::changeErrors($user, [
+                'first_name' => $this->first_name,
+                'last_name' => $this->last_name,
+                'mobile' => $this->mobile,
+                'address' => $this->address,
+            ]);
+            if ($identityErrors !== []) {
+                foreach ($identityErrors as $field => $messages) {
+                    $this->addError($field, $messages[0]);
+                }
+
+                return;
+            }
+        }
+
         $rules = [
-            'first_name' => 'required|string|min:2|max:255',
-            'last_name' => 'required|string|min:2|max:255',
-            'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/', 'unique:users,mobile,'.$user->id],
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email,'.$user->id],
             'company_name' => 'nullable|string|max:255',
-            'address' => 'nullable|string|max:1000',
             'city_id' => 'required|exists:cities,id',
             'area_id' => 'required|exists:areas,id',
         ];
+
+        if (! $user->isKitchen()) {
+            $rules = array_merge($rules, [
+                'first_name' => 'required|string|min:2|max:255',
+                'last_name' => 'required|string|min:2|max:255',
+                'mobile' => ['required', 'string', 'regex:/^01[3-9]\d{8}$/', 'unique:users,mobile,'.$user->id],
+                'address' => 'nullable|string|max:1000',
+            ]);
+        }
 
         if ($this->showPayoutMethods) {
             $rules = array_merge($rules, $this->payoutMethodValidationRules());
@@ -88,12 +115,14 @@ class ProfileEditModal extends Component
             'area_id.required' => 'Please select an area.',
         ], $this->showPayoutMethods ? $this->payoutMethodValidationMessages() : []));
 
-        $user->first_name = $validated['first_name'];
-        $user->last_name = $validated['last_name'];
-        $user->mobile = $validated['mobile'];
+        if (! $user->isKitchen()) {
+            $user->first_name = $validated['first_name'];
+            $user->last_name = $validated['last_name'];
+            $user->mobile = $validated['mobile'];
+            $user->address = $validated['address'];
+        }
         $user->email = $validated['email'] ?: null;
         $user->company_name = $validated['company_name'] ?: null;
-        $user->address = $validated['address'];
         $user->city_id = $validated['city_id'];
         $user->area_id = $validated['area_id'];
 

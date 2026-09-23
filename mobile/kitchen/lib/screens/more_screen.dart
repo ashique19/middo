@@ -42,9 +42,20 @@ class _MoreScreenState extends State<MoreScreen> {
               final name =
                   '${user['first_name'] ?? ''} ${user['last_name'] ?? ''}'
                       .trim();
+              final photo = user['profile_photo_url']?.toString();
               return KitchenPanel(
-                onTap: () => context.push('/profile'),
-                child: Column(
+                onTap: () async {
+                  await context.push('/profile');
+                  if (mounted) {
+                    setState(() => _me = AppScope.of(context).me());
+                  }
+                },
+                child: Row(
+                  children: [
+                    _KitchenAvatar(name: name, photoUrl: photo),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -66,6 +77,9 @@ class _MoreScreenState extends State<MoreScreen> {
                         color: MiddoColors.forest,
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
+                      ),
+                    ),
+                  ],
                       ),
                     ),
                   ],
@@ -143,6 +157,36 @@ class _NavTile extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
+    );
+  }
+}
+
+class _KitchenAvatar extends StatelessWidget {
+  const _KitchenAvatar({required this.name, this.photoUrl});
+
+  final String name;
+  final String? photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = name.isEmpty ? 'K' : name.substring(0, 1).toUpperCase();
+    final url = photoUrl?.trim();
+    if (url == null || url.isEmpty) {
+      return CircleAvatar(
+        backgroundColor: MiddoColors.orange.withValues(alpha: 0.12),
+        child: Text(
+          initial,
+          style: const TextStyle(
+            color: MiddoColors.orange,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      );
+    }
+    return CircleAvatar(
+      backgroundImage: NetworkImage(url),
+      onBackgroundImageError: (_, __) {},
+      child: Text(initial, style: const TextStyle(color: Colors.transparent)),
     );
   }
 }

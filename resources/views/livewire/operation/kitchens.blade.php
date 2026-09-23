@@ -30,6 +30,7 @@
             <div wire:key="kitchen-section-{{ $section['key'] }}" class="border-b border-gray-100 last:border-b-0">
                 <div class="flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition">
                     <div class="flex flex-1 items-center gap-4 min-w-0">
+                        <x-kitchen.avatar :url="$section['profile_photo_url'] ?? null" :name="$section['name']" />
                         <div class="flex-1 min-w-0">
                             <a href="{{ route($routePrefix.'.kitchens.show', $section['key']) }}"
                                class="block text-base font-black text-middo-dark truncate hover:text-middo-orange transition">

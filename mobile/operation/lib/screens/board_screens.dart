@@ -261,6 +261,13 @@ class _OrdersBoardScreenState extends State<OrdersBoardScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ExpansionTile(
                   initiallyExpanded: true,
+                  leading: (bucket['kitchen_profile_photo_url']?.toString() ?? '').isNotEmpty
+                      ? CircleAvatar(
+                          backgroundImage: NetworkImage(
+                            bucket['kitchen_profile_photo_url'].toString(),
+                          ),
+                        )
+                      : null,
                   title: Text(
                     groupName,
                     style: const TextStyle(fontWeight: FontWeight.w800),

@@ -200,11 +200,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     String? subtitle,
     dynamic id,
     IconData icon = Icons.person,
+    String? photoUrl,
   }) {
     final hasId = id is int && id > 0;
+    final photo = photoUrl?.trim();
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: hasId ? MiddoColors.orange : MiddoColors.muted),
+      leading: (photo != null && photo.isNotEmpty)
+          ? CircleAvatar(
+              backgroundImage: NetworkImage(photo),
+              onBackgroundImageError: (_, __) {},
+            )
+          : Icon(icon, color: hasId ? MiddoColors.orange : MiddoColors.muted),
       title: Text('$role · $title'),
       subtitle: subtitle == null || subtitle.isEmpty ? null : Text(subtitle),
       trailing: hasId ? const Icon(Icons.chevron_right) : null,
@@ -287,6 +294,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       subtitle: order?['kitchen_mobile']?.toString(),
                       id: order?['kitchen_id'],
                       icon: Icons.soup_kitchen,
+                      photoUrl: order?['kitchen_profile_photo_url']?.toString(),
                     ),
                     const SizedBox(height: 20),
                     if (canRelease) ...[

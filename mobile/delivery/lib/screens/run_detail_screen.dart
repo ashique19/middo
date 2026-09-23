@@ -174,6 +174,25 @@ class _RunDetailScreenState extends State<RunDetailScreen> {
                         ),
                       ],
                       const SizedBox(height: 14),
+                      if ((run['kitchen_profile_photo_url']?.toString() ?? '').isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 22,
+                                backgroundImage: NetworkImage(
+                                  run['kitchen_profile_photo_url'].toString(),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'Kitchen photo',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                        ),
                       _kv('Kitchen', run['kitchen_name']),
                       _kv('Kitchen phone', run['kitchen_mobile']),
                       _kv('Kitchen address', run['kitchen_address']),

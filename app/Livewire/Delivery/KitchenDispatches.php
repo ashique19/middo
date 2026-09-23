@@ -235,6 +235,7 @@ class KitchenDispatches extends Component
                     'kitchen_name' => $kitchen?->name ?? 'Kitchen',
                     'kitchen_mobile' => $kitchen?->mobile,
                     'kitchen_address' => $kitchen?->address,
+                    'kitchen_profile_photo_url' => $kitchen?->profilePhotoUrl(),
                     'box_codes' => $order->middoBoxes->pluck('qr_code_id')->all(),
                     'status_label' => str($order->order_status)->replace('_', ' ')->title()->toString(),
                     'awaiting_accept' => $order->isAwaitingRiderAccept(),

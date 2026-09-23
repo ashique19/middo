@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operation;
 
+use App\Models\Area;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\KitchenCapacity;
@@ -77,12 +78,13 @@ class Kitchens extends Component
                 $areaName = null;
                 $cityName = null;
                 if ($kitchen->area_id) {
-                    $area = \App\Models\Area::query()->with('city')->find($kitchen->area_id);
+                    $area = Area::query()->with('city')->find($kitchen->area_id);
                     $areaName = $area?->name;
                     $cityName = $area?->city?->name;
                 }
 
                 return array_merge($section, [
+                    'profile_photo_url' => $kitchen->profilePhotoUrl(),
                     'tier' => $tier,
                     'tier_label' => KitchenTier::label($tier),
                     'remaining_slots' => $remaining,

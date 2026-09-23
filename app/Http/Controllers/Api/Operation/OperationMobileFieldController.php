@@ -15,6 +15,7 @@ use App\Support\CashHandoverActions;
 use App\Support\DeliveryApiPresenter;
 use App\Support\KitchenBoxRequestFlow;
 use App\Support\KitchenCapacity;
+use App\Support\MealOrderGrouper;
 use App\Support\OperationApiPresenter;
 use App\Support\OperationMobileActions;
 use App\Support\OpsAssignRider;
@@ -23,9 +24,9 @@ use App\Support\OpsDayChecklist;
 use App\Support\OpsRiderBoard;
 use App\Support\OpsRiderMidRunReassign;
 use App\Support\OpsSlaBoard;
-use App\Support\MealOrderGrouper;
 use App\Support\OrderGroupManager;
 use App\Support\OrderOpsForce;
+use App\Support\OrderTransition;
 use App\Support\StaffAlerts;
 use App\Support\StaffPortal;
 use Illuminate\Http\JsonResponse;
@@ -97,7 +98,7 @@ class OperationMobileFieldController extends Controller
         $requests = KitchenBoxRequest::query()
             ->open()
             ->with([
-                'kitchen:id,first_name,last_name,mobile',
+                'kitchen:id,first_name,last_name,mobile,profile_photo_path',
                 'requestedBy:id,first_name,last_name',
                 'requestBoxes.rider:id,first_name,last_name',
             ])
@@ -485,7 +486,7 @@ class OperationMobileFieldController extends Controller
         $root->load([
             'order.menuItem',
             'order.user:id,first_name,last_name,mobile,company_name',
-            'order.orderGroup.kitchen:id,first_name,last_name',
+            'order.orderGroup.kitchen:id,first_name,last_name,profile_photo_path',
         ]);
 
         return response()->json([
@@ -616,7 +617,7 @@ class OperationMobileFieldController extends Controller
                 'menuItem',
                 'user:id,first_name,last_name,mobile,company_name',
                 'deliveryRider:id,first_name,last_name,mobile',
-                'orderGroup.kitchen:id,first_name,last_name,mobile',
+                'orderGroup.kitchen:id,first_name,last_name,mobile,profile_photo_path',
                 'area:id,name',
             ])
             ->findOrFail($id);
@@ -711,7 +712,7 @@ class OperationMobileFieldController extends Controller
         $orders = Order::query()
             ->with(['menuItem', 'user', 'orderGroup'])
             ->whereDate('delivery_date', $data['date'])
-            ->where('order_status', '!=', \App\Support\OrderTransition::CANCELLED)
+            ->where('order_status', '!=', OrderTransition::CANCELLED)
             ->orderBy('delivery_time')
             ->orderBy('id')
             ->get();

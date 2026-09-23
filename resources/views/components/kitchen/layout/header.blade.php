@@ -32,9 +32,13 @@
 
         <button type="button"
                 @click="$dispatch('open-profile-modal')"
-                class="shrink-0 w-11 h-11 rounded-2xl bg-[#AB3F00]/12 text-[#AB3F00] grid place-items-center font-black"
+                class="shrink-0 w-11 h-11 rounded-2xl bg-[#AB3F00]/12 text-[#AB3F00] grid place-items-center font-black overflow-hidden"
                 aria-label="Account">
-            {{ strtoupper(substr(auth()->user()->first_name ?? 'K', 0, 1)) }}
+            @if(auth()->user()->profilePhotoUrl())
+                <img src="{{ auth()->user()->profilePhotoUrl() }}" alt="" class="w-full h-full object-cover">
+            @else
+                {{ strtoupper(substr(auth()->user()->first_name ?? 'K', 0, 1)) }}
+            @endif
         </button>
     </div>
 </header>

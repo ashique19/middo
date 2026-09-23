@@ -42,9 +42,12 @@
                             </span>
                         @endif
                     </div>
-                    <p class="text-sm text-gray-600">
-                        <span class="font-semibold">{{ $order['kitchen_name'] }}</span>
-                        · {{ $order['date_label'] }} · {{ $order['delivery_time'] }}
+                    <p class="text-sm text-gray-600 flex items-center gap-2">
+                        <x-kitchen.avatar :url="$order['kitchen_profile_photo_url'] ?? null" :name="$order['kitchen_name']" class="h-7 w-7 text-[11px]" />
+                        <span>
+                            <span class="font-semibold">{{ $order['kitchen_name'] }}</span>
+                            · {{ $order['date_label'] }} · {{ $order['delivery_time'] }}
+                        </span>
                     </p>
                     @if(!empty($order['kitchen_mobile']) || !empty($order['kitchen_address']))
                         <p class="text-xs text-gray-500 break-words">
