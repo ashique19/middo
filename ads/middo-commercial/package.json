@@ -1,0 +1,36 @@
+{
+  "name": "middo-commercial",
+  "version": "1.0.0",
+  "description": "Middo 15–20s motion-graphics commercial (Remotion)",
+  "scripts": {
+    "dev": "remotion studio",
+    "studio": "remotion studio",
+    "render": "remotion render MiddoAdVertical out/middo-ad-vertical.mp4",
+    "render:vertical": "remotion render MiddoAdVertical out/middo-ad-vertical.mp4",
+    "render:landscape": "remotion render MiddoAdLandscape out/middo-ad-landscape.mp4",
+    "still:vertical": "remotion still MiddoAdVertical out/middo-ad-vertical-poster.png --frame=24",
+    "build": "remotion bundle",
+    "upgrade": "remotion upgrade",
+    "lint": "eslint src && tsc"
+  },
+  "repository": {},
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@remotion/cli": "4.0.524",
+    "@remotion/google-fonts": "4.0.524",
+    "@remotion/zod-types": "4.0.524",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.524",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@remotion/eslint-config-flat": "4.0.524",
+    "@types/react": "19.2.7",
+    "@types/web": "0.0.166",
+    "eslint": "9.19.0",
+    "prettier": "3.8.1",
+    "typescript": "5.9.3"
+  }
+}
