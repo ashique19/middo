@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Rider en route">
+  <title>Rider en route</title>
+  <rect x="16" y="16" width="224" height="224" rx="48" fill="#ab3f00"/>
+  <circle cx="86" cy="186" r="28" fill="#1A1C19" stroke="#f5f2e9" stroke-width="8"/>
+  <circle cx="186" cy="186" r="28" fill="#1A1C19" stroke="#f5f2e9" stroke-width="8"/>
+  <path d="M70 186 L108 186 L132 118 H176" fill="none" stroke="#f5f2e9" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M132 118 L108 154" fill="none" stroke="#f5f2e9" stroke-width="10" stroke-linecap="round"/>
+  <rect x="168" y="86" width="44" height="36" rx="8" fill="#f5f2e9"/>
+  <rect x="176" y="94" width="28" height="12" rx="3" fill="#ab3f00"/>
+  <circle cx="146" cy="86" r="16" fill="#f5f2e9"/>
+  <path d="M138 80h16v8c0 6-4 10-8 10s-8-4-8-10V80z" fill="#1A1C19"/>
+  <path d="M146 70c12-2 22 6 24 16" fill="none" stroke="#f5f2e9" stroke-width="8" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Office desk">
+  <title>Office desk</title>
+  <rect x="16" y="16" width="224" height="224" rx="48" fill="#ab3f00"/>
+  <rect x="72" y="58" width="112" height="108" rx="10" fill="#f5f2e9"/>
+  <rect x="84" y="74" width="28" height="20" rx="3" fill="#d7cbb8"/>
+  <rect x="120" y="74" width="28" height="20" rx="3" fill="#d7cbb8"/>
+  <rect x="156" y="74" width="16" height="20" rx="3" fill="#d7cbb8"/>
+  <rect x="84" y="104" width="28" height="20" rx="3" fill="#d7cbb8"/>
+  <rect x="120" y="104" width="28" height="20" rx="3" fill="#d7cbb8"/>
+  <rect x="156" y="104" width="16" height="20" rx="3" fill="#d7cbb8"/>
+  <rect x="118" y="138" width="20" height="28" rx="4" fill="#ab3f00"/>
+  <rect x="56" y="166" width="144" height="18" rx="4" fill="#1A1C19"/>
+  <rect x="96" y="184" width="16" height="22" rx="3" fill="#1A1C19"/>
+  <rect x="144" y="184" width="16" height="22" rx="3" fill="#1A1C19"/>
+  <circle cx="188" cy="86" r="14" fill="#f5f2e9"/>
+  <path d="M182 86h12" stroke="#ab3f00" stroke-width="4" stroke-linecap="round"/>
+</svg>
